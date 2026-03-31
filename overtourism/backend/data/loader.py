@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import orjson
+import numpy as np
 import pandas as pd
 
 
@@ -400,13 +401,26 @@ class OvertourismIndexesLoader:
             path = f"{self.data_path}/{df}.parquet"
             self._df[df] = pd.read_parquet(path).reset_index()
 
+    def _jsonify_value(self, value):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, dict):
+            return {key: self._jsonify_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._jsonify_value(item) for item in value]
+        if isinstance(value, tuple):
+            return [self._jsonify_value(item) for item in value]
+        return value
+
     def get_map(self, map_: str) -> dict:
         self._load_map(map_)
         return self._map[map_]
 
     def get_dataframe(self, df: str) -> dict:
         self._load_data(df)
-        dict_ = self._df[df].to_dict(orient="records")
+        dict_ = self._jsonify_value(self._df[df].to_dict(orient="records"))
         return {"data": dict_}
 
     def refresh(self) -> None:
