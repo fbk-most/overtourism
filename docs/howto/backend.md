@@ -34,7 +34,7 @@ Run the FastAPI backend with:
 
 ```bash
 # You should already be inside the virtual environment and the right folder
-fastapi run ./overtourism/backend/api/main.py
+fastapi run ./overtourism/backend/app.py
 ```
 
 ## With Docker

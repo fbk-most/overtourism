@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ..managers import metadata_manager
-from ..shared.exceptions import InternalServerError, ProblemNotFound
-from ..shared.models.problem import Proposal, ProposalList
-from ..shared.utils import BASE_ROUTE, get_timestamp
+from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.utils import (
+    get_problem_or_404,
+    parse_proposal_request,
+    proposal_to_api,
+)
+from overtourism.backend.managers import Managers
+from overtourism.backend.shared.models.problem import Proposal, ProposalList
+from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 
@@ -22,34 +27,32 @@ proposal_router = APIRouter(prefix=f"{BASE_ROUTE}/proposals")
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
-        200: {"description": "Problem details"},
+        200: {"description": "Proposal list"},
     },
 )
-async def list_proposals(problem_id: str) -> ProposalList:
-    """
-    Get a proposal from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to retrieve.
-    proposal_id : str
-        ID of the proposal to retrieve.
-
-    Returns
-    -------
-    Proposal
-        The requested proposal.
-    """
+async def list_proposals(
+    problem_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> ProposalList:
+    """List all proposals for a problem."""
     try:
-        metadata = metadata_manager.list_proposal_meta(problem_id)
-        p_list = []
-        for proposal in metadata:
-            p_list.append(Proposal(**proposal.to_dict()))
+        manager = mgrs.manager
+        get_problem_or_404(mgrs, problem_id)
+        proposal_manager = manager.get_proposal_manager(problem_id)
+        p_list = [
+            Proposal(
+                **proposal_to_api(
+                    proposal,
+                    manager.get_related_scenario_ids_for_proposal(problem_id, pid),
+                    manager.get_scenario_manager(problem_id).scenarios,
+                )
+            )
+            for pid, proposal in proposal_manager.proposals.items()
+        ]
         return ProposalList(data=p_list)
     except Exception as e:
-        logger.error(f"Error listing proposals for problem {problem_id}: {str(e)}")
-        raise e
+        logger.error(f"Error listing proposals for problem {problem_id}: {e}")
+        raise
 
 
 @proposal_router.post(
@@ -58,47 +61,48 @@ async def list_proposals(problem_id: str) -> ProposalList:
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
-        200: {"description": "Proposals created"},
+        200: {"description": "Proposal created"},
     },
 )
-async def create_proposal(problem_id: str, proposal: Proposal) -> dict:
-    """
-    Create a new proposal for the problem.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to create a proposal for.
-    proposal : Proposal
-        Data for the new proposal.
-
-    Returns
-    -------
-    dict
-        A message indicating the result of the operation.
-    """
-    metadata = metadata_manager.read_problem_meta(problem_id)
-    if metadata is None:
-        raise ProblemNotFound("Problem does not exist")
-
+async def create_proposal(
+    problem_id: str,
+    proposal: Proposal,
+    mgrs: Managers = Depends(get_managers),
+) -> dict:
+    """Create a proposal for a problem."""
     try:
-        # Create proposal
-        num_prop = len(metadata_manager.list_proposal_meta(problem_id))
-        proposal_id = f"proposal_{num_prop + 1}"
-        timestamp = get_timestamp()
-        proposal_data = {
-            **proposal.model_dump(),
-            "proposal_id": proposal_id,
-            "created": timestamp,
-            "updated": timestamp,
-        }
-        metadata_manager.create_proposal_meta(problem_id, proposal_data)
+        manager = mgrs.manager
+        get_problem_or_404(mgrs, problem_id)
+        proposal_manager = manager.get_proposal_manager(problem_id)
+        proposal_id = f"proposal_{len(proposal_manager.proposals)}"
+
+        p_data = proposal.model_dump(exclude_unset=True)
+        extras, scenario_ids = parse_proposal_request(mgrs, p_data)
+        related_scenarios = p_data.get("related_scenarios")
+
+        manager.add_proposal(
+            problem_id,
+            proposal_id=proposal_id,
+            name=p_data.get("proposal_title"),
+            description=p_data.get("proposal_description"),
+            status=p_data.get("status", "draft"),
+            extras=extras,
+        )
+
+        if related_scenarios is not None:
+            manager.set_related_scenario_ids_for_proposal(
+                problem_id,
+                proposal_id,
+                scenario_ids,
+            )
+
+        manager.save_proposal(problem_id, proposal_id)
 
         logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal created successfully", "proposal_id": proposal_id}
     except Exception as e:
-        logger.error(f"Error creating proposal for problem {problem_id}: {str(e)}")
-        raise e
+        logger.error(f"Error creating proposal for problem {problem_id}: {e}")
+        raise
 
 
 @proposal_router.get(
@@ -110,32 +114,29 @@ async def create_proposal(problem_id: str, proposal: Proposal) -> dict:
         200: {"description": "Proposal details"},
     },
 )
-async def read_proposal(problem_id: str, proposal_id: str) -> Proposal:
-    """
-    Get a proposal from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to retrieve.
-    proposal_id : str
-        ID of the proposal to retrieve.
-
-    Returns
-    -------
-    Proposal
-        The requested proposal.
-    """
+async def read_proposal(
+    problem_id: str,
+    proposal_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> Proposal:
+    """Read a proposal by identifier."""
     try:
-        metadata = metadata_manager.read_proposal_meta(problem_id, proposal_id)
-        if metadata is None:
-            raise InternalServerError("Proposal does not exist")
-        return Proposal(**metadata.to_dict())
+        manager = mgrs.manager
+        scenario_manager = manager.get_scenario_manager(problem_id)
+        proposal_manager = manager.get_proposal_manager(problem_id)
+        proposal = proposal_manager.get_proposal(proposal_id)
+        return Proposal(
+            **proposal_to_api(
+                proposal,
+                manager.get_related_scenario_ids_for_proposal(problem_id, proposal_id),
+                scenario_manager.scenarios,
+            )
+        )
     except Exception as e:
         logger.error(
-            f"Error reading proposal {proposal_id} for problem {problem_id}: {str(e)}"
+            f"Error reading proposal {proposal_id} for problem {problem_id}: {e}"
         )
-        raise e
+        raise
 
 
 @proposal_router.put(
@@ -148,48 +149,44 @@ async def read_proposal(problem_id: str, proposal_id: str) -> Proposal:
     },
 )
 async def update_proposal(
-    problem_id: str, proposal_id: str, proposal: Proposal
+    problem_id: str,
+    proposal_id: str,
+    proposal: Proposal,
+    mgrs: Managers = Depends(get_managers),
 ) -> dict:
-    """
-    Update a proposal in the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem containing the proposal.
-    proposal_id : str
-        ID of the proposal to update.
-    proposal : Proposal
-        Updated data for the proposal.
-
-    Returns
-    -------
-    dict
-        A message indicating the result of the operation.
-    """
-    # Check if proposal exists
-    existing_metadata = metadata_manager.read_proposal_meta(problem_id, proposal_id)
-    if existing_metadata is None:
-        raise InternalServerError("Proposal does not exist")
-
+    """Update a proposal and its related scenario links."""
     try:
-        # Update proposal
-        timestamp = get_timestamp()
-        proposal_data = {
-            **proposal.model_dump(),
-            "proposal_id": proposal_id,
-            "created": existing_metadata.created,  # Keep original creation time
-            "updated": timestamp,
-        }
-        metadata_manager.update_proposal_meta(problem_id, proposal_id, proposal_data)
+        manager = mgrs.manager
+        get_problem_or_404(mgrs, problem_id)
+        proposal_manager = manager.get_proposal_manager(problem_id)
+
+        p_data = proposal.model_dump(exclude_unset=True)
+        extras, scenario_ids = parse_proposal_request(mgrs, p_data)
+        related_scenarios = p_data.get("related_scenarios")
+
+        proposal_manager.update_proposal(
+            proposal_id=proposal_id,
+            name=p_data.get("proposal_title"),
+            description=p_data.get("proposal_description"),
+            status=p_data.get("status"),
+            extras=extras if extras else None,
+        )
+
+        if related_scenarios is not None:
+            manager.set_related_scenario_ids_for_proposal(
+                problem_id,
+                proposal_id,
+                scenario_ids,
+            )
+        manager.save_proposal(problem_id, proposal_id)
 
         logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal updated successfully"}
     except Exception as e:
         logger.error(
-            f"Error updating proposal {proposal_id} for problem {problem_id}: {str(e)}"
+            f"Error updating proposal {proposal_id} for problem {problem_id}: {e}"
         )
-        raise e
+        raise
 
 
 @proposal_router.delete(
@@ -200,22 +197,19 @@ async def update_proposal(
         200: {"description": "Proposal deleted"},
     },
 )
-async def delete_proposal(problem_id: str, proposal_id: str) -> None:
-    """
-    Delete a proposal from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to delete a proposal from.
-    proposal_id : str
-        ID of the proposal to delete.
-    """
+async def delete_proposal(
+    problem_id: str,
+    proposal_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> None:
+    """Delete a proposal from a problem."""
     try:
-        metadata_manager.delete_proposal_meta(problem_id, proposal_id)
+        manager = mgrs.manager
+        get_problem_or_404(mgrs, problem_id)
+        manager.delete_proposal(problem_id, proposal_id)
         logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")
     except Exception as e:
         logger.error(
-            f"Error deleting proposal {proposal_id} for problem {problem_id}: {str(e)}"
+            f"Error deleting proposal {proposal_id} for problem {problem_id}: {e}"
         )
-        raise e
+        raise

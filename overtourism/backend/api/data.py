@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ..managers import overtourism_indexes_data_loader
-from ..shared.utils import BASE_ROUTE
+from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.data.loader import OvertourismIndexesLoader
+from overtourism.backend.managers import Managers
+from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 
 data_router = APIRouter(prefix=f"{BASE_ROUTE}/data")
+
+
+def _loader(managers: Managers = Depends(get_managers)) -> OvertourismIndexesLoader:
+    if managers.data_loader is None:
+        raise RuntimeError("Data loader not configured")
+    return managers.data_loader
 
 
 @data_router.get(
@@ -22,20 +31,15 @@ data_router = APIRouter(prefix=f"{BASE_ROUTE}/data")
         200: {"description": "Overtourism categories list"},
     },
 )
-async def get_overtourism_categories_list() -> dict:
-    """
-    Get list of overtourism categories.
-
-    Returns
-    -------
-    dict
-        Overtourism categories list.
-    """
+async def get_overtourism_categories_list(
+    language: Literal["it", "en"] = "it",
+    loader: OvertourismIndexesLoader = Depends(_loader),
+) -> dict:
     try:
-        return overtourism_indexes_data_loader.get_categories()
+        return loader.get_categories(language=language)
     except Exception as e:
-        logger.error(f"Error getting overtourism categories list: {str(e)}")
-        raise e
+        logger.error(f"Error getting overtourism categories list: {e}")
+        raise
 
 
 @data_router.get(
@@ -46,20 +50,16 @@ async def get_overtourism_categories_list() -> dict:
         200: {"description": "Overtourism indexes list"},
     },
 )
-async def get_overtourism_indexes_list(category: str = "") -> dict:
-    """
-    Get list of overtourism indexes (of a given category, if specified).
-
-    Returns
-    -------
-    dict
-        Overtourism indexes list.
-    """
+async def get_overtourism_indexes_list(
+    category: str = "",
+    language: Literal["it", "en"] = "it",
+    loader: OvertourismIndexesLoader = Depends(_loader),
+) -> dict:
     try:
-        return overtourism_indexes_data_loader.get_list(category)
+        return loader.get_list(category=category, language=language)
     except Exception as e:
-        logger.error(f"Error getting overtourism indexes list: {str(e)}")
-        raise e
+        logger.error(f"Error getting overtourism indexes list: {e}")
+        raise
 
 
 @data_router.get(
@@ -71,20 +71,15 @@ async def get_overtourism_indexes_list(category: str = "") -> dict:
         200: {"description": "Overtourism index data"},
     },
 )
-async def get_overtourism_indexes_data(dataframe: str) -> dict:
-    """
-    Get overtourism data for a given index.
-
-    Returns
-    -------
-    dict
-        Overtourism index data.
-    """
+async def get_overtourism_indexes_data(
+    dataframe: str,
+    loader: OvertourismIndexesLoader = Depends(_loader),
+) -> dict:
     try:
-        return overtourism_indexes_data_loader.get_dataframe(dataframe)
+        return loader.get_dataframe(dataframe)
     except Exception as e:
-        logger.error(f"Error getting overtourism indexes data: {str(e)}")
-        raise e
+        logger.error(f"Error getting overtourism indexes data: {e}")
+        raise
 
 
 @data_router.get(
@@ -96,17 +91,12 @@ async def get_overtourism_indexes_data(dataframe: str) -> dict:
         200: {"description": "Overtourism index map"},
     },
 )
-async def get_overtourism_indexes_map(map: str) -> dict:
-    """
-    Get overtourism one of the indexes' maps.
-
-    Returns
-    -------
-    dict
-        Overtourism index map.
-    """
+async def get_overtourism_indexes_map(
+    map: str,
+    loader: OvertourismIndexesLoader = Depends(_loader),
+) -> dict:
     try:
-        return overtourism_indexes_data_loader.get_map(map)
+        return loader.get_map(map)
     except Exception as e:
-        logger.error(f"Error getting overtourism indexes map: {str(e)}")
-        raise e
+        logger.error(f"Error getting overtourism indexes map: {e}")
+        raise

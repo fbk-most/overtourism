@@ -5,18 +5,28 @@ from __future__ import annotations
 import logging
 
 import slugify
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ..managers import metadata_manager, problem_manager, viewer
-from ..shared.exceptions import ProblemNotFound
-from ..shared.models.problem import (
+from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.utils import (
+    apply_problem_request_to_metadata,
+    build_problem_extras,
+    build_proposal_extras,
+    extract_related_scenario_ids,
+    get_problem_or_404,
+    get_widget_by_group,
+    problem_to_api,
+    proposal_to_api,
+)
+from overtourism.backend.managers import Managers
+from overtourism.backend.shared.models.problem import (
     GetProblemData,
     PostProblemData,
     ProblemList,
     UpdateProblemData,
 )
-from ..shared.models.scenario import ScenarioList
-from ..shared.utils import BASE_ROUTE, get_timestamp, get_widget_by_group
+from overtourism.backend.shared.models.scenario import ScenarioList
+from overtourism.backend.shared.utils import BASE_ROUTE, get_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +41,21 @@ problem_router = APIRouter(prefix=f"{BASE_ROUTE}/problems")
         200: {"description": "Problem list"},
     },
 )
-async def list_problems() -> ProblemList:
-    """
-    List problems in manager.
-
-    Returns
-    -------
-    ProblemList
-        List of problems.
-    """
+async def list_problems(mgrs: Managers = Depends(get_managers)) -> ProblemList:
+    """List all problems in the current store."""
     try:
-        data = []
-        for i in problem_manager.problems.values():
-            meta = metadata_manager.read_problem_meta(i.problem_id)
-            data.append(meta.to_dict())
-        return ProblemList(data=data)
+        manager = mgrs.manager
+        problems = [
+            {
+                "problem_id": problem.problem_id,
+                **problem_to_api(problem),
+            }
+            for problem in (manager.get_problem(pid) for pid in manager.list_problems())
+        ]
+        return ProblemList(data=problems)
     except Exception as e:
-        logger.error(f"Error listing problems: {str(e)}")
-        raise e
+        logger.error(f"Error listing problems: {e}")
+        raise
 
 
 @problem_router.post(
@@ -60,74 +67,82 @@ async def list_problems() -> ProblemList:
         200: {"description": "Problem created"},
     },
 )
-async def create_problem(data: PostProblemData) -> dict:
-    """
-    Create a new problem in the manager.
-
-    Parameters
-    ----------
-    data : PostProblemData
-        Data for the new problem.
-
-    Returns
-    -------
-    dict
-        Success message with problem_id.
-    """
+async def create_problem(
+    data: PostProblemData,
+    mgrs: Managers = Depends(get_managers),
+) -> dict:
+    """Create a new problem with its default scenario and proposals."""
     try:
-        # Generate unique problem ID
+        manager = mgrs.manager
         problem_id = slugify.slugify(data.problem_name)
         timestamp = get_timestamp()
 
-        # Get editable indexes from group
-        editable_indexes = get_widget_by_group(viewer, data.groups)
+        editable_indexes = get_widget_by_group(mgrs, data.groups)
 
-        # Add problem to manager
-        problem_manager.add_problem(
+        extras = build_problem_extras(mgrs, data.model_dump(), editable_indexes)
+
+        manager.add_problem(
             problem_id=problem_id,
             name=data.problem_name,
             description=data.problem_description,
             created=timestamp,
             updated=timestamp,
-            editable_indexes=editable_indexes,
+            extras=extras,
         )
-        problem = problem_manager.get_problem(problem_id)
-        problem.add_scenario("model_0", name="Base", description="Scenario base")
-        problem.evaluate_scenario("model_0")
+        manager.save_problem(problem_id)
+        manager.add_scenario(
+            problem_id,
+            "model_0",
+            name="Base",
+            description="Scenario base",
+        )
+        manager.save_scenario(problem_id, "model_0")
+        manager.evaluate_scenario(problem_id, "model_0")
 
-        # Prepare metadata
-        meta_dict = data.model_dump()
-        meta_dict["problem_id"] = problem_id
-        meta_dict["created"] = timestamp
-        meta_dict["updated"] = timestamp
-        meta_dict["editable_indexes"] = editable_indexes
+        # Create initial proposals
+        for i, p in enumerate(data.proposals):
+            p_data = p if isinstance(p, dict) else p.model_dump(exclude_unset=True)
+            proposal_extras = build_proposal_extras(mgrs, p_data)
+            related_scenario_ids = extract_related_scenario_ids(p_data)
+            manager.add_proposal(
+                problem_id,
+                proposal_id=f"proposal_{i}",
+                name=p_data.get("proposal_title"),
+                description=p_data.get("proposal_description"),
+                status=p_data.get("status", "draft"),
+                extras=proposal_extras,
+            )
+            if related_scenario_ids:
+                manager.set_related_scenario_ids_for_proposal(
+                    problem_id,
+                    f"proposal_{i}",
+                    related_scenario_ids,
+                )
+            manager.save_proposal(problem_id, f"proposal_{i}")
 
-        proposals = []
-        num_proposals = 0
-        for p in data.proposals:
-            proposal = {
-                "proposal_id": f"proposal_{num_proposals}",
-                "created": timestamp,
-                "updated": timestamp,
-                **p,
-            }
-            proposals.append(proposal)
-            num_proposals += 1
-
-        meta_dict["proposals"] = proposals
-
-        # Register metadata
-        metadata_manager.create_problem_meta(problem_id, meta_dict)
-
-        # Store problem locally
-        problem_manager.export_problem(problem_id)
-        metadata_manager.export_metadata(problem_id)
+        manager.save_problem(problem_id)
 
         logger.info(f"Problem created: {problem_id}")
         return {"message": "Problem created successfully", "problem_id": problem_id}
     except Exception as e:
-        logger.error(f"Error creating problem {data.problem_name}: {str(e)}")
-        raise e
+        logger.error(f"Error creating problem {data.problem_name}: {e}")
+        raise
+
+
+@problem_router.put(
+    "/refresh",
+    responses={
+        500: {"description": "Problem manager error"},
+        200: {"description": "Problem refreshed"},
+    },
+)
+async def refresh_problems(mgrs: Managers = Depends(get_managers)) -> None:
+    """Reload all problems from storage."""
+    try:
+        mgrs.manager.load_problems()
+    except Exception as e:
+        logger.error(f"Error refreshing problems: {e}")
+        raise
 
 
 @problem_router.get(
@@ -139,28 +154,32 @@ async def create_problem(data: PostProblemData) -> dict:
         200: {"description": "Problem details"},
     },
 )
-async def read_problem(problem_id: str) -> GetProblemData:
-    """
-    Get a problem from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to retrieve.
-
-    Returns
-    -------
-    GetProblemData
-        The requested problem.
-    """
+async def read_problem(
+    problem_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> GetProblemData:
+    """Read a problem together with its proposals."""
     try:
-        metadata = metadata_manager.read_problem_meta(problem_id)
-        if metadata is None:
-            raise ProblemNotFound("Problem does not exist")
-        return GetProblemData(**metadata.to_dict())
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        scenario_manager = manager.get_scenario_manager(problem_id)
+        proposal_manager = manager.get_proposal_manager(problem_id)
+        proposals = [
+            proposal_to_api(
+                proposal,
+                manager.get_related_scenario_ids_for_proposal(problem_id, pid),
+                scenario_manager.scenarios,
+            )
+            for pid, proposal in proposal_manager.proposals.items()
+        ]
+        return GetProblemData(
+            problem_id=problem.problem_id,
+            proposals=proposals,
+            **problem_to_api(problem),
+        )
     except Exception as e:
-        logger.error(f"Error reading problem {problem_id}: {str(e)}")
-        raise e
+        logger.error(f"Error reading problem {problem_id}: {e}")
+        raise
 
 
 @problem_router.put(
@@ -172,66 +191,25 @@ async def read_problem(problem_id: str) -> GetProblemData:
         200: {"description": "Problem updated"},
     },
 )
-async def update_problem(problem_id: str, data: UpdateProblemData) -> dict:
-    """
-    Update a problem in the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to update.
-    data : UpdateProblemData
-        Updated data for the problem.
-
-    Returns
-    -------
-    dict
-        A message indicating the result of the operation.
-    """
+async def update_problem(
+    problem_id: str,
+    data: UpdateProblemData,
+    mgrs: Managers = Depends(get_managers),
+) -> dict:
+    """Update a problem and persist the current aggregate."""
     try:
-        # Check if problem exists
-        existing_metadata = metadata_manager.read_problem_meta(problem_id)
-        if existing_metadata is None:
-            raise ProblemNotFound("Problem does not exist")
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        problem.updated = get_timestamp()
+        apply_problem_request_to_metadata(mgrs, problem, data.model_dump())
 
-        # Get the problem from manager
-        problem = problem_manager.get_problem(problem_id)
-
-        # Update metadata
-        timestamp = get_timestamp()
-        updated_meta = existing_metadata.to_dict()
-        updated_meta["updated"] = timestamp
-        problem.update_metadata_field("updated", timestamp)
-
-        # Update fields if provided
-        if data.problem_name is not None:
-            updated_meta["problem_name"] = data.problem_name
-            problem.update_problem_name(data.problem_name)
-        if data.problem_description is not None:
-            updated_meta["problem_description"] = data.problem_description
-            problem.update_problem_description(data.problem_description)
-        if data.objective is not None:
-            updated_meta["objective"] = data.objective
-        if data.groups is not None:
-            updated_meta["groups"] = data.groups
-            # Update editable indexes based on new groups
-            editable_indexes = get_widget_by_group(viewer, data.groups)
-            updated_meta["editable_indexes"] = editable_indexes
-            problem.update_metadata_field("editable_indexes", editable_indexes)
-        if data.links is not None:
-            updated_meta["links"] = data.links
-
-        metadata_manager.update_problem_meta(problem_id, updated_meta)
-
-        # Export updated problem
-        problem_manager.export_problem(problem_id)
-        metadata_manager.export_metadata(problem_id)
+        manager.save_problem(problem_id)
 
         logger.info(f"Problem updated: {problem_id}")
         return {"message": "Problem updated successfully"}
     except Exception as e:
-        logger.error(f"Error updating problem {problem_id}: {str(e)}")
-        raise e
+        logger.error(f"Error updating problem {problem_id}: {e}")
+        raise
 
 
 @problem_router.delete(
@@ -242,42 +220,17 @@ async def update_problem(problem_id: str, data: UpdateProblemData) -> dict:
         200: {"description": "Problem deleted"},
     },
 )
-async def delete_problem(problem_id: str) -> None:
-    """
-    Delete a problem from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem to delete.
-    """
+async def delete_problem(
+    problem_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> None:
+    """Delete a problem from the store."""
     try:
-        # Check if problem exists
-        existing_metadata = metadata_manager.read_problem_meta(problem_id)
-        if existing_metadata is None:
-            raise ProblemNotFound("Problem does not exist")
-
-        problem_manager.delete_problem(problem_id)
-        metadata_manager.delete_problem_meta(problem_id)
+        mgrs.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
-        logger.error(f"Error deleting problem {problem_id}: {str(e)}")
-        raise e
-
-
-@problem_router.put(
-    "/refresh",
-    responses={
-        500: {"description": "Problem manager error"},
-        200: {"description": "Problem refreshed"},
-    },
-)
-async def refresh_problems() -> None:
-    try:
-        problem_manager.import_problems()
-    except Exception as e:
-        logger.error(f"Error refreshing problems: {str(e)}")
-        raise e
+        logger.error(f"Error deleting problem {problem_id}: {e}")
+        raise
 
 
 @problem_router.get(
@@ -289,35 +242,29 @@ async def refresh_problems() -> None:
         200: {"description": "Scenario models"},
     },
 )
-async def list_scenarios(problem_id: str) -> ScenarioList:
-    """
-    List models in manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        Name of problem to list.
-
-    Returns
-    -------
-    ModelList
-        List of models.
-    """
+async def list_scenarios(
+    problem_id: str,
+    mgrs: Managers = Depends(get_managers),
+) -> ScenarioList:
+    """List all scenarios for a problem."""
     try:
-        sim = problem_manager.get_problem(problem_id)
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        scenario_manager = manager.get_scenario_manager(problem_id)
         models = [
             {
-                "problem_id": sim.problem_id,
-                "scenario_id": i.scenario_id,
-                "scenario_name": i.metadata.name,
-                "scenario_description": i.metadata.description,
-                "created": i.metadata.created,
-                "updated": i.metadata.updated,
-                "index_diffs": i.metadata.index_diffs,
+                "problem_id": problem.problem_id,
+                "scenario_id": s.scenario_id,
+                "scenario_name": s.name,
+                "scenario_description": s.description,
+                "created": s.created,
+                "updated": s.updated,
+                "index_diffs": s.index_diffs,
+                **s.extras,
             }
-            for i in sim.instantiated_models.values()
+            for s in scenario_manager.scenarios.values()
         ]
         return ScenarioList(scenarios=models)
     except Exception as e:
-        logger.error(f"Error listing scenarios for problem {problem_id}: {str(e)}")
-        raise e
+        logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
+        raise

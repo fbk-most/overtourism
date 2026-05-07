@@ -3,22 +3,35 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from ..managers import metadata_manager, problem_manager, viewer
-from ..shared.models.scenario import InputEvaluationData, OutputData, SaveData
-from ..shared.utils import (
-    BASE_ROUTE,
+from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.utils import (
     arrange_data,
-    get_id,
-    get_timestamp,
-    prepare_values_for_eval,
+    get_problem_or_404,
+    get_widgets,
+    prepare_values,
 )
+from overtourism.backend.managers import Managers
+from overtourism.backend.shared.models.scenario import (
+    InputEvaluationData,
+    OutputData,
+    SaveData,
+)
+from overtourism.backend.shared.problem_metadata import get_problem_editable_indexes
+from overtourism.backend.shared.utils import BASE_ROUTE, get_id, get_timestamp
+from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
 
 scenario_router = APIRouter(prefix=f"{BASE_ROUTE}/scenarios")
+
+
+def _evaluation_result_to_dict(result):
+    """Normalize a model output or mapping into a plain dictionary."""
+    return result.to_dict() if hasattr(result, "to_dict") else result
 
 
 @scenario_router.get(
@@ -33,68 +46,60 @@ scenario_router = APIRouter(prefix=f"{BASE_ROUTE}/scenarios")
 async def get_data(
     problem_id: str,
     scenario_id: str,
-    situation: str | None = None,
     session_id: str | None = None,
+    language: Literal["it", "en"] = "it",
+    mgrs: Managers = Depends(get_managers),
 ) -> OutputData:
-    """
-    Get model data.
-
-    Parameters
-    ----------
-    problem_id : str
-        Name of problem to evaluate.
-    scenario_id : str
-        Name of model to evaluate.
-    situation : str
-        Situation ID to evaluate.
-    session_id : str
-        Session id.
-
-    Returns
-    -------
-    OutputData
-        Model evaluation result.
-    """
+    """Read the evaluated outputs for a scenario."""
     try:
-        scenario_manager = problem_manager.get_problem(problem_id)
-        if session_id is not None:
-            # Get data from reference model, do not evaluate
-            old_state = scenario_manager.get_scenario_state(scenario_id)
-            scenario_state = scenario_manager.evaluate_session_scenario(
-                scenario_id,
-                old_state.model.get_values(),
-                situation=situation,
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        scenario_manager = manager.get_scenario_manager(problem_id)
+        model_evaluator = scenario_manager.model_evaluator
+
+        # If a session exists, return its already-evaluated scenario copy.
+        if session_id is not None and scenario_manager.has_session(session_id):
+            session_scenario = manager.get_session_scenario(problem_id, session_id)
+            session_evaluation = manager.get_session_evaluation(problem_id, session_id)
+            out_data = arrange_data(
+                mgrs,
+                _evaluation_result_to_dict(session_evaluation.result),
             )
-            out_data = arrange_data(scenario_state.get_data(situation).data)
-            values = scenario_state.model.get_values()
+            values = {
+                **model_evaluator.get_model_values(scenario_manager.model),
+                **values_as_scipy(session_scenario),
+            }
             return OutputData(
                 problem_id=problem_id,
                 scenario_id=scenario_id,
                 data=out_data,
-                index_diffs=scenario_state.metadata.index_diffs,
-                widgets=viewer.get_widgets(values),
-                editable_indexes=scenario_manager.metadata.editable_indexes,
+                index_diffs=session_scenario.index_diffs,
+                widgets=get_widgets(mgrs, values, language=language),
+                editable_indexes=get_problem_editable_indexes(problem.extras),
             )
 
-        # Get data from saved model
+        # No active session — return the stored scenario.
         out_data = arrange_data(
-            scenario_manager.get_scenario_data(scenario_id, situation)
+            mgrs, manager.get_scenario_data(problem_id, scenario_id)
         )
-        model_state = scenario_manager.get_scenario_state(scenario_id)
-        values = model_state.model.get_values()
+        scenario = scenario_manager.get_scenario(scenario_id)
+        values = {
+            **model_evaluator.get_model_values(scenario_manager.model),
+            **values_as_scipy(scenario),
+        }
         return OutputData(
             problem_id=problem_id,
             scenario_id=scenario_id,
             data=out_data,
-            index_diffs=model_state.metadata.index_diffs,
-            widgets=viewer.get_widgets(values),
-            editable_indexes=scenario_manager.metadata.editable_indexes,
+            index_diffs=scenario.index_diffs,
+            widgets=get_widgets(mgrs, values, language=language),
+            editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
         logger.error(
-            f"Error getting data for scenario {scenario_id} in problem {problem_id}: {str(e)}"
+            f"Error getting data for scenario {scenario_id} in problem {problem_id}: {e}"
         )
-        raise e
+        raise
 
 
 @scenario_router.put(
@@ -111,50 +116,44 @@ async def update_data(
     scenario_id: str,
     data: InputEvaluationData,
     session_id: str,
+    language: Literal["it", "en"] = "it",
+    mgrs: Managers = Depends(get_managers),
 ) -> OutputData:
-    """
-    Update a model and compute new data.
-
-    Parameters
-    ----------
-    problem_id : str
-        Name of problem to evaluate.
-    scenario_id : str
-        Name of model to evaluate.
-    data : InputEvaluationData
-        Data to update.
-    session_id : str
-        Session id.
-
-    Returns
-    -------
-    OutputData
-        Response containing the updated model data.
-    """
+    """Re-evaluate a scenario with new values."""
     try:
-        scenario_manager = problem_manager.get_problem(problem_id)
-        values = prepare_values_for_eval(data.values, viewer)
-        scenario_state = scenario_manager.evaluate_session_scenario(
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        values = prepare_values(mgrs, data.values)
+        session_scenario = manager.evaluate_session(
+            problem_id=problem_id,
+            session_id=session_id,
             scenario_id=scenario_id,
             values=values,
-            situation=data.situation,
             ensemble_size=data.ensemble_size,
-            evaluate=True,
         )
-        out_data = arrange_data(scenario_state.get_data(data.situation).data)
+        session_evaluation = manager.get_session_evaluation(problem_id, session_id)
+        out_data = arrange_data(
+            mgrs,
+            _evaluation_result_to_dict(session_evaluation.result),
+        )
+        scenario_manager = manager.get_scenario_manager(problem_id)
+        merged = {
+            **scenario_manager.model_evaluator.get_model_values(scenario_manager.model),
+            **values,
+        }
         return OutputData(
             data=out_data,
             scenario_id=scenario_id,
             problem_id=problem_id,
-            index_diffs=scenario_state.metadata.index_diffs,
-            widgets=viewer.get_widgets(values),
-            editable_indexes=scenario_manager.metadata.editable_indexes,
+            index_diffs=session_scenario.index_diffs,
+            widgets=get_widgets(mgrs, merged, language=language),
+            editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
         logger.error(
-            f"Error updating data for scenario {scenario_id} in problem {problem_id}: {str(e)}"
+            f"Error updating data for scenario {scenario_id} in problem {problem_id}: {e}"
         )
-        raise e
+        raise
 
 
 @scenario_router.post(
@@ -171,40 +170,44 @@ async def create_scenario(
     session_id: str,
     data: SaveData,
     proposal_id: str | None = None,
+    export_outputs: bool = False,
+    mgrs: Managers = Depends(get_managers),
 ) -> dict:
+    """Create and persist a scenario from a session evaluation."""
     try:
-        scenario_manager = problem_manager.get_problem(problem_id)
-        values = prepare_values_for_eval(data.values, viewer)
+        manager = mgrs.manager
+        values = prepare_values(mgrs, data.values)
+        extras: dict = {}
+        if manager.extras_config is not None:
+            extras = manager.extras_config.scenario_extras_from_dict(data.model_dump())
         new_id = get_id(scenario_id, session_id)
         now_timestamp = get_timestamp()
-        scenario_manager.add_scenario(
+        manager.add_scenario(
+            problem_id,
             scenario_id=new_id,
             values=values,
             name=data.scenario_name,
             description=data.scenario_description,
             created=now_timestamp,
             updated=now_timestamp,
+            extras=extras,
         )
-        scenario_manager.evaluate_scenario(new_id)
-        problem_manager.export_scenario(problem_id, new_id)
+        manager.evaluate_scenario(problem_id, new_id)
+        manager.save_scenario(problem_id, new_id, export_outputs=export_outputs)
+        manager.close_session(problem_id, session_id)
         if proposal_id is not None:
-            model_state = scenario_manager.get_scenario_state(new_id)
-            scenario_obj = {
-                "scenario_id": new_id,
-                "scenario_name": data.scenario_name,
-                "scenario_description": data.scenario_description,
-                "index_diffs": model_state.metadata.index_diffs,
-            }
-            metadata_manager.add_scenario_to_proposal(
-                problem_id, proposal_id, scenario_obj
+            manager.link_scenario_to_proposal(
+                problem_id,
+                proposal_id,
+                new_id,
             )
         logger.info(f"Scenario created: {new_id} for problem {problem_id}")
         return {"message": "Scenario saved!"}
     except Exception as e:
         logger.error(
-            f"Error creating scenario {scenario_id} for problem {problem_id}: {str(e)}"
+            f"Error creating scenario {scenario_id} for problem {problem_id}: {e}"
         )
-        raise e
+        raise
 
 
 @scenario_router.delete(
@@ -219,28 +222,21 @@ async def delete_scenario(
     problem_id: str,
     scenario_id: str,
     proposal_id: str | None = None,
+    mgrs: Managers = Depends(get_managers),
 ) -> None:
-    """
-    Delete a scenario from the manager.
-
-    Parameters
-    ----------
-    problem_id : str
-        ID of the problem containing the scenario.
-    scenario_id : str
-        ID of the scenario to delete.
-    proposal_id : str, optional
-        ID of the proposal to remove the scenario from, by default None.
-    """
+    """Delete a scenario and detach any related proposal link."""
     try:
-        problem_manager.delete_scenario(problem_id, scenario_id)
+        manager = mgrs.manager
+        manager.delete_scenario(problem_id, scenario_id)
         if proposal_id is not None:
-            metadata_manager.remove_scenario_from_proposal(
-                problem_id, proposal_id, scenario_id
+            manager.unlink_scenario_from_proposal(
+                problem_id,
+                proposal_id,
+                scenario_id,
             )
         logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
     except Exception as e:
         logger.error(
-            f"Error deleting scenario {scenario_id} for problem {problem_id}: {str(e)}"
+            f"Error deleting scenario {scenario_id} for problem {problem_id}: {e}"
         )
-        raise e
+        raise

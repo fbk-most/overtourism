@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScenarioData(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     problem_id: str
     scenario_id: str
     scenario_name: str
@@ -22,21 +24,22 @@ class ScenarioList(BaseModel):
 
 
 class InputEvaluationData(BaseModel):
-    situation: str = None
     ensemble_size: int = 20
-    values: dict[str, list[int | float] | int | float] = {}
+    values: dict[str, list[int | float] | int | float] = Field(default_factory=dict)
 
 
 class SaveData(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     scenario_name: str
     scenario_description: str
-    values: dict[str, Any] = {}
+    values: dict[str, Any] = Field(default_factory=dict)
 
 
 class OutputData(BaseModel):
     problem_id: str
     scenario_id: str
-    data: dict[str, Any] = {}
-    index_diffs: dict[str, str]
-    widgets: dict = None
-    editable_indexes: list[str] = None
+    data: dict[str, Any] = Field(default_factory=dict)
+    index_diffs: dict[str, str] = Field(default_factory=dict)
+    widgets: dict | None = None
+    editable_indexes: list[str] | None = None

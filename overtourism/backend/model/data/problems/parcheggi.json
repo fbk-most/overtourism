@@ -1,0 +1,162 @@
+{
+  "problem": {
+    "problem_id": "parcheggi",
+
+    "name": "Parcheggi insufficienti",
+    "description": "Affrontare il problema dell'insufficienza dei posti auto disponibili per i visitatori.",
+    "created": "2025-06-16T13:42:23.597941+02:00",
+    "updated": "2025-10-17T11:25:26.777314+02:00",
+    "extras": {
+      "editable_indexes": [
+        "available_parking_spaces",
+        "excursionists_parking_percentage",
+        "tourists_parking_percentage",
+        "tourists_per_vehicle_average",
+        "excursionists_per_vehicle_average",
+        "tourists_parking_turnover",
+        "excursionists_parking_turnover"
+      ],
+      "objective": "Evitare parcheggi selvaggi e code dovute a difficoltà di parcheggio",
+      "groups": ["Parcheggi"],
+      "links": [
+        "https://example.org/parking-study-2024",
+        "https://data.example.org/index_values/parking_occupancy"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "model_0",
+      "problem_id": "parcheggi",
+
+      "name": "Scenario base",
+      "description": "Scenario base di riferimento",
+      "created": "2025-06-16T13:42:23.598208+02:00",
+      "updated": "2026-04-15T14:16:05.804978+02:00",
+      "extras": {},
+      "index_diffs": {},
+      "index_values": [],
+      "outputs": null,
+      "is_evaluating": false
+    },
+    {
+      "scenario_id": "model_3",
+      "problem_id": "parcheggi",
+      "name": "Allargare parcheggi di 300 posti",
+      "description": "Creare nuovi posti auto allargando i parcheggi attuali",
+      "created": "2025-10-17T11:34:40.510434+02:00",
+      "updated": "2026-04-15T14:16:07.427610+02:00",
+      "extras": {},
+      "index_diffs": {
+        "available_parking_spaces": "350-450 -> 350-750"
+      },
+      "index_values": [
+        {
+          "index_name": "available_parking_spaces",
+          "index_value": {
+            "loc": 350,
+            "scale": 400
+          },
+          "index_type": "uniform"
+        }
+      ],
+      "outputs": null,
+      "is_evaluating": false
+    },
+    {
+      "scenario_id": "model_1",
+      "problem_id": "parcheggi",
+      "name": "Incentivi per famiglie/gruppi di almeno 3 persone con 1 auto",
+      "description": "Offrire incentivi (es. sconti) per famiglie o gruppi di almeno 3 persone se vengono con 1 sola auto",
+      "created": "2025-10-17T13:16:37.544728+02:00",
+      "updated": "2026-04-15T14:16:09.069548+02:00",
+      "extras": {},
+      "index_diffs": {
+        "tourists_per_vehicle_average": "2.5 -> 3"
+      },
+      "index_values": [
+        {
+          "index_name": "tourists_per_vehicle_average",
+          "index_value": 3,
+          "index_type": "constant"
+        }
+      ],
+      "outputs": null,
+      "is_evaluating": false
+    },
+    {
+      "scenario_id": "model_2",
+      "problem_id": "parcheggi",
+
+      "name": "Sbarramento a valle",
+      "description": "Mettere sbarramento a valle e introdurre servizio di bus navetta",
+      "created": "2025-10-17T13:18:13.610512+02:00",
+      "updated": "2026-04-15T14:16:10.806747+02:00",
+      "extras": {},
+      "index_diffs": {},
+      "index_values": [
+        {
+          "index_name": "excursionists_parking_percentage",
+          "index_value": 40,
+          "index_type": "constant"
+        }
+      ],
+      "outputs": null,
+      "is_evaluating": false
+    }
+  ],
+  "proposals": [
+    {
+      "proposal_id": "proposal_1",
+      "problem_id": "parcheggi",
+      "name": "Aumentare i posti disponibili",
+      "description": "Creare nuovi posti allargando i parcheggi attuali oppure crearne di nuovi",
+      "created": "2025-10-17T11:33:34.308540+02:00",
+      "updated": "2025-10-17T11:57:01.886799+02:00",
+      "extras": {
+        "resources": [
+          "Statistiche di utilizzo degli attuali parchegghi a pagamento"
+        ],
+        "context": "Organizzazione di grandi eventi a Molveno o dintorni",
+        "impact": "Positivo: ridurre lo stress di visitatori e residenti; aumentare la soddisfazione dell'esperienza di turisti e visitatori; Negativo: maggior impatto ambientale (aumento dell'inquinamento dovuto ai gas di scarico)"
+      },
+      "status": "draft"
+    },
+    {
+      "proposal_id": "proposal_2",
+      "problem_id": "parcheggi",
+
+      "name": "Limitare l'accesso ai veicoli",
+      "description": "Mettere in atto azioni che riducano il numero di veicoli a Molveno, in particolare nei giorni festivi ",
+      "created": "2025-10-17T11:36:04.531306+02:00",
+      "updated": "2025-10-17T11:56:22.718817+02:00",
+      "extras": {
+        "context": "",
+        "impact": "\"Positivo: riduzione dell'impatto ambientale; minor stress per i residenti.\nNegativo: possibile malcontento dei visitatori se costretti a lasciare l'auto distante dalla destinazione\""
+      },
+      "status": "draft"
+    }
+  ],
+  "relationship": [
+    {
+      "proposal_id": "proposal_1",
+      "scenario_id": "model_0"
+    },
+    {
+      "proposal_id": "proposal_1",
+      "scenario_id": "model_3"
+    },
+    {
+      "proposal_id": "proposal_2",
+      "scenario_id": "model_0"
+    },
+    {
+      "proposal_id": "proposal_2",
+      "scenario_id": "model_1"
+    },
+    {
+      "proposal_id": "proposal_2",
+      "scenario_id": "model_2"
+    }
+  ]
+}

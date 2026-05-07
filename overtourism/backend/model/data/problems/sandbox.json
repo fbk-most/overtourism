@@ -1,0 +1,80 @@
+{
+  "problem": {
+    "problem_id": "sandbox",
+    "name": "Problema sandbox",
+    "description": "Problema liberamente editabile",
+    "created": "2025-06-11T16:22:57.741621+02:00",
+    "updated": "2026-04-29T10:35:21.160079+02:00",
+    "extras": {
+      "editable_indexes": [
+        "available_parking_spaces",
+        "available_beach_seats",
+        "available_beds",
+        "available_restaurant_seats",
+        "excursionists_parking_percentage",
+        "excursionists_beach_percentage",
+        "tourists_parking_percentage",
+        "tourists_beach_percentage",
+        "tourists_accommodation_percentage",
+        "tourists_restaurant_percentage",
+        "tourists_per_vehicle_average",
+        "excursionists_per_vehicle_average",
+        "tourists_parking_turnover",
+        "excursionists_parking_turnover",
+        "tourists_reduction_factor",
+        "excursionists_reduction_factor",
+        "tourists_saturation_level",
+        "excursionists_saturation_level",
+        "visitors_food_allocation_factor",
+        "visitors_food_turnover",
+        "tourists_beach_turnover",
+        "excursionists_beach_turnover",
+        "tourists_accommodation_allocation_factor"
+      ],
+      "objective": "Objective2",
+      "groups": ["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
+      "links": [
+        "https://example.org/parking-study-2024",
+        "https://data.example.org/index_values/parking_occupancy"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "model_0",
+      "problem_id": "sandbox",
+      "name": "Modello base",
+      "description": "Modello base di riferimento",
+      "created": "2025-06-11T16:22:57.741621+02:00",
+      "updated": "2026-04-29T12:48:02.416519+02:00",
+      "extras": {},
+      "index_diffs": {},
+      "index_values": [],
+      "outputs": null,
+      "is_evaluating": false
+    }
+  ],
+  "proposals": [
+    {
+      "proposal_id": "proposal_0",
+      "problem_id": "sandbox",
+        "name": "Example proposal",
+        "description": "Example proposal",
+        "created": "2025-06-16T13:42:23.597941+02:00",
+        "updated": "2026-05-05T14:02:01.672993+02:00",
+        "extras": {
+          "resources": ["data", "data2"],
+          "context": "context-placeholder",
+          "impact": "impact-placeholder2"
+        },
+        "status": "accepted"
+
+    }
+  ],
+  "relationship": [
+    {
+      "proposal_id": "proposal_0",
+      "scenario_id": "model_0"
+    }
+  ]
+}
