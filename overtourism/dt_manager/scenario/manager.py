@@ -137,7 +137,6 @@ class ScenarioManager:
             raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
 
         old_scenario = self.scenarios[scenario_id]
-        index_diffs = self.model_evaluator.get_index_diffs(self.model, values=values)
         self.scenarios[scenario_id] = scenario_values(
             scenario_id,
             values,
@@ -145,7 +144,6 @@ class ScenarioManager:
             description=old_scenario.description,
             created=old_scenario.created,
             updated=get_timestamp(),
-            index_diffs=index_diffs,
             extras=old_scenario.extras,
             problem_id=self.problem_id,
         )
@@ -234,7 +232,6 @@ class ScenarioManager:
         description: str | None = None,
         created: str | None = None,
         updated: str | None = None,
-        index_diffs: dict[str, str] | None = None,
         extras: dict | None = None,
     ) -> Scenario:
         """Build a scenario object from values and metadata.
@@ -253,8 +250,6 @@ class ScenarioManager:
             Creation timestamp.
         updated : str | None, optional
             Update timestamp.
-        index_diffs : dict[str, str] | None, optional
-            Human-readable index differences.
         extras : dict | None, optional
             Extra metadata fields.
 
@@ -264,11 +259,6 @@ class ScenarioManager:
             Constructed scenario.
         """
         values = {} if values is None else values
-        if index_diffs is None:
-            index_diffs = self.model_evaluator.get_index_diffs(
-                self.model,
-                values=values,
-            )
         return scenario_values(
             scenario_id,
             values,
@@ -276,7 +266,6 @@ class ScenarioManager:
             description=description,
             created=created,
             updated=updated,
-            index_diffs=index_diffs,
             extras=extras,
             problem_id=self.problem_id,
         )

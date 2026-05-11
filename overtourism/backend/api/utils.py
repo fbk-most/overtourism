@@ -15,6 +15,7 @@ from overtourism.backend.shared.problem_metadata import (
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.scenario.values import values_as_scipy
 
 
 def get_problem_or_404(mgrs: Managers, problem_id: str) -> Problem:
@@ -30,6 +31,14 @@ def get_widget_by_group(mgrs: Managers, groups: list[str]) -> list[str]:
     if mgrs.viewer is not None and groups:
         return mgrs.viewer.get_widget_ids_by_groups(groups)
     return []
+
+
+def scenario_index_diffs(mgrs: Managers, scenario: Scenario) -> dict[str, str]:
+    """Compute the model index differences for a scenario on demand."""
+    return mgrs.manager.model_evaluator.get_index_diffs(
+        mgrs.manager.model,
+        values=values_as_scipy(scenario),
+    )
 
 
 def build_problem_extras(
@@ -106,6 +115,7 @@ def proposal_to_api(
     proposal: Proposal,
     related_scenario_ids: list[str] | None = None,
     scenarios: dict[str, Scenario] | None = None,
+    mgrs: Managers | None = None,
 ) -> dict:
     """Convert a proposal entity to API Proposal dict.
 
@@ -119,7 +129,8 @@ def proposal_to_api(
             state = scenarios[sid]
             entry["scenario_name"] = state.name
             entry["scenario_description"] = state.description
-            entry["index_diffs"] = state.index_diffs
+            if mgrs is not None:
+                entry["index_diffs"] = scenario_index_diffs(mgrs, state)
             entry.update(state.extras)
         related.append(entry)
 

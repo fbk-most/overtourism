@@ -19,7 +19,6 @@ def scenario_values(
     description: str | None = None,
     created: str | None = None,
     updated: str | None = None,
-    index_diffs: dict[str, str] | None = None,
     extras: dict | None = None,
     problem_id: str = "",
 ) -> Scenario:
@@ -39,8 +38,6 @@ def scenario_values(
         Creation timestamp.
     updated : str | None, optional
         Update timestamp.
-    index_diffs : dict[str, str] | None, optional
-        Human-readable model differences.
     extras : dict | None, optional
         Extra scenario fields.
     problem_id : str, optional
@@ -54,8 +51,6 @@ def scenario_values(
     created = now if created is None else created
     updated = created if updated is None else updated
     indexes = _prepare_indexes(values)
-    if index_diffs is None:
-        index_diffs = {}
     return Scenario(
         scenario_id=scenario_id,
         problem_id=problem_id,
@@ -63,7 +58,6 @@ def scenario_values(
         description=description,
         created=created,
         updated=updated,
-        index_diffs=index_diffs,
         extras={} if extras is None else extras,
         index_values=indexes,
     )

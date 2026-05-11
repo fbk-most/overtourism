@@ -216,7 +216,7 @@ def scenario_to_orm(scenario: Scenario, problem_id: str | None = None) -> Scenar
         created=scenario.created,
         updated=scenario.updated,
         extras=scenario.extras,
-        index_diffs=scenario.index_diffs,
+        index_diffs=getattr(scenario, "index_diffs", {}),
         index_values=[item.to_dict() for item in scenario.index_values],
         is_evaluating=scenario.is_evaluating,
     )
@@ -232,7 +232,6 @@ def scenario_from_orm(scenario: ScenarioORM) -> Scenario:
         description=scenario.description,
         created=created,
         updated=updated,
-        index_diffs=scenario.index_diffs,
         extras=scenario.extras,
         index_values=[IndexEntry.from_dict(item) for item in scenario.index_values],
         is_evaluating=scenario.is_evaluating,

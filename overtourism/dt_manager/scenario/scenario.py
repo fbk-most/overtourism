@@ -30,8 +30,6 @@ class Scenario(Dictable):
         Creation timestamp.
     updated : str | None
         Update timestamp.
-    index_diffs : dict[str, str]
-        Human-readable model differences.
     extras : dict
         Scenario-specific extra fields.
     index_values : list[IndexEntry], optional
@@ -46,7 +44,6 @@ class Scenario(Dictable):
     description: str | None = None
     created: str | None = None
     updated: str | None = None
-    index_diffs: dict[str, str] = field(default_factory=dict)
     extras: dict = field(default_factory=dict)
     index_values: list[IndexEntry] = field(default_factory=list)
     is_evaluating: bool = False
@@ -61,7 +58,6 @@ class Scenario(Dictable):
         description: str | None = None,
         created: str | None = None,
         updated: str | None = None,
-        index_diffs: dict[str, str] | None = None,
         extras: dict | None = None,
         index_values: list[IndexEntry] | None = None,
         is_evaluating: bool = False,
@@ -77,7 +73,6 @@ class Scenario(Dictable):
             else description,
             created=now if created is None else created,
             updated=now if updated is None else updated,
-            index_diffs={} if index_diffs is None else index_diffs,
             extras={} if extras is None else extras,
             index_values=[] if index_values is None else index_values,
             is_evaluating=is_evaluating,
@@ -95,7 +90,6 @@ class Scenario(Dictable):
             description=scenario_dict.get("description"),
             created=created,
             updated=updated,
-            index_diffs=scenario_dict.get("index_diffs", {}),
             extras=scenario_dict.get("extras", {}),
             index_values=[
                 IndexEntry.from_dict(item)

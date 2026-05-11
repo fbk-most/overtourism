@@ -14,6 +14,7 @@ from overtourism.backend.api.utils import (
     get_widget_by_group,
     problem_to_api,
     proposal_to_api,
+    scenario_index_diffs,
 )
 from overtourism.backend.managers import Managers
 from overtourism.backend.shared.models.problem import (
@@ -137,6 +138,7 @@ async def read_problem(
                     problem_id, proposal.proposal_id
                 ),
                 scenario_map,
+                mgrs,
             )
             for proposal in manager.list_proposals(problem_id)
         ]
@@ -241,7 +243,7 @@ async def list_scenarios(
                 "scenario_description": s.description,
                 "created": s.created,
                 "updated": s.updated,
-                "index_diffs": s.index_diffs,
+                "index_diffs": scenario_index_diffs(mgrs, s),
                 **s.extras,
             }
             for s in manager.list_scenarios(problem_id)

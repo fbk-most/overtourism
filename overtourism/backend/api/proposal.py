@@ -50,6 +50,7 @@ async def list_proposals(
                         problem_id, proposal.proposal_id
                     ),
                     scenario_map,
+                    mgrs,
                 )
             )
             for proposal in manager.list_proposals(problem_id)
@@ -128,6 +129,7 @@ async def read_proposal(
                 proposal,
                 manager.get_related_scenario_ids_for_proposal(problem_id, proposal_id),
                 scenario_map,
+                mgrs,
             )
         )
     except Exception as e:

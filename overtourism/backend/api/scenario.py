@@ -13,6 +13,7 @@ from overtourism.backend.api.utils import (
     get_problem_or_404,
     get_widgets,
     prepare_values,
+    scenario_index_diffs,
 )
 from overtourism.backend.managers import Managers
 from overtourism.backend.shared.models.scenario import (
@@ -86,7 +87,7 @@ async def get_data(
                 problem_id=problem_id,
                 scenario_id=scenario_id,
                 data=out_data,
-                index_diffs=session_scenario.index_diffs,
+                index_diffs=scenario_index_diffs(mgrs, session_scenario),
                 widgets=get_widgets(mgrs, values, language=language),
                 editable_indexes=get_problem_editable_indexes(problem.extras),
             )
@@ -104,7 +105,7 @@ async def get_data(
             problem_id=problem_id,
             scenario_id=scenario_id,
             data=out_data,
-            index_diffs=scenario.index_diffs,
+            index_diffs=scenario_index_diffs(mgrs, scenario),
             widgets=get_widgets(mgrs, values, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
@@ -150,7 +151,7 @@ async def resume_session(
             problem_id=problem_id,
             scenario_id=session_scenario.scenario_id,
             data=out_data,
-            index_diffs=session_scenario.index_diffs,
+            index_diffs=scenario_index_diffs(mgrs, session_scenario),
             widgets=get_widgets(mgrs, values, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
@@ -203,7 +204,7 @@ async def update_data(
             data=out_data,
             scenario_id=scenario_id,
             problem_id=problem_id,
-            index_diffs=session_scenario.index_diffs,
+            index_diffs=scenario_index_diffs(mgrs, session_scenario),
             widgets=get_widgets(mgrs, merged, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
