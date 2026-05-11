@@ -9,6 +9,11 @@ from civic_digital_twins.dt_model.model import Model
 
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.classes.model import ModelEvaluator
+from overtourism.dt_manager.evaluation.evaluation import (
+    DEFAULT_EVALUATION_TYPE,
+    Evaluation,
+    EvaluationState,
+)
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.manager.config import BaseProblemConfig
@@ -19,6 +24,7 @@ from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.scenario.values import values_as_scipy
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.proposal.proposal import Proposal
@@ -394,6 +400,54 @@ class Manager:
         """Return the transient evaluation attached to a session."""
         return self.evaluation_managers[problem_id].read_session_evaluation(session_id)
 
+    def resume_session(
+        self,
+        problem_id: str,
+        session_id: str,
+    ) -> tuple[Scenario, Evaluation]:
+        """Return the transient session scenario and its evaluation."""
+        return (
+            self.read_session_scenario(problem_id, session_id),
+            self.read_session_evaluation(problem_id, session_id),
+        )
+
+    def save_session_scenario(
+        self,
+        problem_id: str,
+        session_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+        proposal_id: str | None = None,
+    ) -> Scenario:
+        """Promote a transient session scenario to persistent storage."""
+        scenario_manager = self.scenario_managers[problem_id]
+        session_scenario = scenario_manager.read_session_scenario(session_id)
+
+        if name is not None:
+            session_scenario.name = name
+        if description is not None:
+            session_scenario.description = description
+        if extras is not None:
+            session_scenario.extras.update(extras)
+
+        scenario_manager.scenarios[session_scenario.scenario_id] = session_scenario
+        scenario_manager.save_scenario(session_scenario.scenario_id)
+
+        self.evaluation_managers[problem_id].save_session_evaluation(session_id)
+
+        if proposal_id is not None:
+            self.relationship_manager.link_scenario_to_proposal(
+                problem_id,
+                proposal_id,
+                session_scenario.scenario_id,
+            )
+
+        self.save_problem(problem_id)
+        self.close_session(problem_id, session_id)
+        return session_scenario
+
     def close_session(self, problem_id: str, session_id: str) -> None:
         """Close a session and discard both scenario and evaluation state."""
         self.scenario_managers[problem_id].close_session(session_id)
@@ -447,18 +501,25 @@ class Manager:
         scenario_manager = self.scenario_managers[problem_id]
         evaluation_manager = self.evaluation_managers[problem_id]
         session_scenario = scenario_manager.create_session_scenario(scenario_id, values)
+        session_scenario.scenario_id = f"{scenario_id}_{session_id}_{uuid4().hex}"
         session_scenario.is_evaluating = True
         evaluation_id = f"{session_id}_{uuid4().hex}"
-        evaluation_manager.create_evaluation(
+        evaluation = Evaluation.create_default(
             evaluation_id,
-            session_scenario.scenario_id,
+            scenario_id=session_scenario.scenario_id,
+            type=DEFAULT_EVALUATION_TYPE,
+            state=EvaluationState.RUNNING,
         )
         try:
-            evaluation = evaluation_manager.run_evaluation(
-                evaluation_id,
+            result = self.executor.execute(
                 session_scenario,
                 ensemble_size=ensemble_size,
                 **kwargs,
+            )
+            evaluation.state = EvaluationState.COMPLETED
+            evaluation.finished = get_timestamp()
+            evaluation.result = (
+                result.to_dict() if hasattr(result, "to_dict") else result
             )
             evaluation_manager.set_session_evaluation(session_id, evaluation)
             scenario_manager.register_session_scenario(session_id, session_scenario)

@@ -70,7 +70,7 @@ class EvaluationManager:
         self._save_evaluation(evaluation)
         return evaluation
 
-    def get_evaluation(self, evaluation_id: str) -> Evaluation:
+    def read_evaluation(self, evaluation_id: str) -> Evaluation:
         """Return a registered evaluation."""
         if evaluation_id not in self.evaluations:
             raise EvaluationDoesNotExist(
@@ -100,7 +100,7 @@ class EvaluationManager:
 
     def start_evaluation(self, evaluation_id: str) -> Evaluation:
         """Mark an evaluation as running."""
-        evaluation = self.get_evaluation(evaluation_id)
+        evaluation = self.read_evaluation(evaluation_id)
         started = get_timestamp() if evaluation.started is None else evaluation.started
         return self._save_state(
             evaluation,
@@ -112,7 +112,7 @@ class EvaluationManager:
 
     def complete_evaluation(self, evaluation_id: str, result: Any) -> Evaluation:
         """Mark an evaluation as completed and store its result."""
-        evaluation = self.get_evaluation(evaluation_id)
+        evaluation = self.read_evaluation(evaluation_id)
         return self._save_state(
             evaluation,
             state=EvaluationState.COMPLETED,
@@ -126,7 +126,7 @@ class EvaluationManager:
         result: dict[str, Any] | None = None,
     ) -> Evaluation:
         """Mark an evaluation as failed and optionally keep a partial result."""
-        evaluation = self.get_evaluation(evaluation_id)
+        evaluation = self.read_evaluation(evaluation_id)
         return self._save_state(
             evaluation,
             state=EvaluationState.FAILED,
@@ -181,7 +181,7 @@ class EvaluationManager:
     def load_evaluation(self, evaluation_id: str) -> Evaluation:
         """Load a single evaluation from storage into memory."""
         if self.store is None or self.problem_id is None:
-            return self.get_evaluation(evaluation_id)
+            return self.read_evaluation(evaluation_id)
         evaluation = self.store.load_evaluation(self.problem_id, evaluation_id)
         if isinstance(evaluation.result, dict):
             evaluation.result = self.executor.model_evaluator.build_output(
@@ -197,6 +197,16 @@ class EvaluationManager:
     def set_session_evaluation(self, session_id: str, evaluation: Evaluation) -> None:
         """Attach an in-memory evaluation to a transient session."""
         self._session_evaluations[session_id] = evaluation
+
+    def save_session_evaluation(self, session_id: str) -> Evaluation:
+        """Promote a transient session evaluation to persistent storage."""
+        evaluation = self.read_session_evaluation(session_id)
+        self.evaluations[evaluation.evaluation_id] = evaluation
+        if self.store is not None and self.problem_id is not None:
+            self.store.save_evaluation(
+                self.problem_id, evaluation.evaluation_id, evaluation
+            )
+        return evaluation
 
     def read_session_evaluation(self, session_id: str) -> Evaluation:
         """Return the evaluation attached to a transient session."""

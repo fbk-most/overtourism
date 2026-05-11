@@ -115,6 +115,52 @@ async def get_data(
         raise
 
 
+@scenario_router.get(
+    "/session/{session_id}",
+    response_model=OutputData,
+    responses={
+        500: {"description": "Session error"},
+        404: {"description": "Session does not exist"},
+        200: {"description": "Session scenario data"},
+    },
+)
+async def resume_session(
+    problem_id: str,
+    session_id: str,
+    language: Literal["it", "en"] = "it",
+    mgrs: Managers = Depends(get_managers),
+) -> OutputData:
+    """Resume an in-memory session scenario and return its evaluated data."""
+    try:
+        manager = mgrs.manager
+        problem = get_problem_or_404(mgrs, problem_id)
+        session_scenario, session_evaluation = manager.resume_session(
+            problem_id,
+            session_id,
+        )
+        out_data = arrange_data(
+            mgrs,
+            _evaluation_result_to_dict(session_evaluation.result),
+        )
+        values = {
+            **_model_values(manager),
+            **values_as_scipy(session_scenario),
+        }
+        return OutputData(
+            problem_id=problem_id,
+            scenario_id=session_scenario.scenario_id,
+            data=out_data,
+            index_diffs=session_scenario.index_diffs,
+            widgets=get_widgets(mgrs, values, language=language),
+            editable_indexes=get_problem_editable_indexes(problem.extras),
+        )
+    except Exception as e:
+        logger.error(
+            f"Error resuming session {session_id} in problem {problem_id}: {e}"
+        )
+        raise
+
+
 @scenario_router.put(
     "/{scenario_id}",
     response_model=OutputData,
@@ -185,24 +231,23 @@ async def create_scenario(
     export_outputs: bool = False,
     mgrs: Managers = Depends(get_managers),
 ) -> dict:
-    """Create and persist a scenario from a session evaluation."""
+    """Persist the current session scenario as a stored scenario."""
     try:
         manager = mgrs.manager
-        values = prepare_values(mgrs, data.values)
         extras: dict = {}
         if manager.extras_config is not None:
             extras = manager.extras_config.scenario_extras_from_dict(data.model_dump())
-        new_id = manager.create_scenario(
+        saved_scenario = manager.save_session_scenario(
             problem_id,
-            scenario_id=scenario_id,
             session_id=session_id,
-            values=values,
             name=data.scenario_name,
             description=data.scenario_description,
             extras=extras,
             proposal_id=proposal_id,
         )
-        logger.info(f"Scenario created: {new_id} for problem {problem_id}")
+        logger.info(
+            f"Scenario saved: {saved_scenario.scenario_id} for problem {problem_id}"
+        )
         return {"message": "Scenario saved!"}
     except Exception as e:
         logger.error(
