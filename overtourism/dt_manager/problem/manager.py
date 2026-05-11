@@ -12,8 +12,8 @@ class ProblemManager:
     """Manage problem entities and persist them with their child documents.
 
     Problem metadata remains the source of truth for the problem itself, while
-    proposal-scenario links are handled separately by RelationshipManager and
-    serialized under the top-level ``relationship`` section.
+    proposal-scenario links are serialized under the top-level
+    ``relationship`` section.
 
     Parameters
     ----------
@@ -27,6 +27,7 @@ class ProblemManager:
     ) -> None:
         self.store = store
         self.problems: dict[str, Problem] = {}
+        self._relationships: dict[str, list[dict[str, str]]] = {}
 
     # ───────────────────────────────────────────────────────────
     # CRUD
@@ -96,6 +97,7 @@ class ProblemManager:
             Identifier of the problem to delete.
         """
         self.problems.pop(problem_id, None)
+        self._relationships.pop(problem_id, None)
         self.store.delete_problem(problem_id)
 
     # ───────────────────────────────────────────────────────────
@@ -132,21 +134,13 @@ class ProblemManager:
             )
         )
 
-        try:
-            document = self.store.load_problem_document(problem_id)
-        except FileNotFoundError:
-            document = {}
-
         payload = {
             ProblemDocumentKey.PROBLEM: problem.to_dict(),
             ProblemDocumentKey.SCENARIOS: scenarios,
             ProblemDocumentKey.PROPOSALS: proposals,
             ProblemDocumentKey.EVALUATIONS: evaluations,
+            ProblemDocumentKey.RELATIONSHIP: self.get_relationships(problem_id),
         }
-        if ProblemDocumentKey.RELATIONSHIP in document:
-            payload[ProblemDocumentKey.RELATIONSHIP] = document[
-                ProblemDocumentKey.RELATIONSHIP
-            ]
         self.store.save_problem_document(problem.problem_id, payload)
 
     def load_problem(self, problem_id: str) -> None:
@@ -159,6 +153,7 @@ class ProblemManager:
         """
         problem = self.store.load_problem(problem_id)
         self.problems[problem.problem_id] = problem
+        self.load_relationships(problem.problem_id)
 
     def load_problems(self, problem_ids: list[str] | None = None) -> None:
         """Load multiple problems from storage.
@@ -176,12 +171,109 @@ class ProblemManager:
             self.load_problem(problem_id)
 
     # ───────────────────────────────────────────────────────────
+    # Relationships
+    # ───────────────────────────────────────────────────────────
+
+    def load_relationships(self, problem_id: str) -> None:
+        """Load proposal-scenario links for a problem."""
+        try:
+            document = self.store.load_problem_document(problem_id)
+        except FileNotFoundError:
+            self._relationships[problem_id] = []
+            return
+
+        relationships: list[dict[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in document.get(ProblemDocumentKey.RELATIONSHIP, []):
+            proposal_id = item.get("proposal_id")
+            scenario_id = item.get("scenario_id")
+            if not proposal_id or not scenario_id:
+                continue
+            pair = (proposal_id, scenario_id)
+            if pair in seen:
+                continue
+            seen.add(pair)
+            relationships.append(
+                {"proposal_id": proposal_id, "scenario_id": scenario_id}
+            )
+
+        self._relationships[problem_id] = relationships
+
+    def get_relationships(self, problem_id: str) -> list[dict[str, str]]:
+        """Return the current relationship links for a problem."""
+        self._load_relationships_if_needed(problem_id)
+        return list(self._relationships.get(problem_id, []))
+
+    def get_related_scenario_ids(
+        self,
+        problem_id: str,
+        proposal_id: str,
+    ) -> list[str]:
+        """Return the scenario IDs linked to a proposal."""
+        self._load_relationships_if_needed(problem_id)
+        return [
+            relationship["scenario_id"]
+            for relationship in self._relationships.get(problem_id, [])
+            if relationship["proposal_id"] == proposal_id
+        ]
+
+    def set_related_scenario_ids(
+        self,
+        problem_id: str,
+        proposal_id: str,
+        scenario_ids: list[str],
+    ) -> None:
+        """Replace the scenarios linked to a proposal."""
+        self._load_relationships_if_needed(problem_id)
+        retained = [
+            relationship
+            for relationship in self._relationships.get(problem_id, [])
+            if relationship["proposal_id"] != proposal_id
+        ]
+        retained.extend(
+            {
+                "proposal_id": proposal_id,
+                "scenario_id": scenario_id,
+            }
+            for scenario_id in dict.fromkeys(scenario_ids)
+        )
+        self._relationships[problem_id] = retained
+
+    def link_scenario_to_proposal(
+        self,
+        problem_id: str,
+        proposal_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Link a scenario to a proposal."""
+        self._load_relationships_if_needed(problem_id)
+        relationship = {"proposal_id": proposal_id, "scenario_id": scenario_id}
+        relationships = self._relationships.setdefault(problem_id, [])
+        if relationship not in relationships:
+            relationships.append(relationship)
+
+    def unlink_scenario(self, problem_id: str, scenario_id: str) -> None:
+        """Remove all links for a scenario."""
+        self._load_relationships_if_needed(problem_id)
+        self._relationships[problem_id] = [
+            relationship
+            for relationship in self._relationships.get(problem_id, [])
+            if relationship["scenario_id"] != scenario_id
+        ]
+
+    def unlink_proposal(self, problem_id: str, proposal_id: str) -> None:
+        """Remove all links for a proposal."""
+        self._load_relationships_if_needed(problem_id)
+        self._relationships[problem_id] = [
+            relationship
+            for relationship in self._relationships.get(problem_id, [])
+            if relationship["proposal_id"] != proposal_id
+        ]
+
+    # ───────────────────────────────────────────────────────────
     # Internal
     # ───────────────────────────────────────────────────────────
 
-    def _load_optional_items(self, loader) -> list:
-        """Load child items and return an empty list when the section is missing."""
-        try:
-            return [item for item in loader()]
-        except FileNotFoundError:
-            return []
+    def _load_relationships_if_needed(self, problem_id: str) -> None:
+        if problem_id not in self._relationships:
+            self.load_relationships(problem_id)

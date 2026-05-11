@@ -134,7 +134,7 @@ async def read_problem(
         proposals = [
             proposal_to_api(
                 proposal,
-                manager.get_related_scenario_ids_for_proposal(
+                manager.problem_manager.get_related_scenario_ids(
                     problem_id, proposal.proposal_id
                 ),
                 scenario_map,

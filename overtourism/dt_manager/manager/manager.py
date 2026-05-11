@@ -17,7 +17,6 @@ from overtourism.dt_manager.evaluation.evaluation import (
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.manager.config import BaseProblemConfig
-from overtourism.dt_manager.manager.relationships import RelationshipManager
 from overtourism.dt_manager.problem.manager import ProblemManager
 from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
@@ -34,9 +33,8 @@ if typing.TYPE_CHECKING:
 class Manager:
     """Facade exposing problem, scenario, proposal, and relationship managers.
 
-    Proposal-scenario links are managed separately from proposal and scenario
-    entities so they can be persisted in the dedicated relationship store and
-    serialized under the top-level ``relationship`` section in local JSON.
+    Proposal-scenario links are managed on the problem aggregate and persisted
+    under the top-level ``relationship`` section in the problem document.
     ``extras_config`` is stored on the facade so the API layer can extract
     problem, proposal, and scenario extras consistently.
 
@@ -60,7 +58,7 @@ class Manager:
         extras_config: ExtrasConfig | None = None,
         base_problem_config: BaseProblemConfig | None = None,
     ) -> None:
-        """Create the high-level manager facade and relationship manager."""
+        """Create the high-level manager facade."""
         self.model = model
         self.model_evaluator = model_evaluator
         self.extras_config = extras_config
@@ -77,7 +75,6 @@ class Manager:
         self.evaluation_managers: dict[str, EvaluationManager] = {}
         self.executor = Executor(self.model, self.model_evaluator)
         self.proposal_managers: dict[str, ProposalManager] = {}
-        self.relationship_manager = RelationshipManager(self.store)
 
         self._setup()
 
@@ -116,7 +113,7 @@ class Manager:
             status=self.base_problem_config.proposal_status,
             extras=self.base_problem_config.proposal_extras,
         )
-        self.relationship_manager.link_scenario_to_proposal(
+        self.problem_manager.link_scenario_to_proposal(
             self.base_problem_config.problem_id,
             self.base_problem_config.proposal_id,
             self.base_problem_config.scenario_id,
@@ -221,7 +218,7 @@ class Manager:
             "scenarios": scenarios,
             "proposals": proposals,
             "evaluations": evaluations,
-            "relationship": self.relationship_manager.get_relationships(problem_id),
+            "relationship": self.problem_manager.get_relationships(problem_id),
         }
         self.store.save_problem_document(problem_id, payload)
 
@@ -247,6 +244,11 @@ class Manager:
             name=self.base_problem_config.scenario_name,
             description=self.base_problem_config.scenario_description,
             extras=self.base_problem_config.scenario_extras,
+        )
+        self.problem_manager.link_scenario_to_proposal(
+            problem_id,
+            self.base_problem_config.proposal_id,
+            self.base_problem_config.scenario_id,
         )
         self.save_problem(problem_id)
 
@@ -292,7 +294,7 @@ class Manager:
         self.save_problem(problem_id)
 
     def delete_problem(self, problem_id: str) -> None:
-        """Delete a problem and clear its child managers and cached relationships.
+        """Delete a problem and clear its child managers.
 
         Parameters
         ----------
@@ -303,7 +305,6 @@ class Manager:
         self.evaluation_managers.pop(problem_id, None)
         self.scenario_managers.pop(problem_id, None)
         self.proposal_managers.pop(problem_id, None)
-        self.relationship_manager.delete_relationships(problem_id)
 
     # ───────────────────────────────────────────────────────────
     # Scenarios
@@ -344,7 +345,7 @@ class Manager:
             **kwargs,
         )
         if proposal_id is not None:
-            self.relationship_manager.link_scenario_to_proposal(
+            self.problem_manager.link_scenario_to_proposal(
                 problem_id,
                 proposal_id,
                 scenario.scenario_id,
@@ -385,7 +386,7 @@ class Manager:
         self.evaluation_managers[problem_id].delete_evaluations_for_scenario(
             scenario_id
         )
-        self.relationship_manager.unlink_scenario(problem_id, scenario_id)
+        self.problem_manager.unlink_scenario(problem_id, scenario_id)
         self.save_problem(problem_id)
 
     # ───────────────────────────────────────────────────────────
@@ -438,7 +439,7 @@ class Manager:
         self.evaluation_managers[problem_id].save_session_evaluation(session_id)
 
         if proposal_id is not None:
-            self.relationship_manager.link_scenario_to_proposal(
+            self.problem_manager.link_scenario_to_proposal(
                 problem_id,
                 proposal_id,
                 session_scenario.scenario_id,
@@ -570,7 +571,7 @@ class Manager:
             extras=extras,
         )
         if related_scenario_ids is not None:
-            self.relationship_manager.set_related_scenario_ids(
+            self.problem_manager.set_related_scenario_ids(
                 problem_id,
                 proposal_id,
                 related_scenario_ids,
@@ -607,7 +608,7 @@ class Manager:
             extras=extras if extras else None,
         )
         if related_scenario_ids is not None:
-            self.relationship_manager.set_related_scenario_ids(
+            self.problem_manager.set_related_scenario_ids(
                 problem_id,
                 proposal_id,
                 related_scenario_ids,
@@ -617,16 +618,5 @@ class Manager:
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         """Delete a proposal and persist the resulting aggregate."""
         self.proposal_managers[problem_id].delete_proposal(proposal_id)
-        self.relationship_manager.unlink_proposal(problem_id, proposal_id)
+        self.problem_manager.unlink_proposal(problem_id, proposal_id)
         self.save_problem(problem_id)
-
-    def get_related_scenario_ids_for_proposal(
-        self,
-        problem_id: str,
-        proposal_id: str,
-    ) -> list[str]:
-        """Return the scenario identifiers linked to a proposal."""
-        return self.relationship_manager.get_related_scenario_ids(
-            problem_id,
-            proposal_id,
-        )

@@ -46,7 +46,7 @@ async def list_proposals(
             Proposal(
                 **proposal_to_api(
                     proposal,
-                    manager.get_related_scenario_ids_for_proposal(
+                    manager.problem_manager.get_related_scenario_ids(
                         problem_id, proposal.proposal_id
                     ),
                     scenario_map,
@@ -127,7 +127,9 @@ async def read_proposal(
         return Proposal(
             **proposal_to_api(
                 proposal,
-                manager.get_related_scenario_ids_for_proposal(problem_id, proposal_id),
+                manager.problem_manager.get_related_scenario_ids(
+                    problem_id, proposal_id
+                ),
                 scenario_map,
                 mgrs,
             )
