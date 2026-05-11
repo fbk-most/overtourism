@@ -9,7 +9,11 @@ import numpy as np
 import orjson
 import pandas as pd
 
-from overtourism.backend.data.catalog import OVERTOURISM_INDEX_CATALOG, IndexCatalog, Language
+from overtourism.backend.data.catalog import (
+    OVERTOURISM_INDEX_CATALOG,
+    IndexCatalog,
+    Language,
+)
 
 
 class OvertourismIndexesLoader:

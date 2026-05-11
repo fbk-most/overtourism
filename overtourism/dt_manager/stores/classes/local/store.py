@@ -9,7 +9,11 @@ from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.stores.classes.base import Store
-from overtourism.dt_manager.stores.classes.local.io import get_glob, load_json, save_json
+from overtourism.dt_manager.stores.classes.local.io import (
+    get_glob,
+    load_json,
+    save_json,
+)
 from overtourism.dt_manager.stores.enums import ProblemDocumentKey, ProblemNestedKey
 from overtourism.dt_manager.utils.exception import ScenarioDoesNotExist
 

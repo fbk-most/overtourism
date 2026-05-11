@@ -14,6 +14,7 @@ from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.stores.enums import ProblemNestedKey
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class SQLBase(DeclarativeBase):
@@ -249,13 +250,15 @@ def scenario_to_orm(scenario: Scenario, problem_id: str | None = None) -> Scenar
 
 
 def scenario_from_orm(scenario: ScenarioORM) -> Scenario:
+    created = scenario.created or get_timestamp()
+    updated = scenario.updated or created
     return Scenario(
         scenario_id=scenario.scenario_id,
         problem_id=scenario.problem_id,
         name=scenario.name,
         description=scenario.description,
-        created=scenario.created,
-        updated=scenario.updated,
+        created=created,
+        updated=updated,
         index_diffs=scenario.index_diffs,
         extras=scenario.extras,
         index_values=[IndexEntry.from_dict(item) for item in scenario.index_values],

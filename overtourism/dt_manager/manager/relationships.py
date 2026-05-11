@@ -61,6 +61,14 @@ class RelationshipManager:
         ]
         self.store.save_problem_document(problem_id, document)
 
+    def get_relationships(self, problem_id: str) -> list[dict[str, str]]:
+        """Return the current relationship links for a problem."""
+        self._load_if_needed(problem_id)
+        return [
+            {"proposal_id": proposal_id, "scenario_id": scenario_id}
+            for proposal_id, scenario_id in self._relationships.get(problem_id, [])
+        ]
+
     def delete_relationships(self, problem_id: str) -> None:
         """Drop cached relationships for a problem."""
         self._relationships.pop(problem_id, None)
@@ -105,7 +113,6 @@ class RelationshipManager:
         for scenario_id in dict.fromkeys(scenario_ids):
             retained.append((proposal_id, scenario_id))
         self._relationships[problem_id] = retained
-        self.save_relationships(problem_id)
 
     def link_scenario_to_proposal(
         self,
@@ -119,7 +126,6 @@ class RelationshipManager:
         relationships = self._relationships.setdefault(problem_id, [])
         if pair not in relationships:
             relationships.append(pair)
-            self.save_relationships(problem_id)
 
     def unlink_scenario_from_proposal(
         self,
@@ -134,7 +140,6 @@ class RelationshipManager:
             for pair in self._relationships.get(problem_id, [])
             if pair != (proposal_id, scenario_id)
         ]
-        self.save_relationships(problem_id)
 
     def unlink_scenario(self, problem_id: str, scenario_id: str) -> None:
         """Remove all links for a scenario and persist the relationship."""
@@ -144,7 +149,6 @@ class RelationshipManager:
             for pair in self._relationships.get(problem_id, [])
             if pair[1] != scenario_id
         ]
-        self.save_relationships(problem_id)
 
     def unlink_proposal(self, problem_id: str, proposal_id: str) -> None:
         """Remove all links for a proposal and persist the relationship."""
@@ -154,7 +158,6 @@ class RelationshipManager:
             for pair in self._relationships.get(problem_id, [])
             if pair[0] != proposal_id
         ]
-        self.save_relationships(problem_id)
 
     # ───────────────────────────────────────────────────────────
     # Internal helpers

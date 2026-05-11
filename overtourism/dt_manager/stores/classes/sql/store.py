@@ -283,11 +283,12 @@ class SQLStore(Store):
             scenario_to_orm(Scenario.from_dict(payload), problem_id)
             for payload in problem_data.get(ProblemDocumentKey.SCENARIOS, [])
         ]
+        session.add(problem_orm)
+        session.flush()
         problem_orm.relationships = [
             relationship_to_orm(payload, problem_id)
             for payload in problem_data.get(ProblemDocumentKey.RELATIONSHIP, [])
         ]
-        session.add(problem_orm)
         session.flush()
         problem_orm.evaluations = [
             evaluation_to_orm(Evaluation.from_dict(payload), problem_id)

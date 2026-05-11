@@ -5,6 +5,7 @@ from __future__ import annotations
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.enums import ProblemDocumentKey
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class ProblemManager:
@@ -31,7 +32,7 @@ class ProblemManager:
     # CRUD
     # ───────────────────────────────────────────────────────────
 
-    def add_problem(
+    def create_problem(
         self,
         problem_id: str,
         **kwargs,
@@ -49,7 +50,7 @@ class ProblemManager:
         problem = Problem.create_default(problem_id, **kwargs)
         self.problems[problem_id] = problem
 
-    def get_problem(self, problem_id: str) -> Problem:
+    def read_problem(self, problem_id: str) -> Problem:
         """Return a registered problem.
 
         Parameters
@@ -64,6 +65,43 @@ class ProblemManager:
         """
         return self.problems[problem_id]
 
+    def update_problem(self, problem_id: str, **kwargs) -> None:
+        """Update a registered problem with new metadata."""
+
+        updated = False
+        problem = self.problems[problem_id]
+        name = kwargs.pop("name", None)
+        if name is not None:
+            problem.name = name
+            updated = True
+        description = kwargs.pop("description", None)
+        if description is not None:
+            problem.description = description
+            updated = True
+        extras = kwargs.pop("extras", None)
+        if extras is not None:
+            for key, value in extras.items():
+                problem.extras[key] = value
+            updated = True
+        if updated:
+            problem.updated = get_timestamp()
+            self.problems[problem_id] = problem
+
+    def delete_problem(self, problem_id: str) -> None:
+        """Remove a problem from memory and storage.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the problem to delete.
+        """
+        self.problems.pop(problem_id, None)
+        self.store.delete_problem(problem_id)
+
+    # ───────────────────────────────────────────────────────────
+    # I/O
+    # ───────────────────────────────────────────────────────────
+
     def save_problem(self, problem_id: str) -> None:
         """Persist a problem and its child documents.
 
@@ -76,28 +114,23 @@ class ProblemManager:
         problem_id : str
             Identifier of the problem to save.
         """
-        problem = self.get_problem(problem_id)
-        try:
-            scenarios = [
+        problem = self.read_problem(problem_id)
+        scenarios = self._load_optional_items(
+            lambda: (
                 scenario.to_dict() for scenario in self.store.load_scenarios(problem_id)
-            ]
-        except FileNotFoundError:
-            scenarios = []
-
-        try:
-            proposals = [
+            )
+        )
+        proposals = self._load_optional_items(
+            lambda: (
                 proposal.to_dict() for proposal in self.store.load_proposals(problem_id)
-            ]
-        except FileNotFoundError:
-            proposals = []
-
-        try:
-            evaluations = [
+            )
+        )
+        evaluations = self._load_optional_items(
+            lambda: (
                 evaluation.to_dict()
                 for evaluation in self.store.load_evaluations(problem_id)
-            ]
-        except FileNotFoundError:
-            evaluations = []
+            )
+        )
 
         try:
             document = self.store.load_problem_document(problem_id)
@@ -142,13 +175,13 @@ class ProblemManager:
         for problem_id in problem_ids:
             self.load_problem(problem_id)
 
-    def delete_problem(self, problem_id: str) -> None:
-        """Remove a problem from memory and storage.
+    # ───────────────────────────────────────────────────────────
+    # Internal
+    # ───────────────────────────────────────────────────────────
 
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to delete.
-        """
-        self.problems.pop(problem_id, None)
-        self.store.delete_problem(problem_id)
+    def _load_optional_items(self, loader) -> list:
+        """Load child items and return an empty list when the section is missing."""
+        try:
+            return [item for item in loader()]
+        except FileNotFoundError:
+            return []

@@ -9,6 +9,7 @@ from scipy import stats
 
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 def scenario_values(
@@ -49,6 +50,9 @@ def scenario_values(
     Scenario
         Scenario instance ready for storage.
     """
+    now = get_timestamp()
+    created = now if created is None else created
+    updated = created if updated is None else updated
     indexes = _prepare_indexes(values)
     if index_diffs is None:
         index_diffs = {}

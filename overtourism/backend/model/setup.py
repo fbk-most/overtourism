@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from overtourism.backend.model.adapters.evaluator import (
@@ -21,6 +22,7 @@ from overtourism.backend.model.molveno_model import (
 from overtourism.backend.model.overtourism_metamodel import OvertourismEnsemble
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.manager import Manager
+from overtourism.dt_manager.manager.config import BaseProblemConfig
 from overtourism.dt_manager.stores.config import StoreConfig
 
 # ──────────────────────────────────────────────
@@ -118,6 +120,18 @@ extras_config = ExtrasConfig(
     proposal_keys=frozenset(("resources", "context", "impact")),
 )
 
+
+@dataclass
+class OvertourismProblemConfig(BaseProblemConfig):
+    problem_extras: dict = field(
+        default_factory=lambda: {
+            "editable_indexes": list(INDEX_NAME_MAP.keys()),
+            "groups": ["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
+        }
+    )
+    scenario_id: str = "model_0"
+
+
 # ──────────────────────────────────────────────
 # Store
 # ──────────────────────────────────────────────
@@ -135,4 +149,5 @@ problem_manager = Manager(
     model_evaluator=model_evaluator,
     store_config=store_conf,
     extras_config=extras_config,
+    base_problem_config=OvertourismProblemConfig(),
 )

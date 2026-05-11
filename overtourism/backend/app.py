@@ -16,9 +16,6 @@ from overtourism.backend.managers import Managers
 from overtourism.backend.model.adapters.utils import arrange_data
 from overtourism.backend.model.setup import problem_manager
 
-# Load existing problems from the configured store
-problem_manager.load_problems()
-
 viewer = ModelViewer(MOLVENO_SIM_INDEXES)
 data_loader = OvertourismIndexesLoader(
     str(Path(__file__).parent / "model" / "data" / "index_data")

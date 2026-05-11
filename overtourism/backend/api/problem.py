@@ -9,10 +9,7 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.dependencies import get_managers
 from overtourism.backend.api.utils import (
-    apply_problem_request_to_metadata,
     build_problem_extras,
-    build_proposal_extras,
-    extract_related_scenario_ids,
     get_problem_or_404,
     get_widget_by_group,
     problem_to_api,
@@ -26,7 +23,7 @@ from overtourism.backend.shared.models.problem import (
     UpdateProblemData,
 )
 from overtourism.backend.shared.models.scenario import ScenarioList
-from overtourism.backend.shared.utils import BASE_ROUTE, get_timestamp
+from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +47,9 @@ async def list_problems(mgrs: Managers = Depends(get_managers)) -> ProblemList:
                 "problem_id": problem.problem_id,
                 **problem_to_api(problem),
             }
-            for problem in (manager.get_problem(pid) for pid in manager.list_problems())
+            for problem in (
+                manager.read_problem(pid) for pid in manager.list_problems()
+            )
         ]
         return ProblemList(data=problems)
     except Exception as e:
@@ -71,56 +70,21 @@ async def create_problem(
     data: PostProblemData,
     mgrs: Managers = Depends(get_managers),
 ) -> dict:
-    """Create a new problem with its default scenario and proposals."""
+    """Create a new problem with default scenario."""
     try:
-        manager = mgrs.manager
         problem_id = slugify.slugify(data.problem_name)
-        timestamp = get_timestamp()
-
         editable_indexes = get_widget_by_group(mgrs, data.groups)
-
         extras = build_problem_extras(mgrs, data.model_dump(), editable_indexes)
-
-        manager.add_problem(
-            problem_id=problem_id,
-            name=data.problem_name,
-            description=data.problem_description,
-            created=timestamp,
-            updated=timestamp,
-            extras=extras,
-        )
-        manager.save_problem(problem_id)
-        manager.add_scenario(
+        mgrs.manager.create_problem(
             problem_id,
-            "model_0",
-            name="Base",
-            description="Scenario base",
+            problem_kwargs={
+                "name": data.problem_name,
+                "description": data.problem_description,
+                "created": data.created,
+                "updated": data.updated,
+                "extras": extras,
+            },
         )
-        manager.save_scenario(problem_id, "model_0")
-        manager.evaluate_scenario(problem_id, "model_0")
-
-        # Create initial proposals
-        for i, p in enumerate(data.proposals):
-            p_data = p if isinstance(p, dict) else p.model_dump(exclude_unset=True)
-            proposal_extras = build_proposal_extras(mgrs, p_data)
-            related_scenario_ids = extract_related_scenario_ids(p_data)
-            manager.add_proposal(
-                problem_id,
-                proposal_id=f"proposal_{i}",
-                name=p_data.get("proposal_title"),
-                description=p_data.get("proposal_description"),
-                status=p_data.get("status", "draft"),
-                extras=proposal_extras,
-            )
-            if related_scenario_ids:
-                manager.set_related_scenario_ids_for_proposal(
-                    problem_id,
-                    f"proposal_{i}",
-                    related_scenario_ids,
-                )
-            manager.save_proposal(problem_id, f"proposal_{i}")
-
-        manager.save_problem(problem_id)
 
         logger.info(f"Problem created: {problem_id}")
         return {"message": "Problem created successfully", "problem_id": problem_id}
@@ -162,15 +126,19 @@ async def read_problem(
     try:
         manager = mgrs.manager
         problem = get_problem_or_404(mgrs, problem_id)
-        scenario_manager = manager.get_scenario_manager(problem_id)
-        proposal_manager = manager.get_proposal_manager(problem_id)
+        scenario_map = {
+            scenario.scenario_id: scenario
+            for scenario in manager.list_scenarios(problem_id)
+        }
         proposals = [
             proposal_to_api(
                 proposal,
-                manager.get_related_scenario_ids_for_proposal(problem_id, pid),
-                scenario_manager.scenarios,
+                manager.get_related_scenario_ids_for_proposal(
+                    problem_id, proposal.proposal_id
+                ),
+                scenario_map,
             )
-            for pid, proposal in proposal_manager.proposals.items()
+            for proposal in manager.list_proposals(problem_id)
         ]
         return GetProblemData(
             problem_id=problem.problem_id,
@@ -199,11 +167,26 @@ async def update_problem(
     """Update a problem and persist the current aggregate."""
     try:
         manager = mgrs.manager
+        payload = data.model_dump()
         problem = get_problem_or_404(mgrs, problem_id)
-        problem.updated = get_timestamp()
-        apply_problem_request_to_metadata(mgrs, problem, data.model_dump())
+        extras = dict(problem.extras)
+        if payload.get("editable_indexes") is not None:
+            extras["editable_indexes"] = payload["editable_indexes"]
+        if payload.get("groups") is not None:
+            editable_indexes = get_widget_by_group(mgrs, payload["groups"])
+            extras["editable_indexes"] = editable_indexes
+            extras["groups"] = payload["groups"]
+        if payload.get("objective") is not None:
+            extras["objective"] = payload["objective"]
+        if payload.get("links") is not None:
+            extras["links"] = payload["links"]
 
-        manager.save_problem(problem_id)
+        manager.update_problem(
+            problem_id,
+            name=payload.get("problem_name"),
+            description=payload.get("problem_description"),
+            extras=extras,
+        )
 
         logger.info(f"Problem updated: {problem_id}")
         return {"message": "Problem updated successfully"}
@@ -250,7 +233,6 @@ async def list_scenarios(
     try:
         manager = mgrs.manager
         problem = get_problem_or_404(mgrs, problem_id)
-        scenario_manager = manager.get_scenario_manager(problem_id)
         models = [
             {
                 "problem_id": problem.problem_id,
@@ -262,7 +244,7 @@ async def list_scenarios(
                 "index_diffs": s.index_diffs,
                 **s.extras,
             }
-            for s in scenario_manager.scenarios.values()
+            for s in manager.list_scenarios(problem_id)
         ]
         return ScenarioList(scenarios=models)
     except Exception as e:

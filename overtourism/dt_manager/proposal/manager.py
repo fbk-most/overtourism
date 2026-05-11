@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.stores.classes.base import Store
-from overtourism.dt_manager.utils.exception import ProposalAlreadyExists, ProposalDoesNotExist
+from overtourism.dt_manager.utils.exception import (
+    ProposalAlreadyExists,
+    ProposalDoesNotExist,
+)
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 
@@ -154,6 +157,10 @@ class ProposalManager:
         self.proposals.pop(proposal_id)
         self.store.delete_proposal(self.problem_id, proposal_id)
 
+    # ───────────────────────────────────────────────────────────
+    # I/O
+    # ───────────────────────────────────────────────────────────
+
     def save_proposal(self, proposal_id: str) -> Proposal:
         """Persist a proposal to storage.
 
@@ -207,6 +214,10 @@ class ProposalManager:
             Proposals returned by the store.
         """
         return self.store.load_proposals(self.problem_id)
+
+    # ───────────────────────────────────────────────────────────
+    # Accessors
+    # ───────────────────────────────────────────────────────────
 
     def list_proposals(self) -> dict[str, Proposal]:
         """Return the in-memory proposal mapping.

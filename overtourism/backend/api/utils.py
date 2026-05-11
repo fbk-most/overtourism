@@ -20,7 +20,7 @@ from overtourism.dt_manager.scenario.scenario import Scenario
 def get_problem_or_404(mgrs: Managers, problem_id: str) -> Problem:
     """Return a problem or raise a not-found error."""
     try:
-        return mgrs.manager.get_problem(problem_id)
+        return mgrs.manager.read_problem(problem_id)
     except KeyError:
         raise ProblemNotFound(f"Problem '{problem_id}' not found")
 

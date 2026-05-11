@@ -38,16 +38,21 @@ async def list_proposals(
     try:
         manager = mgrs.manager
         get_problem_or_404(mgrs, problem_id)
-        proposal_manager = manager.get_proposal_manager(problem_id)
+        scenario_map = {
+            scenario.scenario_id: scenario
+            for scenario in manager.list_scenarios(problem_id)
+        }
         p_list = [
             Proposal(
                 **proposal_to_api(
                     proposal,
-                    manager.get_related_scenario_ids_for_proposal(problem_id, pid),
-                    manager.get_scenario_manager(problem_id).scenarios,
+                    manager.get_related_scenario_ids_for_proposal(
+                        problem_id, proposal.proposal_id
+                    ),
+                    scenario_map,
                 )
             )
-            for pid, proposal in proposal_manager.proposals.items()
+            for proposal in manager.list_proposals(problem_id)
         ]
         return ProposalList(data=p_list)
     except Exception as e:
@@ -73,30 +78,21 @@ async def create_proposal(
     try:
         manager = mgrs.manager
         get_problem_or_404(mgrs, problem_id)
-        proposal_manager = manager.get_proposal_manager(problem_id)
-        proposal_id = f"proposal_{len(proposal_manager.proposals)}"
 
         p_data = proposal.model_dump(exclude_unset=True)
         extras, scenario_ids = parse_proposal_request(mgrs, p_data)
         related_scenarios = p_data.get("related_scenarios")
 
-        manager.add_proposal(
+        proposal_id = manager.create_proposal(
             problem_id,
-            proposal_id=proposal_id,
             name=p_data.get("proposal_title"),
             description=p_data.get("proposal_description"),
             status=p_data.get("status", "draft"),
             extras=extras,
+            related_scenario_ids=scenario_ids
+            if related_scenarios is not None
+            else None,
         )
-
-        if related_scenarios is not None:
-            manager.set_related_scenario_ids_for_proposal(
-                problem_id,
-                proposal_id,
-                scenario_ids,
-            )
-
-        manager.save_proposal(problem_id, proposal_id)
 
         logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal created successfully", "proposal_id": proposal_id}
@@ -122,14 +118,16 @@ async def read_proposal(
     """Read a proposal by identifier."""
     try:
         manager = mgrs.manager
-        scenario_manager = manager.get_scenario_manager(problem_id)
-        proposal_manager = manager.get_proposal_manager(problem_id)
-        proposal = proposal_manager.get_proposal(proposal_id)
+        proposal = manager.read_proposal(problem_id, proposal_id)
+        scenario_map = {
+            scenario.scenario_id: scenario
+            for scenario in manager.list_scenarios(problem_id)
+        }
         return Proposal(
             **proposal_to_api(
                 proposal,
                 manager.get_related_scenario_ids_for_proposal(problem_id, proposal_id),
-                scenario_manager.scenarios,
+                scenario_map,
             )
         )
     except Exception as e:
@@ -156,30 +154,20 @@ async def update_proposal(
 ) -> dict:
     """Update a proposal and its related scenario links."""
     try:
-        manager = mgrs.manager
         get_problem_or_404(mgrs, problem_id)
-        proposal_manager = manager.get_proposal_manager(problem_id)
 
         p_data = proposal.model_dump(exclude_unset=True)
         extras, scenario_ids = parse_proposal_request(mgrs, p_data)
-        related_scenarios = p_data.get("related_scenarios")
 
-        proposal_manager.update_proposal(
-            proposal_id=proposal_id,
+        mgrs.manager.update_proposal(
+            problem_id,
+            proposal_id,
             name=p_data.get("proposal_title"),
             description=p_data.get("proposal_description"),
             status=p_data.get("status"),
             extras=extras if extras else None,
+            related_scenario_ids=scenario_ids,
         )
-
-        if related_scenarios is not None:
-            manager.set_related_scenario_ids_for_proposal(
-                problem_id,
-                proposal_id,
-                scenario_ids,
-            )
-        manager.save_proposal(problem_id, proposal_id)
-
         logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal updated successfully"}
     except Exception as e:

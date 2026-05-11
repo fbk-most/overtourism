@@ -41,6 +41,10 @@ class EvaluationManager:
         self.evaluations: dict[str, Evaluation] = {}
         self._session_evaluations: dict[str, Evaluation] = {}
 
+    # ───────────────────────────────────────────────────────────
+    # Lifecycle
+    # ───────────────────────────────────────────────────────────
+
     def create_evaluation(
         self,
         evaluation_id: str,
@@ -85,7 +89,7 @@ class EvaluationManager:
             if evaluation.scenario_id == scenario_id
         ]
 
-    def get_latest_evaluation(self, scenario_id: str) -> Evaluation:
+    def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
         """Return the most recently registered evaluation for a scenario."""
         for evaluation in reversed(list(self.evaluations.values())):
             if evaluation.scenario_id == scenario_id:
@@ -97,23 +101,24 @@ class EvaluationManager:
     def start_evaluation(self, evaluation_id: str) -> Evaluation:
         """Mark an evaluation as running."""
         evaluation = self.get_evaluation(evaluation_id)
-        evaluation.state = EvaluationState.RUNNING
-        evaluation.started = (
-            get_timestamp() if evaluation.started is None else evaluation.started
+        started = get_timestamp() if evaluation.started is None else evaluation.started
+        return self._save_state(
+            evaluation,
+            state=EvaluationState.RUNNING,
+            started=started,
+            finished=None,
+            result=None,
         )
-        evaluation.finished = None
-        evaluation.result = None
-        self._save_evaluation(evaluation)
-        return evaluation
 
     def complete_evaluation(self, evaluation_id: str, result: Any) -> Evaluation:
         """Mark an evaluation as completed and store its result."""
         evaluation = self.get_evaluation(evaluation_id)
-        evaluation.state = EvaluationState.COMPLETED
-        evaluation.finished = get_timestamp()
-        evaluation.result = result
-        self._save_evaluation(evaluation)
-        return evaluation
+        return self._save_state(
+            evaluation,
+            state=EvaluationState.COMPLETED,
+            finished=get_timestamp(),
+            result=result,
+        )
 
     def fail_evaluation(
         self,
@@ -122,11 +127,12 @@ class EvaluationManager:
     ) -> Evaluation:
         """Mark an evaluation as failed and optionally keep a partial result."""
         evaluation = self.get_evaluation(evaluation_id)
-        evaluation.state = EvaluationState.FAILED
-        evaluation.finished = get_timestamp()
-        evaluation.result = result
-        self._save_evaluation(evaluation)
-        return evaluation
+        return self._save_state(
+            evaluation,
+            state=EvaluationState.FAILED,
+            finished=get_timestamp(),
+            result=result,
+        )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
         """Remove an evaluation from memory."""
@@ -138,21 +144,24 @@ class EvaluationManager:
         if self.store is not None and self.problem_id is not None:
             self.store.delete_evaluation(self.problem_id, evaluation_id)
 
-    def set_session_evaluation(self, session_id: str, evaluation: Evaluation) -> None:
-        """Attach an in-memory evaluation to a transient session."""
-        self._session_evaluations[session_id] = evaluation
+    def delete_evaluations_for_scenario(self, scenario_id: str) -> None:
+        """Remove all evaluations associated with a scenario from memory."""
+        evaluation_ids = [
+            evaluation_id
+            for evaluation_id, evaluation in self.evaluations.items()
+            if evaluation.scenario_id == scenario_id
+        ]
+        for evaluation_id in evaluation_ids:
+            self.evaluations.pop(evaluation_id, None)
+        self._session_evaluations = {
+            session_id: evaluation
+            for session_id, evaluation in self._session_evaluations.items()
+            if evaluation.scenario_id != scenario_id
+        }
 
-    def get_session_evaluation(self, session_id: str) -> Evaluation:
-        """Return the evaluation attached to a transient session."""
-        if session_id not in self._session_evaluations:
-            raise EvaluationDoesNotExist(
-                f"Evaluation for session {session_id} does not exist"
-            )
-        return self._session_evaluations[session_id]
-
-    def close_session(self, session_id: str) -> None:
-        """Discard a transient session evaluation."""
-        self._session_evaluations.pop(session_id, None)
+    # ───────────────────────────────────────────────────────────
+    # Persistence
+    # ───────────────────────────────────────────────────────────
 
     def load_evaluations(self) -> list[Evaluation]:
         """Load evaluations from storage into memory."""
@@ -181,12 +190,59 @@ class EvaluationManager:
         self.evaluations[evaluation.evaluation_id] = evaluation
         return evaluation
 
+    # ───────────────────────────────────────────────────────────
+    # Sessions
+    # ───────────────────────────────────────────────────────────
+
+    def set_session_evaluation(self, session_id: str, evaluation: Evaluation) -> None:
+        """Attach an in-memory evaluation to a transient session."""
+        self._session_evaluations[session_id] = evaluation
+
+    def read_session_evaluation(self, session_id: str) -> Evaluation:
+        """Return the evaluation attached to a transient session."""
+        if session_id not in self._session_evaluations:
+            raise EvaluationDoesNotExist(
+                f"Evaluation for session {session_id} does not exist"
+            )
+        return self._session_evaluations[session_id]
+
+    def close_session(self, session_id: str) -> None:
+        """Discard a transient session evaluation."""
+        self._session_evaluations.pop(session_id, None)
+
+    # ───────────────────────────────────────────────────────────
+    # Internal
+    # ───────────────────────────────────────────────────────────
+
     def _save_evaluation(self, evaluation: Evaluation) -> None:
         if self.store is None or self.problem_id is None:
             return
         self.store.save_evaluation(
             self.problem_id, evaluation.evaluation_id, evaluation
         )
+
+    def _save_state(
+        self,
+        evaluation: Evaluation,
+        *,
+        state: EvaluationState,
+        started: str | None = None,
+        finished: str | None = None,
+        result: Any | None = None,
+    ) -> Evaluation:
+        """Apply a lifecycle state and persist the evaluation."""
+        evaluation.state = state
+        if started is not None:
+            evaluation.started = started
+        if finished is not None:
+            evaluation.finished = finished
+        evaluation.result = result
+        self._save_evaluation(evaluation)
+        return evaluation
+
+    # ───────────────────────────────────────────────────────────
+    # Execution
+    # ───────────────────────────────────────────────────────────
 
     def run_evaluation(
         self,

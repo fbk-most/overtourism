@@ -57,7 +57,7 @@ class ScenarioManager:
     # CRUD
     # ───────────────────────────────────────────────────────────
 
-    def add_scenario(
+    def create_scenario(
         self,
         scenario_id: str,
         values: dict | None = None,
@@ -106,33 +106,7 @@ class ScenarioManager:
         )
         return self.scenarios[scenario_id]
 
-    def load_scenarios(self) -> list[Scenario]:
-        """Load all scenarios for the current problem.
-
-        Returns
-        -------
-        list[Scenario]
-            Scenarios returned by the store.
-        """
-        return self.store.load_scenarios(self.problem_id)
-
-    def load_scenario(self, scenario_data: Scenario, values: dict) -> None:
-        """Load a scenario into memory, evaluating it when needed.
-
-        Parameters
-        ----------
-        scenario_data : Scenario
-            Scenario loaded from storage.
-        values : dict
-            Scenario values to use if the scenario has not been evaluated yet.
-        """
-        try:
-            if scenario_data.scenario_id not in self.scenarios:
-                self.scenarios[scenario_data.scenario_id] = scenario_data
-        except ScenarioAlreadyExists:
-            pass
-
-    def get_scenario(self, scenario_id: str) -> Scenario:
+    def read_scenario(self, scenario_id: str) -> Scenario:
         """Return a registered scenario.
 
         Parameters
@@ -176,6 +150,24 @@ class ScenarioManager:
             problem_id=self.problem_id,
         )
 
+    def delete_scenario(self, scenario_id: str) -> None:
+        """Delete a scenario from memory and storage.
+
+        Parameters
+        ----------
+        scenario_id : str
+            Identifier of the scenario to delete.
+        """
+        try:
+            self.scenarios.pop(scenario_id)
+        except KeyError:
+            raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
+        self.store.delete_scenario(self.problem_id, scenario_id)
+
+    # ───────────────────────────────────────────────────────────
+    # I/O
+    # ───────────────────────────────────────────────────────────
+
     def save_scenario(
         self,
         scenario_id: str,
@@ -194,7 +186,7 @@ class ScenarioManager:
         Scenario
             Scenario payload written to storage.
         """
-        scenario = self.get_scenario(scenario_id)
+        scenario = self.read_scenario(scenario_id)
         scenario.index_values = list(scenario.index_values)
         scenario.problem_id = self.problem_id
         self.store.save_scenario(
@@ -204,31 +196,35 @@ class ScenarioManager:
         )
         return scenario
 
-    def create_session_scenario(
-        self,
-        scenario_id: str,
-        values: dict,
-    ) -> Scenario:
-        """Create a transient scenario used for a session evaluation."""
-        return self._create_session_scenario(scenario_id, values)
+    def load_scenarios(self) -> list[Scenario]:
+        """Load all scenarios for the current problem.
 
-    def register_session_scenario(self, session_id: str, scenario: Scenario) -> None:
-        """Store a transient scenario under its session identifier."""
-        self._sessions[session_id] = scenario
+        Returns
+        -------
+        list[Scenario]
+            Scenarios returned by the store.
+        """
+        return self.store.load_scenarios(self.problem_id)
 
-    def delete_scenario(self, scenario_id: str) -> None:
-        """Delete a scenario from memory and storage.
+    def load_scenario(self, scenario_data: Scenario, values: dict) -> None:
+        """Load a scenario into memory, evaluating it when needed.
 
         Parameters
         ----------
-        scenario_id : str
-            Identifier of the scenario to delete.
+        scenario_data : Scenario
+            Scenario loaded from storage.
+        values : dict
+            Scenario values to use if the scenario has not been evaluated yet.
         """
         try:
-            self.scenarios.pop(scenario_id)
-        except KeyError:
-            raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
-        self.store.delete_scenario(self.problem_id, scenario_id)
+            if scenario_data.scenario_id not in self.scenarios:
+                self.scenarios[scenario_data.scenario_id] = scenario_data
+        except ScenarioAlreadyExists:
+            pass
+
+    # ───────────────────────────────────────────────────────────
+    # Internal
+    # ───────────────────────────────────────────────────────────
 
     def _create_scenario(
         self,
@@ -268,13 +264,11 @@ class ScenarioManager:
             Constructed scenario.
         """
         values = {} if values is None else values
-
         if index_diffs is None:
             index_diffs = self.model_evaluator.get_index_diffs(
                 self.model,
                 values=values,
             )
-
         return scenario_values(
             scenario_id,
             values,
@@ -306,7 +300,7 @@ class ScenarioManager:
         Scenario
             Session-specific scenario.
         """
-        origin = self.get_scenario(scenario_id)
+        origin = self.read_scenario(scenario_id)
         now_timestamp = get_timestamp()
         return self._create_scenario(
             scenario_id=scenario_id,
@@ -318,14 +312,22 @@ class ScenarioManager:
         )
 
     # ───────────────────────────────────────────────────────────
-    # Execution
-    # ───────────────────────────────────────────────────────────
-
-    # ───────────────────────────────────────────────────────────
     # Sessions
     # ───────────────────────────────────────────────────────────
 
-    def get_session_scenario(self, session_id: str) -> Scenario:
+    def create_session_scenario(
+        self,
+        scenario_id: str,
+        values: dict,
+    ) -> Scenario:
+        """Create a transient scenario used for a session evaluation."""
+        return self._create_session_scenario(scenario_id, values)
+
+    def register_session_scenario(self, session_id: str, scenario: Scenario) -> None:
+        """Store a transient scenario under its session identifier."""
+        self._sessions[session_id] = scenario
+
+    def read_session_scenario(self, session_id: str) -> Scenario:
         """Return an active session scenario.
 
         Parameters

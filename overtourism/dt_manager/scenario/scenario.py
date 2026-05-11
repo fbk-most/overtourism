@@ -86,13 +86,15 @@ class Scenario(Dictable):
     @classmethod
     def from_dict(cls, scenario_dict: dict) -> Scenario:
         """Build a scenario from a flat scenario payload dictionary."""
+        created = scenario_dict.get("created") or get_timestamp()
+        updated = scenario_dict.get("updated") or created
         return cls(
             scenario_id=scenario_dict["scenario_id"],
             problem_id=scenario_dict.get("problem_id", ""),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),
-            created=scenario_dict.get("created"),
-            updated=scenario_dict.get("updated"),
+            created=created,
+            updated=updated,
             index_diffs=scenario_dict.get("index_diffs", {}),
             extras=scenario_dict.get("extras", {}),
             index_values=[
