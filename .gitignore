@@ -179,3 +179,8 @@ cython_debug/
 Output/
 testdata/
 *.parquet
+notes.md
+behaviour.md
+TODO.md
+concept.md
+overtourism/backend/model/data/*

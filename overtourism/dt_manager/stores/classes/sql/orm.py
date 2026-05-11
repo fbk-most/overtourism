@@ -131,33 +131,6 @@ class RelationshipORM(SQLBase):
     )
 
 
-class ExecutionORM(SQLBase):
-    __tablename__ = "execution"
-
-    execution_id: Mapped[str] = mapped_column(String, primary_key=True)
-    problem_id: Mapped[str] = mapped_column(
-        ForeignKey("problems.problem_id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    scenario_id: Mapped[str] = mapped_column(String, nullable=False)
-    session_id: Mapped[str | None] = mapped_column(String)
-    user_id: Mapped[str | None] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    output_data: Mapped[str | None] = mapped_column(Text)
-    output_link: Mapped[str | None] = mapped_column(Text)
-    created: Mapped[str | None] = mapped_column(String)
-    updated: Mapped[str | None] = mapped_column(String)
-    error_message: Mapped[str | None] = mapped_column(Text)
-
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["problem_id", "scenario_id"],
-            ["scenarios.problem_id", "scenarios.scenario_id"],
-            ondelete="CASCADE",
-        ),
-    )
-
-
 class EvaluationORM(SQLBase):
     __tablename__ = "evaluations"
 

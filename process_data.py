@@ -3,10 +3,9 @@ import os
 # os.environ["PROJECT_NAME"] = "testot"
 # os.environ["DATA_PREFIX"] = "testot/inputdata/"
 # os.environ["CLI_ENV"] = "t1"
-
 import pandas as pd
-from data_preparation.utils import get_dataframe, get_s3, log_dataframe
 
+from data_preparation.utils import get_dataframe, get_s3, log_dataframe
 
 
 def process_all_data():

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from .orm import (
     EvaluationORM,
-    ExecutionORM,
     ProblemORM,
     ProposalORM,
     RelationshipORM,
@@ -21,7 +20,6 @@ class SQLSchema:
     scenarios: type[ScenarioORM]
     evaluations: type[EvaluationORM]
     relationships: type[RelationshipORM]
-    executions: type[ExecutionORM]
 
 
 def build_sql_schema() -> SQLSchema:
@@ -31,5 +29,4 @@ def build_sql_schema() -> SQLSchema:
         scenarios=ScenarioORM,
         evaluations=EvaluationORM,
         relationships=RelationshipORM,
-        executions=ExecutionORM,
     )
