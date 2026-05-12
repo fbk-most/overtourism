@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, ForeignKey, ForeignKeyConstraint, String, Text
+from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -103,7 +103,6 @@ class ScenarioORM(SQLBase):
         nullable=False,
         default=list,
     )
-    is_evaluating: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     problem: Mapped[ProblemORM] = relationship(back_populates="scenarios")
 
 
@@ -218,7 +217,6 @@ def scenario_to_orm(scenario: Scenario, problem_id: str | None = None) -> Scenar
         extras=scenario.extras,
         index_diffs=getattr(scenario, "index_diffs", {}),
         index_values=[item.to_dict() for item in scenario.index_values],
-        is_evaluating=scenario.is_evaluating,
     )
 
 
@@ -234,7 +232,6 @@ def scenario_from_orm(scenario: ScenarioORM) -> Scenario:
         updated=updated,
         extras=scenario.extras,
         index_values=[IndexEntry.from_dict(item) for item in scenario.index_values],
-        is_evaluating=scenario.is_evaluating,
     )
 
 

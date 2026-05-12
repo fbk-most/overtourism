@@ -34,8 +34,6 @@ class Scenario(Dictable):
         Scenario-specific extra fields.
     index_values : list[IndexEntry], optional
         Stored model index values.
-    is_evaluating : bool, optional
-        Flag indicating whether the scenario is currently being evaluated.
     """
 
     scenario_id: str
@@ -46,7 +44,6 @@ class Scenario(Dictable):
     updated: str | None = None
     extras: dict = field(default_factory=dict)
     index_values: list[IndexEntry] = field(default_factory=list)
-    is_evaluating: bool = False
 
     @classmethod
     def create_default(
@@ -60,7 +57,6 @@ class Scenario(Dictable):
         updated: str | None = None,
         extras: dict | None = None,
         index_values: list[IndexEntry] | None = None,
-        is_evaluating: bool = False,
     ) -> Scenario:
         """Create a scenario with default values."""
         now = get_timestamp()
@@ -75,7 +71,6 @@ class Scenario(Dictable):
             updated=now if updated is None else updated,
             extras={} if extras is None else extras,
             index_values=[] if index_values is None else index_values,
-            is_evaluating=is_evaluating,
         )
 
     @classmethod

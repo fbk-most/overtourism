@@ -18,6 +18,7 @@ from overtourism.dt_manager.utils.exception import (
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 if TYPE_CHECKING:
+    from overtourism.dt_manager.classes.model import ModelOutput
     from overtourism.dt_manager.scenario.scenario import Scenario
 
 
@@ -30,9 +31,9 @@ class EvaluationManager:
 
     def __init__(
         self,
+        store: Store,
+        problem_id: str,
         executor: Executor,
-        store: Store | None = None,
-        problem_id: str | None = None,
     ) -> None:
         """Create an evaluation manager bound to an executor."""
         self.executor = executor
@@ -67,7 +68,7 @@ class EvaluationManager:
             state=EvaluationState.RUNNING,
         )
         self.evaluations[evaluation_id] = evaluation
-        self._save_evaluation(evaluation)
+        self.save_evaluation(evaluation)
         return evaluation
 
     def read_evaluation(self, evaluation_id: str) -> Evaluation:
@@ -98,42 +99,6 @@ class EvaluationManager:
             f"Evaluation for scenario {scenario_id} does not exist"
         )
 
-    def start_evaluation(self, evaluation_id: str) -> Evaluation:
-        """Mark an evaluation as running."""
-        evaluation = self.read_evaluation(evaluation_id)
-        started = get_timestamp() if evaluation.started is None else evaluation.started
-        return self._save_state(
-            evaluation,
-            state=EvaluationState.RUNNING,
-            started=started,
-            finished=None,
-            result=None,
-        )
-
-    def complete_evaluation(self, evaluation_id: str, result: Any) -> Evaluation:
-        """Mark an evaluation as completed and store its result."""
-        evaluation = self.read_evaluation(evaluation_id)
-        return self._save_state(
-            evaluation,
-            state=EvaluationState.COMPLETED,
-            finished=get_timestamp(),
-            result=result,
-        )
-
-    def fail_evaluation(
-        self,
-        evaluation_id: str,
-        result: dict[str, Any] | None = None,
-    ) -> Evaluation:
-        """Mark an evaluation as failed and optionally keep a partial result."""
-        evaluation = self.read_evaluation(evaluation_id)
-        return self._save_state(
-            evaluation,
-            state=EvaluationState.FAILED,
-            finished=get_timestamp(),
-            result=result,
-        )
-
     def delete_evaluation(self, evaluation_id: str) -> None:
         """Remove an evaluation from memory."""
         if evaluation_id not in self.evaluations:
@@ -160,19 +125,22 @@ class EvaluationManager:
         }
 
     # ───────────────────────────────────────────────────────────
-    # Persistence
+    # I/O
     # ───────────────────────────────────────────────────────────
+
+    def save_evaluation(self, evaluation: Evaluation) -> None:
+        self.store.save_evaluation(
+            self.problem_id,
+            evaluation.evaluation_id,
+            evaluation,
+        )
 
     def load_evaluations(self) -> list[Evaluation]:
         """Load evaluations from storage into memory."""
-        if self.store is None or self.problem_id is None:
-            return list(self.evaluations.values())
-        evaluations = self.store.load_evaluations(self.problem_id)
-        for evaluation in evaluations:
-            if isinstance(evaluation.result, dict):
-                evaluation.result = self.executor.model_evaluator.build_output(
-                    evaluation.result
-                )
+        evaluations = [
+            self._normalize_loaded_evaluation(evaluation)
+            for evaluation in self.store.load_evaluations(self.problem_id)
+        ]
         self.evaluations = {
             evaluation.evaluation_id: evaluation for evaluation in evaluations
         }
@@ -180,13 +148,9 @@ class EvaluationManager:
 
     def load_evaluation(self, evaluation_id: str) -> Evaluation:
         """Load a single evaluation from storage into memory."""
-        if self.store is None or self.problem_id is None:
-            return self.read_evaluation(evaluation_id)
-        evaluation = self.store.load_evaluation(self.problem_id, evaluation_id)
-        if isinstance(evaluation.result, dict):
-            evaluation.result = self.executor.model_evaluator.build_output(
-                evaluation.result
-            )
+        evaluation = self._normalize_loaded_evaluation(
+            self.store.load_evaluation(self.problem_id, evaluation_id)
+        )
         self.evaluations[evaluation.evaluation_id] = evaluation
         return evaluation
 
@@ -202,10 +166,32 @@ class EvaluationManager:
         """Promote a transient session evaluation to persistent storage."""
         evaluation = self.read_session_evaluation(session_id)
         self.evaluations[evaluation.evaluation_id] = evaluation
-        if self.store is not None and self.problem_id is not None:
-            self.store.save_evaluation(
-                self.problem_id, evaluation.evaluation_id, evaluation
+        self.save_evaluation(evaluation)
+        return evaluation
+
+    def create_session_evaluation(
+        self,
+        session_id: str,
+        evaluation_id: str,
+        scenario_id: str,
+        type: str = DEFAULT_EVALUATION_TYPE,
+        *,
+        started: str | None = None,
+    ) -> Evaluation:
+        """Create a transient evaluation for a session."""
+        if session_id in self._session_evaluations:
+            raise EvaluationAlreadyExists(
+                f"Evaluation for session {session_id} already exists"
             )
+
+        evaluation = Evaluation.create_default(
+            evaluation_id,
+            scenario_id=scenario_id,
+            type=type,
+            started=started,
+            state=EvaluationState.RUNNING,
+        )
+        self._session_evaluations[session_id] = evaluation
         return evaluation
 
     def read_session_evaluation(self, session_id: str) -> Evaluation:
@@ -221,36 +207,6 @@ class EvaluationManager:
         self._session_evaluations.pop(session_id, None)
 
     # ───────────────────────────────────────────────────────────
-    # Internal
-    # ───────────────────────────────────────────────────────────
-
-    def _save_evaluation(self, evaluation: Evaluation) -> None:
-        if self.store is None or self.problem_id is None:
-            return
-        self.store.save_evaluation(
-            self.problem_id, evaluation.evaluation_id, evaluation
-        )
-
-    def _save_state(
-        self,
-        evaluation: Evaluation,
-        *,
-        state: EvaluationState,
-        started: str | None = None,
-        finished: str | None = None,
-        result: Any | None = None,
-    ) -> Evaluation:
-        """Apply a lifecycle state and persist the evaluation."""
-        evaluation.state = state
-        if started is not None:
-            evaluation.started = started
-        if finished is not None:
-            evaluation.finished = finished
-        evaluation.result = result
-        self._save_evaluation(evaluation)
-        return evaluation
-
-    # ───────────────────────────────────────────────────────────
     # Execution
     # ───────────────────────────────────────────────────────────
 
@@ -263,7 +219,37 @@ class EvaluationManager:
         **kwargs: Any,
     ) -> Evaluation:
         """Execute an evaluation and persist the final state in memory."""
-        self.start_evaluation(evaluation_id)
+        return self._execute(
+            scenario,
+            evaluation_id=evaluation_id,
+            ensemble_size=ensemble_size,
+            **kwargs,
+        )
+
+    def run_session_evaluation(
+        self,
+        session_id: str,
+        scenario: Scenario,
+        *,
+        ensemble_size: int = 20,
+        **kwargs: Any,
+    ) -> Evaluation:
+        """Execute a transient evaluation and keep it in session memory only."""
+        return self._execute(
+            scenario,
+            ensemble_size=ensemble_size,
+            session_id=session_id,
+            **kwargs,
+        )
+
+    def _execute(
+        self,
+        scenario: Scenario,
+        ensemble_size: int = 20,
+        evaluation_id: str | None = None,
+        session_id: str | None = None,
+        **kwargs: Any,
+    ) -> Evaluation:
         try:
             result = self.executor.execute(
                 scenario,
@@ -271,6 +257,55 @@ class EvaluationManager:
                 **kwargs,
             )
         except Exception:
-            self.fail_evaluation(evaluation_id)
+            self._finish_evaluation(
+                state=EvaluationState.FAILED,
+                evaluation_id=evaluation_id,
+                session_id=session_id,
+            )
             raise
-        return self.complete_evaluation(evaluation_id, result)
+        return self._finish_evaluation(
+            state=EvaluationState.COMPLETED,
+            evaluation_id=evaluation_id,
+            result=result,
+            session_id=session_id,
+        )
+
+    def _finish_evaluation(
+        self,
+        state: EvaluationState,
+        evaluation_id: str | None = None,
+        session_id: str | None = None,
+        result: ModelOutput | None = None,
+    ) -> Evaluation:
+        if session_id is not None:
+            evaluation = self.read_session_evaluation(session_id)
+        else:
+            evaluation = self.read_evaluation(evaluation_id)
+
+        # Only allow finishing evaluations that are currently running,
+        # to prevent accidental state changes on completed or failed evaluations.
+        if evaluation.state != EvaluationState.RUNNING:
+            raise ValueError(
+                f"Evaluation {evaluation.evaluation_id} must be {EvaluationState.RUNNING} to finish"
+            )
+
+        # Update the evaluation state and timestamps, then persist the changes.
+        evaluation.state = state
+        evaluation.finished = get_timestamp()
+        evaluation.result = result
+
+        if session_id is None:
+            self.save_evaluation(evaluation)
+
+        return evaluation
+
+    # ───────────────────────────────────────────────────────────
+    # Internal
+    # ───────────────────────────────────────────────────────────
+
+    def _normalize_loaded_evaluation(self, evaluation: Evaluation) -> Evaluation:
+        if isinstance(evaluation.result, dict):
+            evaluation.result = self.executor.model_evaluator.build_output(
+                evaluation.result
+            )
+        return evaluation
