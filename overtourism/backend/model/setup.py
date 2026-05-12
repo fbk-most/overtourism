@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from overtourism.backend.model.adapters.evaluator import (
@@ -121,15 +120,13 @@ extras_config = ExtrasConfig(
 )
 
 
-@dataclass
-class OvertourismProblemConfig(BaseProblemConfig):
-    problem_extras: dict = field(
-        default_factory=lambda: {
-            "editable_indexes": list(INDEX_NAME_MAP.keys()),
-            "groups": ["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
-        }
-    )
-    scenario_id: str = "model_0"
+base_problem_config = BaseProblemConfig(
+    problem_extras=dict(
+        editable_indexes=list(INDEX_NAME_MAP.keys()),
+        groups=["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
+    ),
+    scenario_id="model_0",
+)
 
 
 # ──────────────────────────────────────────────
@@ -149,5 +146,5 @@ problem_manager = Manager(
     model_evaluator=model_evaluator,
     store_config=store_conf,
     extras_config=extras_config,
-    base_problem_config=OvertourismProblemConfig(),
+    base_problem_config=base_problem_config,
 )
