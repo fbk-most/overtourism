@@ -7,14 +7,15 @@ import logging
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.dependencies import get_managers
-from overtourism.backend.api.utils import (
+from overtourism.backend.api.shared.models.problem import Proposal, ProposalList
+from overtourism.backend.api.shared.utils import (
+    BASE_ROUTE,
     get_problem_or_404,
+    get_scenario_map,
     parse_proposal_request,
     proposal_to_api,
 )
 from overtourism.backend.managers import Managers
-from overtourism.backend.shared.models.problem import Proposal, ProposalList
-from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,7 @@ async def list_proposals(
     try:
         manager = mgrs.manager
         get_problem_or_404(mgrs, problem_id)
-        scenario_map = {
-            scenario.scenario_id: scenario
-            for scenario in manager.list_scenarios(problem_id)
-        }
+        scenario_map = get_scenario_map(mgrs, problem_id)
         p_list = [
             Proposal(
                 **proposal_to_api(
@@ -120,10 +118,7 @@ async def read_proposal(
     try:
         manager = mgrs.manager
         proposal = manager.read_proposal(problem_id, proposal_id)
-        scenario_map = {
-            scenario.scenario_id: scenario
-            for scenario in manager.list_scenarios(problem_id)
-        }
+        scenario_map = get_scenario_map(mgrs, problem_id)
         return Proposal(
             **proposal_to_api(
                 proposal,

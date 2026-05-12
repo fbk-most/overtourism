@@ -8,9 +8,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.shared.models.widgets import Widgets
+from overtourism.backend.api.shared.utils import BASE_ROUTE
 from overtourism.backend.managers import Managers
-from overtourism.backend.shared.models.widgets import Widgets
-from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 

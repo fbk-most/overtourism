@@ -8,7 +8,14 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.dependencies import get_managers
-from overtourism.backend.api.utils import (
+from overtourism.backend.api.shared.models.scenario import (
+    InputEvaluationData,
+    OutputData,
+    SaveData,
+)
+from overtourism.backend.api.shared.problem_metadata import get_problem_editable_indexes
+from overtourism.backend.api.shared.utils import (
+    BASE_ROUTE,
     arrange_data,
     get_problem_or_404,
     get_widgets,
@@ -16,13 +23,6 @@ from overtourism.backend.api.utils import (
     scenario_index_diffs,
 )
 from overtourism.backend.managers import Managers
-from overtourism.backend.shared.models.scenario import (
-    InputEvaluationData,
-    OutputData,
-    SaveData,
-)
-from overtourism.backend.shared.problem_metadata import get_problem_editable_indexes
-from overtourism.backend.shared.utils import BASE_ROUTE
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
@@ -234,11 +234,12 @@ async def create_scenario(
 ) -> dict:
     """Persist the current session scenario as a stored scenario."""
     try:
-        manager = mgrs.manager
         extras: dict = {}
-        if manager.extras_config is not None:
-            extras = manager.extras_config.scenario_extras_from_dict(data.model_dump())
-        saved_scenario = manager.save_session_scenario(
+        if mgrs.manager.extras_config is not None:
+            extras = mgrs.manager.extras_config.scenario_extras_from_dict(
+                data.model_dump()
+            )
+        saved_scenario = mgrs.manager.save_session_scenario(
             problem_id,
             session_id=session_id,
             name=data.scenario_name,
@@ -273,8 +274,7 @@ async def delete_scenario(
 ) -> None:
     """Delete a scenario and detach any related proposal link."""
     try:
-        manager = mgrs.manager
-        manager.delete_scenario(problem_id, scenario_id)
+        mgrs.manager.delete_scenario(problem_id, scenario_id)
         logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
     except Exception as e:
         logger.error(

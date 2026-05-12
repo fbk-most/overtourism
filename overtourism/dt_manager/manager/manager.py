@@ -9,10 +9,7 @@ from civic_digital_twins.dt_model.model import Model
 
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.classes.model import ModelEvaluator
-from overtourism.dt_manager.evaluation.evaluation import (
-    DEFAULT_EVALUATION_TYPE,
-    Evaluation,
-)
+from overtourism.dt_manager.evaluation.evaluation import DEFAULT_EVALUATION_TYPE
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.manager.config import BaseProblemConfig
@@ -23,6 +20,8 @@ from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
 
 if typing.TYPE_CHECKING:
+    from overtourism.dt_manager.evaluation.evaluation import Evaluation
+    from overtourism.dt_manager.problem.problem import Problem
     from overtourism.dt_manager.proposal.proposal import Proposal
     from overtourism.dt_manager.scenario.scenario import Scenario
 
@@ -241,17 +240,12 @@ class Manager:
             description=self.base_problem_config.scenario_description,
             extras=self.base_problem_config.scenario_extras,
         )
-        self.problem_manager.link_scenario_to_proposal(
-            problem_id,
-            self.base_problem_config.proposal_id,
-            self.base_problem_config.scenario_id,
-        )
         self.save_problem(problem_id)
 
         self.evaluate_scenario(problem_id, self.base_problem_config.scenario_id)
         self.save_problem(problem_id)
 
-    def read_problem(self, problem_id: str):
+    def read_problem(self, problem_id: str) -> Problem:
         """Return a loaded problem.
 
         Parameters
@@ -266,15 +260,15 @@ class Manager:
         """
         return self.problem_manager.read_problem(problem_id)
 
-    def list_problems(self) -> list[str]:
+    def list_problems(self) -> list[Problem]:
         """Return the loaded problem identifiers.
 
         Returns
         -------
-        list[str]
-            Registered problem identifiers.
+        list[Problem]
+            List of loaded problems.
         """
-        return list(self.problem_manager.problems.keys())
+        return list(self.problem_manager.problems.values())
 
     def update_problem(self, problem_id: str, **kwargs) -> None:
         """Update a problem's attributes.

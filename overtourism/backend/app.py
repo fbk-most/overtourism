@@ -13,8 +13,8 @@ from overtourism.backend.data.catalog import MOLVENO_SIM_INDEXES
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.data.viewer.viewer import ModelViewer
 from overtourism.backend.managers import Managers
-from overtourism.backend.model.adapters.utils import arrange_data
-from overtourism.backend.model.setup import problem_manager
+from overtourism.overtourism.adapters.utils import arrange_data
+from overtourism.overtourism.setup import manager
 
 viewer = ModelViewer(MOLVENO_SIM_INDEXES)
 data_loader = OvertourismIndexesLoader(
@@ -22,7 +22,7 @@ data_loader = OvertourismIndexesLoader(
 )
 
 managers = Managers(
-    manager=problem_manager,
+    manager=manager,
     arrange_data_fn=arrange_data,
     viewer=viewer,
     prepare_values_fn=viewer.prepare_values,

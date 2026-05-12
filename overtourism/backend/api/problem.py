@@ -8,23 +8,24 @@ import slugify
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.dependencies import get_managers
-from overtourism.backend.api.utils import (
+from overtourism.backend.api.shared.models.problem import (
+    GetProblemData,
+    PostProblemData,
+    ProblemList,
+    UpdateProblemData,
+)
+from overtourism.backend.api.shared.models.scenario import ScenarioList
+from overtourism.backend.api.shared.utils import (
+    BASE_ROUTE,
     build_problem_extras,
     get_problem_or_404,
+    get_scenario_map,
     get_widget_by_group,
     problem_to_api,
     proposal_to_api,
     scenario_index_diffs,
 )
 from overtourism.backend.managers import Managers
-from overtourism.backend.shared.models.problem import (
-    GetProblemData,
-    PostProblemData,
-    ProblemList,
-    UpdateProblemData,
-)
-from overtourism.backend.shared.models.scenario import ScenarioList
-from overtourism.backend.shared.utils import BASE_ROUTE
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,9 @@ problem_router = APIRouter(prefix=f"{BASE_ROUTE}/problems")
 async def list_problems(mgrs: Managers = Depends(get_managers)) -> ProblemList:
     """List all problems in the current store."""
     try:
-        manager = mgrs.manager
-        problems = [
-            {
-                "problem_id": problem.problem_id,
-                **problem_to_api(problem),
-            }
-            for problem in (
-                manager.read_problem(pid) for pid in manager.list_problems()
-            )
-        ]
+        problems = []
+        for problem in mgrs.manager.list_problems():
+            problems.append({**problem_to_api(problem)})
         return ProblemList(data=problems)
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
@@ -125,28 +119,20 @@ async def read_problem(
 ) -> GetProblemData:
     """Read a problem together with its proposals."""
     try:
-        manager = mgrs.manager
         problem = get_problem_or_404(mgrs, problem_id)
-        scenario_map = {
-            scenario.scenario_id: scenario
-            for scenario in manager.list_scenarios(problem_id)
-        }
+        scenario_map = get_scenario_map(mgrs, problem_id)
         proposals = [
             proposal_to_api(
                 proposal,
-                manager.problem_manager.get_related_scenario_ids(
+                mgrs.manager.problem_manager.get_related_scenario_ids(
                     problem_id, proposal.proposal_id
                 ),
                 scenario_map,
                 mgrs,
             )
-            for proposal in manager.list_proposals(problem_id)
+            for proposal in mgrs.manager.list_proposals(problem_id)
         ]
-        return GetProblemData(
-            problem_id=problem.problem_id,
-            proposals=proposals,
-            **problem_to_api(problem),
-        )
+        return GetProblemData(**problem_to_api(problem), proposals=proposals)
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
         raise
@@ -169,24 +155,23 @@ async def update_problem(
     """Update a problem and persist the current aggregate."""
     try:
         manager = mgrs.manager
-        payload = data.model_dump()
         problem = get_problem_or_404(mgrs, problem_id)
         extras = dict(problem.extras)
-        if payload.get("editable_indexes") is not None:
-            extras["editable_indexes"] = payload["editable_indexes"]
-        if payload.get("groups") is not None:
-            editable_indexes = get_widget_by_group(mgrs, payload["groups"])
+        if data.editable_indexes is not None:
+            extras["editable_indexes"] = data.editable_indexes
+        if data.groups is not None:
+            editable_indexes = get_widget_by_group(mgrs, data.groups)
             extras["editable_indexes"] = editable_indexes
-            extras["groups"] = payload["groups"]
-        if payload.get("objective") is not None:
-            extras["objective"] = payload["objective"]
-        if payload.get("links") is not None:
-            extras["links"] = payload["links"]
+            extras["groups"] = data.groups
+        if data.objective is not None:
+            extras["objective"] = data.objective
+        if data.links is not None:
+            extras["links"] = data.links
 
         manager.update_problem(
             problem_id,
-            name=payload.get("problem_name"),
-            description=payload.get("problem_description"),
+            name=data.problem_name,
+            description=data.problem_description,
             extras=extras,
         )
 

@@ -14,15 +14,15 @@ from civic_digital_twins.dt_model.model.index import (
 )
 from civic_digital_twins.dt_model.simulation.ensemble import WeightedScenario
 
-from overtourism.backend.model.adapters.output import (
+from overtourism.dt_manager.classes.model import ModelEvaluator
+from overtourism.overtourism.adapters.output import (
     OvertourismOutputData,
 )
-from overtourism.dt_manager.classes.model import ModelEvaluator
 
 if typing.TYPE_CHECKING:
     from civic_digital_twins.dt_model.simulation.evaluation import EvaluationResult
 
-    from overtourism.backend.model.overtourism_metamodel import (
+    from overtourism.overtourism.overtourism_metamodel import (
         OvertourismModel,
     )
 

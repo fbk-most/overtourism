@@ -101,14 +101,14 @@ try:
         UniformCategoricalContextVariable,
     )
 except ImportError:
-    from molveno_presence_stats import (
+    from overtourism.overtourism.molveno_presence_stats import (
         excursionist_presences_stats,
         season,
         tourist_presences_stats,
         weather,
         weekday,
     )
-    from overtourism_metamodel import (
+    from overtourism.overtourism.overtourism_metamodel import (
         CategoricalContextVariable,
         Constraint,
         OvertourismModel,

@@ -18,7 +18,7 @@ from matplotlib.colors import Normalize
 from scipy import interpolate, ndimage, stats
 
 try:
-    from overtourism.backend.model.molveno_model import (
+    from overtourism.overtourism.molveno_model import (
         CV_weather,
         I_P_excursionists_reduction_factor,
         I_P_excursionists_saturation_level,
@@ -28,9 +28,9 @@ try:
         PV_excursionists,
         PV_tourists,
     )
-    from overtourism.backend.model.overtourism_metamodel import OvertourismEnsemble
+    from overtourism.overtourism.overtourism_metamodel import OvertourismEnsemble
 except ImportError:
-    from molveno_model import (
+    from overtourism.overtourism.molveno_model import (
         CV_weather,
         I_P_excursionists_reduction_factor,
         I_P_excursionists_saturation_level,
@@ -39,7 +39,7 @@ except ImportError:
         PV_excursionists,
         PV_tourists,
     )
-    from overtourism_metamodel import OvertourismEnsemble
+    from overtourism.overtourism.overtourism_metamodel import OvertourismEnsemble
 
 # Base situation
 S_Base = {}
