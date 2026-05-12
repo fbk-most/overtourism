@@ -117,6 +117,10 @@ class EvaluationManager:
             if evaluation.scenario_id == scenario_id
         ]
         for evaluation_id in evaluation_ids:
+            try:
+                self.store.delete_evaluation(self.problem_id, evaluation_id)
+            except EvaluationDoesNotExist:
+                pass
             self.evaluations.pop(evaluation_id, None)
         self._session_evaluations = {
             session_id: evaluation
@@ -158,10 +162,6 @@ class EvaluationManager:
     # Sessions
     # ───────────────────────────────────────────────────────────
 
-    def set_session_evaluation(self, session_id: str, evaluation: Evaluation) -> None:
-        """Attach an in-memory evaluation to a transient session."""
-        self._session_evaluations[session_id] = evaluation
-
     def save_session_evaluation(self, session_id: str) -> Evaluation:
         """Promote a transient session evaluation to persistent storage."""
         evaluation = self.read_session_evaluation(session_id)
@@ -179,11 +179,6 @@ class EvaluationManager:
         started: str | None = None,
     ) -> Evaluation:
         """Create a transient evaluation for a session."""
-        if session_id in self._session_evaluations:
-            raise EvaluationAlreadyExists(
-                f"Evaluation for session {session_id} already exists"
-            )
-
         evaluation = Evaluation.create_default(
             evaluation_id,
             scenario_id=scenario_id,

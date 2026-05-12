@@ -204,21 +204,16 @@ class ScenarioManager:
         """
         return self.store.load_scenarios(self.problem_id)
 
-    def load_scenario(self, scenario_data: Scenario, values: dict) -> None:
-        """Load a scenario into memory, evaluating it when needed.
+    def load_scenario(self, scenario_data: Scenario) -> None:
+        """Load a scenario into memory.
 
         Parameters
         ----------
         scenario_data : Scenario
             Scenario loaded from storage.
-        values : dict
-            Scenario values to use if the scenario has not been evaluated yet.
         """
-        try:
-            if scenario_data.scenario_id not in self.scenarios:
-                self.scenarios[scenario_data.scenario_id] = scenario_data
-        except ScenarioAlreadyExists:
-            pass
+        if scenario_data.scenario_id not in self.scenarios:
+            self.scenarios[scenario_data.scenario_id] = scenario_data
 
     # ───────────────────────────────────────────────────────────
     # Internal

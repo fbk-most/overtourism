@@ -19,7 +19,6 @@ from overtourism.dt_manager.manager.config import BaseProblemConfig
 from overtourism.dt_manager.problem.manager import ProblemManager
 from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
-from overtourism.dt_manager.scenario.values import values_as_scipy
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
 
@@ -156,7 +155,6 @@ class Manager:
         for scenario_data in self.scenario_managers[problem_id].load_scenarios():
             self.scenario_managers[problem_id].load_scenario(
                 scenario_data,
-                values_as_scipy(scenario_data),
             )
 
         for proposal_data in self.proposal_managers[problem_id].load_proposals():
@@ -497,6 +495,7 @@ class Manager:
         evaluation_manager = self.evaluation_managers[problem_id]
         session_scenario = scenario_manager.create_session_scenario(scenario_id, values)
         session_scenario.scenario_id = f"{scenario_id}_{session_id}_{uuid4().hex}"
+        scenario_manager.register_session_scenario(session_id, session_scenario)
         evaluation_id = f"{session_id}_{uuid4().hex}"
         evaluation_manager.create_session_evaluation(
             session_id=session_id,
@@ -510,7 +509,6 @@ class Manager:
             ensemble_size=ensemble_size,
             **kwargs,
         )
-        scenario_manager.register_session_scenario(session_id, session_scenario)
         return session_scenario
 
     def read_scenario_data(self, problem_id: str, scenario_id: str):
