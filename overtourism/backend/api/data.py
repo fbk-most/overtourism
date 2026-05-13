@@ -7,17 +7,17 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.utils import BASE_ROUTE
 from overtourism.backend.data.loader import OvertourismIndexesLoader
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
 data_router = APIRouter(prefix=f"{BASE_ROUTE}/data")
 
 
-def _loader(managers: Managers = Depends(get_managers)) -> OvertourismIndexesLoader:
+def _loader(managers: Handler = Depends(get_handler)) -> OvertourismIndexesLoader:
     if managers.data_loader is None:
         raise RuntimeError("Data loader not configured")
     return managers.data_loader

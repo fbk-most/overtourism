@@ -8,14 +8,14 @@ import typing
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.dependencies import init_managers
 from overtourism.backend.api.problem import problem_router
 from overtourism.backend.api.proposal import proposal_router
 from overtourism.backend.api.scenario import scenario_router
+from overtourism.backend.api.shared.dependencies import init_managers
 from overtourism.backend.api.widget import widget_router
 
 if typing.TYPE_CHECKING:
-    from overtourism.backend.managers import Managers
+    from overtourism.backend.handler import Handler
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(
-    managers: Managers,
+    handler: Handler,
     *,
     title: str = "Overtourism API",
     version: str = "0.1.0",
@@ -40,14 +40,14 @@ def create_app(
 
     Parameters
     ----------
-    managers : Managers
+    handler : Handler
         Backend singletons (problem_manager, viewer, ...).
     title, version, description : str
         OpenAPI metadata.
     extra_routers : list, optional
         Additional APIRouters to include, for example data routes.
     """
-    init_managers(managers)
+    init_managers(handler)
 
     app = FastAPI(title=title, version=version, description=description)
 

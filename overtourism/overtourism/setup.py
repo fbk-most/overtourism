@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
-from overtourism.dt_manager.manager import Manager
 from overtourism.dt_manager.manager.config import BaseProblemConfig
+from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.overtourism.adapters.evaluator import (
     Grid,
@@ -139,7 +139,7 @@ store_conf = StoreConfig(
 )
 
 # ──────────────────────────────────────────────
-# Problem Manager
+# Manager
 # ──────────────────────────────────────────────
 manager = Manager(
     model=M_Base,

@@ -7,22 +7,22 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.models.scenario import (
     InputEvaluationData,
     OutputData,
     SaveData,
 )
-from overtourism.backend.api.shared.problem_metadata import get_problem_editable_indexes
 from overtourism.backend.api.shared.utils import (
     BASE_ROUTE,
     arrange_data,
+    get_problem_editable_indexes,
     get_problem_or_404,
     get_widgets,
     prepare_values,
     scenario_index_diffs,
 )
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
@@ -54,12 +54,12 @@ async def get_data(
     scenario_id: str,
     session_id: str | None = None,
     language: Literal["it", "en"] = "it",
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> OutputData:
     """Read the evaluated outputs for a scenario."""
     try:
-        manager = mgrs.manager
-        problem = get_problem_or_404(mgrs, problem_id)
+        manager = handler.manager
+        problem = get_problem_or_404(handler, problem_id)
 
         # If a session exists, return its already-evaluated scenario copy.
         session_scenario = None
@@ -76,7 +76,7 @@ async def get_data(
 
         if session_scenario is not None and session_evaluation is not None:
             out_data = arrange_data(
-                mgrs,
+                handler,
                 _evaluation_result_to_dict(session_evaluation.result),
             )
             values = {
@@ -87,14 +87,14 @@ async def get_data(
                 problem_id=problem_id,
                 scenario_id=scenario_id,
                 data=out_data,
-                index_diffs=scenario_index_diffs(mgrs, session_scenario),
-                widgets=get_widgets(mgrs, values, language=language),
+                index_diffs=scenario_index_diffs(handler, session_scenario),
+                widgets=get_widgets(handler, values, language=language),
                 editable_indexes=get_problem_editable_indexes(problem.extras),
             )
 
         # No active session — return the stored scenario.
         out_data = arrange_data(
-            mgrs, manager.read_scenario_data(problem_id, scenario_id)
+            handler, manager.read_scenario_data(problem_id, scenario_id)
         )
         scenario = manager.read_scenario(problem_id, scenario_id)
         values = {
@@ -105,8 +105,8 @@ async def get_data(
             problem_id=problem_id,
             scenario_id=scenario_id,
             data=out_data,
-            index_diffs=scenario_index_diffs(mgrs, scenario),
-            widgets=get_widgets(mgrs, values, language=language),
+            index_diffs=scenario_index_diffs(handler, scenario),
+            widgets=get_widgets(handler, values, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
@@ -129,18 +129,18 @@ async def resume_session(
     problem_id: str,
     session_id: str,
     language: Literal["it", "en"] = "it",
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> OutputData:
     """Resume an in-memory session scenario and return its evaluated data."""
     try:
-        manager = mgrs.manager
-        problem = get_problem_or_404(mgrs, problem_id)
+        manager = handler.manager
+        problem = get_problem_or_404(handler, problem_id)
         session_scenario, session_evaluation = manager.resume_session(
             problem_id,
             session_id,
         )
         out_data = arrange_data(
-            mgrs,
+            handler,
             _evaluation_result_to_dict(session_evaluation.result),
         )
         values = {
@@ -151,8 +151,8 @@ async def resume_session(
             problem_id=problem_id,
             scenario_id=session_scenario.scenario_id,
             data=out_data,
-            index_diffs=scenario_index_diffs(mgrs, session_scenario),
-            widgets=get_widgets(mgrs, values, language=language),
+            index_diffs=scenario_index_diffs(handler, session_scenario),
+            widgets=get_widgets(handler, values, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
@@ -177,13 +177,13 @@ async def update_data(
     data: InputEvaluationData,
     session_id: str,
     language: Literal["it", "en"] = "it",
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> OutputData:
     """Re-evaluate a scenario with new values."""
     try:
-        manager = mgrs.manager
-        problem = get_problem_or_404(mgrs, problem_id)
-        values = prepare_values(mgrs, data.values)
+        manager = handler.manager
+        problem = get_problem_or_404(handler, problem_id)
+        values = prepare_values(handler, data.values)
         session_scenario = manager.evaluate_session(
             problem_id=problem_id,
             session_id=session_id,
@@ -193,7 +193,7 @@ async def update_data(
         )
         session_evaluation = manager.read_session_evaluation(problem_id, session_id)
         out_data = arrange_data(
-            mgrs,
+            handler,
             _evaluation_result_to_dict(session_evaluation.result),
         )
         merged = {
@@ -204,8 +204,8 @@ async def update_data(
             data=out_data,
             scenario_id=scenario_id,
             problem_id=problem_id,
-            index_diffs=scenario_index_diffs(mgrs, session_scenario),
-            widgets=get_widgets(mgrs, merged, language=language),
+            index_diffs=scenario_index_diffs(handler, session_scenario),
+            widgets=get_widgets(handler, merged, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
@@ -230,16 +230,16 @@ async def create_scenario(
     data: SaveData,
     proposal_id: str | None = None,
     export_outputs: bool = False,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> dict:
     """Persist the current session scenario as a stored scenario."""
     try:
         extras: dict = {}
-        if mgrs.manager.extras_config is not None:
-            extras = mgrs.manager.extras_config.scenario_extras_from_dict(
+        if handler.manager.extras_config is not None:
+            extras = handler.manager.extras_config.scenario_extras_from_dict(
                 data.model_dump()
             )
-        saved_scenario = mgrs.manager.save_session_scenario(
+        saved_scenario = handler.manager.save_session_scenario(
             problem_id,
             session_id=session_id,
             name=data.scenario_name,
@@ -270,11 +270,11 @@ async def delete_scenario(
     problem_id: str,
     scenario_id: str,
     proposal_id: str | None = None,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a scenario and detach any related proposal link."""
     try:
-        mgrs.manager.delete_scenario(problem_id, scenario_id)
+        handler.manager.delete_scenario(problem_id, scenario_id)
         logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
     except Exception as e:
         logger.error(

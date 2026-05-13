@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 
-_managers: Managers | None = None
-
-
-def init_managers(managers: Managers) -> None:
-    """Set the global managers instance. Call this before starting the app."""
-    global _managers
-    _managers = managers
+_handler: Handler | None = None
 
 
-def get_managers() -> Managers:
-    """Return the current managers instance (used as a FastAPI dependency)."""
-    if _managers is None:
-        raise RuntimeError("Managers not initialized. Call init_managers() first.")
-    return _managers
+def init_handler(handler: Handler) -> None:
+    """Set the global handler instance. Call this before starting the app."""
+    global _handler
+    _handler = handler
+
+
+def get_handler() -> Handler:
+    """Return the current handler instance (used as a FastAPI dependency)."""
+    if _handler is None:
+        raise RuntimeError("Handler not initialized. Call init_handler() first.")
+    return _handler

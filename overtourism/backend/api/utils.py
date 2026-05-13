@@ -11,58 +11,58 @@ from overtourism.backend.api.shared.problem_metadata import (
     set_problem_editable_indexes,
     with_problem_editable_indexes,
 )
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
 
-def get_problem_or_404(mgrs: Managers, problem_id: str) -> Problem:
+def get_problem_or_404(handler: Handler, problem_id: str) -> Problem:
     """Return a problem or raise a not-found error."""
     try:
-        return mgrs.manager.read_problem(problem_id)
+        return handler.manager.read_problem(problem_id)
     except KeyError:
         raise ProblemNotFound(f"Problem '{problem_id}' not found")
 
 
-def get_widget_by_group(mgrs: Managers, groups: list[str]) -> list[str]:
+def get_widget_by_group(handler: Handler, groups: list[str]) -> list[str]:
     """Get widget IDs by group from the viewer if available."""
-    if mgrs.viewer is not None and groups:
-        return mgrs.viewer.get_widget_ids_by_groups(groups)
+    if handler.viewer is not None and groups:
+        return handler.viewer.get_widget_ids_by_groups(groups)
     return []
 
 
-def get_scenario_map(mgrs: Managers, problem_id: str) -> dict[str, Scenario]:
+def get_scenario_map(handler: Handler, problem_id: str) -> dict[str, Scenario]:
     """Return the currently loaded scenarios indexed by scenario id."""
     return {
         scenario.scenario_id: scenario
-        for scenario in mgrs.manager.list_scenarios(problem_id)
+        for scenario in handler.manager.list_scenarios(problem_id)
     }
 
 
-def scenario_index_diffs(mgrs: Managers, scenario: Scenario) -> dict[str, str]:
+def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]:
     """Compute the model index differences for a scenario on demand."""
-    return mgrs.manager.model_evaluator.get_index_diffs(
-        mgrs.manager.model,
+    return handler.manager.model_evaluator.get_index_diffs(
+        handler.manager.model,
         values=values_as_scipy(scenario),
     )
 
 
 def build_problem_extras(
-    mgrs: Managers,
+    handler: Handler,
     payload: dict,
     editable_indexes: list[str] | None = None,
 ) -> dict:
     """Build problem extras from a request payload."""
     extras: dict = {}
-    if mgrs.manager.extras_config is not None:
-        extras = mgrs.manager.extras_config.problem_extras_from_dict(payload)
+    if handler.manager.extras_config is not None:
+        extras = handler.manager.extras_config.problem_extras_from_dict(payload)
     return with_problem_editable_indexes(extras, editable_indexes)
 
 
 def apply_problem_request_to_metadata(
-    mgrs: Managers,
+    handler: Handler,
     problem: Problem,
     payload: dict,
 ) -> None:
@@ -74,7 +74,7 @@ def apply_problem_request_to_metadata(
     if payload.get("editable_indexes") is not None:
         set_problem_editable_indexes(problem.extras, payload["editable_indexes"])
     if payload.get("groups") is not None:
-        editable_indexes = get_widget_by_group(mgrs, payload["groups"])
+        editable_indexes = get_widget_by_group(handler, payload["groups"])
         set_problem_editable_indexes(problem.extras, editable_indexes)
         problem.extras["groups"] = payload["groups"]
     if payload.get("objective") is not None:
@@ -96,22 +96,22 @@ def extract_related_scenario_ids(payload: dict) -> list[str]:
 
 
 def build_proposal_extras(
-    mgrs: Managers,
+    handler: Handler,
     payload: dict,
 ) -> dict:
     """Build proposal extras from a request payload."""
     extras: dict = {}
-    if mgrs.manager.extras_config is not None:
-        extras = mgrs.manager.extras_config.proposal_extras_from_dict(payload)
+    if handler.manager.extras_config is not None:
+        extras = handler.manager.extras_config.proposal_extras_from_dict(payload)
     return extras
 
 
 def parse_proposal_request(
-    mgrs: Managers,
+    handler: Handler,
     payload: dict,
 ) -> tuple[dict, list[str] | None]:
     """Extract proposal extras and related scenario IDs from a payload."""
-    extras = build_proposal_extras(mgrs, payload)
+    extras = build_proposal_extras(handler, payload)
     related_scenarios = payload.get("related_scenarios")
     scenario_ids = None
     if related_scenarios is not None:
@@ -123,7 +123,7 @@ def proposal_to_api(
     proposal: Proposal,
     related_scenario_ids: list[str] | None = None,
     scenarios: dict[str, Scenario] | None = None,
-    mgrs: Managers | None = None,
+    handler: Handler | None = None,
 ) -> dict:
     """Convert a proposal entity to API Proposal dict.
 
@@ -137,8 +137,8 @@ def proposal_to_api(
             state = scenarios[sid]
             entry["scenario_name"] = state.name
             entry["scenario_description"] = state.description
-            if mgrs is not None:
-                entry["index_diffs"] = scenario_index_diffs(mgrs, state)
+            if handler is not None:
+                entry["index_diffs"] = scenario_index_diffs(handler, state)
             entry.update(state.extras)
         related.append(entry)
 
@@ -171,24 +171,24 @@ def problem_to_api(problem) -> dict:
     }
 
 
-def get_widgets(mgrs: Managers, values: dict, language: str = "it") -> dict | None:
+def get_widgets(handler: Handler, values: dict, language: str = "it") -> dict | None:
     """Get widgets from viewer if available, otherwise None."""
-    if mgrs.viewer is not None:
-        return mgrs.viewer.get_widgets(values, language=language)
+    if handler.viewer is not None:
+        return handler.viewer.get_widgets(values, language=language)
     return None
 
 
-def prepare_values(mgrs: Managers, values: dict) -> dict:
+def prepare_values(handler: Handler, values: dict) -> dict:
     """Prepare values for evaluation using the viewer if available."""
-    if mgrs.prepare_values_fn is not None:
-        return mgrs.prepare_values_fn(values)
+    if handler.prepare_values_fn is not None:
+        return handler.prepare_values_fn(values)
     return values
 
 
-def arrange_data(mgrs: Managers, data: typing.Any) -> dict:
+def arrange_data(handler: Handler, data: typing.Any) -> dict:
     """Convert model output to API dict using arrange_data_fn if available."""
-    if mgrs.arrange_data_fn is not None:
-        return mgrs.arrange_data_fn(data)
+    if handler.arrange_data_fn is not None:
+        return handler.arrange_data_fn(data)
     return data
 
 

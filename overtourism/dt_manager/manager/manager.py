@@ -57,7 +57,9 @@ class Manager:
         """Create the high-level manager facade."""
         self.model = model
         self.model_evaluator = model_evaluator
-        self.extras_config = extras_config
+        self.extras_config = (
+            extras_config if extras_config is not None else ExtrasConfig()
+        )
         self.base_problem_config = (
             base_problem_config
             if base_problem_config is not None
@@ -233,7 +235,7 @@ class Manager:
         self.problem_manager.create_problem(problem_id, **problem_kwargs)
         self._init_problem_managers(problem_id)
 
-        # Create default scenario
+        # Create always default scenario
         self.scenario_managers[problem_id].create_scenario(
             scenario_id=self.base_problem_config.scenario_id,
             name=self.base_problem_config.scenario_name,

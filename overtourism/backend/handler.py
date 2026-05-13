@@ -11,7 +11,7 @@ if typing.TYPE_CHECKING:
     from overtourism.overtourism.adapters.utils import ArrangeDataFn
 
 
-class Managers:
+class Handler:
     """
     Container for backend singletons.
     """

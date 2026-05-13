@@ -12,7 +12,7 @@ from overtourism.backend.api.main import create_app
 from overtourism.backend.data.catalog import MOLVENO_SIM_INDEXES
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.data.viewer.viewer import ModelViewer
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 from overtourism.overtourism.adapters.utils import arrange_data
 from overtourism.overtourism.setup import manager
 
@@ -21,7 +21,7 @@ data_loader = OvertourismIndexesLoader(
     str(Path(__file__).parent / "model" / "data" / "index_data")
 )
 
-managers = Managers(
+handler = Handler(
     manager=manager,
     arrange_data_fn=arrange_data,
     viewer=viewer,
@@ -30,7 +30,7 @@ managers = Managers(
 )
 
 app = create_app(
-    managers,
+    handler,
     title="AIxPA Over-Tourism API",
     version="0.1.0",
     description="API for tourism indices in Trentino",

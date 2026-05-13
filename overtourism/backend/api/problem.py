@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import logging
 
-import slugify
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.dependencies import get_managers
+from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.models.problem import (
     GetProblemData,
     PostProblemData,
@@ -17,15 +16,15 @@ from overtourism.backend.api.shared.models.problem import (
 from overtourism.backend.api.shared.models.scenario import ScenarioList
 from overtourism.backend.api.shared.utils import (
     BASE_ROUTE,
-    build_problem_extras,
     get_problem_or_404,
-    get_scenario_map,
     get_widget_by_group,
+    problem_from_model,
     problem_to_api,
     proposal_to_api,
     scenario_index_diffs,
+    slugify_name,
 )
-from overtourism.backend.managers import Managers
+from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +39,12 @@ problem_router = APIRouter(prefix=f"{BASE_ROUTE}/problems")
         200: {"description": "Problem list"},
     },
 )
-async def list_problems(mgrs: Managers = Depends(get_managers)) -> ProblemList:
+async def list_problems(handler: Handler = Depends(get_handler)) -> ProblemList:
     """List all problems in the current store."""
     try:
-        problems = []
-        for problem in mgrs.manager.list_problems():
-            problems.append({**problem_to_api(problem)})
+        problems = [
+            {**problem_to_api(problem)} for problem in handler.manager.list_problems()
+        ]
         return ProblemList(data=problems)
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
@@ -63,44 +62,20 @@ async def list_problems(mgrs: Managers = Depends(get_managers)) -> ProblemList:
 )
 async def create_problem(
     data: PostProblemData,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> dict:
     """Create a new problem with default scenario."""
     try:
-        problem_id = slugify.slugify(data.problem_name)
-        editable_indexes = get_widget_by_group(mgrs, data.groups)
-        extras = build_problem_extras(mgrs, data.model_dump(), editable_indexes)
-        mgrs.manager.create_problem(
+        problem_id = slugify_name(data.problem_name)
+        handler.manager.create_problem(
             problem_id,
-            problem_kwargs={
-                "name": data.problem_name,
-                "description": data.problem_description,
-                "created": data.created,
-                "updated": data.updated,
-                "extras": extras,
-            },
+            problem_kwargs=problem_from_model(handler, data),
         )
 
         logger.info(f"Problem created: {problem_id}")
         return {"message": "Problem created successfully", "problem_id": problem_id}
     except Exception as e:
         logger.error(f"Error creating problem {data.problem_name}: {e}")
-        raise
-
-
-@problem_router.put(
-    "/refresh",
-    responses={
-        500: {"description": "Problem manager error"},
-        200: {"description": "Problem refreshed"},
-    },
-)
-async def refresh_problems(mgrs: Managers = Depends(get_managers)) -> None:
-    """Reload all problems from storage."""
-    try:
-        mgrs.manager.load_problems()
-    except Exception as e:
-        logger.error(f"Error refreshing problems: {e}")
         raise
 
 
@@ -115,26 +90,18 @@ async def refresh_problems(mgrs: Managers = Depends(get_managers)) -> None:
 )
 async def read_problem(
     problem_id: str,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> GetProblemData:
     """Read a problem together with its proposals."""
     try:
-        problem = get_problem_or_404(mgrs, problem_id)
-        scenario_map = get_scenario_map(mgrs, problem_id)
+        problem = get_problem_or_404(handler, problem_id)
         proposals = [
-            proposal_to_api(
-                proposal,
-                mgrs.manager.problem_manager.get_related_scenario_ids(
-                    problem_id, proposal.proposal_id
-                ),
-                scenario_map,
-                mgrs,
-            )
-            for proposal in mgrs.manager.list_proposals(problem_id)
+            proposal_to_api(handler, problem.problem_id, proposal)
+            for proposal in handler.manager.list_proposals(problem.problem_id)
         ]
         return GetProblemData(**problem_to_api(problem), proposals=proposals)
     except Exception as e:
-        logger.error(f"Error reading problem {problem_id}: {e}")
+        logger.error(f"Error reading problem {problem.problem_id}: {e}")
         raise
 
 
@@ -150,17 +117,17 @@ async def read_problem(
 async def update_problem(
     problem_id: str,
     data: UpdateProblemData,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> dict:
     """Update a problem and persist the current aggregate."""
     try:
-        manager = mgrs.manager
-        problem = get_problem_or_404(mgrs, problem_id)
+        manager = handler.manager
+        problem = get_problem_or_404(handler, problem_id)
         extras = dict(problem.extras)
         if data.editable_indexes is not None:
             extras["editable_indexes"] = data.editable_indexes
         if data.groups is not None:
-            editable_indexes = get_widget_by_group(mgrs, data.groups)
+            editable_indexes = get_widget_by_group(handler, data.groups)
             extras["editable_indexes"] = editable_indexes
             extras["groups"] = data.groups
         if data.objective is not None:
@@ -192,11 +159,11 @@ async def update_problem(
 )
 async def delete_problem(
     problem_id: str,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a problem from the store."""
     try:
-        mgrs.manager.delete_problem(problem_id)
+        handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")
@@ -214,12 +181,12 @@ async def delete_problem(
 )
 async def list_scenarios(
     problem_id: str,
-    mgrs: Managers = Depends(get_managers),
+    handler: Handler = Depends(get_handler),
 ) -> ScenarioList:
     """List all scenarios for a problem."""
     try:
-        manager = mgrs.manager
-        problem = get_problem_or_404(mgrs, problem_id)
+        manager = handler.manager
+        problem = get_problem_or_404(handler, problem_id)
         models = [
             {
                 "problem_id": problem.problem_id,
@@ -228,7 +195,7 @@ async def list_scenarios(
                 "scenario_description": s.description,
                 "created": s.created,
                 "updated": s.updated,
-                "index_diffs": scenario_index_diffs(mgrs, s),
+                "index_diffs": scenario_index_diffs(handler, s),
                 **s.extras,
             }
             for s in manager.list_scenarios(problem_id)
