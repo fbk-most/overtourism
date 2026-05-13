@@ -298,6 +298,10 @@ class Manager:
         self.scenario_managers.pop(problem_id, None)
         self.proposal_managers.pop(problem_id, None)
 
+    def problem_extras_from_dict(self, problem_dict: dict) -> dict:
+        """Extract problem extras from a dictionary."""
+        return self.extras_config.problem_extras_from_dict(problem_dict)
+
     # ───────────────────────────────────────────────────────────
     # Scenarios
     # ───────────────────────────────────────────────────────────
@@ -380,6 +384,10 @@ class Manager:
         )
         self.problem_manager.unlink_scenario(problem_id, scenario_id)
         self.save_problem(problem_id)
+
+    def scenario_extras_from_dict(self, scenario_dict: dict) -> dict:
+        """Extract scenario extras from a dictionary."""
+        return self.extras_config.scenario_extras_from_dict(scenario_dict)
 
     # ───────────────────────────────────────────────────────────
     # Session
@@ -599,3 +607,7 @@ class Manager:
         self.proposal_managers[problem_id].delete_proposal(proposal_id)
         self.problem_manager.unlink_proposal(problem_id, proposal_id)
         self.save_problem(problem_id)
+
+    def proposal_extras_from_dict(self, proposal_dict: dict) -> dict:
+        """Extract proposal extras from a dictionary."""
+        return self.extras_config.proposal_extras_from_dict(proposal_dict)

@@ -116,52 +116,6 @@ async def get_data(
         raise
 
 
-@scenario_router.get(
-    "/session/{session_id}",
-    response_model=OutputData,
-    responses={
-        500: {"description": "Session error"},
-        404: {"description": "Session does not exist"},
-        200: {"description": "Session scenario data"},
-    },
-)
-async def resume_session(
-    problem_id: str,
-    session_id: str,
-    language: Literal["it", "en"] = "it",
-    handler: Handler = Depends(get_handler),
-) -> OutputData:
-    """Resume an in-memory session scenario and return its evaluated data."""
-    try:
-        manager = handler.manager
-        problem = get_problem_or_404(handler, problem_id)
-        session_scenario, session_evaluation = manager.resume_session(
-            problem_id,
-            session_id,
-        )
-        out_data = arrange_data(
-            handler,
-            _evaluation_result_to_dict(session_evaluation.result),
-        )
-        values = {
-            **_model_values(manager),
-            **values_as_scipy(session_scenario),
-        }
-        return OutputData(
-            problem_id=problem_id,
-            scenario_id=session_scenario.scenario_id,
-            data=out_data,
-            index_diffs=scenario_index_diffs(handler, session_scenario),
-            widgets=get_widgets(handler, values, language=language),
-            editable_indexes=get_problem_editable_indexes(problem.extras),
-        )
-    except Exception as e:
-        logger.error(
-            f"Error resuming session {session_id} in problem {problem_id}: {e}"
-        )
-        raise
-
-
 @scenario_router.put(
     "/{scenario_id}",
     response_model=OutputData,
@@ -181,23 +135,24 @@ async def update_data(
 ) -> OutputData:
     """Re-evaluate a scenario with new values."""
     try:
-        manager = handler.manager
         problem = get_problem_or_404(handler, problem_id)
         values = prepare_values(handler, data.values)
-        session_scenario = manager.evaluate_session(
+        session_scenario = handler.manager.evaluate_session(
             problem_id=problem_id,
             session_id=session_id,
             scenario_id=scenario_id,
             values=values,
             ensemble_size=data.ensemble_size,
         )
-        session_evaluation = manager.read_session_evaluation(problem_id, session_id)
+        session_evaluation = handler.manager.read_session_evaluation(
+            problem_id, session_id
+        )
         out_data = arrange_data(
             handler,
             _evaluation_result_to_dict(session_evaluation.result),
         )
         merged = {
-            **_model_values(manager),
+            **_model_values(handler.manager),
             **values,
         }
         return OutputData(
@@ -211,6 +166,51 @@ async def update_data(
     except Exception as e:
         logger.error(
             f"Error updating data for scenario {scenario_id} in problem {problem_id}: {e}"
+        )
+        raise
+
+
+@scenario_router.get(
+    "/session/{session_id}",
+    response_model=OutputData,
+    responses={
+        500: {"description": "Session error"},
+        404: {"description": "Session does not exist"},
+        200: {"description": "Session scenario data"},
+    },
+)
+async def resume_session(
+    problem_id: str,
+    session_id: str,
+    language: Literal["it", "en"] = "it",
+    handler: Handler = Depends(get_handler),
+) -> OutputData:
+    """Resume an in-memory session scenario and return its evaluated data."""
+    try:
+        problem = get_problem_or_404(handler, problem_id)
+        session_scenario, session_evaluation = handler.manager.resume_session(
+            problem_id,
+            session_id,
+        )
+        out_data = arrange_data(
+            handler,
+            _evaluation_result_to_dict(session_evaluation.result),
+        )
+        values = {
+            **_model_values(handler.manager),
+            **values_as_scipy(session_scenario),
+        }
+        return OutputData(
+            problem_id=problem_id,
+            scenario_id=session_scenario.scenario_id,
+            data=out_data,
+            index_diffs=scenario_index_diffs(handler, session_scenario),
+            widgets=get_widgets(handler, values, language=language),
+            editable_indexes=get_problem_editable_indexes(problem.extras),
+        )
+    except Exception as e:
+        logger.error(
+            f"Error resuming session {session_id} in problem {problem_id}: {e}"
         )
         raise
 
@@ -229,16 +229,11 @@ async def create_scenario(
     session_id: str,
     data: SaveData,
     proposal_id: str | None = None,
-    export_outputs: bool = False,
     handler: Handler = Depends(get_handler),
 ) -> dict:
     """Persist the current session scenario as a stored scenario."""
     try:
-        extras: dict = {}
-        if handler.manager.extras_config is not None:
-            extras = handler.manager.extras_config.scenario_extras_from_dict(
-                data.model_dump()
-            )
+        extras = handler.manager.scenario_extras_from_dict(data.model_dump())
         saved_scenario = handler.manager.save_session_scenario(
             problem_id,
             session_id=session_id,
@@ -269,7 +264,6 @@ async def create_scenario(
 async def delete_scenario(
     problem_id: str,
     scenario_id: str,
-    proposal_id: str | None = None,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a scenario and detach any related proposal link."""

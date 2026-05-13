@@ -85,7 +85,7 @@ def build_problem_extras(
     payload: dict,
 ) -> dict:
     """Build problem extras from a request payload."""
-    extras = handler.manager.extras_config.problem_extras_from_dict(payload)
+    extras = handler.manager.problem_extras_from_dict(payload)
     extras["editable_indexes"] = get_widget_by_group(handler, payload.get("groups", []))
     return extras
 
@@ -104,7 +104,7 @@ def parse_proposal_model(
     data: ProposalModel,
 ) -> dict:
     """Extract proposal extras and related scenario IDs from a payload."""
-    extras = handler.manager.extras_config.proposal_extras_from_dict(
+    extras = handler.manager.proposal_extras_from_dict(
         data.model_dump(exclude_unset=True)
     )
     return {
