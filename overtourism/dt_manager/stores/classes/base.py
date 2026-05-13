@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from overtourism.dt_manager.evaluation.evaluation import Evaluation
-from overtourism.dt_manager.problem.problem import Problem
-from overtourism.dt_manager.proposal.proposal import Proposal
-from overtourism.dt_manager.scenario.scenario import Scenario
-
 
 class Store(ABC):
     """Abstract base for problem, scenario, and proposal persistence.
@@ -60,7 +55,7 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    def load_problem(self, problem_id: str) -> Problem:
+    def load_problem(self, problem_id: str) -> dict:
         """Load a problem document.
 
         Parameters
@@ -70,8 +65,8 @@ class Store(ABC):
 
         Returns
         -------
-        Problem
-            Loaded problem instance.
+        dict
+            Loaded problem payload.
         """
         ...
 
@@ -98,7 +93,7 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    def load_scenarios(self, problem_id: str) -> list[Scenario]:
+    def load_scenarios(self, problem_id: str) -> list[dict]:
         """Load all scenarios for a problem.
 
         Parameters
@@ -108,8 +103,8 @@ class Store(ABC):
 
         Returns
         -------
-        list[Scenario]
-            Loaded scenarios.
+        list[dict]
+            Loaded scenario payloads.
         """
         ...
 
@@ -118,7 +113,7 @@ class Store(ABC):
         self,
         problem_id: str,
         scenario_id: str,
-        scenario_data: Scenario,
+        scenario_data: dict,
     ) -> None:
         """Persist a scenario document.
 
@@ -128,13 +123,13 @@ class Store(ABC):
             Identifier of the parent problem.
         scenario_id : str
             Identifier of the scenario to save.
-        scenario_data : Scenario
-            Scenario payload to save.
+        scenario_data : dict
+            Serialized scenario payload.
         """
         ...
 
     @abstractmethod
-    def load_scenario(self, problem_id: str, scenario_id: str) -> Scenario:
+    def load_scenario(self, problem_id: str, scenario_id: str) -> dict:
         """Load a single scenario.
 
         Parameters
@@ -146,8 +141,8 @@ class Store(ABC):
 
         Returns
         -------
-        Scenario
-            Loaded scenario instance.
+        dict
+            Loaded scenario payload.
         """
         ...
 
@@ -166,7 +161,7 @@ class Store(ABC):
 
     @abstractmethod
     def save_proposal(
-        self, problem_id: str, proposal_id: str, proposal_data: Proposal
+        self, problem_id: str, proposal_id: str, proposal_data: dict
     ) -> None:
         """Persist a proposal document.
 
@@ -176,13 +171,13 @@ class Store(ABC):
             Identifier of the parent problem.
         proposal_id : str
             Identifier of the proposal to save.
-        proposal_data : Proposal
-            Proposal payload to save.
+        proposal_data : dict
+            Serialized proposal payload.
         """
         ...
 
     @abstractmethod
-    def load_proposals(self, problem_id: str) -> list[Proposal]:
+    def load_proposals(self, problem_id: str) -> list[dict]:
         """Load all proposals for a problem.
 
         Parameters
@@ -192,8 +187,8 @@ class Store(ABC):
 
         Returns
         -------
-        list[Proposal]
-            Loaded proposals.
+        list[dict]
+            Loaded proposal payloads.
         """
         ...
 
@@ -215,7 +210,7 @@ class Store(ABC):
         self,
         problem_id: str,
         evaluation_id: str,
-        evaluation_data: Evaluation,
+        evaluation_data: dict,
     ) -> None:
         """Persist an evaluation document.
 
@@ -225,13 +220,13 @@ class Store(ABC):
             Identifier of the parent problem.
         evaluation_id : str
             Identifier of the evaluation to save.
-        evaluation_data : Evaluation
-            Evaluation payload to save.
+        evaluation_data : dict
+            Serialized evaluation payload.
         """
         ...
 
     @abstractmethod
-    def load_evaluations(self, problem_id: str) -> list[Evaluation]:
+    def load_evaluations(self, problem_id: str) -> list[dict]:
         """Load all evaluations for a problem.
 
         Parameters
@@ -241,13 +236,13 @@ class Store(ABC):
 
         Returns
         -------
-        list[Evaluation]
-            Loaded evaluations.
+        list[dict]
+            Loaded evaluation payloads.
         """
         ...
 
     @abstractmethod
-    def load_evaluation(self, problem_id: str, evaluation_id: str) -> Evaluation:
+    def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
         """Load a single evaluation.
 
         Parameters
@@ -259,8 +254,8 @@ class Store(ABC):
 
         Returns
         -------
-        Evaluation
-            Loaded evaluation instance.
+        dict
+            Loaded evaluation payload.
         """
         ...
 

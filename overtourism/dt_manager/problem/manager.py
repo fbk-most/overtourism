@@ -118,20 +118,13 @@ class ProblemManager:
         """
         problem = self.read_problem(problem_id)
         scenarios = self._load_optional_items(
-            lambda: (
-                scenario.to_dict() for scenario in self.store.load_scenarios(problem_id)
-            )
+            lambda: self.store.load_scenarios(problem_id)
         )
         proposals = self._load_optional_items(
-            lambda: (
-                proposal.to_dict() for proposal in self.store.load_proposals(problem_id)
-            )
+            lambda: self.store.load_proposals(problem_id)
         )
         evaluations = self._load_optional_items(
-            lambda: (
-                evaluation.to_dict()
-                for evaluation in self.store.load_evaluations(problem_id)
-            )
+            lambda: self.store.load_evaluations(problem_id)
         )
 
         payload = {
@@ -151,7 +144,7 @@ class ProblemManager:
         problem_id : str
             Identifier of the problem to load.
         """
-        problem = self.store.load_problem(problem_id)
+        problem = self._build_problem(self.store.load_problem(problem_id))
         self.problems[problem.problem_id] = problem
         self.load_relationships(problem.problem_id)
 
@@ -169,6 +162,15 @@ class ProblemManager:
 
         for problem_id in problem_ids:
             self.load_problem(problem_id)
+
+    def _load_optional_items(self, loader) -> list:
+        try:
+            return list(loader())
+        except FileNotFoundError:
+            return []
+
+    def _build_problem(self, problem_data: dict) -> Problem:
+        return Problem.from_dict(problem_data)
 
     # ───────────────────────────────────────────────────────────
     # Relationships

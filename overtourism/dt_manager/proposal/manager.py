@@ -180,7 +180,7 @@ class ProposalManager:
         """
         proposal = self.get_proposal(proposal_id)
         proposal.problem_id = self.problem_id
-        self.store.save_proposal(self.problem_id, proposal_id, proposal)
+        self.store.save_proposal(self.problem_id, proposal_id, proposal.to_dict())
         return proposal
 
     def load_proposal(self, proposal_data: Proposal) -> None:
@@ -213,7 +213,10 @@ class ProposalManager:
         list[Proposal]
             Proposals returned by the store.
         """
-        return self.store.load_proposals(self.problem_id)
+        return [
+            self._build_proposal(proposal_data)
+            for proposal_data in self.store.load_proposals(self.problem_id)
+        ]
 
     # ───────────────────────────────────────────────────────────
     # Accessors
@@ -228,3 +231,6 @@ class ProposalManager:
             Registered proposals keyed by proposal ID.
         """
         return self.proposals
+
+    def _build_proposal(self, proposal_data: dict) -> Proposal:
+        return Proposal.from_dict(proposal_data)

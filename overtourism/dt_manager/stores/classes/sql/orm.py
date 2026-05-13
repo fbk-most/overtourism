@@ -4,17 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text
+from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text, inspect
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from overtourism.dt_manager.classes.indexes import IndexEntry
-from overtourism.dt_manager.evaluation.evaluation import Evaluation, EvaluationState
-from overtourism.dt_manager.problem.problem import Problem
-from overtourism.dt_manager.proposal.proposal import Proposal
-from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.stores.enums import ProblemNestedKey
-from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class SQLBase(DeclarativeBase):
@@ -93,11 +88,6 @@ class ScenarioORM(SQLBase):
         nullable=False,
         default=dict,
     )
-    index_diffs: Mapped[dict[str, Any]] = mapped_column(
-        MutableDict.as_mutable(JSON),
-        nullable=False,
-        default=dict,
-    )
     index_values: Mapped[list[dict[str, Any]]] = mapped_column(
         MutableList.as_mutable(JSON),
         nullable=False,
@@ -158,81 +148,66 @@ class EvaluationORM(SQLBase):
     )
 
 
-def problem_to_orm(problem: Problem) -> ProblemORM:
+def orm_to_dict(entity: Any) -> dict[str, Any]:
+    return {
+        attr.key: getattr(entity, attr.key)
+        for attr in inspect(entity).mapper.column_attrs
+    }
+
+
+def problem_to_orm(problem: dict[str, Any]) -> ProblemORM:
     return ProblemORM(
-        problem_id=problem.problem_id,
-        name=problem.name,
-        description=problem.description,
-        created=problem.created,
-        updated=problem.updated,
-        extras=problem.extras,
+        problem_id=problem["problem_id"],
+        name=problem.get("name"),
+        description=problem.get("description"),
+        created=problem.get("created"),
+        updated=problem.get("updated"),
+        extras=problem.get("extras", {}),
     )
 
 
-def problem_from_orm(problem: ProblemORM) -> Problem:
-    return Problem(
-        problem_id=problem.problem_id,
-        name=problem.name,
-        description=problem.description,
-        created=problem.created,
-        updated=problem.updated,
-        extras=problem.extras,
-    )
+def problem_from_orm(problem: ProblemORM) -> dict[str, Any]:
+    return orm_to_dict(problem)
 
 
-def proposal_to_orm(proposal: Proposal) -> ProposalORM:
+def proposal_to_orm(proposal: dict[str, Any]) -> ProposalORM:
     return ProposalORM(
-        problem_id=proposal.problem_id,
-        proposal_id=proposal.proposal_id,
-        name=proposal.name,
-        description=proposal.description,
-        status=proposal.status,
-        created=proposal.created,
-        updated=proposal.updated,
-        extras=proposal.extras,
+        problem_id=proposal.get("problem_id", ""),
+        proposal_id=proposal["proposal_id"],
+        name=proposal.get("name"),
+        description=proposal.get("description"),
+        status=proposal.get("status"),
+        created=proposal.get("created"),
+        updated=proposal.get("updated"),
+        extras=proposal.get("extras", {}),
     )
 
 
-def proposal_from_orm(proposal: ProposalORM) -> Proposal:
-    return Proposal(
-        proposal_id=proposal.proposal_id,
-        problem_id=proposal.problem_id,
-        name=proposal.name,
-        description=proposal.description,
-        status=proposal.status,
-        created=proposal.created,
-        updated=proposal.updated,
-        extras=proposal.extras,
-    )
+def proposal_from_orm(proposal: ProposalORM) -> dict[str, Any]:
+    return orm_to_dict(proposal)
 
 
-def scenario_to_orm(scenario: Scenario, problem_id: str | None = None) -> ScenarioORM:
+def scenario_to_orm(
+    scenario: dict[str, Any], problem_id: str | None = None
+) -> ScenarioORM:
+    index_values = scenario.get("index_values", [])
     return ScenarioORM(
-        problem_id=problem_id or scenario.problem_id,
-        scenario_id=scenario.scenario_id,
-        name=scenario.name,
-        description=scenario.description,
-        created=scenario.created,
-        updated=scenario.updated,
-        extras=scenario.extras,
-        index_diffs=getattr(scenario, "index_diffs", {}),
-        index_values=[item.to_dict() for item in scenario.index_values],
+        problem_id=problem_id or scenario.get("problem_id", ""),
+        scenario_id=scenario["scenario_id"],
+        name=scenario.get("name"),
+        description=scenario.get("description"),
+        created=scenario.get("created"),
+        updated=scenario.get("updated"),
+        extras=scenario.get("extras", {}),
+        index_values=[
+            item.to_dict() if hasattr(item, "to_dict") else item
+            for item in index_values
+        ],
     )
 
 
-def scenario_from_orm(scenario: ScenarioORM) -> Scenario:
-    created = scenario.created or get_timestamp()
-    updated = scenario.updated or created
-    return Scenario(
-        scenario_id=scenario.scenario_id,
-        problem_id=scenario.problem_id,
-        name=scenario.name,
-        description=scenario.description,
-        created=created,
-        updated=updated,
-        extras=scenario.extras,
-        index_values=[IndexEntry.from_dict(item) for item in scenario.index_values],
-    )
+def scenario_from_orm(scenario: ScenarioORM) -> dict[str, Any]:
+    return orm_to_dict(scenario)
 
 
 def relationship_to_orm(payload: dict, problem_id: str) -> RelationshipORM:
@@ -251,34 +226,31 @@ def relationship_from_orm(relationship: RelationshipORM) -> dict[str, str]:
 
 
 def evaluation_to_orm(
-    evaluation: Evaluation, problem_id: str | None = None
+    evaluation: dict[str, Any], problem_id: str | None = None
 ) -> EvaluationORM:
-    result = evaluation.result
+    result = evaluation.get("result")
     if hasattr(result, "to_dict"):
         result = result.to_dict()
     if result is not None and not isinstance(result, dict):
         raise TypeError(
             "Evaluation result must be JSON-serializable or expose to_dict()"
         )
+    state = evaluation.get("state", EvaluationState.RUNNING)
+    if isinstance(state, EvaluationState):
+        state = state.value
     return EvaluationORM(
-        evaluation_id=evaluation.evaluation_id,
-        problem_id=problem_id or evaluation.scenario_id.split("_")[0],
-        scenario_id=evaluation.scenario_id,
-        type=evaluation.type,
-        state=evaluation.state.value,
-        started=evaluation.started,
-        finished=evaluation.finished,
+        evaluation_id=evaluation["evaluation_id"],
+        problem_id=problem_id
+        or evaluation.get("problem_id")
+        or evaluation["scenario_id"].split("_")[0],
+        scenario_id=evaluation["scenario_id"],
+        type=evaluation["type"],
+        state=state,
+        started=evaluation.get("started"),
+        finished=evaluation.get("finished"),
         result=result,
     )
 
 
-def evaluation_from_orm(evaluation: EvaluationORM) -> Evaluation:
-    return Evaluation(
-        evaluation_id=evaluation.evaluation_id,
-        scenario_id=evaluation.scenario_id,
-        type=evaluation.type,
-        state=EvaluationState(evaluation.state),
-        started=evaluation.started,
-        finished=evaluation.finished,
-        result=evaluation.result,
-    )
+def evaluation_from_orm(evaluation: EvaluationORM) -> dict[str, Any]:
+    return orm_to_dict(evaluation)

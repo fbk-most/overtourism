@@ -5,10 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from shutil import rmtree
 
-from overtourism.dt_manager.evaluation.evaluation import Evaluation
-from overtourism.dt_manager.problem.problem import Problem
-from overtourism.dt_manager.proposal.proposal import Proposal
-from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.local.io import load_json, save_json
 from overtourism.dt_manager.stores.enums import ProblemDocumentKey
@@ -41,11 +37,11 @@ class LocalIOStore(Store):
         document = self._normalize_problem_document(problem_data)
         self._write_problem_document(problem_id, document)
 
-    def load_problem(self, problem_id: str) -> Problem:
+    def load_problem(self, problem_id: str) -> dict:
         path = self._problem_file(problem_id)
         if not path.exists():
             raise FileNotFoundError(problem_id)
-        return Problem.from_dict(load_json(path))
+        return load_json(path)
 
     def list_problems(self) -> list[str]:
         problems_dir = self.folder / "problems"
@@ -68,24 +64,24 @@ class LocalIOStore(Store):
         self,
         problem_id: str,
         scenario_id: str,
-        scenario_data: Scenario,
+        scenario_data: dict,
     ) -> None:
-        if scenario_data.scenario_id != scenario_id:
+        if scenario_data["scenario_id"] != scenario_id:
             raise ValueError("Scenario identifiers do not match the provided arguments")
-        scenario_data.problem_id = problem_id
-        save_json(scenario_data.to_dict(), self._scenario_file(problem_id, scenario_id))
+        document = {**scenario_data, "problem_id": problem_id}
+        save_json(document, self._scenario_file(problem_id, scenario_id))
 
-    def load_scenarios(self, problem_id: str) -> list[Scenario]:
+    def load_scenarios(self, problem_id: str) -> list[dict]:
         return [
-            Scenario.from_dict(load_json(path))
+            load_json(path)
             for path in self._entity_files(self._scenarios_dir(problem_id))
         ]
 
-    def load_scenario(self, problem_id: str, scenario_id: str) -> Scenario:
+    def load_scenario(self, problem_id: str, scenario_id: str) -> dict:
         path = self._scenario_file(problem_id, scenario_id)
         if not path.exists():
             raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
-        return Scenario.from_dict(load_json(path))
+        return load_json(path)
 
     def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
         self._delete_file(self._scenario_file(problem_id, scenario_id))
@@ -98,16 +94,16 @@ class LocalIOStore(Store):
         self,
         problem_id: str,
         proposal_id: str,
-        proposal_data: Proposal,
+        proposal_data: dict,
     ) -> None:
-        if proposal_data.proposal_id != proposal_id:
+        if proposal_data["proposal_id"] != proposal_id:
             raise ValueError("Proposal identifiers do not match the provided arguments")
-        proposal_data.problem_id = problem_id
-        save_json(proposal_data.to_dict(), self._proposal_file(problem_id, proposal_id))
+        document = {**proposal_data, "problem_id": problem_id}
+        save_json(document, self._proposal_file(problem_id, proposal_id))
 
-    def load_proposals(self, problem_id: str) -> list[Proposal]:
+    def load_proposals(self, problem_id: str) -> list[dict]:
         return [
-            Proposal.from_dict(load_json(path))
+            load_json(path)
             for path in self._entity_files(self._proposals_dir(problem_id))
         ]
 
@@ -122,30 +118,27 @@ class LocalIOStore(Store):
         self,
         problem_id: str,
         evaluation_id: str,
-        evaluation_data: Evaluation,
+        evaluation_data: dict,
     ) -> None:
-        if evaluation_data.evaluation_id != evaluation_id:
+        if evaluation_data["evaluation_id"] != evaluation_id:
             raise ValueError(
                 "Evaluation identifiers do not match the provided arguments"
             )
-        save_json(
-            evaluation_data.to_dict(),
-            self._evaluation_file(problem_id, evaluation_id),
-        )
+        save_json(evaluation_data, self._evaluation_file(problem_id, evaluation_id))
 
-    def load_evaluations(self, problem_id: str) -> list[Evaluation]:
+    def load_evaluations(self, problem_id: str) -> list[dict]:
         return [
-            Evaluation.from_dict(load_json(path))
+            load_json(path)
             for path in self._entity_files(self._evaluations_dir(problem_id))
         ]
 
-    def load_evaluation(self, problem_id: str, evaluation_id: str) -> Evaluation:
+    def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
         path = self._evaluation_file(problem_id, evaluation_id)
         if not path.exists():
             raise EvaluationDoesNotExist(
                 f"Evaluation with ID {evaluation_id} does not exist"
             )
-        return Evaluation.from_dict(load_json(path))
+        return load_json(path)
 
     def delete_evaluation(self, problem_id: str, evaluation_id: str) -> None:
         self._delete_file(self._evaluation_file(problem_id, evaluation_id))

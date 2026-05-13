@@ -227,8 +227,10 @@ def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]
     )
 
 
-def evaluation_result_to_dict(result: ModelOutput | dict) -> dict:
+def evaluation_result_to_dict(result: ModelOutput | dict | None) -> dict:
     """Normalize a model output or mapping into a plain dictionary."""
+    if result is None:
+        return {}
     return result.to_dict() if hasattr(result, "to_dict") else result
 
 

@@ -136,13 +136,13 @@ class EvaluationManager:
         self.store.save_evaluation(
             self.problem_id,
             evaluation.evaluation_id,
-            evaluation,
+            evaluation.to_dict(),
         )
 
     def load_evaluations(self) -> list[Evaluation]:
         """Load evaluations from storage into memory."""
         evaluations = [
-            self._normalize_loaded_evaluation(evaluation)
+            self._build_evaluation(evaluation)
             for evaluation in self.store.load_evaluations(self.problem_id)
         ]
         self.evaluations = {
@@ -152,7 +152,7 @@ class EvaluationManager:
 
     def load_evaluation(self, evaluation_id: str) -> Evaluation:
         """Load a single evaluation from storage into memory."""
-        evaluation = self._normalize_loaded_evaluation(
+        evaluation = self._build_evaluation(
             self.store.load_evaluation(self.problem_id, evaluation_id)
         )
         self.evaluations[evaluation.evaluation_id] = evaluation
@@ -298,7 +298,8 @@ class EvaluationManager:
     # Internal
     # ───────────────────────────────────────────────────────────
 
-    def _normalize_loaded_evaluation(self, evaluation: Evaluation) -> Evaluation:
+    def _build_evaluation(self, evaluation_data: dict) -> Evaluation:
+        evaluation = Evaluation.from_dict(evaluation_data)
         if isinstance(evaluation.result, dict):
             evaluation.result = self.executor.model_evaluator.build_output(
                 evaluation.result
