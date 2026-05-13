@@ -16,9 +16,11 @@ from overtourism.backend.api.shared.models.scenario import (
 from overtourism.backend.api.shared.utils import (
     BASE_ROUTE,
     arrange_data,
+    evaluation_result_to_dict,
     get_problem_editable_indexes,
     get_problem_or_404,
     get_widgets,
+    model_values,
     prepare_values,
     scenario_index_diffs,
 )
@@ -28,16 +30,6 @@ from overtourism.dt_manager.scenario.values import values_as_scipy
 logger = logging.getLogger(__name__)
 
 scenario_router = APIRouter(prefix=f"{BASE_ROUTE}/scenarios")
-
-
-def _evaluation_result_to_dict(result):
-    """Normalize a model output or mapping into a plain dictionary."""
-    return result.to_dict() if hasattr(result, "to_dict") else result
-
-
-def _model_values(manager) -> dict:
-    """Return the base model values exposed by the facade manager."""
-    return manager.model_evaluator.get_model_values(manager.model)
 
 
 @scenario_router.get(
@@ -77,10 +69,10 @@ async def get_data(
         if session_scenario is not None and session_evaluation is not None:
             out_data = arrange_data(
                 handler,
-                _evaluation_result_to_dict(session_evaluation.result),
+                evaluation_result_to_dict(session_evaluation.result),
             )
             values = {
-                **_model_values(manager),
+                **model_values(handler),
                 **values_as_scipy(session_scenario),
             }
             return OutputData(
@@ -98,7 +90,7 @@ async def get_data(
         )
         scenario = manager.read_scenario(problem_id, scenario_id)
         values = {
-            **_model_values(manager),
+            **model_values(handler),
             **values_as_scipy(scenario),
         }
         return OutputData(
@@ -149,10 +141,10 @@ async def update_data(
         )
         out_data = arrange_data(
             handler,
-            _evaluation_result_to_dict(session_evaluation.result),
+            evaluation_result_to_dict(session_evaluation.result),
         )
         merged = {
-            **_model_values(handler.manager),
+            **model_values(handler),
             **values,
         }
         return OutputData(
@@ -194,10 +186,10 @@ async def resume_session(
         )
         out_data = arrange_data(
             handler,
-            _evaluation_result_to_dict(session_evaluation.result),
+            evaluation_result_to_dict(session_evaluation.result),
         )
         values = {
-            **_model_values(handler.manager),
+            **model_values(handler),
             **values_as_scipy(session_scenario),
         }
         return OutputData(

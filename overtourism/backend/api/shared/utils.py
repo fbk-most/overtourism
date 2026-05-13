@@ -19,6 +19,7 @@ if typing.TYPE_CHECKING:
         UpdateProblemData,
     )
     from overtourism.backend.api.shared.models.problem import Proposal as ProposalModel
+    from overtourism.dt_manager.classes.model import ModelOutput
 
 BASE_ROUTE = "/api/v1"
 
@@ -190,6 +191,20 @@ def get_widget_by_group(handler: Handler, groups: list[str]) -> list[str]:
 # ──────────────────────────────────────────────
 
 
+def scenario_to_api(handler: Handler, scenario: Scenario) -> dict:
+    """Convert a scenario entity to the API response shape."""
+    return {
+        "problem_id": scenario.problem_id,
+        "scenario_id": scenario.scenario_id,
+        "scenario_name": scenario.name,
+        "scenario_description": scenario.description,
+        "created": scenario.created,
+        "updated": scenario.updated,
+        "index_diffs": scenario_index_diffs(handler, scenario),
+        **scenario.extras,
+    }
+
+
 def prepare_values(handler: Handler, values: dict) -> dict:
     """Prepare values for evaluation using the viewer if available."""
     if handler.prepare_values_fn is not None:
@@ -210,6 +225,16 @@ def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]
         handler.manager.model,
         values=values_as_scipy(scenario),
     )
+
+
+def evaluation_result_to_dict(result: ModelOutput | dict) -> dict:
+    """Normalize a model output or mapping into a plain dictionary."""
+    return result.to_dict() if hasattr(result, "to_dict") else result
+
+
+def model_values(handler: Handler) -> dict:
+    """Return the base model values exposed by the facade manager."""
+    return handler.manager.model_evaluator.get_model_values(handler.manager.model)
 
 
 # ──────────────────────────────────────────────

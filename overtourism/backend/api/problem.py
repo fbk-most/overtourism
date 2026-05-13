@@ -17,11 +17,10 @@ from overtourism.backend.api.shared.models.scenario import ScenarioList
 from overtourism.backend.api.shared.utils import (
     BASE_ROUTE,
     get_problem_or_404,
-    get_widget_by_group,
     problem_from_model,
     problem_to_api,
     proposal_to_api,
-    scenario_index_diffs,
+    scenario_to_api,
     slugify_name,
 )
 from overtourism.backend.handler import Handler
@@ -96,12 +95,12 @@ async def read_problem(
     try:
         problem = get_problem_or_404(handler, problem_id)
         proposals = [
-            proposal_to_api(handler, problem.problem_id, proposal)
-            for proposal in handler.manager.list_proposals(problem.problem_id)
+            proposal_to_api(handler, problem_id, proposal)
+            for proposal in handler.manager.list_proposals(problem_id)
         ]
         return GetProblemData(**problem_to_api(problem), proposals=proposals)
     except Exception as e:
-        logger.error(f"Error reading problem {problem.problem_id}: {e}")
+        logger.error(f"Error reading problem {problem_id}: {e}")
         raise
 
 
@@ -121,26 +120,8 @@ async def update_problem(
 ) -> dict:
     """Update a problem and persist the current aggregate."""
     try:
-        manager = handler.manager
-        problem = get_problem_or_404(handler, problem_id)
-        extras = dict(problem.extras)
-        if data.editable_indexes is not None:
-            extras["editable_indexes"] = data.editable_indexes
-        if data.groups is not None:
-            editable_indexes = get_widget_by_group(handler, data.groups)
-            extras["editable_indexes"] = editable_indexes
-            extras["groups"] = data.groups
-        if data.objective is not None:
-            extras["objective"] = data.objective
-        if data.links is not None:
-            extras["links"] = data.links
-
-        manager.update_problem(
-            problem_id,
-            name=data.problem_name,
-            description=data.problem_description,
-            extras=extras,
-        )
+        get_problem_or_404(handler, problem_id)
+        handler.manager.update_problem(problem_id, **problem_from_model(handler, data))
 
         logger.info(f"Problem updated: {problem_id}")
         return {"message": "Problem updated successfully"}
@@ -185,22 +166,12 @@ async def list_scenarios(
 ) -> ScenarioList:
     """List all scenarios for a problem."""
     try:
-        manager = handler.manager
-        problem = get_problem_or_404(handler, problem_id)
-        models = [
-            {
-                "problem_id": problem.problem_id,
-                "scenario_id": s.scenario_id,
-                "scenario_name": s.name,
-                "scenario_description": s.description,
-                "created": s.created,
-                "updated": s.updated,
-                "index_diffs": scenario_index_diffs(handler, s),
-                **s.extras,
-            }
-            for s in manager.list_scenarios(problem_id)
+        get_problem_or_404(handler, problem_id)
+        scenarios = [
+            scenario_to_api(handler, s)
+            for s in handler.manager.list_scenarios(problem_id)
         ]
-        return ScenarioList(scenarios=models)
+        return ScenarioList(scenarios=scenarios)
     except Exception as e:
         logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
         raise

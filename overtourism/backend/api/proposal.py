@@ -36,14 +36,14 @@ async def list_proposals(
 ) -> ProposalList:
     """List all proposals for a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, problem_id)
         p_list = [
-            Proposal(**proposal_to_api(handler, problem.problem_id, proposal))
-            for proposal in handler.manager.list_proposals(problem.problem_id)
+            Proposal(**proposal_to_api(handler, problem_id, proposal))
+            for proposal in handler.manager.list_proposals(problem_id)
         ]
         return ProposalList(data=p_list)
     except Exception as e:
-        logger.error(f"Error listing proposals for problem {problem.problem_id}: {e}")
+        logger.error(f"Error listing proposals for problem {problem_id}: {e}")
         raise
 
 
@@ -63,16 +63,15 @@ async def create_proposal(
 ) -> dict:
     """Create a proposal for a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, problem_id)
         proposal_id = handler.manager.create_proposal(
-            problem.problem_id,
+            problem_id,
             **parse_proposal_model(handler, proposal),
-        )
-
-        logger.info(f"Proposal created: {proposal_id} for problem {problem.problem_id}")
+        ).proposal_id
+        logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal created successfully", "proposal_id": proposal_id}
     except Exception as e:
-        logger.error(f"Error creating proposal for problem {problem.problem_id}: {e}")
+        logger.error(f"Error creating proposal for problem {problem_id}: {e}")
         raise
 
 
@@ -118,17 +117,17 @@ async def update_proposal(
 ) -> dict:
     """Update a proposal and its related scenario links."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, problem_id)
         handler.manager.update_proposal(
-            problem.problem_id,
+            problem_id,
             proposal_id,
             **parse_proposal_model(handler, proposal),
         )
-        logger.info(f"Proposal updated: {proposal_id} for problem {problem.problem_id}")
+        logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
         return {"message": "Proposal updated successfully"}
     except Exception as e:
         logger.error(
-            f"Error updating proposal {proposal_id} for problem {problem.problem_id}: {e}"
+            f"Error updating proposal {proposal_id} for problem {problem_id}: {e}"
         )
         raise
 
@@ -148,11 +147,11 @@ async def delete_proposal(
 ) -> None:
     """Delete a proposal from a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
-        handler.manager.delete_proposal(problem.problem_id, proposal_id)
-        logger.info(f"Proposal deleted: {proposal_id} for problem {problem.problem_id}")
+        get_problem_or_404(handler, problem_id)
+        handler.manager.delete_proposal(problem_id, proposal_id)
+        logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")
     except Exception as e:
         logger.error(
-            f"Error deleting proposal {proposal_id} for problem {problem.problem_id}: {e}"
+            f"Error deleting proposal {proposal_id} for problem {problem_id}: {e}"
         )
         raise
