@@ -15,7 +15,7 @@ from overtourism.backend.api.shared.models.problem import (
 )
 from overtourism.backend.api.shared.models.scenario import ScenarioList
 from overtourism.backend.api.shared.utils import (
-    BASE_ROUTE,
+    TENANT_ROUTE_PREFIX,
     get_problem_or_404,
     problem_from_model,
     problem_to_api,
@@ -23,11 +23,15 @@ from overtourism.backend.api.shared.utils import (
     scenario_to_api,
     slugify_name,
 )
+from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
-problem_router = APIRouter(prefix=f"{BASE_ROUTE}/problems")
+problem_router = APIRouter(
+    prefix=f"{TENANT_ROUTE_PREFIX}/problems",
+    dependencies=[Depends(get_auth_context)],
+)
 
 
 @problem_router.get(
@@ -38,7 +42,9 @@ problem_router = APIRouter(prefix=f"{BASE_ROUTE}/problems")
         200: {"description": "Problem list"},
     },
 )
-async def list_problems(handler: Handler = Depends(get_handler)) -> ProblemList:
+async def list_problems(
+    handler: Handler = Depends(get_handler),
+) -> ProblemList:
     """List all problems in the current store."""
     try:
         problems = [

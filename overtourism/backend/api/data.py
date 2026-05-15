@@ -9,12 +9,16 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.utils import BASE_ROUTE
+from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
-data_router = APIRouter(prefix=f"{BASE_ROUTE}/data")
+data_router = APIRouter(
+    prefix=f"{BASE_ROUTE}/data",
+    dependencies=[Depends(get_auth_context)],
+)
 
 
 def _loader(managers: Handler = Depends(get_handler)) -> OvertourismIndexesLoader:

@@ -9,16 +9,20 @@ from fastapi import APIRouter, Depends
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.models.problem import Proposal, ProposalList
 from overtourism.backend.api.shared.utils import (
-    BASE_ROUTE,
+    TENANT_ROUTE_PREFIX,
     get_problem_or_404,
     parse_proposal_model,
     proposal_to_api,
 )
+from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
-proposal_router = APIRouter(prefix=f"{BASE_ROUTE}/proposals")
+proposal_router = APIRouter(
+    prefix=f"{TENANT_ROUTE_PREFIX}/proposals",
+    dependencies=[Depends(get_auth_context)],
+)
 
 
 @proposal_router.get(

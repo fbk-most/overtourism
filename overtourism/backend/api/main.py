@@ -13,6 +13,7 @@ from overtourism.backend.api.proposal import proposal_router
 from overtourism.backend.api.scenario import scenario_router
 from overtourism.backend.api.shared.dependencies import init_handler
 from overtourism.backend.api.widget import widget_router
+from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
     from overtourism.backend.handler import Handler
@@ -63,6 +64,7 @@ def create_app(
     app.include_router(problem_router)
     app.include_router(widget_router)
     app.include_router(proposal_router)
+    app.include_router(auth_router)
 
     if extra_routers:
         for router in extra_routers:

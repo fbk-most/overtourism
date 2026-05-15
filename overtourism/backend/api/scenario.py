@@ -14,7 +14,7 @@ from overtourism.backend.api.shared.models.scenario import (
     SaveData,
 )
 from overtourism.backend.api.shared.utils import (
-    BASE_ROUTE,
+    TENANT_ROUTE_PREFIX,
     arrange_data,
     evaluation_result_to_dict,
     get_problem_editable_indexes,
@@ -24,12 +24,16 @@ from overtourism.backend.api.shared.utils import (
     prepare_values,
     scenario_index_diffs,
 )
+from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
 
-scenario_router = APIRouter(prefix=f"{BASE_ROUTE}/scenarios")
+scenario_router = APIRouter(
+    prefix=f"{TENANT_ROUTE_PREFIX}/scenarios",
+    dependencies=[Depends(get_auth_context)],
+)
 
 
 @scenario_router.get(

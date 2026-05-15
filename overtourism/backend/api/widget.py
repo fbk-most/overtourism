@@ -9,12 +9,16 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.models.widgets import Widgets
-from overtourism.backend.api.shared.utils import BASE_ROUTE
+from overtourism.backend.api.shared.utils import TENANT_ROUTE_PREFIX
+from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 
 logger = logging.getLogger(__name__)
 
-widget_router = APIRouter(prefix=BASE_ROUTE)
+widget_router = APIRouter(
+    prefix=TENANT_ROUTE_PREFIX,
+    dependencies=[Depends(get_auth_context)],
+)
 
 
 @widget_router.get(
