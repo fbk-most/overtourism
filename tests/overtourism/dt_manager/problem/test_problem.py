@@ -16,6 +16,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 
     assert problem.to_dict() == {
         "problem_id": "problem-alpha",
+        "tenant": "default",
         "name": "problem-alpha",
         "description": "problem-alpha problem",
         "created": FIXED_TIMESTAMP,
@@ -27,6 +28,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 def test_from_dict_round_trip() -> None:
     payload = {
         "problem_id": "problem-alpha",
+        "tenant": "molveno",
         "name": "Problem Alpha",
         "description": "Primary problem",
         "created": "2026-05-15T10:00:00Z",

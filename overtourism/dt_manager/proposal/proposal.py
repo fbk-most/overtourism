@@ -3,9 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from overtourism.dt_manager.classes.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
+
+
+class ProposalStatus(str, Enum):
+    """Lifecycle states for a proposal."""
+
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+def _coerce_status(status: ProposalStatus | str | None) -> ProposalStatus:
+    if status is None:
+        return ProposalStatus.DRAFT
+    if isinstance(status, ProposalStatus):
+        return status
+    return ProposalStatus(status)
 
 
 @dataclass
@@ -22,7 +40,7 @@ class Proposal(Dictable):
         Proposal name.
     description : str | None
         Proposal description.
-    status : str | None
+    status : ProposalStatus | None
         Proposal status.
     created : str | None
         Creation timestamp.
@@ -36,7 +54,7 @@ class Proposal(Dictable):
     problem_id: str
     name: str | None = None
     description: str | None = None
-    status: str | None = None
+    status: ProposalStatus = ProposalStatus.DRAFT
     created: str | None = None
     updated: str | None = None
     extras: dict = field(default_factory=dict)
@@ -49,7 +67,7 @@ class Proposal(Dictable):
         problem_id: str = "",
         name: str | None = None,
         description: str | None = None,
-        status: str | None = None,
+        status: ProposalStatus | str | None = None,
         created: str | None = None,
         updated: str | None = None,
         extras: dict | None = None,
@@ -61,7 +79,7 @@ class Proposal(Dictable):
             problem_id=problem_id,
             name=proposal_id if name is None else name,
             description=description or "",
-            status=status or "draft",
+            status=_coerce_status(status),
             created=created or now,
             updated=updated or now,
             extras={} if extras is None else extras,
@@ -70,12 +88,13 @@ class Proposal(Dictable):
     @classmethod
     def from_dict(cls, data: dict) -> Proposal:
         """Build a proposal from a flat proposal payload dictionary."""
+        status = data.get("status")
         return cls(
             proposal_id=data["proposal_id"],
             problem_id=data.get("problem_id", ""),
             name=data.get("name"),
             description=data.get("description"),
-            status=data.get("status"),
+            status=_coerce_status(status),
             created=data.get("created"),
             updated=data.get("updated"),
             extras=data.get("extras", {}),

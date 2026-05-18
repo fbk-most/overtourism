@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
-from overtourism.dt_manager.manager.config import BaseProblemConfig
+from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
@@ -22,7 +22,7 @@ def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    base_problem_config: BaseProblemConfig | None = None,
+    base_problem_config: BaseConfig | None = None,
 ) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
@@ -41,7 +41,7 @@ def _make_manager(
 
 def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> None:
     manager, evaluator, model = _make_manager(tmp_path)
-    default_config = BaseProblemConfig()
+    default_config = BaseConfig()
 
     assert [problem.problem_id for problem in manager.list_problems()] == [
         default_config.problem_id
@@ -49,6 +49,7 @@ def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> Non
 
     problem = manager.read_problem(default_config.problem_id)
     assert problem.problem_id == default_config.problem_id
+    assert problem.tenant == default_config.tenant
     assert problem.name == default_config.problem_name
     assert problem.description == default_config.problem_description
 
@@ -98,6 +99,7 @@ def test_create_problem_workflow_creates_default_child_graph(tmp_path) -> None:
 
     problem = manager.read_problem(problem_id)
     assert problem.problem_id == problem_id
+    assert problem.tenant == manager.base_problem_config.tenant
     assert problem.name == "Problem Alpha"
     assert problem.description == "Primary problem"
     assert problem.extras == {"region": "tn"}
@@ -207,7 +209,7 @@ def test_create_and_delete_workflows_manage_relationships(tmp_path) -> None:
 
 def test_session_workflow_can_be_resumed_and_closed(tmp_path) -> None:
     manager, evaluator, model = _make_manager(tmp_path)
-    default_config = BaseProblemConfig()
+    default_config = BaseConfig()
 
     problem_id = "problem-alpha"
     manager.create_problem(
@@ -273,7 +275,7 @@ def test_session_workflow_can_be_resumed_and_closed(tmp_path) -> None:
 
 def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
     manager, evaluator, model = _make_manager(tmp_path)
-    default_config = BaseProblemConfig()
+    default_config = BaseConfig()
 
     problem_id = "problem-alpha"
     manager.create_problem(
@@ -357,7 +359,9 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
         default_config.problem_id,
         problem_id,
     }
-    assert reloaded_manager.read_problem(problem_id).name == "Problem Alpha"
+    reloaded_problem = reloaded_manager.read_problem(problem_id)
+    assert reloaded_problem.name == "Problem Alpha"
+    assert reloaded_problem.tenant == manager.base_problem_config.tenant
     assert (
         reloaded_manager.read_problem(default_config.problem_id).name
         == default_config.problem_name
@@ -431,7 +435,9 @@ def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
         manager.base_problem_config.problem_id,
         problem_id,
     }
-    assert reloaded_manager.read_problem(problem_id).name == "Problem Alpha"
+    reloaded_problem = reloaded_manager.read_problem(problem_id)
+    assert reloaded_problem.name == "Problem Alpha"
+    assert reloaded_problem.tenant == manager.base_problem_config.tenant
     assert [
         scenario_data.scenario_id
         for scenario_data in reloaded_manager.list_scenarios(problem_id)

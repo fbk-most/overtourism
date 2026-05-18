@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class BaseProblemConfig:
+class BaseConfig:
     """Default problem configuration for manager initialization."""
 
     problem_id: str = "default"
+    tenant: str = "default"
     problem_name: str = "Default problem"
     problem_description: str = "Default problem."
     problem_extras: dict = field(default_factory=dict)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
-from overtourism.dt_manager.manager.config import BaseProblemConfig
+from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.overtourism.adapters.evaluator import (
@@ -120,7 +120,8 @@ extras_config = ExtrasConfig(
 )
 
 
-base_problem_config = BaseProblemConfig(
+base_problem_config = BaseConfig(
+    tenant="molveno",
     problem_extras=dict(
         editable_indexes=list(INDEX_NAME_MAP.keys()),
         groups=["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],

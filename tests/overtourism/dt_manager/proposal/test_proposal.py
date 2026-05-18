@@ -32,7 +32,7 @@ def test_from_dict_round_trip() -> None:
         "problem_id": "problem-alpha",
         "name": "Proposal Alpha",
         "description": "Primary proposal",
-        "status": "published",
+        "status": "accepted",
         "created": "2026-05-15T10:00:00Z",
         "updated": "2026-05-15T11:00:00Z",
         "extras": {"kind": "proposal"},

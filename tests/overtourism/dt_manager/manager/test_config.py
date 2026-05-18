@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.manager.config import BaseProblemConfig
+from overtourism.dt_manager.manager.config import BaseConfig
 
 
 def test_base_problem_config_defaults() -> None:
-    config = BaseProblemConfig()
+    config = BaseConfig()
 
     assert config.problem_id == "default"
+    assert config.tenant == "default"
     assert config.problem_name == "Default problem"
     assert config.problem_description == "Default problem."
     assert config.problem_extras == {}
@@ -24,8 +25,9 @@ def test_base_problem_config_defaults() -> None:
 
 
 def test_base_problem_config_accepts_custom_values() -> None:
-    config = BaseProblemConfig(
+    config = BaseConfig(
         problem_id="problem-alpha",
+        tenant="tenant-alpha",
         problem_name="Problem Alpha",
         problem_description="Primary problem",
         problem_extras={"region": "tn"},
@@ -41,6 +43,7 @@ def test_base_problem_config_accepts_custom_values() -> None:
     )
 
     assert config.problem_id == "problem-alpha"
+    assert config.tenant == "tenant-alpha"
     assert config.problem_name == "Problem Alpha"
     assert config.problem_description == "Primary problem"
     assert config.problem_extras == {"region": "tn"}

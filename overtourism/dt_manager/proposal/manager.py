@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.proposal.proposal import Proposal
+from overtourism.dt_manager.proposal.proposal import Proposal, ProposalStatus
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import (
     ProposalAlreadyExists,
@@ -37,7 +37,7 @@ class ProposalManager:
         proposal_id: str,
         name: str | None = None,
         description: str | None = None,
-        status: str | None = None,
+        status: ProposalStatus | str | None = None,
         extras: dict | None = None,
     ) -> Proposal:
         """Create and register a new proposal.
@@ -97,7 +97,7 @@ class ProposalManager:
         proposal_id: str,
         name: str | None = None,
         description: str | None = None,
-        status: str | None = None,
+        status: ProposalStatus | str | None = None,
         extras: dict | None = None,
     ) -> Proposal:
         """Update a proposal in memory.
@@ -134,7 +134,9 @@ class ProposalManager:
             proposal.description = description
             updated = True
         if status is not None:
-            proposal.status = status
+            proposal.status = (
+                status if isinstance(status, ProposalStatus) else ProposalStatus(status)
+            )
             updated = True
         if extras is not None:
             proposal.extras.update(extras)

@@ -12,7 +12,7 @@ from overtourism.dt_manager.classes.model import ModelEvaluator
 from overtourism.dt_manager.evaluation.evaluation import DEFAULT_EVALUATION_TYPE
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
-from overtourism.dt_manager.manager.config import BaseProblemConfig
+from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.problem.manager import ProblemManager
 from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
@@ -52,7 +52,7 @@ class Manager:
         model_evaluator: ModelEvaluator,
         store_config: StoreConfig,
         extras_config: ExtrasConfig | None = None,
-        base_problem_config: BaseProblemConfig | None = None,
+        base_problem_config: BaseConfig | None = None,
     ) -> None:
         """Create the high-level manager facade."""
         self.model = model
@@ -61,9 +61,7 @@ class Manager:
             extras_config if extras_config is not None else ExtrasConfig()
         )
         self.base_problem_config = (
-            base_problem_config
-            if base_problem_config is not None
-            else BaseProblemConfig()
+            base_problem_config if base_problem_config is not None else BaseConfig()
         )
 
         self.store = create_store(store_config.store_type, **store_config.config)
@@ -93,6 +91,7 @@ class Manager:
         """Create the default problem graph when the store is empty."""
         self.problem_manager.create_problem(
             self.base_problem_config.problem_id,
+            tenant=self.base_problem_config.tenant,
             name=self.base_problem_config.problem_name,
             description=self.base_problem_config.problem_description,
             extras=self.base_problem_config.problem_extras,
@@ -301,6 +300,20 @@ class Manager:
     def problem_extras_from_dict(self, problem_dict: dict) -> dict:
         """Extract problem extras from a dictionary."""
         return self.extras_config.problem_extras_from_dict(problem_dict)
+
+    def link_scenario_to_proposal(
+        self,
+        problem_id: str,
+        proposal_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Link a scenario to a proposal."""
+        self.problem_manager.link_scenario_to_proposal(
+            problem_id,
+            proposal_id,
+            scenario_id,
+        )
+        self.save_problem(problem_id)
 
     # ───────────────────────────────────────────────────────────
     # Scenarios

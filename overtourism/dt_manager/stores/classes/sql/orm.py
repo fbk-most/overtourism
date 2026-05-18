@@ -20,6 +20,7 @@ class ProblemORM(SQLBase):
     __tablename__ = "problems"
 
     problem_id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant: Mapped[str | None] = mapped_column(Text)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     created: Mapped[str | None] = mapped_column(String)
@@ -158,6 +159,7 @@ def orm_to_dict(entity: Any) -> dict[str, Any]:
 def problem_to_orm(problem: dict[str, Any]) -> ProblemORM:
     return ProblemORM(
         problem_id=problem["problem_id"],
+        tenant=problem.get("tenant"),
         name=problem.get("name"),
         description=problem.get("description"),
         created=problem.get("created"),

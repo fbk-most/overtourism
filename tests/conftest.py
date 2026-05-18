@@ -153,7 +153,7 @@ def other_proposal_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_proposal_payload(
         "proposal-beta",
         problem_id=problem_payload["problem_id"],
-        status="published",
+        status="accepted",
     )
 
 

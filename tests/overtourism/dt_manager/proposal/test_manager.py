@@ -57,14 +57,14 @@ def test_add_update_save_load_and_delete_proposal(
         "proposal-alpha",
         name="Proposal Alpha Updated",
         description="Updated proposal",
-        status="published",
+        status="accepted",
         extras={"priority": "high"},
     )
 
     assert updated.updated == UPDATED_TIMESTAMP
     assert updated.name == "Proposal Alpha Updated"
     assert updated.description == "Updated proposal"
-    assert updated.status == "published"
+    assert updated.status == "accepted"
     assert updated.extras == {"kind": "proposal", "priority": "high"}
 
     manager.save_proposal("proposal-alpha")
