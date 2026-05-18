@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.utils import BASE_ROUTE
+from overtourism.backend.api.v1.config import BASE_ROUTE
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 

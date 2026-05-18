@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.shared.models.widgets import Widgets
-from overtourism.backend.api.shared.utils import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 

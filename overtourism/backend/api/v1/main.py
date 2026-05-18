@@ -8,11 +8,12 @@ import typing
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.problem import problem_router
-from overtourism.backend.api.proposal import proposal_router
-from overtourism.backend.api.scenario import scenario_router
 from overtourism.backend.api.shared.dependencies import init_handler
-from overtourism.backend.api.widget import widget_router
+from overtourism.backend.api.v1.config import APP_VERSION
+from overtourism.backend.api.v1.problem import problem_router
+from overtourism.backend.api.v1.proposal import proposal_router
+from overtourism.backend.api.v1.scenario import scenario_router
+from overtourism.backend.api.v1.widget import widget_router
 from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
@@ -33,21 +34,11 @@ def create_app(
     handler: Handler,
     *,
     title: str = "Overtourism API",
-    version: str = "0.1.0",
-    description: str = "",
+    version: str = APP_VERSION,
+    description: str = "API for tourism indices in Trentino",
     extra_routers: list[APIRouter] | None = None,
 ) -> FastAPI:
-    """Create a FastAPI app wired to the given handler.
-
-    Parameters
-    ----------
-    handler : Handler
-        Backend singletons (problem_manager, viewer, ...).
-    title, version, description : str
-        OpenAPI metadata.
-    extra_routers : list, optional
-        Additional APIRouters to include, for example data routes.
-    """
+    """Create a FastAPI app wired to the given handler."""
     init_handler(handler)
 
     app = FastAPI(title=title, version=version, description=description)

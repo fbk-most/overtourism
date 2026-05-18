@@ -21,10 +21,6 @@ if typing.TYPE_CHECKING:
     from overtourism.backend.api.shared.models.problem import Proposal as ProposalModel
     from overtourism.dt_manager.classes.model import ModelOutput
 
-BASE_ROUTE = "/api/v1"
-# TENANT_ROUTE_PREFIX = f"{BASE_ROUTE}/{{tenant}}"
-TENANT_ROUTE_PREFIX = f"{BASE_ROUTE}"
-
 
 # ──────────────────────────────────────────────
 # Problem

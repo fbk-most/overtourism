@@ -15,7 +15,6 @@ from overtourism.backend.api.shared.models.problem import (
 )
 from overtourism.backend.api.shared.models.scenario import ScenarioList
 from overtourism.backend.api.shared.utils import (
-    TENANT_ROUTE_PREFIX,
     get_problem_or_404,
     problem_from_model,
     problem_to_api,
@@ -23,6 +22,7 @@ from overtourism.backend.api.shared.utils import (
     scenario_to_api,
     slugify_name,
 )
+from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 

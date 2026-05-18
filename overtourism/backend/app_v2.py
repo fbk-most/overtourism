@@ -6,8 +6,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from overtourism.backend.api.data import data_router
-from overtourism.backend.api.main import create_app
+from overtourism.backend.api.v2.data import data_router
+from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.data.catalog import MOLVENO_SIM_INDEXES
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.data.viewer.viewer import ModelViewer
@@ -36,9 +36,6 @@ def build_app() -> FastAPI:
     """Build the FastAPI application for the backend."""
     return create_app(
         build_handler(),
-        title="AIxPA Over-Tourism API",
-        version="0.1.0",
-        description="API for tourism indices in Trentino",
         extra_routers=[data_router],
     )
 
