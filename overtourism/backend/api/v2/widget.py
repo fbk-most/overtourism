@@ -8,8 +8,8 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.shared.models.widgets import Widgets
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v2.models.widgets import Widgets
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 

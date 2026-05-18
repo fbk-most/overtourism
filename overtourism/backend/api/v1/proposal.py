@@ -7,13 +7,13 @@ import logging
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.shared.models.problem import Proposal, ProposalList
-from overtourism.backend.api.shared.utils import (
+from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v1.models.problem import Proposal, ProposalList
+from overtourism.backend.api.v1.utils import (
     get_problem_or_404,
     parse_proposal_model,
     proposal_to_api,
 )
-from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 

@@ -8,12 +8,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.shared.models.scenario import (
+from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v2.models.scenario import (
     InputEvaluationData,
     OutputData,
     SaveData,
 )
-from overtourism.backend.api.shared.utils import (
+from overtourism.backend.api.v2.utils import (
     arrange_data,
     evaluation_result_to_dict,
     get_problem_editable_indexes,
@@ -23,7 +24,6 @@ from overtourism.backend.api.shared.utils import (
     prepare_values,
     scenario_index_diffs,
 )
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.scenario.values import values_as_scipy

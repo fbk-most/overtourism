@@ -14,11 +14,11 @@ from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
 if typing.TYPE_CHECKING:
-    from overtourism.backend.api.shared.models.problem import (
+    from overtourism.backend.api.v1.models.problem import (
         PostProblemData,
         UpdateProblemData,
     )
-    from overtourism.backend.api.shared.models.problem import Proposal as ProposalModel
+    from overtourism.backend.api.v1.models.problem import Proposal as ProposalModel
     from overtourism.dt_manager.classes.model import ModelOutput
 
 
