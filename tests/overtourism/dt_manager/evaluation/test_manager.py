@@ -41,24 +41,31 @@ def _make_scenario(problem_id: str, scenario_id: str, visits: int) -> Scenario:
 
 
 def _make_manager(
-    local_store, fake_model, fake_model_evaluator, problem_id: str
+    sql_store, fake_model, fake_model_evaluator, problem_id: str
 ) -> EvaluationManager:
     return EvaluationManager(
-        local_store,
+        sql_store,
         problem_id,
         Executor(fake_model, fake_model_evaluator),
     )
 
 
+def _persist_problem_scenarios(sql_store, problem_payload: dict, *scenarios: Scenario) -> None:
+    problem_id = problem_payload["problem_id"]
+    sql_store.save_problem(problem_id, problem_payload)
+    for scenario in scenarios:
+        sql_store.save_scenario(problem_id, scenario.scenario_id, scenario.to_dict())
+
+
 def test_create_run_load_and_delete_evaluation(
-    local_store,
+    sql_store,
     fake_model,
     fake_model_evaluator,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = _make_manager(local_store, fake_model, fake_model_evaluator, problem_id)
+    manager = _make_manager(sql_store, fake_model, fake_model_evaluator, problem_id)
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
@@ -66,12 +73,13 @@ def test_create_run_load_and_delete_evaluation(
     )
 
     scenario = _make_scenario(problem_id, "scenario-alpha", 7)
+    _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     running = manager.create_evaluation("evaluation-alpha", scenario.scenario_id)
     assert running.state is EvaluationState.RUNNING
     assert running.started == CREATED_TIMESTAMP
     assert (
-        local_store.load_evaluation(problem_id, "evaluation-alpha")["state"]
+        sql_store.load_evaluation(problem_id, "evaluation-alpha")["state"]
         == EvaluationState.RUNNING.value
     )
 
@@ -94,12 +102,16 @@ def test_create_run_load_and_delete_evaluation(
         "values": {"visits": 7},
         "model_tag": "baseline",
     }
-    assert manager.read_latest_evaluation(scenario.scenario_id) is completed
+    latest = manager.read_latest_evaluation(scenario.scenario_id)
+    assert latest.to_dict() == completed.to_dict()
+
+    latest.state = EvaluationState.FAILED
+    assert manager.read_evaluation("evaluation-alpha").state is EvaluationState.COMPLETED
 
     reloaded_manager = _make_manager(
-        local_store, fake_model, fake_model_evaluator, problem_id
+        sql_store, fake_model, fake_model_evaluator, problem_id
     )
-    loaded = reloaded_manager.load_evaluations()
+    loaded = reloaded_manager.list_evaluations()
 
     assert [item.evaluation_id for item in loaded] == ["evaluation-alpha"]
     assert loaded[0].result.to_dict() == completed.result.to_dict()
@@ -107,24 +119,23 @@ def test_create_run_load_and_delete_evaluation(
         reloaded_manager.read_evaluation("evaluation-alpha").state
         is EvaluationState.COMPLETED
     )
-    assert len(fake_model_evaluator.build_output_calls) == 2
 
     manager.delete_evaluation("evaluation-alpha")
-    assert local_store.load_evaluations(problem_id) == []
+    assert sql_store.load_evaluations(problem_id) == []
 
     with pytest.raises(EvaluationDoesNotExist):
         manager.read_evaluation("evaluation-alpha")
 
 
 def test_session_evaluation_lifecycle_and_save_session(
-    local_store,
+    sql_store,
     fake_model,
     fake_model_evaluator,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = _make_manager(local_store, fake_model, fake_model_evaluator, problem_id)
+    manager = _make_manager(sql_store, fake_model, fake_model_evaluator, problem_id)
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
@@ -132,6 +143,7 @@ def test_session_evaluation_lifecycle_and_save_session(
     )
 
     scenario = _make_scenario(problem_id, "scenario-alpha", 11)
+    _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     session_evaluation = manager.create_session_evaluation(
         "session-1",
@@ -152,9 +164,9 @@ def test_session_evaluation_lifecycle_and_save_session(
 
     saved = manager.save_session_evaluation("session-1")
     assert saved is completed
-    assert manager.read_evaluation(saved.evaluation_id) is saved
+    assert manager.read_evaluation(saved.evaluation_id).to_dict() == saved.to_dict()
     assert (
-        local_store.load_evaluation(problem_id, saved.evaluation_id)["state"]
+        sql_store.load_evaluation(problem_id, saved.evaluation_id)["state"]
         == EvaluationState.COMPLETED.value
     )
 
@@ -163,23 +175,23 @@ def test_session_evaluation_lifecycle_and_save_session(
         manager.read_session_evaluation("session-1")
 
     reloaded_manager = _make_manager(
-        local_store, fake_model, fake_model_evaluator, problem_id
+        sql_store, fake_model, fake_model_evaluator, problem_id
     )
-    loaded = reloaded_manager.load_evaluation(saved.evaluation_id)
+    loaded = reloaded_manager.read_evaluation(saved.evaluation_id)
 
     assert loaded.result.to_dict() == completed.result.to_dict()
-    assert reloaded_manager.read_evaluation(saved.evaluation_id) is loaded
+    assert reloaded_manager.read_evaluation(saved.evaluation_id).to_dict() == loaded.to_dict()
 
 
 def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
-    local_store,
+    sql_store,
     fake_model,
     fake_model_evaluator,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = _make_manager(local_store, fake_model, fake_model_evaluator, problem_id)
+    manager = _make_manager(sql_store, fake_model, fake_model_evaluator, problem_id)
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
@@ -188,6 +200,12 @@ def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
 
     primary_scenario = _make_scenario(problem_id, "scenario-alpha", 5)
     secondary_scenario = _make_scenario(problem_id, "scenario-beta", 9)
+    _persist_problem_scenarios(
+        sql_store,
+        problem_payload,
+        primary_scenario,
+        secondary_scenario,
+    )
 
     manager.create_evaluation("evaluation-alpha", primary_scenario.scenario_id)
     manager.run_evaluation("evaluation-alpha", primary_scenario, ensemble_size=2)
@@ -208,7 +226,7 @@ def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
         "evaluation-beta"
     ]
     assert (
-        local_store.load_evaluations(problem_id)[0]["evaluation_id"]
+        sql_store.load_evaluations(problem_id)[0]["evaluation_id"]
         == "evaluation-beta"
     )
 

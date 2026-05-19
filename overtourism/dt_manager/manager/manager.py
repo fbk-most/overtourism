@@ -27,23 +27,8 @@ if typing.TYPE_CHECKING:
 
 
 class Manager:
-    """Facade exposing problem, scenario, proposal, and relationship managers.
-
-    Proposal-scenario links are managed on the problem aggregate and persisted
-    under the top-level ``relationship`` section in the problem document.
-    ``extras_config`` is stored on the facade so the API layer can extract
-    problem, proposal, and scenario extras consistently.
-
-    Parameters
-    ----------
-    model : Model
-        Base model used to build scenario managers.
-    model_evaluator : ModelEvaluator
-        Evaluator used to compute scenario outputs and index diffs.
-    store_config : StoreConfig
-        Storage configuration used to build the persistence backend.
-    extras_config : ExtrasConfig | None, optional
-        Optional metadata extras configuration.
+    """
+    Coordinator exposing problem, scenario, proposal, and relationship managers.
     """
 
     def __init__(
@@ -79,13 +64,22 @@ class Manager:
     # ───────────────────────────────────────────────────────────
 
     def _setup(self) -> None:
-        """Initialize the manager."""
-        # Bootstrap the default problem when the store is empty, then load all problems.
-        problem_ids = self.store.list_problems()
-        if not problem_ids:
+        """
+        Initialize the manager.
+        Bootstrap the default problem when the store is empty,
+        then load all problems.
+        """
+        problems = self.store.load_problems()
+
+        if not problems:
             self._bootstrap_default_problem()
             problem_ids = [self.base_problem_config.problem_id]
-        self.load_problems(problem_ids)
+        else:
+            problem_ids = [problem["problem_id"] for problem in problems]
+
+        for problem_id in problem_ids:
+            self.problem_manager.read_problem(problem_id)
+            self._init_problem_managers(problem_id)
 
     def _bootstrap_default_problem(self) -> None:
         """Create the default problem graph when the store is empty."""
@@ -103,7 +97,7 @@ class Manager:
             description=self.base_problem_config.scenario_description,
             extras=self.base_problem_config.scenario_extras,
         )
-        self.proposal_managers[self.base_problem_config.problem_id].add_proposal(
+        self.proposal_managers[self.base_problem_config.problem_id].create_proposal(
             proposal_id=self.base_problem_config.proposal_id,
             name=self.base_problem_config.proposal_name,
             description=self.base_problem_config.proposal_description,
@@ -115,12 +109,10 @@ class Manager:
             self.base_problem_config.proposal_id,
             self.base_problem_config.scenario_id,
         )
-        self.save_problem(self.base_problem_config.problem_id)
         self.evaluate_scenario(
             self.base_problem_config.problem_id,
             self.base_problem_config.scenario_id,
         )
-        self.save_problem(self.base_problem_config.problem_id)
 
     def _init_problem_managers(self, problem_id: str) -> None:
         """Create the child managers associated with a problem."""
@@ -136,87 +128,6 @@ class Manager:
             self.store,
         )
         self.proposal_managers[problem_id] = ProposalManager(problem_id, self.store)
-
-    # ───────────────────────────────────────────────────────────
-    # Loaders and savers
-    # ───────────────────────────────────────────────────────────
-
-    def load_problem(self, problem_id: str) -> None:
-        """Load a problem and hydrate its scenarios and proposals.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to load.
-        """
-        self.problem_manager.load_problem(problem_id)
-        self._init_problem_managers(problem_id)
-
-        for scenario_data in self.scenario_managers[problem_id].load_scenarios():
-            self.scenario_managers[problem_id].load_scenario(
-                scenario_data,
-            )
-
-        for proposal_data in self.proposal_managers[problem_id].load_proposals():
-            self.proposal_managers[problem_id].load_proposal(proposal_data)
-
-        self.evaluation_managers[problem_id].load_evaluations()
-
-    def load_problems(self, problem_ids: list[str] | None = None) -> None:
-        """Load multiple problems from storage.
-
-        Parameters
-        ----------
-        problem_ids : list[str] | None, optional
-            Problem identifiers to load. When omitted, every problem in the
-            store is loaded.
-        """
-        if problem_ids is None:
-            problem_ids = self.store.list_problems()
-
-        for problem_id in problem_ids:
-            self.load_problem(problem_id)
-
-    def save_problem(self, problem_id: str) -> None:
-        """Persist a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to save.
-        """
-        problem = self.problem_manager.read_problem(problem_id)
-        scenario_manager = self.scenario_managers.get(problem_id)
-        proposal_manager = self.proposal_managers.get(problem_id)
-        evaluation_manager = self.evaluation_managers.get(problem_id)
-
-        scenarios = []
-        if scenario_manager is not None:
-            scenarios = [
-                scenario.to_dict() for scenario in scenario_manager.scenarios.values()
-            ]
-
-        proposals = []
-        if proposal_manager is not None:
-            proposals = [
-                proposal.to_dict() for proposal in proposal_manager.proposals.values()
-            ]
-
-        evaluations = []
-        if evaluation_manager is not None:
-            evaluations = [
-                evaluation.to_dict()
-                for evaluation in evaluation_manager.evaluations.values()
-            ]
-
-        payload = {
-            "problem": problem.to_dict(),
-            "scenarios": scenarios,
-            "proposals": proposals,
-            "evaluations": evaluations,
-            "relationship": self.problem_manager.get_relationships(problem_id),
-        }
-        self.store.save_problem_document(problem_id, payload)
 
     # ───────────────────────────────────────────────────────────
     # Problems
@@ -241,10 +152,8 @@ class Manager:
             description=self.base_problem_config.scenario_description,
             extras=self.base_problem_config.scenario_extras,
         )
-        self.save_problem(problem_id)
 
         self.evaluate_scenario(problem_id, self.base_problem_config.scenario_id)
-        self.save_problem(problem_id)
 
     def read_problem(self, problem_id: str) -> Problem:
         """Return a loaded problem.
@@ -269,7 +178,7 @@ class Manager:
         list[Problem]
             List of loaded problems.
         """
-        return list(self.problem_manager.problems.values())
+        return self.problem_manager.list_problems()
 
     def update_problem(self, problem_id: str, **kwargs) -> None:
         """Update a problem's attributes.
@@ -282,7 +191,6 @@ class Manager:
             Keyword arguments forwarded to :meth:`ProblemManager.update_problem`.
         """
         self.problem_manager.update_problem(problem_id, **kwargs)
-        self.save_problem(problem_id)
 
     def delete_problem(self, problem_id: str) -> None:
         """Delete a problem and clear its child managers.
@@ -313,7 +221,6 @@ class Manager:
             proposal_id,
             scenario_id,
         )
-        self.save_problem(problem_id)
 
     # ───────────────────────────────────────────────────────────
     # Scenarios
@@ -346,7 +253,6 @@ class Manager:
             description=description,
             extras=extras,
         )
-        self.save_problem(problem_id)
         self.evaluate_scenario(
             problem_id,
             scenario.scenario_id,
@@ -360,7 +266,6 @@ class Manager:
                 scenario.scenario_id,
             )
         self.close_session(problem_id, session_id)
-        self.save_problem(problem_id)
         return scenario
 
     def read_scenario(self, problem_id: str, scenario_id: str) -> Scenario:
@@ -369,12 +274,13 @@ class Manager:
 
     def list_scenarios(self, problem_id: str) -> list[Scenario]:
         """Return all stored scenarios for a problem."""
-        return list(self.scenario_managers[problem_id].scenarios.values())
+        return self.scenario_managers[problem_id].list_scenarios()
 
     def update_scenario(
         self,
         problem_id: str,
         scenario_id: str,
+        values: dict | None = None,
         *,
         name: str | None = None,
         description: str | None = None,
@@ -383,11 +289,11 @@ class Manager:
         """Update a scenario's attributes."""
         self.scenario_managers[problem_id].update_scenario(
             scenario_id=scenario_id,
+            values=values,
             name=name,
             description=description,
-            extras=extras if extras else None,
+            extras=extras,
         )
-        self.save_problem(problem_id)
 
     def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
         """Delete a scenario and persist the resulting aggregate."""
@@ -396,7 +302,6 @@ class Manager:
             scenario_id
         )
         self.problem_manager.unlink_scenario(problem_id, scenario_id)
-        self.save_problem(problem_id)
 
     def scenario_extras_from_dict(self, scenario_dict: dict) -> dict:
         """Extract scenario extras from a dictionary."""
@@ -446,8 +351,7 @@ class Manager:
         if extras is not None:
             session_scenario.extras.update(extras)
 
-        scenario_manager.scenarios[session_scenario.scenario_id] = session_scenario
-        scenario_manager.save_scenario(session_scenario.scenario_id)
+        scenario_manager.save_session_scenario(session_id)
 
         self.evaluation_managers[problem_id].save_session_evaluation(session_id)
 
@@ -458,7 +362,6 @@ class Manager:
                 session_scenario.scenario_id,
             )
 
-        self.save_problem(problem_id)
         self.close_session(problem_id, session_id)
         return session_scenario
 
@@ -528,7 +431,7 @@ class Manager:
         )
         return session_scenario
 
-    def read_scenario_data(self, problem_id: str, scenario_id: str):
+    def read_scenario_data(self, problem_id: str, scenario_id: str) -> dict:
         """Return the latest stored evaluation result for a scenario.
 
         If no evaluation exists yet, create one on demand and return its result.
@@ -541,7 +444,11 @@ class Manager:
             )
         except Exception:
             result = self.evaluate_scenario(problem_id, scenario_id).result
-        return result.to_dict() if hasattr(result, "to_dict") else result
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        elif isinstance(result, dict):
+            return result
+        return {}
 
     # ───────────────────────────────────────────────────────────
     # Proposals
@@ -561,9 +468,9 @@ class Manager:
         """Create a proposal and persist any requested scenario links."""
         proposal_manager = self.proposal_managers[problem_id]
         if proposal_id is None:
-            proposal_id = f"proposal_{len(proposal_manager.proposals)}"
+            proposal_id = f"proposal_{len(proposal_manager.list_proposals())}"
 
-        proposal = proposal_manager.add_proposal(
+        proposal = proposal_manager.create_proposal(
             proposal_id=proposal_id,
             name=name,
             description=description,
@@ -576,16 +483,15 @@ class Manager:
                 proposal_id,
                 related_scenario_ids,
             )
-        self.save_problem(problem_id)
         return proposal
 
     def read_proposal(self, problem_id: str, proposal_id: str) -> Proposal:
         """Return a proposal."""
-        return self.proposal_managers[problem_id].get_proposal(proposal_id)
+        return self.proposal_managers[problem_id].read_proposal(proposal_id)
 
     def list_proposals(self, problem_id: str) -> list[Proposal]:
         """Return all proposals for a problem."""
-        return list(self.proposal_managers[problem_id].proposals.values())
+        return self.proposal_managers[problem_id].list_proposals()
 
     def update_proposal(
         self,
@@ -613,13 +519,11 @@ class Manager:
                 proposal_id,
                 related_scenario_ids,
             )
-        self.save_problem(problem_id)
 
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         """Delete a proposal and persist the resulting aggregate."""
         self.proposal_managers[problem_id].delete_proposal(proposal_id)
         self.problem_manager.unlink_proposal(problem_id, proposal_id)
-        self.save_problem(problem_id)
 
     def proposal_extras_from_dict(self, proposal_dict: dict) -> dict:
         """Extract proposal extras from a dictionary."""

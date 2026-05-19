@@ -8,7 +8,6 @@ from enum import StrEnum
 class StoreType(StrEnum):
     """Supported storage backend types."""
 
-    LOCAL = "local"
     SQL = "sql"
 
 

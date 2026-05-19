@@ -20,14 +20,15 @@ SESSION_TIMESTAMP = "2026-05-15T10:00:00Z"
 
 
 def test_create_update_save_load_and_delete_scenario(
-    local_store,
+    sql_store,
     fake_model,
     fake_model_evaluator,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, local_store)
+    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_id, problem_payload)
 
     monkeypatch.setattr(
         scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP
@@ -54,13 +55,11 @@ def test_create_update_save_load_and_delete_scenario(
             index_type=IndexType.CONSTANT.value,
         )
     ]
-    assert manager.read_scenario("scenario-alpha") is scenario
+    assert sql_store.load_scenario(problem_id, "scenario-alpha") == scenario.to_dict()
+    assert manager.read_scenario("scenario-alpha").to_dict() == scenario.to_dict()
 
     with pytest.raises(ScenarioAlreadyExists):
         manager.create_scenario("scenario-alpha")
-
-    manager.save_scenario("scenario-alpha")
-    assert local_store.load_scenario(problem_id, "scenario-alpha") == scenario.to_dict()
 
     manager.update_scenario("scenario-alpha", {"visits": 11})
     updated = manager.read_scenario("scenario-alpha")
@@ -77,41 +76,36 @@ def test_create_update_save_load_and_delete_scenario(
         )
     ]
 
-    manager.save_scenario("scenario-alpha")
-    assert local_store.load_scenario(problem_id, "scenario-alpha") == updated.to_dict()
+    assert sql_store.load_scenario(problem_id, "scenario-alpha") == updated.to_dict()
 
-    loaded = manager.load_scenarios()
+    loaded = manager.list_scenarios()
     assert [item.scenario_id for item in loaded] == ["scenario-alpha"]
     assert loaded[0].index_values[0].to_dict() == {
         "index_name": "visits",
         "index_value": 11,
         "index_type": IndexType.CONSTANT.value,
     }
-
-    manager.scenarios.clear()
-    for item in loaded:
-        manager.load_scenario(item)
-
-    assert manager.read_scenario("scenario-alpha").to_dict() == updated.to_dict()
+    assert loaded[0].to_dict() == updated.to_dict()
 
     manager.delete_scenario("scenario-alpha")
-    assert local_store.load_scenarios(problem_id) == []
+    assert sql_store.load_scenarios(problem_id) == []
 
     with pytest.raises(ScenarioDoesNotExist):
         manager.read_scenario("scenario-alpha")
     with pytest.raises(ScenarioDoesNotExist):
-        local_store.load_scenario(problem_id, "scenario-alpha")
+        sql_store.load_scenario(problem_id, "scenario-alpha")
 
 
 def test_session_scenario_lifecycle(
-    local_store,
+    sql_store,
     fake_model,
     fake_model_evaluator,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, local_store)
+    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_id, problem_payload)
 
     monkeypatch.setattr(
         scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP

@@ -7,9 +7,9 @@ from shutil import rmtree
 
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.local.io import load_json, save_json
-from overtourism.dt_manager.stores.enums import ProblemDocumentKey
 from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
+    ProposalDoesNotExist,
     ScenarioDoesNotExist,
 )
 
@@ -26,16 +26,7 @@ class LocalIOStore(Store):
     # ───────────────────────────────────────────────────────────
 
     def save_problem(self, problem_id: str, problem_data: dict) -> None:
-        self.save_problem_document(
-            problem_id, self._normalize_problem_document(problem_data)
-        )
-
-    def load_problem_document(self, problem_id: str) -> dict:
-        return self._compose_problem_document(problem_id)
-
-    def save_problem_document(self, problem_id: str, problem_data: dict) -> None:
-        document = self._normalize_problem_document(problem_data)
-        self._write_problem_document(problem_id, document)
+        save_json(problem_data, self._problem_file(problem_id))
 
     def load_problem(self, problem_id: str) -> dict:
         path = self._problem_file(problem_id)
@@ -43,11 +34,11 @@ class LocalIOStore(Store):
             raise FileNotFoundError(problem_id)
         return load_json(path)
 
-    def list_problems(self) -> list[str]:
+    def load_problems(self) -> list[dict]:
         problems_dir = self.folder / "problems"
         if not problems_dir.exists():
             return []
-        return [path.stem for path in sorted(problems_dir.glob("*.json"))]
+        return [load_json(path) for path in sorted(problems_dir.glob("*.json"))]
 
     def delete_problem(self, problem_id: str) -> None:
         self._delete_problem_file(problem_id)
@@ -107,8 +98,30 @@ class LocalIOStore(Store):
             for path in self._entity_files(self._proposals_dir(problem_id))
         ]
 
+    def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
+        path = self._proposal_file(problem_id, proposal_id)
+        if not path.exists():
+            raise ProposalDoesNotExist(f"Proposal with ID {proposal_id} does not exist")
+        return load_json(path)
+
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         self._delete_file(self._proposal_file(problem_id, proposal_id))
+
+    # ───────────────────────────────────────────────────────────
+    # Relationships
+    # ───────────────────────────────────────────────────────────
+
+    def save_relationships(
+        self,
+        problem_id: str,
+        relationships: list[dict[str, str]],
+    ) -> None:
+        self.load_problem(problem_id)
+        save_json(relationships, self._relationship_file(problem_id))
+
+    def load_relationships(self, problem_id: str) -> list[dict[str, str]]:
+        self.load_problem(problem_id)
+        return self._load_relationships(problem_id)
 
     # ───────────────────────────────────────────────────────────
     # Evaluations
@@ -146,86 +159,6 @@ class LocalIOStore(Store):
     # ───────────────────────────────────────────────────────────
     # Internal helpers
     # ───────────────────────────────────────────────────────────
-
-    def _normalize_problem_document(self, problem_data: dict) -> dict:
-        if ProblemDocumentKey.PROBLEM in problem_data:
-            return {
-                ProblemDocumentKey.PROBLEM: problem_data[ProblemDocumentKey.PROBLEM],
-                ProblemDocumentKey.SCENARIOS: problem_data.get(
-                    ProblemDocumentKey.SCENARIOS,
-                    [],
-                ),
-                ProblemDocumentKey.PROPOSALS: problem_data.get(
-                    ProblemDocumentKey.PROPOSALS,
-                    [],
-                ),
-                ProblemDocumentKey.EVALUATIONS: problem_data.get(
-                    ProblemDocumentKey.EVALUATIONS,
-                    [],
-                ),
-                ProblemDocumentKey.RELATIONSHIP: problem_data.get(
-                    ProblemDocumentKey.RELATIONSHIP,
-                    [],
-                ),
-            }
-        return {
-            ProblemDocumentKey.PROBLEM: problem_data,
-            ProblemDocumentKey.SCENARIOS: [],
-            ProblemDocumentKey.PROPOSALS: [],
-            ProblemDocumentKey.EVALUATIONS: [],
-            ProblemDocumentKey.RELATIONSHIP: [],
-        }
-
-    def _compose_problem_document(self, problem_id: str) -> dict:
-        problem_path = self._problem_file(problem_id)
-        if not problem_path.exists():
-            raise FileNotFoundError(problem_id)
-        return {
-            ProblemDocumentKey.PROBLEM: load_json(problem_path),
-            ProblemDocumentKey.SCENARIOS: [
-                load_json(path)
-                for path in self._entity_files(self._scenarios_dir(problem_id))
-            ],
-            ProblemDocumentKey.PROPOSALS: [
-                load_json(path)
-                for path in self._entity_files(self._proposals_dir(problem_id))
-            ],
-            ProblemDocumentKey.EVALUATIONS: [
-                load_json(path)
-                for path in self._entity_files(self._evaluations_dir(problem_id))
-            ],
-            ProblemDocumentKey.RELATIONSHIP: self._load_relationships(problem_id),
-        }
-
-    def _write_problem_document(self, problem_id: str, problem_data: dict) -> None:
-        save_json(
-            problem_data[ProblemDocumentKey.PROBLEM], self._problem_file(problem_id)
-        )
-        self._write_collection(
-            self._scenarios_dir(problem_id),
-            problem_data.get(ProblemDocumentKey.SCENARIOS, []),
-            lambda item: item["scenario_id"],
-        )
-        self._write_collection(
-            self._proposals_dir(problem_id),
-            problem_data.get(ProblemDocumentKey.PROPOSALS, []),
-            lambda item: item["proposal_id"],
-        )
-        self._write_collection(
-            self._evaluations_dir(problem_id),
-            problem_data.get(ProblemDocumentKey.EVALUATIONS, []),
-            lambda item: item["evaluation_id"],
-        )
-        save_json(
-            problem_data.get(ProblemDocumentKey.RELATIONSHIP, []),
-            self._relationship_file(problem_id),
-        )
-
-    def _write_collection(self, root: Path, items: list[dict], key_getter) -> None:
-        self._delete_collection_dir(root)
-        root.mkdir(parents=True, exist_ok=True)
-        for item in items:
-            save_json(item, root / f"{key_getter(item)}.json")
 
     def _load_relationships(self, problem_id: str) -> list[dict]:
         path = self._relationship_file(problem_id)

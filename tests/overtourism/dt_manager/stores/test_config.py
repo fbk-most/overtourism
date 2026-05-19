@@ -7,9 +7,9 @@ from overtourism.dt_manager.stores.enums import StoreType
 
 
 def test_store_config_defaults_to_empty_config() -> None:
-    config = StoreConfig(store_type=StoreType.LOCAL.value)
+    config = StoreConfig(store_type=StoreType.SQL.value)
 
-    assert config.store_type == StoreType.LOCAL.value
+    assert config.store_type == StoreType.SQL.value
     assert config.config == {}
 
 

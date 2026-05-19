@@ -22,6 +22,8 @@ class Scenario(Dictable):
         Scenario identifier.
     problem_id : str
         Parent problem identifier.
+    version : int
+        Optimistic concurrency version for the scenario.
     name : str | None
         Scenario name.
     description : str | None
@@ -38,6 +40,7 @@ class Scenario(Dictable):
 
     scenario_id: str
     problem_id: str
+    version: int = 1
     name: str | None = None
     description: str | None = None
     created: str | None = None
@@ -51,6 +54,7 @@ class Scenario(Dictable):
         scenario_id: str,
         *,
         problem_id: str = "",
+        version: int = 1,
         name: str | None = None,
         description: str | None = None,
         created: str | None = None,
@@ -63,6 +67,7 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_id,
             problem_id=problem_id,
+            version=version,
             name=scenario_id if name is None else name,
             description=f"{scenario_id} scenario"
             if description is None
@@ -81,6 +86,7 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_dict["scenario_id"],
             problem_id=scenario_dict.get("problem_id", ""),
+            version=scenario_dict.get("version", 1),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),
             created=created,

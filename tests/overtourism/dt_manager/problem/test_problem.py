@@ -16,6 +16,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 
     assert problem.to_dict() == {
         "problem_id": "problem-alpha",
+        "version": 1,
         "tenant": "default",
         "name": "problem-alpha",
         "description": "problem-alpha problem",
@@ -28,6 +29,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 def test_from_dict_round_trip() -> None:
     payload = {
         "problem_id": "problem-alpha",
+        "version": 1,
         "tenant": "molveno",
         "name": "Problem Alpha",
         "description": "Primary problem",

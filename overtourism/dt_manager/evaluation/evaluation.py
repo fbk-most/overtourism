@@ -36,6 +36,7 @@ class Evaluation(Dictable):
     evaluation_id: str
     scenario_id: str
     type: str
+    version: int = 1
     state: EvaluationState = EvaluationState.RUNNING
     started: str | None = None
     finished: str | None = None
@@ -48,6 +49,7 @@ class Evaluation(Dictable):
         *,
         scenario_id: str,
         type: str,
+        version: int = 1,
         state: EvaluationState = EvaluationState.RUNNING,
         started: str | None = None,
         finished: str | None = None,
@@ -58,6 +60,7 @@ class Evaluation(Dictable):
             evaluation_id=evaluation_id,
             scenario_id=scenario_id,
             type=type,
+            version=version,
             state=state,
             started=get_timestamp() if started is None else started,
             finished=finished,
@@ -74,6 +77,7 @@ class Evaluation(Dictable):
             evaluation_id=evaluation_dict["evaluation_id"],
             scenario_id=evaluation_dict["scenario_id"],
             type=evaluation_dict["type"],
+            version=evaluation_dict.get("version", 1),
             state=state,
             started=evaluation_dict.get("started"),
             finished=evaluation_dict.get("finished"),

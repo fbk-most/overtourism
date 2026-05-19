@@ -23,11 +23,7 @@ if TYPE_CHECKING:
 
 
 class EvaluationManager:
-    """Manage evaluation entities and their lifecycle.
-
-    The manager owns creation, state transitions, and stored result payloads.
-    The executor performs the actual model run and returns a JSON-like result.
-    """
+    """Manage evaluation entities and their lifecycle."""
 
     def __init__(
         self,
@@ -39,11 +35,10 @@ class EvaluationManager:
         self.executor = executor
         self.store = store
         self.problem_id = problem_id
-        self.evaluations: dict[str, Evaluation] = {}
         self._session_evaluations: dict[str, Evaluation] = {}
 
     # ───────────────────────────────────────────────────────────
-    # Lifecycle
+    # CRUD
     # ───────────────────────────────────────────────────────────
 
     def create_evaluation(
@@ -54,8 +49,12 @@ class EvaluationManager:
         *,
         started: str | None = None,
     ) -> Evaluation:
-        """Register a new running evaluation."""
-        if evaluation_id in self.evaluations:
+        """Create and persist a new running evaluation."""
+        try:
+            self.store.load_evaluation(self.problem_id, evaluation_id)
+        except EvaluationDoesNotExist:
+            pass
+        else:
             raise EvaluationAlreadyExists(
                 f"Evaluation with ID {evaluation_id} already exists"
             )
@@ -67,21 +66,21 @@ class EvaluationManager:
             started=started,
             state=EvaluationState.RUNNING,
         )
-        self.evaluations[evaluation_id] = evaluation
         self.save_evaluation(evaluation)
         return evaluation
 
     def read_evaluation(self, evaluation_id: str) -> Evaluation:
-        """Return a registered evaluation."""
-        if evaluation_id not in self.evaluations:
-            raise EvaluationDoesNotExist(
-                f"Evaluation with ID {evaluation_id} does not exist"
-            )
-        return self.evaluations[evaluation_id]
+        """Return a persisted evaluation."""
+        return self._build_evaluation(
+            self.store.load_evaluation(self.problem_id, evaluation_id)
+        )
 
     def list_evaluations(self, scenario_id: str | None = None) -> list[Evaluation]:
-        """Return registered evaluations, optionally filtered by scenario."""
-        evaluations = list(self.evaluations.values())
+        """Return persisted evaluations, optionally filtered by scenario."""
+        evaluations = [
+            self._build_evaluation(evaluation)
+            for evaluation in self.store.load_evaluations(self.problem_id)
+        ]
         if scenario_id is None:
             return evaluations
         return [
@@ -91,37 +90,40 @@ class EvaluationManager:
         ]
 
     def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
-        """Return the most recently registered evaluation for a scenario."""
-        for evaluation in reversed(list(self.evaluations.values())):
-            if evaluation.scenario_id == scenario_id:
-                return evaluation
+        """Return the most recently registered persisted evaluation."""
+        evaluations = [
+            evaluation
+            for evaluation in self.store.load_evaluations(self.problem_id)
+            if evaluation["scenario_id"] == scenario_id
+        ]
+        if evaluations:
+            latest = max(
+                evaluations,
+                key=lambda evaluation: (
+                    evaluation.get("started") or "",
+                    evaluation["evaluation_id"],
+                ),
+            )
+            return self._build_evaluation(latest)
         raise EvaluationDoesNotExist(
             f"Evaluation for scenario {scenario_id} does not exist"
         )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
-        """Remove an evaluation from memory."""
-        if evaluation_id not in self.evaluations:
-            raise EvaluationDoesNotExist(
-                f"Evaluation with ID {evaluation_id} does not exist"
-            )
-        self.evaluations.pop(evaluation_id)
-        if self.store is not None and self.problem_id is not None:
-            self.store.delete_evaluation(self.problem_id, evaluation_id)
+        """Delete a persisted evaluation."""
+        self.read_evaluation(evaluation_id)
+        self.store.delete_evaluation(self.problem_id, evaluation_id)
 
     def delete_evaluations_for_scenario(self, scenario_id: str) -> None:
-        """Remove all evaluations associated with a scenario from memory."""
-        evaluation_ids = [
-            evaluation_id
-            for evaluation_id, evaluation in self.evaluations.items()
-            if evaluation.scenario_id == scenario_id
-        ]
-        for evaluation_id in evaluation_ids:
+        """Remove all persisted and session evaluations for a scenario."""
+        for evaluation in self.list_evaluations(scenario_id):
             try:
-                self.store.delete_evaluation(self.problem_id, evaluation_id)
+                self.store.delete_evaluation(
+                    self.problem_id,
+                    evaluation.evaluation_id,
+                )
             except EvaluationDoesNotExist:
                 pass
-            self.evaluations.pop(evaluation_id, None)
         self._session_evaluations = {
             session_id: evaluation
             for session_id, evaluation in self._session_evaluations.items()
@@ -139,25 +141,6 @@ class EvaluationManager:
             evaluation.to_dict(),
         )
 
-    def load_evaluations(self) -> list[Evaluation]:
-        """Load evaluations from storage into memory."""
-        evaluations = [
-            self._build_evaluation(evaluation)
-            for evaluation in self.store.load_evaluations(self.problem_id)
-        ]
-        self.evaluations = {
-            evaluation.evaluation_id: evaluation for evaluation in evaluations
-        }
-        return evaluations
-
-    def load_evaluation(self, evaluation_id: str) -> Evaluation:
-        """Load a single evaluation from storage into memory."""
-        evaluation = self._build_evaluation(
-            self.store.load_evaluation(self.problem_id, evaluation_id)
-        )
-        self.evaluations[evaluation.evaluation_id] = evaluation
-        return evaluation
-
     # ───────────────────────────────────────────────────────────
     # Sessions
     # ───────────────────────────────────────────────────────────
@@ -165,7 +148,6 @@ class EvaluationManager:
     def save_session_evaluation(self, session_id: str) -> Evaluation:
         """Promote a transient session evaluation to persistent storage."""
         evaluation = self.read_session_evaluation(session_id)
-        self.evaluations[evaluation.evaluation_id] = evaluation
         self.save_evaluation(evaluation)
         return evaluation
 
@@ -288,6 +270,7 @@ class EvaluationManager:
         evaluation.state = state
         evaluation.finished = get_timestamp()
         evaluation.result = result
+        evaluation.version += 1
 
         if session_id is None:
             self.save_evaluation(evaluation)

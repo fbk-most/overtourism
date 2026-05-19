@@ -18,6 +18,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
         "problem_id": "",
+        "version": 1,
         "name": "scenario-alpha",
         "description": "scenario-alpha scenario",
         "created": FIXED_TIMESTAMP,
@@ -31,6 +32,7 @@ def test_from_dict_round_trip_with_nested_index_values() -> None:
     payload = {
         "scenario_id": "scenario-alpha",
         "problem_id": "problem-alpha",
+        "version": 1,
         "name": "Scenario Alpha",
         "description": "Primary scenario",
         "created": "2026-05-15T10:00:00Z",
@@ -59,6 +61,7 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
         {
             "scenario_id": "scenario-beta",
             "problem_id": "problem-alpha",
+            "version": 1,
             "name": "Scenario Beta",
             "description": "Secondary scenario",
             "extras": {},

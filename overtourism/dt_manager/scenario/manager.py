@@ -35,7 +35,6 @@ class ScenarioManager:
         self.model = model
         self.model_evaluator = model_evaluator
         self.store = store
-        self.scenarios: dict[str, Scenario] = {}
         self._sessions: dict[str, Scenario] = {}
 
     # ───────────────────────────────────────────────────────────
@@ -52,12 +51,16 @@ class ScenarioManager:
         updated: str | None = None,
         extras: dict | None = None,
     ) -> Scenario:
-        """Create a new scenario."""
-        if scenario_id in self.scenarios:
+        """Create and persist a new scenario."""
+        try:
+            self.store.load_scenario(self.problem_id, scenario_id)
+        except ScenarioDoesNotExist:
+            pass
+        else:
             raise ScenarioAlreadyExists(
                 f"Scenario with ID {scenario_id} already exists"
             )
-        self.scenarios[scenario_id] = self._create_scenario(
+        scenario = self._create_scenario(
             scenario_id=scenario_id,
             values=values,
             name=name,
@@ -66,69 +69,57 @@ class ScenarioManager:
             updated=updated,
             extras=extras,
         )
-        return self.scenarios[scenario_id]
-
-    def read_scenario(self, scenario_id: str) -> Scenario:
-        """Return a registered scenario."""
-        if scenario_id not in self.scenarios:
-            raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
-        return self.scenarios[scenario_id]
-
-    def update_scenario(self, scenario_id: str, values: dict) -> None:
-        """Update a scenario with new values."""
-        if scenario_id not in self.scenarios:
-            raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
-
-        old_scenario = self.scenarios[scenario_id]
-        self.scenarios[scenario_id] = scenario_values(
-            scenario_id,
-            values,
-            name=old_scenario.name,
-            description=old_scenario.description,
-            created=old_scenario.created,
-            updated=get_timestamp(),
-            extras=old_scenario.extras,
-            problem_id=self.problem_id,
-        )
-
-    def delete_scenario(self, scenario_id: str) -> None:
-        """Delete a scenario from memory and storage."""
-        try:
-            self.scenarios.pop(scenario_id)
-        except KeyError:
-            raise ScenarioDoesNotExist(f"Scenario with ID {scenario_id} does not exist")
-        self.store.delete_scenario(self.problem_id, scenario_id)
-
-    # ───────────────────────────────────────────────────────────
-    # I/O
-    # ───────────────────────────────────────────────────────────
-
-    def save_scenario(
-        self,
-        scenario_id: str,
-    ) -> Scenario:
-        """Persist a scenario to storage."""
-        scenario = self.read_scenario(scenario_id)
-        scenario.index_values = list(scenario.index_values)
-        scenario.problem_id = self.problem_id
-        self.store.save_scenario(
-            self.problem_id,
-            scenario_id,
-            scenario.to_dict(),
-        )
+        self.store.save_scenario(self.problem_id, scenario_id, scenario.to_dict())
         return scenario
 
-    def load_scenarios(self) -> list[Scenario]:
-        """Load all scenarios for the current problem."""
+    def read_scenario(self, scenario_id: str) -> Scenario:
+        """Return a persisted scenario."""
+        return self._build_scenario(
+            self.store.load_scenario(self.problem_id, scenario_id)
+        )
+
+    def list_scenarios(self) -> list[Scenario]:
+        """Return all persisted scenarios for the problem."""
         return [
             self._build_scenario(scenario_data)
             for scenario_data in self.store.load_scenarios(self.problem_id)
         ]
 
-    def load_scenario(self, scenario_data: Scenario) -> None:
-        """Load a scenario into memory."""
-        if scenario_data.scenario_id not in self.scenarios:
-            self.scenarios[scenario_data.scenario_id] = scenario_data
+    def update_scenario(
+        self,
+        scenario_id: str,
+        values: dict | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+    ) -> Scenario:
+        """Update a persisted scenario with new values."""
+        old_scenario = self.read_scenario(scenario_id)
+        updated_scenario = scenario_values(
+            scenario_id,
+            {} if values is None else values,
+            name=old_scenario.name if name is None else name,
+            description=old_scenario.description
+            if description is None
+            else description,
+            created=old_scenario.created,
+            updated=get_timestamp(),
+            extras=old_scenario.extras if extras is None else extras,
+            problem_id=self.problem_id,
+            version=old_scenario.version + 1,
+        )
+        self.store.save_scenario(
+            self.problem_id,
+            scenario_id,
+            updated_scenario.to_dict(),
+        )
+        return updated_scenario
+
+    def delete_scenario(self, scenario_id: str) -> None:
+        """Delete a persisted scenario."""
+        self.read_scenario(scenario_id)
+        self.store.delete_scenario(self.problem_id, scenario_id)
 
     # ───────────────────────────────────────────────────────────
     # Internal
@@ -188,6 +179,17 @@ class ScenarioManager:
     ) -> Scenario:
         """Create a transient scenario used for a session evaluation."""
         return self._create_session_scenario(scenario_id, values)
+
+    def save_session_scenario(self, session_id: str) -> Scenario:
+        """Promote a transient session scenario to persistent storage."""
+        scenario = self.read_session_scenario(session_id)
+        scenario.problem_id = self.problem_id
+        self.store.save_scenario(
+            self.problem_id,
+            scenario.scenario_id,
+            scenario.to_dict(),
+        )
+        return scenario
 
     def register_session_scenario(self, session_id: str, scenario: Scenario) -> None:
         """Store a transient scenario under its session identifier."""

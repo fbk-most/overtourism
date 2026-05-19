@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import selectinload, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
@@ -66,9 +66,6 @@ class SQLStore(Store):
 
     def save_problem(self, problem_id: str, problem_data: dict) -> None:
         with self.session_factory.begin() as session:
-            if ProblemDocumentKey.PROBLEM in problem_data:
-                self._save_problem_document(session, problem_id, problem_data)
-                return
             problem_payload = {
                 **problem_data,
                 ProblemNestedKey.PROBLEM_ID: problem_id,
@@ -82,46 +79,12 @@ class SQLStore(Store):
                 raise FileNotFoundError(problem_id)
             return problem_from_orm(problem)
 
-    def load_problem_document(self, problem_id: str) -> dict:
+    def load_problems(self) -> list[dict]:
         with self.session_factory() as session:
-            problem = session.scalars(
-                select(self.schema.problems)
-                .where(self.schema.problems.problem_id == problem_id)
-                .options(
-                    selectinload(self.schema.problems.proposals),
-                    selectinload(self.schema.problems.scenarios),
-                    selectinload(self.schema.problems.evaluations),
-                    selectinload(self.schema.problems.relationships),
-                )
-            ).one_or_none()
-            if problem is None:
-                raise FileNotFoundError(problem_id)
-            return {
-                ProblemDocumentKey.PROBLEM.value: problem_from_orm(problem),
-                ProblemDocumentKey.SCENARIOS.value: [
-                    scenario_from_orm(row) for row in problem.scenarios
-                ],
-                ProblemDocumentKey.PROPOSALS.value: [
-                    proposal_from_orm(row) for row in problem.proposals
-                ],
-                ProblemDocumentKey.EVALUATIONS.value: [
-                    evaluation_from_orm(row) for row in problem.evaluations
-                ],
-                ProblemDocumentKey.RELATIONSHIP.value: [
-                    relationship_from_orm(row) for row in problem.relationships
-                ],
-            }
-
-    def save_problem_document(self, problem_id: str, problem_data: dict) -> None:
-        with self.session_factory.begin() as session:
-            self._save_problem_document(session, problem_id, problem_data)
-
-    def list_problems(self) -> list[str]:
-        with self.session_factory() as session:
-            query = select(self.schema.problems.problem_id).order_by(
-                self.schema.problems.problem_id
-            )
-            return list(session.scalars(query).all())
+            rows = session.scalars(
+                select(self.schema.problems).order_by(self.schema.problems.problem_id)
+            ).all()
+            return [problem_from_orm(row) for row in rows]
 
     def delete_problem(self, problem_id: str) -> None:
         with self.session_factory.begin() as session:
@@ -207,6 +170,15 @@ class SQLStore(Store):
             ).all()
             return [proposal_from_orm(row) for row in rows]
 
+    def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
+        with self.session_factory() as session:
+            row = session.get(self.schema.proposals, (problem_id, proposal_id))
+            if row is None:
+                raise ProposalDoesNotExist(
+                    f"Proposal with ID {proposal_id} does not exist"
+                )
+            return proposal_from_orm(row)
+
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         with self.session_factory.begin() as session:
             proposal = session.get(self.schema.proposals, (problem_id, proposal_id))
@@ -215,6 +187,46 @@ class SQLStore(Store):
                     f"Proposal with ID {proposal_id} does not exist"
                 )
             session.delete(proposal)
+
+    # ───────────────────────────────────────────────────────────
+    # Relationships
+    # ───────────────────────────────────────────────────────────
+
+    def save_relationships(
+        self,
+        problem_id: str,
+        relationships: list[dict[str, str]],
+    ) -> None:
+        with self.session_factory.begin() as session:
+            if session.get(self.schema.problems, problem_id) is None:
+                raise FileNotFoundError(problem_id)
+
+            existing_rows = session.scalars(
+                select(self.schema.relationships).where(
+                    self.schema.relationships.problem_id == problem_id
+                )
+            ).all()
+            for row in existing_rows:
+                session.delete(row)
+            session.flush()
+
+            for payload in relationships:
+                session.add(relationship_to_orm(payload, problem_id))
+
+    def load_relationships(self, problem_id: str) -> list[dict[str, str]]:
+        with self.session_factory() as session:
+            if session.get(self.schema.problems, problem_id) is None:
+                raise FileNotFoundError(problem_id)
+
+            rows = session.scalars(
+                select(self.schema.relationships)
+                .where(self.schema.relationships.problem_id == problem_id)
+                .order_by(
+                    self.schema.relationships.proposal_id,
+                    self.schema.relationships.scenario_id,
+                )
+            ).all()
+            return [relationship_from_orm(row) for row in rows]
 
     # ───────────────────────────────────────────────────────────
     # Evaluations

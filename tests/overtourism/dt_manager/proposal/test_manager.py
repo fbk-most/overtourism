@@ -18,19 +18,20 @@ UPDATED_TIMESTAMP = "2026-05-15T09:00:00Z"
 
 
 def test_add_update_save_load_and_delete_proposal(
-    local_store,
+    sql_store,
     problem_payload,
     monkeypatch,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    manager = ProposalManager(problem_id, local_store)
+    manager = ProposalManager(problem_id, sql_store)
+    sql_store.save_problem(problem_id, problem_payload)
 
     monkeypatch.setattr(proposal_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
         proposal_manager_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
     )
 
-    proposal = manager.add_proposal(
+    proposal = manager.create_proposal(
         "proposal-alpha",
         name="Proposal Alpha",
         description="Primary proposal",
@@ -45,13 +46,11 @@ def test_add_update_save_load_and_delete_proposal(
     assert proposal.description == "Primary proposal"
     assert proposal.status == "draft"
     assert proposal.extras == {"kind": "proposal"}
-    assert manager.get_proposal("proposal-alpha") is proposal
+    assert sql_store.load_proposals(problem_id) == [proposal.to_dict()]
+    assert manager.read_proposal("proposal-alpha").to_dict() == proposal.to_dict()
 
     with pytest.raises(ProposalAlreadyExists):
-        manager.add_proposal("proposal-alpha")
-
-    manager.save_proposal("proposal-alpha")
-    assert local_store.load_proposals(problem_id) == [proposal.to_dict()]
+        manager.create_proposal("proposal-alpha")
 
     updated = manager.update_proposal(
         "proposal-alpha",
@@ -67,34 +66,34 @@ def test_add_update_save_load_and_delete_proposal(
     assert updated.status == "accepted"
     assert updated.extras == {"kind": "proposal", "priority": "high"}
 
-    manager.save_proposal("proposal-alpha")
-    assert local_store.load_proposals(problem_id) == [updated.to_dict()]
+    assert sql_store.load_proposals(problem_id) == [updated.to_dict()]
 
     manager.delete_proposal("proposal-alpha")
-    assert local_store.load_proposals(problem_id) == []
+    assert sql_store.load_proposals(problem_id) == []
 
     with pytest.raises(ProposalDoesNotExist):
-        manager.get_proposal("proposal-alpha")
+        manager.read_proposal("proposal-alpha")
 
 
-def test_load_proposals_and_register_loaded_objects(
-    local_store,
+def test_list_proposals_reads_persisted_objects(
+    sql_store,
     problem_payload,
     proposal_payload,
     other_proposal_payload,
 ) -> None:
     problem_id = problem_payload["problem_id"]
-    local_store.save_proposal(
+    sql_store.save_problem(problem_id, problem_payload)
+    sql_store.save_proposal(
         problem_id, proposal_payload["proposal_id"], proposal_payload
     )
-    local_store.save_proposal(
+    sql_store.save_proposal(
         problem_id,
         other_proposal_payload["proposal_id"],
         other_proposal_payload,
     )
 
-    manager = ProposalManager(problem_id, local_store)
-    loaded = manager.load_proposals()
+    manager = ProposalManager(problem_id, sql_store)
+    loaded = manager.list_proposals()
 
     assert [item.proposal_id for item in loaded] == [
         proposal_payload["proposal_id"],
@@ -103,17 +102,5 @@ def test_load_proposals_and_register_loaded_objects(
     assert loaded[0].to_dict() == proposal_payload
     assert loaded[1].to_dict() == other_proposal_payload
 
-    transient = Proposal(
-        proposal_id="proposal-gamma",
-        problem_id="",
-        name="Proposal Gamma",
-        description="Transient proposal",
-        status="draft",
-        created="2026-05-15T10:00:00Z",
-        updated="2026-05-15T10:00:00Z",
-        extras={"kind": "proposal"},
-    )
-    manager.load_proposal(transient)
-
-    assert manager.get_proposal("proposal-gamma").problem_id == problem_id
-    assert manager.list_proposals()["proposal-gamma"].name == "Proposal Gamma"
+    reloaded_manager = ProposalManager(problem_id, sql_store)
+    assert reloaded_manager.read_proposal("proposal-alpha").to_dict() == proposal_payload

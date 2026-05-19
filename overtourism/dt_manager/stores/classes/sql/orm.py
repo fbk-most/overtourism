@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text, inspect
+from sqlalchemy import (
+    JSON,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    inspect,
+)
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -20,6 +28,7 @@ class ProblemORM(SQLBase):
     __tablename__ = "problems"
 
     problem_id: Mapped[str] = mapped_column(String, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     tenant: Mapped[str | None] = mapped_column(Text)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
@@ -59,6 +68,7 @@ class ProposalORM(SQLBase):
         primary_key=True,
     )
     proposal_id: Mapped[str] = mapped_column(String, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str | None] = mapped_column(String)
@@ -80,6 +90,7 @@ class ScenarioORM(SQLBase):
         primary_key=True,
     )
     scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     created: Mapped[str | None] = mapped_column(String)
@@ -125,6 +136,7 @@ class EvaluationORM(SQLBase):
     __tablename__ = "evaluations"
 
     evaluation_id: Mapped[str] = mapped_column(String, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     problem_id: Mapped[str] = mapped_column(
         ForeignKey("problems.problem_id", ondelete="CASCADE"),
         nullable=False,
@@ -159,6 +171,7 @@ def orm_to_dict(entity: Any) -> dict[str, Any]:
 def problem_to_orm(problem: dict[str, Any]) -> ProblemORM:
     return ProblemORM(
         problem_id=problem["problem_id"],
+        version=problem.get("version", 1),
         tenant=problem.get("tenant"),
         name=problem.get("name"),
         description=problem.get("description"),
@@ -176,6 +189,7 @@ def proposal_to_orm(proposal: dict[str, Any]) -> ProposalORM:
     return ProposalORM(
         problem_id=proposal.get("problem_id", ""),
         proposal_id=proposal["proposal_id"],
+        version=proposal.get("version", 1),
         name=proposal.get("name"),
         description=proposal.get("description"),
         status=proposal.get("status"),
@@ -196,6 +210,7 @@ def scenario_to_orm(
     return ScenarioORM(
         problem_id=problem_id or scenario.get("problem_id", ""),
         scenario_id=scenario["scenario_id"],
+        version=scenario.get("version", 1),
         name=scenario.get("name"),
         description=scenario.get("description"),
         created=scenario.get("created"),
@@ -242,6 +257,7 @@ def evaluation_to_orm(
         state = state.value
     return EvaluationORM(
         evaluation_id=evaluation["evaluation_id"],
+        version=evaluation.get("version", 1),
         problem_id=problem_id
         or evaluation.get("problem_id")
         or evaluation["scenario_id"].split("_")[0],

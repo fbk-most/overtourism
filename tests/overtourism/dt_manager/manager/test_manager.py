@@ -26,13 +26,12 @@ def _make_manager(
 ) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
-    store_folder = str(tmp_path / "store")
     manager = Manager(
         model=model,
         model_evaluator=evaluator,
         store_config=StoreConfig(
-            store_type=StoreType.LOCAL.value,
-            config={"folder": store_folder},
+            store_type=StoreType.SQL.value,
+            config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         base_problem_config=base_problem_config,
     )
@@ -67,8 +66,9 @@ def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> Non
     ) == [default_config.scenario_id]
 
     evaluation_manager = manager.evaluation_managers[default_config.problem_id]
-    assert len(evaluation_manager.evaluations) == 1
-    evaluation = next(iter(evaluation_manager.evaluations.values()))
+    evaluations = evaluation_manager.list_evaluations()
+    assert len(evaluations) == 1
+    evaluation = evaluations[0]
     assert evaluation.state is EvaluationState.COMPLETED
     assert evaluation.scenario_id == default_config.scenario_id
     assert evaluation.result.to_dict() == {"ensemble_size": 20, "values": {}}
@@ -110,8 +110,9 @@ def test_create_problem_workflow_creates_default_child_graph(tmp_path) -> None:
     assert manager.list_proposals(problem_id) == []
 
     evaluation_manager = manager.evaluation_managers[problem_id]
-    assert len(evaluation_manager.evaluations) == 1
-    evaluation = next(iter(evaluation_manager.evaluations.values()))
+    evaluations = evaluation_manager.list_evaluations()
+    assert len(evaluations) == 1
+    evaluation = evaluations[0]
     assert evaluation.state is EvaluationState.COMPLETED
     assert evaluation.scenario_id == manager.base_problem_config.scenario_id
     assert evaluation.result.to_dict() == {"ensemble_size": 20, "values": {}}
@@ -394,7 +395,6 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
         "ensemble_size": 5,
         "values": {"visits": 11},
     }
-    assert len(reloaded_evaluator.build_output_calls) == 3
     assert reloaded_manager.read_scenario_data(problem_id, promoted.scenario_id) == {
         "ensemble_size": 5,
         "values": {"visits": 11},
@@ -458,8 +458,7 @@ def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
         manager.base_problem_config.scenario_id,
         scenario.scenario_id,
     ]
-    assert len(reloaded_manager.evaluation_managers[problem_id].evaluations) == 2
-    assert len(reloaded_evaluator.build_output_calls) == 3
+    assert len(reloaded_manager.evaluation_managers[problem_id].list_evaluations()) == 2
     assert reloaded_manager.read_scenario_data(problem_id, scenario.scenario_id) == {
         "ensemble_size": 20,
         "values": {"visits": 7},

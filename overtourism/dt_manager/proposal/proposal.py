@@ -36,6 +36,8 @@ class Proposal(Dictable):
         Proposal identifier.
     problem_id : str
         Parent problem identifier.
+    version : int
+        Optimistic concurrency version for the proposal.
     name : str | None
         Proposal name.
     description : str | None
@@ -52,6 +54,7 @@ class Proposal(Dictable):
 
     proposal_id: str
     problem_id: str
+    version: int = 1
     name: str | None = None
     description: str | None = None
     status: ProposalStatus = ProposalStatus.DRAFT
@@ -65,6 +68,7 @@ class Proposal(Dictable):
         proposal_id: str,
         *,
         problem_id: str = "",
+        version: int = 1,
         name: str | None = None,
         description: str | None = None,
         status: ProposalStatus | str | None = None,
@@ -77,6 +81,7 @@ class Proposal(Dictable):
         return cls(
             proposal_id=proposal_id,
             problem_id=problem_id,
+            version=version,
             name=proposal_id if name is None else name,
             description=description or "",
             status=_coerce_status(status),
@@ -92,6 +97,7 @@ class Proposal(Dictable):
         return cls(
             proposal_id=data["proposal_id"],
             problem_id=data.get("problem_id", ""),
+            version=data.get("version", 1),
             name=data.get("name"),
             description=data.get("description"),
             status=_coerce_status(status),

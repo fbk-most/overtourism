@@ -40,6 +40,7 @@ def test_scenario_values_serializes_constants_and_distributions(monkeypatch) -> 
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
         "problem_id": "problem-alpha",
+        "version": 1,
         "name": "Scenario Alpha",
         "description": "Primary scenario",
         "created": FIXED_TIMESTAMP,

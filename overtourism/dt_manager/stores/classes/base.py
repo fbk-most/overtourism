@@ -12,6 +12,10 @@ class Store(ABC):
     document and its nested scenarios and proposals.
     """
 
+    # ───────────────────────────────────────────────────────────
+    # Problems
+    # ───────────────────────────────────────────────────────────
+
     @abstractmethod
     def save_problem(self, problem_id: str, problem_data: dict) -> None:
         """Persist a problem document.
@@ -22,35 +26,6 @@ class Store(ABC):
             Identifier of the problem to save.
         problem_data : dict
             Serialized problem payload.
-        """
-        ...
-
-    @abstractmethod
-    def load_problem_document(self, problem_id: str) -> dict:
-        """Load the raw problem document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to load.
-
-        Returns
-        -------
-        dict
-            Raw problem payload.
-        """
-        ...
-
-    @abstractmethod
-    def save_problem_document(self, problem_id: str, problem_data: dict) -> None:
-        """Persist a raw problem document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to save.
-        problem_data : dict
-            Raw problem payload.
         """
         ...
 
@@ -71,13 +46,13 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    def list_problems(self) -> list[str]:
-        """Return all stored problem identifiers.
+    def load_problems(self) -> list[dict]:
+        """Load all problems.
 
         Returns
         -------
-        list[str]
-            Stored problem identifiers.
+        list[dict]
+            Loaded problem payloads.
         """
         ...
 
@@ -92,21 +67,9 @@ class Store(ABC):
         """
         ...
 
-    @abstractmethod
-    def load_scenarios(self, problem_id: str) -> list[dict]:
-        """Load all scenarios for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict]
-            Loaded scenario payloads.
-        """
-        ...
+    # ───────────────────────────────────────────────────────────
+    # Scenarios
+    # ───────────────────────────────────────────────────────────
 
     @abstractmethod
     def save_scenario(
@@ -147,6 +110,22 @@ class Store(ABC):
         ...
 
     @abstractmethod
+    def load_scenarios(self, problem_id: str) -> list[dict]:
+        """Load all scenarios for a problem.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the parent problem.
+
+        Returns
+        -------
+        list[dict]
+            Loaded scenario payloads.
+        """
+        ...
+
+    @abstractmethod
     def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
         """Delete a scenario document.
 
@@ -158,6 +137,10 @@ class Store(ABC):
             Identifier of the scenario to delete.
         """
         ...
+
+    # ───────────────────────────────────────────────────────────
+    # Proposals
+    # ───────────────────────────────────────────────────────────
 
     @abstractmethod
     def save_proposal(
@@ -173,6 +156,24 @@ class Store(ABC):
             Identifier of the proposal to save.
         proposal_data : dict
             Serialized proposal payload.
+        """
+        ...
+
+    @abstractmethod
+    def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
+        """Load a single proposal.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the parent problem.
+        proposal_id : str
+            Identifier of the proposal to load.
+
+        Returns
+        -------
+        dict
+            Loaded proposal payload.
         """
         ...
 
@@ -205,6 +206,47 @@ class Store(ABC):
         """
         ...
 
+    # ───────────────────────────────────────────────────────────
+    # Relationships
+    # ───────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def save_relationships(
+        self,
+        problem_id: str,
+        relationships: list[dict[str, str]],
+    ) -> None:
+        """Persist proposal-scenario relationships for a problem.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the parent problem.
+        relationships : list[dict[str, str]]
+            Relationship payloads to persist.
+        """
+        ...
+
+    @abstractmethod
+    def load_relationships(self, problem_id: str) -> list[dict[str, str]]:
+        """Load all proposal-scenario relationships for a problem.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the parent problem.
+
+        Returns
+        -------
+        list[dict[str, str]]
+            Loaded relationship payloads.
+        """
+        ...
+
+    # ───────────────────────────────────────────────────────────
+    # Evaluations
+    # ───────────────────────────────────────────────────────────
+
     @abstractmethod
     def save_evaluation(
         self,
@@ -226,22 +268,6 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    def load_evaluations(self, problem_id: str) -> list[dict]:
-        """Load all evaluations for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict]
-            Loaded evaluation payloads.
-        """
-        ...
-
-    @abstractmethod
     def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
         """Load a single evaluation.
 
@@ -256,6 +282,22 @@ class Store(ABC):
         -------
         dict
             Loaded evaluation payload.
+        """
+        ...
+
+    @abstractmethod
+    def load_evaluations(self, problem_id: str) -> list[dict]:
+        """Load all evaluations for a problem.
+
+        Parameters
+        ----------
+        problem_id : str
+            Identifier of the parent problem.
+
+        Returns
+        -------
+        list[dict]
+            Loaded evaluation payloads.
         """
         ...
 

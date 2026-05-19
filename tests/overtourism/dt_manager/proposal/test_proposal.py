@@ -17,6 +17,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
     assert proposal.to_dict() == {
         "proposal_id": "proposal-alpha",
         "problem_id": "",
+        "version": 1,
         "name": "proposal-alpha",
         "description": "",
         "status": "draft",
@@ -30,6 +31,7 @@ def test_from_dict_round_trip() -> None:
     payload = {
         "proposal_id": "proposal-alpha",
         "problem_id": "problem-alpha",
+        "version": 1,
         "name": "Proposal Alpha",
         "description": "Primary proposal",
         "status": "accepted",

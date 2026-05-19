@@ -14,9 +14,7 @@ from overtourism.dt_manager.evaluation.evaluation import (
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
-from overtourism.dt_manager.stores.classes.local.store import LocalIOStore
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
-from overtourism.dt_manager.stores.enums import ProblemDocumentKey, ProblemNestedKey
 
 TIMESTAMP = "2025-01-01T00:00:00Z"
 
@@ -177,32 +175,6 @@ def other_evaluation_payload(other_scenario_payload: dict[str, Any]) -> dict[str
         state=EvaluationState.FAILED,
         result={"score": 0.12, "notes": ["retry"]},
     )
-
-
-@pytest.fixture
-def problem_document(
-    problem_payload: dict[str, Any],
-    scenario_payload: dict[str, Any],
-    proposal_payload: dict[str, Any],
-    evaluation_payload: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        ProblemDocumentKey.PROBLEM.value: problem_payload,
-        ProblemDocumentKey.SCENARIOS.value: [scenario_payload],
-        ProblemDocumentKey.PROPOSALS.value: [proposal_payload],
-        ProblemDocumentKey.EVALUATIONS.value: [evaluation_payload],
-        ProblemDocumentKey.RELATIONSHIP.value: [
-            {
-                ProblemNestedKey.PROPOSAL_ID.value: proposal_payload["proposal_id"],
-                ProblemNestedKey.SCENARIO_ID.value: scenario_payload["scenario_id"],
-            }
-        ],
-    }
-
-
-@pytest.fixture
-def local_store(tmp_path) -> LocalIOStore:
-    return LocalIOStore(str(tmp_path / "local-store"))
 
 
 @pytest.fixture
