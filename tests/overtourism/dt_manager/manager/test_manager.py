@@ -401,6 +401,99 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
     }
 
 
+def test_session_scenario_can_be_updated_and_re_evaluated(tmp_path) -> None:
+    manager, evaluator, model = _make_manager(tmp_path)
+    default_config = BaseConfig()
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    session_id = "session-1"
+    session_scenario = manager.create_session_scenario(
+        problem_id,
+        session_id,
+        default_config.scenario_id,
+        values={"visits": 9},
+    )
+    first_evaluation = manager.create_session_evaluation(
+        problem_id,
+        session_id,
+        session_scenario.scenario_id,
+        ensemble_size=7,
+    )
+
+    assert first_evaluation.state is EvaluationState.COMPLETED
+    assert first_evaluation.result.to_dict() == {
+        "ensemble_size": 7,
+        "values": {"visits": 9},
+    }
+
+    updated_session_scenario = manager.update_session_scenario(
+        problem_id,
+        session_id,
+        session_scenario.scenario_id,
+        values={"visits": 12},
+    )
+
+    assert updated_session_scenario.scenario_id == session_scenario.scenario_id
+    assert [entry.to_dict() for entry in updated_session_scenario.index_values] == [
+        {
+            "index_name": "visits",
+            "index_value": 12,
+            "index_type": "constant",
+        }
+    ]
+
+    with pytest.raises(EvaluationDoesNotExist):
+        manager.read_session_evaluation(problem_id, session_id)
+
+    second_evaluation = manager.create_session_evaluation(
+        problem_id,
+        session_id,
+        session_scenario.scenario_id,
+        ensemble_size=4,
+    )
+
+    assert second_evaluation.state is EvaluationState.COMPLETED
+    assert second_evaluation.result.to_dict() == {
+        "ensemble_size": 4,
+        "values": {"visits": 12},
+    }
+    assert evaluator.evaluate_calls[-1] == {
+        "model": model,
+        "ensemble_size": 4,
+        "values": {"visits": 12},
+    }
+
+    promoted = manager.save_session_scenario(
+        problem_id,
+        session_id,
+        scenario_id=session_scenario.scenario_id,
+        name="Session Scenario",
+    )
+
+    assert promoted.scenario_id == session_scenario.scenario_id
+    assert promoted.name == "Session Scenario"
+    assert manager.read_scenario(problem_id, promoted.scenario_id).to_dict() == (
+        promoted.to_dict()
+    )
+
+    stored_evaluations = manager.evaluation_managers[problem_id].list_evaluations(
+        promoted.scenario_id
+    )
+    assert len(stored_evaluations) == 1
+    assert stored_evaluations[0].result.to_dict() == {
+        "ensemble_size": 4,
+        "values": {"visits": 12},
+    }
+
+
 def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
     manager, _evaluator, _model = _make_manager(tmp_path)
 

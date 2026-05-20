@@ -18,8 +18,10 @@ from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.utils.exception import ScenarioDoesNotExist
 
 if typing.TYPE_CHECKING:
+    from overtourism.dt_manager.classes.model import ModelOutput
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
     from overtourism.dt_manager.problem.problem import Problem
     from overtourism.dt_manager.proposal.proposal import Proposal
@@ -156,50 +158,19 @@ class Manager:
         self.evaluate_scenario(problem_id, self.base_problem_config.scenario_id)
 
     def read_problem(self, problem_id: str) -> Problem:
-        """Return a loaded problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to retrieve.
-
-        Returns
-        -------
-        Problem
-            Loaded problem instance.
-        """
+        """Return a problem."""
         return self.problem_manager.read_problem(problem_id)
 
     def list_problems(self) -> list[Problem]:
-        """Return the loaded problem identifiers.
-
-        Returns
-        -------
-        list[Problem]
-            List of loaded problems.
-        """
+        """Return all problems."""
         return self.problem_manager.list_problems()
 
     def update_problem(self, problem_id: str, **kwargs) -> None:
-        """Update a problem's attributes.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to update.
-        **kwargs
-            Keyword arguments forwarded to :meth:`ProblemManager.update_problem`.
-        """
+        """Update a problem's attributes."""
         self.problem_manager.update_problem(problem_id, **kwargs)
 
     def delete_problem(self, problem_id: str) -> None:
-        """Delete a problem and clear its child managers.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to delete.
-        """
+        """Delete a problem and clear its child managers."""
         self.problem_manager.delete_problem(problem_id)
         self.evaluation_managers.pop(problem_id, None)
         self.scenario_managers.pop(problem_id, None)
@@ -294,6 +265,10 @@ class Manager:
             description=description,
             extras=extras,
         )
+        # For the moment we choose to delete all evaluations when a scenario is updated
+        self.evaluation_managers[problem_id].delete_evaluations_for_scenario(
+            scenario_id
+        )
 
     def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
         """Delete a scenario and persist the resulting aggregate."""
@@ -310,6 +285,53 @@ class Manager:
     # ───────────────────────────────────────────────────────────
     # Session
     # ───────────────────────────────────────────────────────────
+
+    def create_session_scenario(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str,
+        *,
+        values: dict | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+    ) -> Scenario:
+        """Create a transient scenario for a session."""
+        return self.scenario_managers[problem_id].create_session_scenario(
+            session_id,
+            scenario_id,
+            values=values,
+            name=name,
+            description=description,
+            extras=extras,
+        )
+
+    def update_session_scenario(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str,
+        values: dict | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+    ) -> Scenario:
+        """Update a transient session scenario and invalidate its evaluation."""
+        scenario = self.scenario_managers[problem_id].update_session_scenario(
+            session_id,
+            scenario_id,
+            values=values,
+            name=name,
+            description=description,
+            extras=extras,
+        )
+        self.evaluation_managers[problem_id].delete_session_evaluation(
+            session_id,
+            scenario_id,
+        )
+        return scenario
 
     def read_session_scenario(self, problem_id: str, session_id: str):
         """Return a transient scenario for a session."""
@@ -335,6 +357,7 @@ class Manager:
         problem_id: str,
         session_id: str,
         *,
+        scenario_id: str | None = None,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
@@ -343,6 +366,10 @@ class Manager:
         """Promote a transient session scenario to persistent storage."""
         scenario_manager = self.scenario_managers[problem_id]
         session_scenario = scenario_manager.read_session_scenario(session_id)
+        if scenario_id is not None and session_scenario.scenario_id != scenario_id:
+            raise ScenarioDoesNotExist(
+                f"Scenario with ID {scenario_id} does not exist in session {session_id}"
+            )
 
         if name is not None:
             session_scenario.name = name
@@ -351,7 +378,7 @@ class Manager:
         if extras is not None:
             session_scenario.extras.update(extras)
 
-        scenario_manager.save_session_scenario(session_id)
+        scenario_manager.save_session_scenario(session_id, scenario_id)
 
         self.evaluation_managers[problem_id].save_session_evaluation(session_id)
 
@@ -411,27 +438,52 @@ class Manager:
         **kwargs,
     ):
         """Evaluate a transient session scenario and keep both states in memory."""
-        scenario_manager = self.scenario_managers[problem_id]
-        evaluation_manager = self.evaluation_managers[problem_id]
-        session_scenario = scenario_manager.create_session_scenario(scenario_id, values)
-        session_scenario.scenario_id = f"{scenario_id}_{session_id}_{uuid4().hex}"
-        scenario_manager.register_session_scenario(session_id, session_scenario)
-        evaluation_id = f"{session_id}_{uuid4().hex}"
-        evaluation_manager.create_session_evaluation(
-            session_id=session_id,
-            evaluation_id=evaluation_id,
-            scenario_id=session_scenario.scenario_id,
-            type=DEFAULT_EVALUATION_TYPE,
-        )
-        evaluation_manager.run_session_evaluation(
+        session_scenario = self.create_session_scenario(
+            problem_id,
             session_id,
-            session_scenario,
+            scenario_id,
+            values=values,
+        )
+        self.create_session_evaluation(
+            problem_id,
+            session_id,
+            session_scenario.scenario_id,
             ensemble_size=ensemble_size,
             **kwargs,
         )
         return session_scenario
 
-    def read_scenario_data(self, problem_id: str, scenario_id: str) -> dict:
+    def create_session_evaluation(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str,
+        ensemble_size: int = 20,
+        **kwargs,
+    ) -> Evaluation:
+        """Evaluate an existing transient session scenario."""
+        scenario = self.read_session_scenario(problem_id, session_id)
+        if scenario.scenario_id != scenario_id:
+            raise ScenarioDoesNotExist(
+                f"Scenario with ID {scenario_id} does not exist in session {session_id}"
+            )
+        evaluation_manager = self.evaluation_managers[problem_id]
+        evaluation_manager.delete_session_evaluation(session_id)
+        evaluation_id = f"{session_id}_{uuid4().hex}"
+        evaluation_manager.create_session_evaluation(
+            session_id=session_id,
+            evaluation_id=evaluation_id,
+            scenario_id=scenario.scenario_id,
+            type=DEFAULT_EVALUATION_TYPE,
+        )
+        return evaluation_manager.run_session_evaluation(
+            session_id,
+            scenario,
+            ensemble_size=ensemble_size,
+            **kwargs,
+        )
+
+    def read_scenario_data(self, problem_id: str, scenario_id: str) -> ModelOutput:
         """Return the latest stored evaluation result for a scenario.
 
         If no evaluation exists yet, create one on demand and return its result.
@@ -444,11 +496,11 @@ class Manager:
             )
         except Exception:
             result = self.evaluate_scenario(problem_id, scenario_id).result
-        if hasattr(result, "to_dict"):
-            return result.to_dict()
-        elif isinstance(result, dict):
-            return result
-        return {}
+        return result
+
+    def read_latest_evaluation(self, problem_id: str, scenario_id: str) -> Evaluation:
+        """Return the latest evaluation for a scenario."""
+        return self.evaluation_managers[problem_id].read_latest_evaluation(scenario_id)
 
     # ───────────────────────────────────────────────────────────
     # Proposals

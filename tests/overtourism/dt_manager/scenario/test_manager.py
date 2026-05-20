@@ -120,10 +120,14 @@ def test_session_scenario_lifecycle(
     monkeypatch.setattr(
         scenario_manager_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
-    session_scenario = manager.create_session_scenario("scenario-alpha", {"visits": 9})
+    session_scenario = manager.create_session_scenario(
+        "session-1",
+        "scenario-alpha",
+        {"visits": 9},
+    )
 
     assert session_scenario.problem_id == problem_id
-    assert session_scenario.scenario_id == base_scenario.scenario_id
+    assert session_scenario.scenario_id.startswith("scenario-alpha_session-1_")
     assert session_scenario.name == base_scenario.name
     assert session_scenario.description == base_scenario.description
     assert session_scenario.created == SESSION_TIMESTAMP
@@ -136,9 +140,31 @@ def test_session_scenario_lifecycle(
         )
     ]
 
-    manager.register_session_scenario("session-1", session_scenario)
     assert manager.has_session("session-1")
     assert manager.read_session_scenario("session-1") is session_scenario
+
+    updated_session_scenario = manager.update_session_scenario(
+        "session-1",
+        session_scenario.scenario_id,
+        {"visits": 12},
+    )
+    assert updated_session_scenario.scenario_id == session_scenario.scenario_id
+    assert updated_session_scenario.index_values == [
+        IndexEntry(
+            index_name="visits",
+            index_value=12,
+            index_type=IndexType.CONSTANT.value,
+        )
+    ]
+
+    saved_session_scenario = manager.save_session_scenario(
+        "session-1",
+        session_scenario.scenario_id,
+    )
+    assert saved_session_scenario.to_dict() == updated_session_scenario.to_dict()
+    assert manager.read_scenario(session_scenario.scenario_id).to_dict() == (
+        updated_session_scenario.to_dict()
+    )
 
     manager.close_session("session-1")
 

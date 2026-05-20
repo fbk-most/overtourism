@@ -3,26 +3,23 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Response
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.models.scenario import (
-    InputEvaluationData,
-    OutputData,
-    SaveData,
+    PostScenarioData,
+    SaveScenarioData,
+    ScenarioData,
+    UpdateScenarioData,
 )
 from overtourism.backend.api.v2.utils import (
-    arrange_data,
-    evaluation_result_to_dict,
-    get_problem_editable_indexes,
+    check_version,
     get_problem_or_404,
-    get_widgets,
-    model_values,
+    get_session_scenario_or_404,
     prepare_values,
-    scenario_index_diffs,
+    set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -31,220 +28,270 @@ from overtourism.dt_manager.scenario.values import values_as_scipy
 logger = logging.getLogger(__name__)
 
 scenario_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/scenarios",
+    prefix=f"{TENANT_ROUTE_PREFIX}/problems/{{problem_id}}/scenarios",
     dependencies=[Depends(get_auth_context)],
 )
 
 
 @scenario_router.get(
-    "/{scenario_id}",
-    response_model=OutputData,
+    "",
+    response_model=list[ScenarioData],
     responses={
-        500: {"description": "Evaluation error"},
-        404: {"description": "Scenario does not exist"},
-        200: {"description": "Scenario data"},
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Problem does not exist"},
+        200: {"description": "Scenario list"},
     },
 )
-async def get_data(
+async def list_scenarios(
+    tenant: str,
+    problem_id: str,
+    handler: Handler = Depends(get_handler),
+) -> list[ScenarioData]:
+    try:
+        get_problem_or_404(handler, tenant, problem_id)
+        return [
+            scenario.to_dict()
+            for scenario in handler.manager.list_scenarios(problem_id)
+        ]
+    except Exception as e:
+        logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
+        raise
+
+
+@scenario_router.post(
+    "",
+    response_model=dict,
+    responses={
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Problem does not exist"},
+        200: {"description": "Scenario created"},
+    },
+)
+async def create_scenario(
+    tenant: str,
+    problem_id: str,
+    data: PostScenarioData,
+    response: Response,
+    session_id: str = Header(alias="Session-ID"),
+    handler: Handler = Depends(get_handler),
+) -> dict[str, str]:
+    try:
+        get_problem_or_404(handler, tenant, problem_id)
+        scenario = handler.manager.create_session_scenario(
+            problem_id,
+            session_id,
+            data.scenario_id,
+            values=(
+                None if data.values is None else prepare_values(handler, data.values)
+            ),
+            name=data.scenario_name,
+            description=data.scenario_description,
+            extras=data.extras,
+        )
+        set_version_header(response, scenario.version)
+        logger.info(
+            f"Session scenario created: {scenario.scenario_id} for problem {problem_id}"
+        )
+        return {"scenario_id": scenario.scenario_id}
+    except Exception as e:
+        logger.error(f"Error creating session scenario for problem {problem_id}: {e}")
+        raise
+
+
+@scenario_router.post(
+    "/{scenario_id}",
+    response_model=ScenarioData,
+    responses={
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Problem or session scenario does not exist"},
+        200: {"description": "Scenario created from session"},
+    },
+)
+async def save_scenario_from_session(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
-    session_id: str | None = None,
-    language: Literal["it", "en"] = "it",
+    data: SaveScenarioData,
+    response: Response,
+    session_id: str = Header(alias="Session-ID"),
     handler: Handler = Depends(get_handler),
-) -> OutputData:
-    """Read the evaluated outputs for a scenario."""
+) -> ScenarioData:
     try:
-        manager = handler.manager
-        problem = get_problem_or_404(handler, problem_id)
-
-        # If a session exists, return its already-evaluated scenario copy.
-        session_scenario = None
-        session_evaluation = None
-        if session_id is not None:
-            try:
-                session_scenario = manager.read_session_scenario(problem_id, session_id)
-                session_evaluation = manager.read_session_evaluation(
-                    problem_id, session_id
-                )
-            except Exception:
-                session_scenario = None
-                session_evaluation = None
-
-        if session_scenario is not None and session_evaluation is not None:
-            out_data = arrange_data(
-                handler,
-                evaluation_result_to_dict(session_evaluation.result),
-            )
-            values = {
-                **model_values(handler),
-                **values_as_scipy(session_scenario),
-            }
-            return OutputData(
-                problem_id=problem_id,
-                scenario_id=scenario_id,
-                data=out_data,
-                index_diffs=scenario_index_diffs(handler, session_scenario),
-                widgets=get_widgets(handler, values, language=language),
-                editable_indexes=get_problem_editable_indexes(problem.extras),
-            )
-
-        # No active session — return the stored scenario.
-        out_data = arrange_data(
-            handler, manager.read_scenario_data(problem_id, scenario_id)
+        get_problem_or_404(handler, tenant, problem_id)
+        session_scenario = get_session_scenario_or_404(
+            handler,
+            problem_id,
+            session_id,
+            scenario_id,
         )
-        scenario = manager.read_scenario(problem_id, scenario_id)
-        values = {
-            **model_values(handler),
-            **values_as_scipy(scenario),
-        }
-        return OutputData(
-            problem_id=problem_id,
-            scenario_id=scenario_id,
-            data=out_data,
-            index_diffs=scenario_index_diffs(handler, scenario),
-            widgets=get_widgets(handler, values, language=language),
-            editable_indexes=get_problem_editable_indexes(problem.extras),
+        scenario = handler.manager.save_session_scenario(
+            problem_id,
+            session_id,
+            session_scenario.scenario_id,
+            name=data.name,
+            description=data.description,
+            extras=data.extras,
         )
+        set_version_header(response, scenario.version)
+        logger.info(
+            f"Scenario saved from session: {scenario.scenario_id} for problem {problem_id}"
+        )
+        return scenario.to_dict()
     except Exception as e:
         logger.error(
-            f"Error getting data for scenario {scenario_id} in problem {problem_id}: {e}"
+            f"Error saving scenario from session for problem {problem_id}: {e}"
+        )
+        raise
+
+
+@scenario_router.get(
+    "/{scenario_id}",
+    response_model=ScenarioData,
+    responses={
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Scenario does not exist"},
+        200: {"description": "Scenario details"},
+    },
+)
+async def read_scenario(
+    tenant: str,
+    problem_id: str,
+    scenario_id: str,
+    response: Response,
+    session_id: str | None = Header(default=None, alias="Session-ID"),
+    handler: Handler = Depends(get_handler),
+) -> ScenarioData:
+    try:
+        get_problem_or_404(handler, tenant, problem_id)
+        if session_id is None:
+            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+        else:
+            scenario = get_session_scenario_or_404(
+                handler,
+                problem_id,
+                session_id,
+                scenario_id,
+            )
+        set_version_header(response, scenario.version)
+        return scenario.to_dict()
+    except Exception as e:
+        logger.error(
+            f"Error reading scenario {scenario_id} for problem {problem_id}: {e}"
         )
         raise
 
 
 @scenario_router.put(
     "/{scenario_id}",
-    response_model=OutputData,
+    response_model=ScenarioData,
     responses={
-        500: {"description": "Evaluation error"},
-        404: {"description": "Model does not exist"},
-        200: {"description": "Model data"},
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Scenario does not exist"},
+        200: {"description": "Scenario updated"},
     },
 )
-async def update_data(
+async def update_scenario(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
-    data: InputEvaluationData,
-    session_id: str,
-    language: Literal["it", "en"] = "it",
+    data: UpdateScenarioData,
+    response: Response,
+    *,
+    session_id: str | None = Header(default=None, alias="Session-ID"),
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
-) -> OutputData:
-    """Re-evaluate a scenario with new values."""
+) -> ScenarioData:
     try:
-        problem = get_problem_or_404(handler, problem_id)
-        values = prepare_values(handler, data.values)
-        session_scenario = handler.manager.evaluate_session(
-            problem_id=problem_id,
-            session_id=session_id,
-            scenario_id=scenario_id,
-            values=values,
-            ensemble_size=data.ensemble_size,
+        get_problem_or_404(handler, tenant, problem_id)
+        if session_id is None:
+            current_scenario = handler.manager.read_scenario(problem_id, scenario_id)
+        else:
+            current_scenario = get_session_scenario_or_404(
+                handler,
+                problem_id,
+                session_id,
+                scenario_id,
+            )
+        check_version(current_scenario.version, version)
+        updated_values = (
+            values_as_scipy(current_scenario)
+            if data.values is None
+            else prepare_values(handler, data.values)
         )
-        session_evaluation = handler.manager.read_session_evaluation(
-            problem_id, session_id
-        )
-        out_data = arrange_data(
-            handler,
-            evaluation_result_to_dict(session_evaluation.result),
-        )
-        merged = {
-            **model_values(handler),
-            **values,
-        }
-        return OutputData(
-            data=out_data,
-            scenario_id=scenario_id,
-            problem_id=problem_id,
-            index_diffs=scenario_index_diffs(handler, session_scenario),
-            widgets=get_widgets(handler, merged, language=language),
-            editable_indexes=get_problem_editable_indexes(problem.extras),
-        )
+        if session_id is None:
+            handler.manager.update_scenario(
+                problem_id,
+                scenario_id,
+                values=updated_values,
+                name=data.name,
+                description=data.description,
+                extras=data.extras,
+            )
+            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+        else:
+            scenario = handler.manager.update_session_scenario(
+                problem_id,
+                session_id,
+                scenario_id,
+                values=updated_values,
+                name=data.name,
+                description=data.description,
+                extras=data.extras,
+            )
+        set_version_header(response, scenario.version)
+        logger.info(f"Scenario updated: {scenario_id} for problem {problem_id}")
+        return scenario.to_dict()
     except Exception as e:
         logger.error(
-            f"Error updating data for scenario {scenario_id} in problem {problem_id}: {e}"
-        )
-        raise
-
-
-@scenario_router.get(
-    "/session/{session_id}",
-    response_model=OutputData,
-    responses={
-        500: {"description": "Session error"},
-        404: {"description": "Session does not exist"},
-        200: {"description": "Session scenario data"},
-    },
-)
-async def resume_session(
-    problem_id: str,
-    session_id: str,
-    language: Literal["it", "en"] = "it",
-    handler: Handler = Depends(get_handler),
-) -> OutputData:
-    """Resume an in-memory session scenario and return its evaluated data."""
-    try:
-        problem = get_problem_or_404(handler, problem_id)
-        session_scenario, session_evaluation = handler.manager.resume_session(
-            problem_id,
-            session_id,
-        )
-        out_data = arrange_data(
-            handler,
-            evaluation_result_to_dict(session_evaluation.result),
-        )
-        values = {
-            **model_values(handler),
-            **values_as_scipy(session_scenario),
-        }
-        return OutputData(
-            problem_id=problem_id,
-            scenario_id=session_scenario.scenario_id,
-            data=out_data,
-            index_diffs=scenario_index_diffs(handler, session_scenario),
-            widgets=get_widgets(handler, values, language=language),
-            editable_indexes=get_problem_editable_indexes(problem.extras),
-        )
-    except Exception as e:
-        logger.error(
-            f"Error resuming session {session_id} in problem {problem_id}: {e}"
+            f"Error updating scenario {scenario_id} for problem {problem_id}: {e}"
         )
         raise
 
 
 @scenario_router.post(
     "/{scenario_id}",
-    response_model=dict,
+    response_model=ScenarioData,
     responses={
-        500: {"description": "Save error"},
-        200: {"description": "Model saved"},
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Session scenario does not exist"},
+        200: {"description": "Scenario persisted"},
     },
 )
-async def create_scenario(
+async def save_scenario(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
-    session_id: str,
-    data: SaveData,
-    proposal_id: str | None = None,
+    data: SaveScenarioData,
+    response: Response,
+    *,
+    session_id: str = Header(alias="Session-ID"),
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
-) -> dict:
-    """Persist the current session scenario as a stored scenario."""
+) -> ScenarioData:
     try:
-        extras = handler.manager.scenario_extras_from_dict(data.model_dump())
+        get_problem_or_404(handler, tenant, problem_id)
+        current_scenario = get_session_scenario_or_404(
+            handler,
+            problem_id,
+            session_id,
+            scenario_id,
+        )
+        check_version(current_scenario.version, version)
         saved_scenario = handler.manager.save_session_scenario(
             problem_id,
-            session_id=session_id,
+            session_id,
+            scenario_id=scenario_id,
             name=data.scenario_name,
             description=data.scenario_description,
-            extras=extras,
-            proposal_id=proposal_id,
+            extras=data.extras,
+            proposal_id=data.proposal_id,
         )
-        logger.info(
-            f"Scenario saved: {saved_scenario.scenario_id} for problem {problem_id}"
-        )
-        return {"message": "Scenario saved!"}
+        set_version_header(response, saved_scenario.version)
+        logger.info(f"Scenario saved: {scenario_id} for problem {problem_id}")
+        return saved_scenario.to_dict()
     except Exception as e:
         logger.error(
-            f"Error creating scenario {scenario_id} for problem {problem_id}: {e}"
+            f"Error saving scenario {scenario_id} for problem {problem_id}: {e}"
         )
         raise
 
@@ -258,14 +305,19 @@ async def create_scenario(
     },
 )
 async def delete_scenario(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
-) -> None:
-    """Delete a scenario and detach any related proposal link."""
+) -> dict:
     try:
+        get_problem_or_404(handler, tenant, problem_id)
+        scenario = handler.manager.read_scenario(problem_id, scenario_id)
+        check_version(scenario.version, version)
         handler.manager.delete_scenario(problem_id, scenario_id)
         logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
+        return {"message": "Scenario deleted successfully"}
     except Exception as e:
         logger.error(
             f"Error deleting scenario {scenario_id} for problem {problem_id}: {e}"

@@ -4,23 +4,21 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Response
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.models.problem import (
-    GetProblemData,
     PostProblemData,
-    ProblemList,
+    ProblemData,
     UpdateProblemData,
 )
-from overtourism.backend.api.v2.models.scenario import ScenarioList
 from overtourism.backend.api.v2.utils import (
+    check_version,
     get_problem_or_404,
     problem_from_model,
-    problem_to_api,
-    proposal_to_api,
-    scenario_to_api,
+    problem_update_from_model,
+    set_version_header,
     slugify_name,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -36,21 +34,23 @@ problem_router = APIRouter(
 
 @problem_router.get(
     "",
-    response_model=ProblemList,
+    response_model=list[ProblemData],
     responses={
         500: {"description": "Problem manager error"},
         200: {"description": "Problem list"},
     },
 )
 async def list_problems(
+    tenant: str,
     handler: Handler = Depends(get_handler),
-) -> ProblemList:
+) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
-        problems = [
-            {**problem_to_api(problem)} for problem in handler.manager.list_problems()
+        return [
+            problem.to_dict()
+            for problem in handler.manager.list_problems()
+            if problem.tenant == tenant
         ]
-        return ProblemList(data=problems)
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise
@@ -58,7 +58,7 @@ async def list_problems(
 
 @problem_router.post(
     "",
-    response_model=dict,
+    response_model=ProblemData,
     responses={
         500: {"description": "Problem manager error"},
         400: {"description": "Problem already exists"},
@@ -66,19 +66,25 @@ async def list_problems(
     },
 )
 async def create_problem(
+    tenant: str,
     data: PostProblemData,
+    response: Response,
     handler: Handler = Depends(get_handler),
-) -> dict:
+) -> ProblemData:
     """Create a new problem with default scenario."""
     try:
         problem_id = slugify_name(data.problem_name)
         handler.manager.create_problem(
             problem_id,
-            problem_kwargs=problem_from_model(handler, data),
+            problem_kwargs={
+                **problem_from_model(handler, data),
+                "tenant": tenant,
+            },
         )
-
+        problem = handler.manager.read_problem(problem_id)
+        set_version_header(response, problem.version)
         logger.info(f"Problem created: {problem_id}")
-        return {"message": "Problem created successfully", "problem_id": problem_id}
+        return problem.to_dict()
     except Exception as e:
         logger.error(f"Error creating problem {data.problem_name}: {e}")
         raise
@@ -86,7 +92,7 @@ async def create_problem(
 
 @problem_router.get(
     "/{problem_id}",
-    response_model=GetProblemData,
+    response_model=ProblemData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -94,17 +100,16 @@ async def create_problem(
     },
 )
 async def read_problem(
+    tenant: str,
     problem_id: str,
+    response: Response,
     handler: Handler = Depends(get_handler),
-) -> GetProblemData:
-    """Read a problem together with its proposals."""
+) -> ProblemData:
+    """Read a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
-        proposals = [
-            proposal_to_api(handler, problem_id, proposal)
-            for proposal in handler.manager.list_proposals(problem_id)
-        ]
-        return GetProblemData(**problem_to_api(problem), proposals=proposals)
+        problem = get_problem_or_404(handler, tenant, problem_id)
+        set_version_header(response, problem.version)
+        return problem.to_dict()
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
         raise
@@ -112,7 +117,7 @@ async def read_problem(
 
 @problem_router.put(
     "/{problem_id}",
-    response_model=dict,
+    response_model=ProblemData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -120,17 +125,25 @@ async def read_problem(
     },
 )
 async def update_problem(
+    tenant: str,
     problem_id: str,
     data: UpdateProblemData,
+    response: Response,
+    *,
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
-) -> dict:
+) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
-        get_problem_or_404(handler, problem_id)
-        handler.manager.update_problem(problem_id, **problem_from_model(handler, data))
-
+        problem = get_problem_or_404(handler, tenant, problem_id)
+        check_version(problem.version, version)
+        handler.manager.update_problem(
+            problem_id, **problem_update_from_model(handler, data)
+        )
+        updated_problem = handler.manager.read_problem(problem_id)
+        set_version_header(response, updated_problem.version)
         logger.info(f"Problem updated: {problem_id}")
-        return {"message": "Problem updated successfully"}
+        return updated_problem.to_dict()
     except Exception as e:
         logger.error(f"Error updating problem {problem_id}: {e}")
         raise
@@ -145,39 +158,15 @@ async def update_problem(
     },
 )
 async def delete_problem(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a problem from the store."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")
-        raise
-
-
-@problem_router.get(
-    "/{problem_id}/scenarios",
-    response_model=ScenarioList,
-    responses={
-        500: {"description": "Problem manager error"},
-        404: {"description": "Problem does not exist"},
-        200: {"description": "Scenario models"},
-    },
-)
-async def list_scenarios(
-    problem_id: str,
-    handler: Handler = Depends(get_handler),
-) -> ScenarioList:
-    """List all scenarios for a problem."""
-    try:
-        get_problem_or_404(handler, problem_id)
-        scenarios = [
-            scenario_to_api(handler, s)
-            for s in handler.manager.list_scenarios(problem_id)
-        ]
-        return ScenarioList(scenarios=scenarios)
-    except Exception as e:
-        logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
         raise

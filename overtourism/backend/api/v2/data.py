@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import BASE_ROUTE
+from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.handler import Handler
@@ -16,7 +16,7 @@ from overtourism.backend.handler import Handler
 logger = logging.getLogger(__name__)
 
 data_router = APIRouter(
-    prefix=f"{BASE_ROUTE}/data",
+    prefix=f"{TENANT_ROUTE_PREFIX}/data",
     dependencies=[Depends(get_auth_context)],
 )
 
@@ -36,6 +36,7 @@ def _loader(managers: Handler = Depends(get_handler)) -> OvertourismIndexesLoade
     },
 )
 async def get_overtourism_categories_list(
+    tenant: str,
     language: Literal["it", "en"] = "it",
     loader: OvertourismIndexesLoader = Depends(_loader),
 ) -> dict:
@@ -55,6 +56,7 @@ async def get_overtourism_categories_list(
     },
 )
 async def get_overtourism_indexes_list(
+    tenant: str,
     category: str = "",
     language: Literal["it", "en"] = "it",
     loader: OvertourismIndexesLoader = Depends(_loader),
@@ -76,6 +78,7 @@ async def get_overtourism_indexes_list(
     },
 )
 async def get_overtourism_indexes_data(
+    tenant: str,
     dataframe: str,
     loader: OvertourismIndexesLoader = Depends(_loader),
 ) -> dict:
@@ -96,6 +99,7 @@ async def get_overtourism_indexes_data(
     },
 )
 async def get_overtourism_indexes_map(
+    tenant: str,
     map: str,
     loader: OvertourismIndexesLoader = Depends(_loader),
 ) -> dict:

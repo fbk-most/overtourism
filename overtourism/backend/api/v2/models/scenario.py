@@ -8,38 +8,36 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScenarioData(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     problem_id: str
     scenario_id: str
-    scenario_name: str
-    scenario_description: str
-    created: str
-    updated: str
-    index_diffs: dict[str, str]
+    version: int = 1
+    name: str | None = None
+    description: str | None = None
+    created: str | None = None
+    updated: str | None = None
+    extras: dict[str, Any] = Field(default_factory=dict)
+    index_values: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class ScenarioList(BaseModel):
-    scenarios: list[ScenarioData]
-
-
-class InputEvaluationData(BaseModel):
-    ensemble_size: int = 20
-    values: dict[str, list[int | float] | int | float] = Field(default_factory=dict)
-
-
-class SaveData(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    scenario_name: str
-    scenario_description: str
-    values: dict[str, Any] = Field(default_factory=dict)
-
-
-class OutputData(BaseModel):
-    problem_id: str
+class PostScenarioData(BaseModel):
     scenario_id: str
-    data: dict[str, Any] = Field(default_factory=dict)
-    index_diffs: dict[str, str] = Field(default_factory=dict)
-    widgets: dict | None = None
-    editable_indexes: list[str] | None = None
+
+
+class SaveScenarioData(BaseModel):
+    model_config = ConfigDict(extra="forbid", exclude_none=True)
+
+    name: str | None = None
+    description: str | None = None
+    extras: dict[str, Any] | None = None
+    proposal_id: str | None = None
+
+
+class UpdateScenarioData(BaseModel):
+    model_config = ConfigDict(extra="forbid", exclude_none=True)
+
+    name: str | None = None
+    description: str | None = None
+    values: dict[str, Any] | None = None
+    extras: dict[str, Any] | None = None

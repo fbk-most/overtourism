@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Response
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.problem import Proposal, ProposalList
+from overtourism.backend.api.v2.models.proposal import (
+    PostProposalData,
+    ProposalData,
+    UpdateProposalData,
+)
 from overtourism.backend.api.v2.utils import (
+    check_version,
     get_problem_or_404,
-    parse_proposal_model,
-    proposal_to_api,
+    set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -27,7 +31,7 @@ proposal_router = APIRouter(
 
 @proposal_router.get(
     "",
-    response_model=ProposalList,
+    response_model=list[ProposalData],
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -35,17 +39,17 @@ proposal_router = APIRouter(
     },
 )
 async def list_proposals(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
-) -> ProposalList:
+) -> list[ProposalData]:
     """List all proposals for a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
-        p_list = [
-            Proposal(**proposal_to_api(handler, problem_id, proposal))
+        get_problem_or_404(handler, tenant, problem_id)
+        return [
+            proposal.to_dict()
             for proposal in handler.manager.list_proposals(problem_id)
         ]
-        return ProposalList(data=p_list)
     except Exception as e:
         logger.error(f"Error listing proposals for problem {problem_id}: {e}")
         raise
@@ -53,7 +57,7 @@ async def list_proposals(
 
 @proposal_router.post(
     "",
-    response_model=dict,
+    response_model=ProposalData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -61,19 +65,23 @@ async def list_proposals(
     },
 )
 async def create_proposal(
+    tenant: str,
     problem_id: str,
-    proposal: Proposal,
+    proposal: PostProposalData,
+    response: Response,
     handler: Handler = Depends(get_handler),
-) -> dict:
+) -> ProposalData:
     """Create a proposal for a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         proposal_id = handler.manager.create_proposal(
             problem_id,
-            **parse_proposal_model(handler, proposal),
+            **proposal.model_dump(exclude_unset=True),
         ).proposal_id
+        proposal_entity = handler.manager.read_proposal(problem_id, proposal_id)
+        set_version_header(response, proposal_entity.version)
         logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
-        return {"message": "Proposal created successfully", "proposal_id": proposal_id}
+        return proposal_entity.to_dict()
     except Exception as e:
         logger.error(f"Error creating proposal for problem {problem_id}: {e}")
         raise
@@ -81,7 +89,7 @@ async def create_proposal(
 
 @proposal_router.get(
     "/{proposal_id}",
-    response_model=Proposal,
+    response_model=ProposalData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Proposal does not exist"},
@@ -89,14 +97,18 @@ async def create_proposal(
     },
 )
 async def read_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
+    response: Response,
     handler: Handler = Depends(get_handler),
-) -> Proposal:
+) -> ProposalData:
     """Read a proposal by identifier."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         proposal = handler.manager.read_proposal(problem_id, proposal_id)
-        return Proposal(**proposal_to_api(handler, problem_id, proposal))
+        set_version_header(response, proposal.version)
+        return proposal.to_dict()
     except Exception as e:
         logger.error(
             f"Error reading proposal {proposal_id} for problem {problem_id}: {e}"
@@ -106,7 +118,7 @@ async def read_proposal(
 
 @proposal_router.put(
     "/{proposal_id}",
-    response_model=dict,
+    response_model=ProposalData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Proposal does not exist"},
@@ -114,21 +126,29 @@ async def read_proposal(
     },
 )
 async def update_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
-    proposal: Proposal,
+    proposal: UpdateProposalData,
+    response: Response,
+    *,
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
-) -> dict:
+) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
+        current_proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        check_version(current_proposal.version, version)
         handler.manager.update_proposal(
             problem_id,
             proposal_id,
-            **parse_proposal_model(handler, proposal),
+            **proposal.model_dump(exclude_unset=True),
         )
+        updated_proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        set_version_header(response, updated_proposal.version)
         logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
-        return {"message": "Proposal updated successfully"}
+        return updated_proposal.to_dict()
     except Exception as e:
         logger.error(
             f"Error updating proposal {proposal_id} for problem {problem_id}: {e}"
@@ -145,13 +165,17 @@ async def update_proposal(
     },
 )
 async def delete_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
+    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a proposal from a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
+        proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        check_version(proposal.version, version)
         handler.manager.delete_proposal(problem_id, proposal_id)
         logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")
     except Exception as e:

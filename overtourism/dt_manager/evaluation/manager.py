@@ -151,6 +151,21 @@ class EvaluationManager:
         self.save_evaluation(evaluation)
         return evaluation
 
+    def delete_session_evaluation(
+        self,
+        session_id: str,
+        scenario_id: str | None = None,
+    ) -> None:
+        """Discard a transient evaluation, optionally checking its scenario."""
+        evaluation = self._session_evaluations.get(session_id)
+        if evaluation is None:
+            return
+        if scenario_id is not None and evaluation.scenario_id != scenario_id:
+            raise EvaluationDoesNotExist(
+                f"Evaluation for scenario {scenario_id} does not exist in session {session_id}"
+            )
+        self._session_evaluations.pop(session_id, None)
+
     def create_session_evaluation(
         self,
         session_id: str,

@@ -30,6 +30,7 @@ widget_router = APIRouter(
     },
 )
 async def list_widgets(
+    tenant: str,
     language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),
 ) -> Widgets:
