@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing
+from dataclasses import dataclass, field
 from uuid import uuid4
 
 from civic_digital_twins.dt_model.model import Model
@@ -18,7 +19,12 @@ from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
-from overtourism.dt_manager.utils.exception import ScenarioDoesNotExist
+from overtourism.dt_manager.utils.exception import (
+    EvaluationDoesNotExist,
+    ScenarioDoesNotExist,
+    SessionDoesNotExist,
+)
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.classes.model import ModelOutput
@@ -26,6 +32,20 @@ if typing.TYPE_CHECKING:
     from overtourism.dt_manager.problem.problem import Problem
     from overtourism.dt_manager.proposal.proposal import Proposal
     from overtourism.dt_manager.scenario.scenario import Scenario
+
+
+@dataclass
+class SessionState:
+    """In-memory working context for drafts, evaluations, and later chats."""
+
+    session_id: str
+    problem_id: str
+    created: str
+    updated: str
+    metadata: dict[str, typing.Any] = field(default_factory=dict)
+    drafts: dict[str, Scenario] = field(default_factory=dict)
+    evaluations: dict[str, Evaluation] = field(default_factory=dict)
+    active_scenario_id: str | None = None
 
 
 class Manager:
@@ -58,6 +78,7 @@ class Manager:
         self.evaluation_managers: dict[str, EvaluationManager] = {}
         self.executor = Executor(self.model, self.model_evaluator)
         self.proposal_managers: dict[str, ProposalManager] = {}
+        self.sessions: dict[tuple[str, str], SessionState] = {}
 
         self._setup()
 
@@ -131,6 +152,76 @@ class Manager:
         )
         self.proposal_managers[problem_id] = ProposalManager(problem_id, self.store)
 
+    def _session_key(self, problem_id: str, session_id: str) -> tuple[str, str]:
+        return problem_id, session_id
+
+    def _touch_session(self, session: SessionState) -> None:
+        session.updated = get_timestamp()
+
+    def _read_session_state(self, problem_id: str, session_id: str) -> SessionState:
+        key = self._session_key(problem_id, session_id)
+        if key not in self.sessions:
+            raise SessionDoesNotExist(f"Session '{session_id}' does not exist")
+        return self.sessions[key]
+
+    def _ensure_session_state(
+        self,
+        problem_id: str,
+        session_id: str,
+    ) -> SessionState:
+        key = self._session_key(problem_id, session_id)
+        if key in self.sessions:
+            return self.sessions[key]
+        return self.create_session(problem_id, session_id)
+
+    def _read_session_draft(
+        self,
+        session: SessionState,
+        scenario_id: str | None = None,
+    ) -> Scenario:
+        target_scenario_id = scenario_id
+        if target_scenario_id is None:
+            target_scenario_id = session.active_scenario_id
+            if target_scenario_id is None and len(session.drafts) == 1:
+                target_scenario_id = next(iter(session.drafts))
+        if target_scenario_id is None:
+            raise ScenarioDoesNotExist(
+                f"Session '{session.session_id}' does not contain an active draft"
+            )
+        if target_scenario_id not in session.drafts:
+            raise ScenarioDoesNotExist(
+                f"Scenario with ID {target_scenario_id} does not exist in session {session.session_id}"
+            )
+        return session.drafts[target_scenario_id]
+
+    def _read_session_draft_evaluation(
+        self,
+        session: SessionState,
+        scenario_id: str | None = None,
+    ) -> Evaluation:
+        target_scenario_id = scenario_id
+        if target_scenario_id is None:
+            target_scenario_id = session.active_scenario_id
+            if target_scenario_id is None and len(session.evaluations) == 1:
+                target_scenario_id = next(iter(session.evaluations))
+        if target_scenario_id is None:
+            raise EvaluationDoesNotExist(
+                f"Session '{session.session_id}' does not contain an active evaluation"
+            )
+        if target_scenario_id not in session.evaluations:
+            raise EvaluationDoesNotExist(
+                f"Evaluation for scenario {target_scenario_id} does not exist in session {session.session_id}"
+            )
+        return session.evaluations[target_scenario_id]
+
+    def _set_active_session_draft(
+        self,
+        session: SessionState,
+        scenario_id: str | None,
+    ) -> None:
+        session.active_scenario_id = scenario_id
+        self._touch_session(session)
+
     # ───────────────────────────────────────────────────────────
     # Problems
     # ───────────────────────────────────────────────────────────
@@ -175,6 +266,11 @@ class Manager:
         self.evaluation_managers.pop(problem_id, None)
         self.scenario_managers.pop(problem_id, None)
         self.proposal_managers.pop(problem_id, None)
+        self.sessions = {
+            key: session
+            for key, session in self.sessions.items()
+            if key[0] != problem_id
+        }
 
     def problem_extras_from_dict(self, problem_dict: dict) -> dict:
         """Extract problem extras from a dictionary."""
@@ -236,7 +332,8 @@ class Manager:
                 proposal_id,
                 scenario.scenario_id,
             )
-        self.close_session(problem_id, session_id)
+        if self.has_session(problem_id, session_id):
+            self.close_session(problem_id, session_id)
         return scenario
 
     def read_scenario(self, problem_id: str, scenario_id: str) -> Scenario:
@@ -286,6 +383,51 @@ class Manager:
     # Session
     # ───────────────────────────────────────────────────────────
 
+    def create_session(
+        self,
+        problem_id: str,
+        session_id: str,
+        metadata: dict | None = None,
+    ) -> SessionState:
+        """Create an in-memory session state for a problem."""
+        self.problem_manager.read_problem(problem_id)
+        key = self._session_key(problem_id, session_id)
+        if key in self.sessions:
+            raise ValueError(
+                f"Session '{session_id}' already exists for problem '{problem_id}'"
+            )
+        now_timestamp = get_timestamp()
+        session = SessionState(
+            session_id=session_id,
+            problem_id=problem_id,
+            created=now_timestamp,
+            updated=now_timestamp,
+            metadata={} if metadata is None else dict(metadata),
+        )
+        self.sessions[key] = session
+        return session
+
+    def read_session(self, problem_id: str, session_id: str) -> SessionState:
+        """Return an in-memory session state."""
+        return self._read_session_state(problem_id, session_id)
+
+    def list_sessions(self, problem_id: str) -> list[SessionState]:
+        """Return all in-memory sessions for a problem."""
+        return [
+            session
+            for (session_problem_id, _session_id), session in self.sessions.items()
+            if session_problem_id == problem_id
+        ]
+
+    def has_session(self, problem_id: str, session_id: str) -> bool:
+        """Return whether a session exists for the problem."""
+        return self._session_key(problem_id, session_id) in self.sessions
+
+    def delete_session(self, problem_id: str, session_id: str) -> None:
+        """Delete an in-memory session and all its drafts/evaluations."""
+        self._read_session_state(problem_id, session_id)
+        self.sessions.pop(self._session_key(problem_id, session_id), None)
+
     def create_session_scenario(
         self,
         problem_id: str,
@@ -298,7 +440,8 @@ class Manager:
         extras: dict | None = None,
     ) -> Scenario:
         """Create a transient scenario for a session."""
-        return self.scenario_managers[problem_id].create_session_scenario(
+        session = self._ensure_session_state(problem_id, session_id)
+        scenario = self.scenario_managers[problem_id].build_session_scenario(
             session_id,
             scenario_id,
             values=values,
@@ -306,6 +449,17 @@ class Manager:
             description=description,
             extras=extras,
         )
+        session.drafts[scenario.scenario_id] = scenario
+        self._set_active_session_draft(session, scenario.scenario_id)
+        return scenario
+
+    def list_session_scenarios(
+        self,
+        problem_id: str,
+        session_id: str,
+    ) -> list[Scenario]:
+        """Return all drafts stored in a session."""
+        return list(self._read_session_state(problem_id, session_id).drafts.values())
 
     def update_session_scenario(
         self,
@@ -319,37 +473,68 @@ class Manager:
         extras: dict | None = None,
     ) -> Scenario:
         """Update a transient session scenario and invalidate its evaluation."""
-        scenario = self.scenario_managers[problem_id].update_session_scenario(
-            session_id,
+        session = self._read_session_state(problem_id, session_id)
+        session_scenario = self._read_session_draft(
+            session,
             scenario_id,
+        )
+        updated_scenario = self.scenario_managers[problem_id].update_scenario_object(
+            session_scenario,
+            scenario_id=session_scenario.scenario_id,
             values=values,
             name=name,
             description=description,
             extras=extras,
         )
-        self.evaluation_managers[problem_id].delete_session_evaluation(
-            session_id,
-            scenario_id,
-        )
-        return scenario
+        session.drafts[updated_scenario.scenario_id] = updated_scenario
+        session.evaluations.pop(updated_scenario.scenario_id, None)
+        self._set_active_session_draft(session, updated_scenario.scenario_id)
+        return updated_scenario
 
-    def read_session_scenario(self, problem_id: str, session_id: str):
+    def delete_session_scenario(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Delete a draft scenario and its evaluation from a session."""
+        session = self._read_session_state(problem_id, session_id)
+        self._read_session_draft(session, scenario_id)
+        session.drafts.pop(scenario_id, None)
+        session.evaluations.pop(scenario_id, None)
+        next_active_scenario_id = next(iter(session.drafts), None)
+        self._set_active_session_draft(session, next_active_scenario_id)
+
+    def read_session_scenario(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str | None = None,
+    ):
         """Return a transient scenario for a session."""
-        return self.scenario_managers[problem_id].read_session_scenario(session_id)
+        session = self._read_session_state(problem_id, session_id)
+        return self._read_session_draft(session, scenario_id)
 
-    def read_session_evaluation(self, problem_id: str, session_id: str):
+    def read_session_evaluation(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str | None = None,
+    ):
         """Return the transient evaluation attached to a session."""
-        return self.evaluation_managers[problem_id].read_session_evaluation(session_id)
+        session = self._read_session_state(problem_id, session_id)
+        return self._read_session_draft_evaluation(session, scenario_id)
 
     def resume_session(
         self,
         problem_id: str,
         session_id: str,
+        scenario_id: str | None = None,
     ) -> tuple[Scenario, Evaluation]:
         """Return the transient session scenario and its evaluation."""
         return (
-            self.read_session_scenario(problem_id, session_id),
-            self.read_session_evaluation(problem_id, session_id),
+            self.read_session_scenario(problem_id, session_id, scenario_id),
+            self.read_session_evaluation(problem_id, session_id, scenario_id),
         )
 
     def save_session_scenario(
@@ -364,12 +549,9 @@ class Manager:
         proposal_id: str | None = None,
     ) -> Scenario:
         """Promote a transient session scenario to persistent storage."""
+        session = self._read_session_state(problem_id, session_id)
         scenario_manager = self.scenario_managers[problem_id]
-        session_scenario = scenario_manager.read_session_scenario(session_id)
-        if scenario_id is not None and session_scenario.scenario_id != scenario_id:
-            raise ScenarioDoesNotExist(
-                f"Scenario with ID {scenario_id} does not exist in session {session_id}"
-            )
+        session_scenario = self._read_session_draft(session, scenario_id)
 
         if name is not None:
             session_scenario.name = name
@@ -378,9 +560,18 @@ class Manager:
         if extras is not None:
             session_scenario.extras.update(extras)
 
-        scenario_manager.save_session_scenario(session_id, scenario_id)
+        scenario_manager.save_scenario_object(session_scenario)
 
-        self.evaluation_managers[problem_id].save_session_evaluation(session_id)
+        try:
+            session_evaluation = self.read_session_evaluation(
+                problem_id,
+                session_id,
+                session_scenario.scenario_id,
+            )
+        except EvaluationDoesNotExist:
+            session_evaluation = None
+        else:
+            self.evaluation_managers[problem_id].save_evaluation(session_evaluation)
 
         if proposal_id is not None:
             self.problem_manager.link_scenario_to_proposal(
@@ -389,13 +580,15 @@ class Manager:
                 session_scenario.scenario_id,
             )
 
-        self.close_session(problem_id, session_id)
+        session.drafts.pop(session_scenario.scenario_id, None)
+        session.evaluations.pop(session_scenario.scenario_id, None)
+        next_active_scenario_id = next(iter(session.drafts), None)
+        self._set_active_session_draft(session, next_active_scenario_id)
         return session_scenario
 
     def close_session(self, problem_id: str, session_id: str) -> None:
         """Close a session and discard both scenario and evaluation state."""
-        self.scenario_managers[problem_id].close_session(session_id)
-        self.evaluation_managers[problem_id].close_session(session_id)
+        self.delete_session(problem_id, session_id)
 
     # ───────────────────────────────────────────────────────────
     # Evaluations
@@ -462,26 +655,34 @@ class Manager:
         **kwargs,
     ) -> Evaluation:
         """Evaluate an existing transient session scenario."""
-        scenario = self.read_session_scenario(problem_id, session_id)
-        if scenario.scenario_id != scenario_id:
-            raise ScenarioDoesNotExist(
-                f"Scenario with ID {scenario_id} does not exist in session {session_id}"
-            )
+        session = self._read_session_state(problem_id, session_id)
+        scenario = self._read_session_draft(session, scenario_id)
         evaluation_manager = self.evaluation_managers[problem_id]
-        evaluation_manager.delete_session_evaluation(session_id)
-        evaluation_id = f"{session_id}_{uuid4().hex}"
-        evaluation_manager.create_session_evaluation(
-            session_id=session_id,
-            evaluation_id=evaluation_id,
+        session.evaluations.pop(scenario.scenario_id, None)
+        evaluation_id = f"{scenario.scenario_id}_{uuid4().hex}"
+        evaluation = evaluation_manager.build_running_evaluation(
+            evaluation_id,
             scenario_id=scenario.scenario_id,
             type=DEFAULT_EVALUATION_TYPE,
         )
-        return evaluation_manager.run_session_evaluation(
-            session_id,
+        evaluation = evaluation_manager.execute_evaluation(
+            evaluation,
             scenario,
             ensemble_size=ensemble_size,
             **kwargs,
         )
+        session.evaluations[scenario.scenario_id] = evaluation
+        self._set_active_session_draft(session, scenario.scenario_id)
+        return evaluation
+
+    def read_session_scenario_data(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str | None = None,
+    ) -> ModelOutput:
+        """Return the latest in-memory evaluation result for a session draft."""
+        return self.read_session_evaluation(problem_id, session_id, scenario_id).result
 
     def read_scenario_data(self, problem_id: str, scenario_id: str) -> ModelOutput:
         """Return the latest stored evaluation result for a scenario.
@@ -496,7 +697,11 @@ class Manager:
             )
         except Exception:
             result = self.evaluate_scenario(problem_id, scenario_id).result
-        return result
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        if isinstance(result, dict):
+            return result
+        return {}
 
     def read_latest_evaluation(self, problem_id: str, scenario_id: str) -> Evaluation:
         """Return the latest evaluation for a scenario."""

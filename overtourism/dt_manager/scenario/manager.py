@@ -97,24 +97,15 @@ class ScenarioManager:
     ) -> Scenario:
         """Update a persisted scenario with new values."""
         old_scenario = self.read_scenario(scenario_id)
-        updated_scenario = scenario_values(
-            scenario_id,
-            {} if values is None else values,
-            name=old_scenario.name if name is None else name,
-            description=old_scenario.description
-            if description is None
-            else description,
-            created=old_scenario.created,
-            updated=get_timestamp(),
-            extras=old_scenario.extras if extras is None else extras,
-            problem_id=self.problem_id,
-            version=old_scenario.version + 1,
+        updated_scenario = self.update_scenario_object(
+            old_scenario,
+            scenario_id=scenario_id,
+            values=values,
+            name=name,
+            description=description,
+            extras=extras,
         )
-        self.store.save_scenario(
-            self.problem_id,
-            scenario_id,
-            updated_scenario.to_dict(),
-        )
+        self.save_scenario_object(updated_scenario)
         return updated_scenario
 
     def delete_scenario(self, scenario_id: str) -> None:
@@ -197,6 +188,58 @@ class ScenarioManager:
             version=scenario.version + 1,
         )
 
+    def build_session_scenario(
+        self,
+        session_id: str,
+        scenario_id: str,
+        values: dict | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+    ) -> Scenario:
+        """Build a transient scenario draft from a stored scenario."""
+        return self._create_session_scenario(
+            session_id,
+            scenario_id,
+            values,
+            name=name,
+            description=description,
+            extras=extras,
+        )
+
+    def update_scenario_object(
+        self,
+        scenario: Scenario,
+        *,
+        scenario_id: str | None = None,
+        values: dict | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        extras: dict | None = None,
+    ) -> Scenario:
+        """Return an updated copy of an existing scenario object."""
+        target_scenario_id = (
+            scenario.scenario_id if scenario_id is None else scenario_id
+        )
+        return self._update_existing_scenario(
+            scenario,
+            target_scenario_id,
+            values=values,
+            name=name,
+            description=description,
+            extras=extras,
+        )
+
+    def save_scenario_object(self, scenario: Scenario) -> Scenario:
+        """Persist a scenario object as-is."""
+        self.store.save_scenario(
+            self.problem_id,
+            scenario.scenario_id,
+            scenario.to_dict(),
+        )
+        return scenario
+
     def _read_registered_session_scenario(
         self,
         session_id: str,
@@ -224,7 +267,7 @@ class ScenarioManager:
         extras: dict | None = None,
     ) -> Scenario:
         """Create a transient scenario used for a session evaluation."""
-        scenario = self._create_session_scenario(
+        scenario = self.build_session_scenario(
             session_id,
             scenario_id,
             values,

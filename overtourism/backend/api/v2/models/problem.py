@@ -23,7 +23,7 @@ class ProblemData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     problem_id: str
-    version: int = 1
+    version: int = 0
     tenant: str
     name: str | None = None
     description: str | None = None

@@ -12,7 +12,7 @@ class ScenarioData(BaseModel):
 
     problem_id: str
     scenario_id: str
-    version: int = 1
+    version: int = 0
     name: str | None = None
     description: str | None = None
     created: str | None = None
@@ -22,7 +22,11 @@ class ScenarioData(BaseModel):
 
 
 class PostScenarioData(BaseModel):
-    scenario_id: str
+    base_scenario_id: str
+    name: str | None = None
+    description: str | None = None
+    values: dict[str, Any] | None = None
+    extras: dict[str, Any] | None = None
 
 
 class SaveScenarioData(BaseModel):

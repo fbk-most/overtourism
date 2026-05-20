@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, Response
 
@@ -15,19 +16,23 @@ from overtourism.backend.api.v2.models.evaluation import (
 )
 from overtourism.backend.api.v2.utils import (
     arrange_data,
-    evaluation_result_to_dict,
+    get_problem_editable_indexes,
     get_problem_or_404,
     get_session_evaluation_or_404,
     get_session_scenario_or_404,
+    get_widgets,
+    model_values,
+    scenario_index_diffs,
     set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
+from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
 
 evaluation_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/problems/{{problem_id}}/evaluations",
+    prefix=f"{TENANT_ROUTE_PREFIX}/evaluations",
     dependencies=[Depends(get_auth_context)],
 )
 
@@ -51,8 +56,15 @@ async def create_evaluation(
 ) -> EvaluationData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        if session_id is not None:
-            session_scenario = get_session_scenario_or_404(
+        if session_id is None:
+            evaluation = handler.manager.evaluate_scenario(
+                problem_id,
+                data.scenario_id,
+                ensemble_size=data.ensemble_size,
+                **data.kwargs,
+            )
+        else:
+            get_session_scenario_or_404(
                 handler,
                 problem_id,
                 session_id,
@@ -61,13 +73,6 @@ async def create_evaluation(
             evaluation = handler.manager.create_session_evaluation(
                 problem_id,
                 session_id,
-                session_scenario.scenario_id,
-                ensemble_size=data.ensemble_size,
-                **data.kwargs,
-            )
-        else:
-            evaluation = handler.manager.evaluate_scenario(
-                problem_id,
                 data.scenario_id,
                 ensemble_size=data.ensemble_size,
                 **data.kwargs,
@@ -100,7 +105,7 @@ async def read_evaluation(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
-            evaluation = handler.manager.read_latest_evaluation(scenario_id)
+            evaluation = handler.manager.read_latest_evaluation(problem_id, scenario_id)
         else:
             evaluation = get_session_evaluation_or_404(
                 handler,
@@ -131,17 +136,15 @@ async def get_data(
     problem_id: str,
     scenario_id: str,
     session_id: str | None = Header(default=None, alias="Session-ID"),
+    language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),
-    data: bool = True,
-    kpis: bool = True,
 ) -> EvaluationOutputData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
+        problem = get_problem_or_404(handler, tenant, problem_id)
 
         if session_id is None:
-            output_data = handler.manager.read_scenario_data(
-                problem_id, scenario_id
-            ).to_dict()
+            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            output_data = handler.manager.read_scenario_data(problem_id, scenario_id)
         else:
             scenario = get_session_scenario_or_404(
                 handler,
@@ -149,71 +152,26 @@ async def get_data(
                 session_id,
                 scenario_id,
             )
-            evaluation = get_session_evaluation_or_404(
-                handler,
+            output_data = handler.manager.read_session_scenario_data(
                 problem_id,
                 session_id,
                 scenario_id,
             )
-            output_data = evaluation_result_to_dict(evaluation.result)
+
+        values = {
+            **model_values(handler),
+            **values_as_scipy(scenario),
+        }
         return EvaluationOutputData(
             problem_id=problem_id,
             scenario_id=scenario.scenario_id,
             data=arrange_data(handler, output_data),
+            index_diffs=scenario_index_diffs(handler, scenario),
+            widgets=get_widgets(handler, values, language=language),
+            editable_indexes=get_problem_editable_indexes(problem.extras),
         )
     except Exception as e:
         logger.error(
             f"Error getting evaluation data for scenario {scenario_id} in problem {problem_id}: {e}"
         )
-        raise
-
-
-@evaluation_router.put(
-    "/data",
-    response_model=EvaluationData,
-    responses={
-        500: {"description": "Evaluation manager error"},
-        404: {"description": "Problem or scenario does not exist"},
-        200: {"description": "Evaluation updated"},
-    },
-)
-async def update_evaluation(
-    tenant: str,
-    problem_id: str,
-    scenario_id: str,
-    data: PostEvaluationData,
-    response: Response,
-    session_id: str | None = Header(default=None, alias="Session-ID"),
-    handler: Handler = Depends(get_handler),
-) -> EvaluationData:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        session_scenario = get_session_scenario_or_404(
-            handler,
-            problem_id,
-            session_id,
-            data.scenario_id,
-        )
-        evaluation = get_session_evaluation_or_404(
-            handler,
-            problem_id,
-            session_id,
-            scenario_id,
-        )
-        if evaluation.scenario_id != session_scenario.scenario_id:
-            raise ValueError(
-                f"Scenario ID mismatch between evaluation ({evaluation.scenario_id}) and provided base scenario ({session_scenario.scenario_id})"
-            )
-        evaluation = handler.manager.create_session_evaluation(
-            problem_id,
-            session_id,
-            session_scenario.scenario_id,
-            ensemble_size=data.ensemble_size,
-            **data.kwargs,
-        )
-        set_version_header(response, evaluation.version)
-        logger.info(f"Evaluation updated for problem {problem_id}")
-        return evaluation.to_dict()
-    except Exception as e:
-        logger.error(f"Error updating evaluation for problem {problem_id}: {e}")
         raise

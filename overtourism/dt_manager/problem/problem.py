@@ -33,7 +33,7 @@ class Problem(Dictable):
     """
 
     problem_id: str
-    version: int = 1
+    version: int = 0
     tenant: str = "default"
     name: str | None = None
     description: str | None = None
@@ -46,7 +46,7 @@ class Problem(Dictable):
         cls,
         problem_id: str,
         *,
-        version: int = 1,
+        version: int = 0,
         tenant: str = "default",
         name: str | None = None,
         description: str | None = None,
@@ -72,7 +72,7 @@ class Problem(Dictable):
         """Build a problem from a flat problem payload dictionary."""
         return cls(
             problem_id=data["problem_id"],
-            version=data.get("version", 1),
+            version=data.get("version", 0),
             tenant=data.get("tenant", "default"),
             name=data.get("name"),
             description=data.get("description"),

@@ -59,12 +59,11 @@ class EvaluationManager:
                 f"Evaluation with ID {evaluation_id} already exists"
             )
 
-        evaluation = Evaluation.create_default(
+        evaluation = self.build_running_evaluation(
             evaluation_id,
             scenario_id=scenario_id,
             type=type,
             started=started,
-            state=EvaluationState.RUNNING,
         )
         self.save_evaluation(evaluation)
         return evaluation
@@ -141,6 +140,23 @@ class EvaluationManager:
             evaluation.to_dict(),
         )
 
+    def build_running_evaluation(
+        self,
+        evaluation_id: str,
+        *,
+        scenario_id: str,
+        type: str = DEFAULT_EVALUATION_TYPE,
+        started: str | None = None,
+    ) -> Evaluation:
+        """Build a running evaluation without persisting it."""
+        return Evaluation.create_default(
+            evaluation_id,
+            scenario_id=scenario_id,
+            type=type,
+            started=started,
+            state=EvaluationState.RUNNING,
+        )
+
     # ───────────────────────────────────────────────────────────
     # Sessions
     # ───────────────────────────────────────────────────────────
@@ -211,10 +227,12 @@ class EvaluationManager:
         **kwargs: Any,
     ) -> Evaluation:
         """Execute an evaluation and persist the final state in memory."""
-        return self._execute(
+        evaluation = self.read_evaluation(evaluation_id)
+        return self.execute_evaluation(
+            evaluation,
             scenario,
-            evaluation_id=evaluation_id,
             ensemble_size=ensemble_size,
+            persist=True,
             **kwargs,
         )
 
@@ -227,21 +245,24 @@ class EvaluationManager:
         **kwargs: Any,
     ) -> Evaluation:
         """Execute a transient evaluation and keep it in session memory only."""
-        return self._execute(
+        evaluation = self.read_session_evaluation(session_id)
+        return self.execute_evaluation(
+            evaluation,
             scenario,
             ensemble_size=ensemble_size,
-            session_id=session_id,
             **kwargs,
         )
 
-    def _execute(
+    def execute_evaluation(
         self,
+        evaluation: Evaluation,
         scenario: Scenario,
+        *,
         ensemble_size: int = 20,
-        evaluation_id: str | None = None,
-        session_id: str | None = None,
+        persist: bool = False,
         **kwargs: Any,
     ) -> Evaluation:
+        """Execute an evaluation object and optionally persist the result."""
         try:
             result = self.executor.execute(
                 scenario,
@@ -249,31 +270,27 @@ class EvaluationManager:
                 **kwargs,
             )
         except Exception:
-            self._finish_evaluation(
+            self._finish_evaluation_object(
+                evaluation,
                 state=EvaluationState.FAILED,
-                evaluation_id=evaluation_id,
-                session_id=session_id,
+                persist=persist,
             )
             raise
-        return self._finish_evaluation(
+        return self._finish_evaluation_object(
+            evaluation,
             state=EvaluationState.COMPLETED,
-            evaluation_id=evaluation_id,
             result=result,
-            session_id=session_id,
+            persist=persist,
         )
 
-    def _finish_evaluation(
+    def _finish_evaluation_object(
         self,
+        evaluation: Evaluation,
         state: EvaluationState,
-        evaluation_id: str | None = None,
-        session_id: str | None = None,
         result: ModelOutput | None = None,
+        *,
+        persist: bool = False,
     ) -> Evaluation:
-        if session_id is not None:
-            evaluation = self.read_session_evaluation(session_id)
-        else:
-            evaluation = self.read_evaluation(evaluation_id)
-
         # Only allow finishing evaluations that are currently running,
         # to prevent accidental state changes on completed or failed evaluations.
         if evaluation.state != EvaluationState.RUNNING:
@@ -287,7 +304,7 @@ class EvaluationManager:
         evaluation.result = result
         evaluation.version += 1
 
-        if session_id is None:
+        if persist:
             self.save_evaluation(evaluation)
 
         return evaluation

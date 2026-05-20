@@ -171,7 +171,7 @@ def orm_to_dict(entity: Any) -> dict[str, Any]:
 def problem_to_orm(problem: dict[str, Any]) -> ProblemORM:
     return ProblemORM(
         problem_id=problem["problem_id"],
-        version=problem.get("version", 1),
+        version=problem.get("version", 0),
         tenant=problem.get("tenant"),
         name=problem.get("name"),
         description=problem.get("description"),
@@ -189,7 +189,7 @@ def proposal_to_orm(proposal: dict[str, Any]) -> ProposalORM:
     return ProposalORM(
         problem_id=proposal.get("problem_id", ""),
         proposal_id=proposal["proposal_id"],
-        version=proposal.get("version", 1),
+        version=proposal.get("version", 0),
         name=proposal.get("name"),
         description=proposal.get("description"),
         status=proposal.get("status"),
@@ -210,7 +210,7 @@ def scenario_to_orm(
     return ScenarioORM(
         problem_id=problem_id or scenario.get("problem_id", ""),
         scenario_id=scenario["scenario_id"],
-        version=scenario.get("version", 1),
+        version=scenario.get("version", 0),
         name=scenario.get("name"),
         description=scenario.get("description"),
         created=scenario.get("created"),
@@ -257,7 +257,7 @@ def evaluation_to_orm(
         state = state.value
     return EvaluationORM(
         evaluation_id=evaluation["evaluation_id"],
-        version=evaluation.get("version", 1),
+        version=evaluation.get("version", 0),
         problem_id=problem_id
         or evaluation.get("problem_id")
         or evaluation["scenario_id"].split("_")[0],

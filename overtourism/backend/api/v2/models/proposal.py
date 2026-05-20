@@ -14,7 +14,7 @@ class ProposalData(BaseModel):
 
     proposal_id: str
     problem_id: str
-    version: int = 1
+    version: int = 0
     name: str | None = None
     description: str | None = None
     status: ProposalStatus = ProposalStatus.DRAFT

@@ -36,7 +36,7 @@ class Evaluation(Dictable):
     evaluation_id: str
     scenario_id: str
     type: str
-    version: int = 1
+    version: int = 0
     state: EvaluationState = EvaluationState.RUNNING
     started: str | None = None
     finished: str | None = None
@@ -49,7 +49,7 @@ class Evaluation(Dictable):
         *,
         scenario_id: str,
         type: str,
-        version: int = 1,
+        version: int = 0,
         state: EvaluationState = EvaluationState.RUNNING,
         started: str | None = None,
         finished: str | None = None,
@@ -77,7 +77,7 @@ class Evaluation(Dictable):
             evaluation_id=evaluation_dict["evaluation_id"],
             scenario_id=evaluation_dict["scenario_id"],
             type=evaluation_dict["type"],
-            version=evaluation_dict.get("version", 1),
+            version=evaluation_dict.get("version", 0),
             state=state,
             started=evaluation_dict.get("started"),
             finished=evaluation_dict.get("finished"),

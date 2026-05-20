@@ -15,6 +15,7 @@ from overtourism.backend.api.v2.evaluation import evaluation_router
 from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router
 from overtourism.backend.api.v2.scenario import scenario_router
+from overtourism.backend.api.v2.session import session_router
 from overtourism.backend.api.v2.widget import widget_router
 from overtourism.backend.auth.router import auth_router
 
@@ -55,6 +56,7 @@ def create_app(
 
     app.include_router(problem_router)
     app.include_router(proposal_router)
+    app.include_router(session_router)
     app.include_router(scenario_router)
     app.include_router(evaluation_router)
     app.include_router(data_router)

@@ -21,7 +21,7 @@ def scenario_values(
     updated: str | None = None,
     extras: dict | None = None,
     problem_id: str = "",
-    version: int = 1,
+    version: int = 0,
 ) -> Scenario:
     """Build a storage-ready scenario from evaluator values.
 

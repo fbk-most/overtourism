@@ -12,6 +12,7 @@ from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
+    ScenarioDoesNotExist,
     SessionDoesNotExist,
 )
 
@@ -249,15 +250,14 @@ def test_session_workflow_can_be_resumed_and_closed(tmp_path) -> None:
         "values": {"visits": 9},
     }
 
-    assert manager.scenario_managers[problem_id].has_session(session_id)
-    assert (
-        manager.evaluation_managers[problem_id].read_session_evaluation(session_id)
-        is resumed_evaluation
+    assert manager.has_session(problem_id, session_id)
+    assert manager.read_session(problem_id, session_id).active_scenario_id == (
+        session_scenario.scenario_id
     )
 
     manager.close_session(problem_id, session_id)
 
-    assert not manager.scenario_managers[problem_id].has_session(session_id)
+    assert not manager.has_session(problem_id, session_id)
     assert [
         scenario.scenario_id for scenario in manager.list_scenarios(problem_id)
     ] == [
@@ -269,8 +269,10 @@ def test_session_workflow_can_be_resumed_and_closed(tmp_path) -> None:
     ] == [default_config.scenario_id]
 
     with pytest.raises(SessionDoesNotExist):
+        manager.read_session(problem_id, session_id)
+    with pytest.raises(SessionDoesNotExist):
         manager.read_session_scenario(problem_id, session_id)
-    with pytest.raises(EvaluationDoesNotExist):
+    with pytest.raises(SessionDoesNotExist):
         manager.read_session_evaluation(problem_id, session_id)
 
 
@@ -345,7 +347,9 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
         "values": {"visits": 11},
     }
 
-    with pytest.raises(SessionDoesNotExist):
+    assert manager.read_session(problem_id, session_id).drafts == {}
+
+    with pytest.raises(ScenarioDoesNotExist):
         manager.read_session_scenario(problem_id, session_id)
     with pytest.raises(EvaluationDoesNotExist):
         manager.read_session_evaluation(problem_id, session_id)
@@ -492,6 +496,88 @@ def test_session_scenario_can_be_updated_and_re_evaluated(tmp_path) -> None:
         "ensemble_size": 4,
         "values": {"visits": 12},
     }
+    assert manager.read_session(problem_id, session_id).drafts == {}
+
+
+def test_session_state_tracks_multiple_drafts(tmp_path) -> None:
+    manager, evaluator, model = _make_manager(tmp_path)
+    default_config = BaseConfig()
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    session = manager.create_session(
+        problem_id,
+        "session-1",
+        metadata={"title": "Exploration"},
+    )
+    first_draft = manager.create_session_scenario(
+        problem_id,
+        session.session_id,
+        default_config.scenario_id,
+        values={"visits": 8},
+    )
+    second_draft = manager.create_session_scenario(
+        problem_id,
+        session.session_id,
+        default_config.scenario_id,
+        values={"visits": 13},
+    )
+
+    assert [
+        draft.scenario_id
+        for draft in manager.list_session_scenarios(problem_id, session.session_id)
+    ] == [first_draft.scenario_id, second_draft.scenario_id]
+    assert manager.read_session(problem_id, session.session_id).active_scenario_id == (
+        second_draft.scenario_id
+    )
+
+    first_evaluation = manager.create_session_evaluation(
+        problem_id,
+        session.session_id,
+        first_draft.scenario_id,
+        ensemble_size=3,
+    )
+    second_evaluation = manager.create_session_evaluation(
+        problem_id,
+        session.session_id,
+        second_draft.scenario_id,
+        ensemble_size=6,
+    )
+
+    assert first_evaluation.result.to_dict() == {
+        "ensemble_size": 3,
+        "values": {"visits": 8},
+    }
+    assert second_evaluation.result.to_dict() == {
+        "ensemble_size": 6,
+        "values": {"visits": 13},
+    }
+    assert manager.read_session_evaluation(
+        problem_id,
+        session.session_id,
+        first_draft.scenario_id,
+    ).result.to_dict() == {
+        "ensemble_size": 3,
+        "values": {"visits": 8},
+    }
+    assert manager.read_session(problem_id, session.session_id).evaluations[
+        second_draft.scenario_id
+    ].result.to_dict() == {
+        "ensemble_size": 6,
+        "values": {"visits": 13},
+    }
+
+    manager.delete_session(problem_id, session.session_id)
+
+    with pytest.raises(SessionDoesNotExist):
+        manager.read_session(problem_id, session.session_id)
 
 
 def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:

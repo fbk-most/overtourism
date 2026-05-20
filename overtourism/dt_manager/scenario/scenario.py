@@ -40,7 +40,7 @@ class Scenario(Dictable):
 
     scenario_id: str
     problem_id: str
-    version: int = 1
+    version: int = 0
     name: str | None = None
     description: str | None = None
     created: str | None = None
@@ -54,7 +54,7 @@ class Scenario(Dictable):
         scenario_id: str,
         *,
         problem_id: str = "",
-        version: int = 1,
+        version: int = 0,
         name: str | None = None,
         description: str | None = None,
         created: str | None = None,
@@ -86,7 +86,7 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_dict["scenario_id"],
             problem_id=scenario_dict.get("problem_id", ""),
-            version=scenario_dict.get("version", 1),
+            version=scenario_dict.get("version", 0),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),
             created=created,
