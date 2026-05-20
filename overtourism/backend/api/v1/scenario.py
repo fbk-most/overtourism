@@ -90,7 +90,7 @@ async def get_data(
 
         # No active session — return the stored scenario.
         out_data = arrange_data(
-            handler, manager.read_scenario_data(problem_id, scenario_id)
+            handler, manager.read_scenario_data(problem_id, scenario_id).to_dict()
         )
         scenario = manager.read_scenario(problem_id, scenario_id)
         values = {
