@@ -49,7 +49,7 @@ class Evaluation(Dictable):
         *,
         scenario_id: str,
         type: str,
-        version: int = 0,
+        version: int = 1,
         state: EvaluationState = EvaluationState.RUNNING,
         started: str | None = None,
         finished: str | None = None,

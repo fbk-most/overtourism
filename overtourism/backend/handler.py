@@ -8,7 +8,7 @@ if typing.TYPE_CHECKING:
     from overtourism.backend.data.loader import OvertourismIndexesLoader
     from overtourism.backend.data.viewer.viewer import ModelViewer
     from overtourism.dt_manager.manager.manager import Manager
-    from overtourism.overtourism.adapters.utils import ArrangeDataFn
+    from overtourism.overtourism.molveno_runner import ArrangeDataFn
 
 
 class Handler:

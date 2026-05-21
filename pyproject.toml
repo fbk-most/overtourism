@@ -2,9 +2,9 @@
 name = "overtourism"
 version = "0.1.0"
 description = "Trentino overtourism analysis and modeling"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "civic-digital-twins==0.8.0",
+    "civic-digital-twins @ git+https://github.com/fbk-most/civic-digital-twins.git@feat/scenario-runner-protocol",
     "digitalhub==0.14.4",
     "fastapi[standard]",
     "geojson>=3.2.0",

@@ -68,7 +68,7 @@ class Proposal(Dictable):
         proposal_id: str,
         *,
         problem_id: str = "",
-        version: int = 0,
+        version: int = 1,
         name: str | None = None,
         description: str | None = None,
         status: ProposalStatus | str | None = None,

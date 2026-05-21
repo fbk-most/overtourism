@@ -136,15 +136,21 @@ def arrange_data(handler: Handler, data: typing.Any) -> dict:
 
 def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]:
     """Compute the model index differences for a scenario on demand."""
-    return handler.manager.model_evaluator.get_index_diffs(
-        handler.manager.model,
-        values=values_as_scipy(scenario),
-    )
+    from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
+
+    evaluator = handler.manager.model_evaluator
+    raw_values = values_as_scipy(scenario)
+    overrides = evaluator._values_to_overrides(handler.manager.model, raw_values)
+    cdt_scenario = CDTScenario(handler.manager.model, overrides=overrides)
+    return evaluator.get_index_diffs(cdt_scenario)
 
 
 def model_values(handler: Handler) -> dict[str, typing.Any]:
     """Return the base model values exposed by the facade manager."""
-    return handler.manager.model_evaluator.get_model_values(handler.manager.model)
+    from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
+
+    cdt_scenario = CDTScenario(handler.manager.model)
+    return handler.manager.model_evaluator.get_model_values(cdt_scenario)
 
 
 # ──────────────────────────────────────────────
@@ -316,4 +322,4 @@ def evaluation_result_to_dict(result: typing.Any) -> dict:
     """Normalize a model output or mapping into a plain dictionary."""
     if result is None:
         return {}
-    return result.to_dict() if hasattr(result, "to_dict") else result
+    return result.to_snapshot() if hasattr(result, "to_snapshot") else result

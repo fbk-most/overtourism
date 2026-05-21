@@ -46,7 +46,7 @@ class Problem(Dictable):
         cls,
         problem_id: str,
         *,
-        version: int = 0,
+        version: int = 1,
         tenant: str = "default",
         name: str | None = None,
         description: str | None = None,

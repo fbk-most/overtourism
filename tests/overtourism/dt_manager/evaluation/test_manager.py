@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
+from overtourism.dt_manager.evaluation import evaluation as evaluation_module
+from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     EvaluationState,
@@ -12,9 +15,6 @@ from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import EvaluationDoesNotExist
-
-from overtourism.dt_manager.evaluation import evaluation as evaluation_module
-from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 FINISHED_TIMESTAMP = "2026-05-15T09:00:00Z"
@@ -87,7 +87,6 @@ def test_create_run_load_and_delete_evaluation(
         "evaluation-alpha",
         scenario,
         ensemble_size=4,
-        model_tag="baseline",
     )
 
     assert completed.state is EvaluationState.COMPLETED
@@ -100,7 +99,6 @@ def test_create_run_load_and_delete_evaluation(
         "model": fake_model,
         "ensemble_size": 4,
         "values": {"visits": 7},
-        "model_tag": "baseline",
     }
     latest = manager.read_latest_evaluation(scenario.scenario_id)
     assert latest.to_dict() == completed.to_dict()

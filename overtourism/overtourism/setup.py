@@ -8,21 +8,18 @@ from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
-from overtourism.overtourism.adapters.evaluator import (
-    Grid,
-    OvertourismEvaluator,
-    Sampler,
-    Situation,
-)
 from overtourism.overtourism.molveno_model import (
     CV_season,
     CV_weather,
     CV_weekday,
     M_Base,
-    PV_excursionists,
-    PV_tourists,
 )
-from overtourism.overtourism.overtourism_metamodel import OvertourismEnsemble
+from overtourism.overtourism.molveno_runner import (
+    Grid,
+    MolvenoEvaluator,
+    Sampler,
+    Situation,
+)
 
 # ──────────────────────────────────────────────
 # Widget index_id → model index name mapping
@@ -71,17 +68,7 @@ grid = Grid(x_max=t_max, y_max=e_max, n_samples=n_samples)
 # ──────────────────────────────────────────────
 target_presence_samples = 1200
 
-sampler = Sampler(
-    target_presence_samples=target_presence_samples,
-    reduction_indexes={
-        PV_tourists.name: "tourists reduction factor",
-        PV_excursionists.name: "excursionists reduction factor",
-    },
-    saturation_indexes={
-        PV_tourists.name: "tourists saturation level",
-        PV_excursionists.name: "excursionists saturation level",
-    },
-)
+sampler = Sampler(target_presence_samples=target_presence_samples)
 
 # ──────────────────────────────────────────────
 # Situations
@@ -107,8 +94,8 @@ situations = [
 # ──────────────────────────────────────────────
 # Adapters
 # ──────────────────────────────────────────────
-model_evaluator = OvertourismEvaluator(
-    ensemble_class=OvertourismEnsemble,
+model_evaluator = MolvenoEvaluator(
+    M_Base,
     situations=situations,
     grid=grid,
     sampler=sampler,
