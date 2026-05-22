@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 from overtourism.dt_manager.classes.indexes import IndexType
+from overtourism.dt_manager.scenario import values as values_module
 from overtourism.dt_manager.scenario.values import scenario_values, values_as_scipy
 from scipy import stats
-
-from overtourism.dt_manager.scenario import values as values_module
 
 FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 

@@ -16,8 +16,10 @@ from overtourism.backend.api.v2.models.evaluation import (
 )
 from overtourism.backend.api.v2.utils import (
     arrange_data,
+    get_evaluation_or_404,
     get_problem_editable_indexes,
     get_problem_or_404,
+    get_scenario_or_404,
     get_session_evaluation_or_404,
     get_session_scenario_or_404,
     get_widgets,
@@ -57,6 +59,7 @@ async def create_evaluation(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
+            get_scenario_or_404(handler, problem_id, data.scenario_id)
             evaluation = handler.manager.evaluate_scenario(
                 problem_id,
                 data.scenario_id,
@@ -105,7 +108,7 @@ async def read_evaluation(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
-            evaluation = handler.manager.read_latest_evaluation(problem_id, scenario_id)
+            evaluation = get_evaluation_or_404(handler, problem_id, scenario_id)
         else:
             evaluation = get_session_evaluation_or_404(
                 handler,
@@ -143,7 +146,7 @@ async def get_data(
         problem = get_problem_or_404(handler, tenant, problem_id)
 
         if session_id is None:
-            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            scenario = get_scenario_or_404(handler, problem_id, scenario_id)
             output_data = handler.manager.read_scenario_data(problem_id, scenario_id)
         else:
             scenario = get_session_scenario_or_404(

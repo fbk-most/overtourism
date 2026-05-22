@@ -16,6 +16,7 @@ from overtourism.backend.api.v2.models.proposal import (
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
+    get_proposal_or_404,
     set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -106,7 +107,7 @@ async def read_proposal(
     """Read a proposal by identifier."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        proposal = get_proposal_or_404(handler, problem_id, proposal_id)
         set_version_header(response, proposal.version)
         return proposal.to_dict()
     except Exception as e:
@@ -138,7 +139,7 @@ async def update_proposal(
     """Update a proposal and its related scenario links."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        current_proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        current_proposal = get_proposal_or_404(handler, problem_id, proposal_id)
         check_version(current_proposal.version, version)
         handler.manager.update_proposal(
             problem_id,
@@ -174,7 +175,7 @@ async def delete_proposal(
     """Delete a proposal from a problem."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        proposal = handler.manager.read_proposal(problem_id, proposal_id)
+        proposal = get_proposal_or_404(handler, problem_id, proposal_id)
         check_version(proposal.version, version)
         handler.manager.delete_proposal(problem_id, proposal_id)
         logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")

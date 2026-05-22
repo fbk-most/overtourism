@@ -5,7 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from overtourism.dt_manager.evaluation.evaluation import EvaluationState
+from overtourism.dt_manager.evaluation.evaluation import (
+    DEFAULT_EVALUATION_TYPE,
+    Evaluation,
+    EvaluationState,
+)
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
@@ -646,3 +650,277 @@ def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
         "ensemble_size": 20,
         "values": {"visits": 7},
     }
+
+
+def test_duplicate_sessions_are_rejected_and_problem_deletes_clear_related_sessions(
+    tmp_path,
+) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+
+    first_problem_id = "problem-alpha"
+    second_problem_id = "problem-beta"
+    manager.create_problem(
+        first_problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+    manager.create_problem(
+        second_problem_id,
+        problem_kwargs={
+            "name": "Problem Beta",
+            "description": "Secondary problem",
+        },
+    )
+
+    session = manager.create_session(first_problem_id, "session-1")
+    manager.create_session(second_problem_id, "session-2")
+
+    with pytest.raises(ValueError, match="Session 'session-1' already exists"):
+        manager.create_session(first_problem_id, session.session_id)
+
+    manager.delete_problem(first_problem_id)
+
+    assert not manager.has_session(first_problem_id, session.session_id)
+    assert manager.has_session(second_problem_id, "session-2")
+    assert first_problem_id not in manager.scenario_managers
+    assert first_problem_id not in manager.evaluation_managers
+    assert first_problem_id not in manager.proposal_managers
+
+
+def test_session_reads_can_infer_the_only_draft_and_evaluation_when_none_is_active(
+    tmp_path,
+) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+    default_config = BaseConfig()
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    session = manager.create_session(problem_id, "session-1")
+    draft = manager.create_session_scenario(
+        problem_id,
+        session.session_id,
+        default_config.scenario_id,
+        values={"visits": 8},
+    )
+    evaluation = manager.create_session_evaluation(
+        problem_id,
+        session.session_id,
+        draft.scenario_id,
+        ensemble_size=5,
+    )
+    session.active_scenario_id = None
+
+    assert manager.read_session_scenario(problem_id, session.session_id) is draft
+    assert manager.read_session_evaluation(problem_id, session.session_id) is evaluation
+
+
+def test_session_reads_raise_when_no_active_draft_or_evaluation_exists(
+    tmp_path,
+) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    session = manager.create_session(problem_id, "session-1")
+
+    with pytest.raises(
+        ScenarioDoesNotExist,
+        match="does not contain an active draft",
+    ):
+        manager.read_session_scenario(problem_id, session.session_id)
+
+    with pytest.raises(
+        EvaluationDoesNotExist,
+        match="does not contain an active evaluation",
+    ):
+        manager.read_session_evaluation(problem_id, session.session_id)
+
+
+def test_deleting_the_active_session_draft_promotes_the_remaining_draft(
+    tmp_path,
+) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+    default_config = BaseConfig()
+
+    problem_id = "problem-alpha"
+    session_id = "session-1"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    first_draft = manager.create_session_scenario(
+        problem_id,
+        session_id,
+        default_config.scenario_id,
+        values={"visits": 4},
+    )
+    second_draft = manager.create_session_scenario(
+        problem_id,
+        session_id,
+        default_config.scenario_id,
+        values={"visits": 6},
+    )
+
+    manager.delete_session_scenario(problem_id, session_id, second_draft.scenario_id)
+
+    assert manager.read_session(problem_id, session_id).active_scenario_id == (
+        first_draft.scenario_id
+    )
+    assert [
+        draft.scenario_id
+        for draft in manager.list_session_scenarios(problem_id, session_id)
+    ] == [first_draft.scenario_id]
+
+
+def test_session_scenario_can_be_saved_without_a_session_evaluation(tmp_path) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+    default_config = BaseConfig()
+
+    problem_id = "problem-alpha"
+    session_id = "session-1"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    draft = manager.create_session_scenario(
+        problem_id,
+        session_id,
+        default_config.scenario_id,
+        values={"visits": 10},
+        name="Draft without evaluation",
+    )
+
+    promoted = manager.save_session_scenario(
+        problem_id,
+        session_id,
+        scenario_id=draft.scenario_id,
+        description="Saved directly",
+    )
+
+    assert promoted.scenario_id == draft.scenario_id
+    assert manager.read_scenario(problem_id, draft.scenario_id).description == (
+        "Saved directly"
+    )
+    assert [
+        evaluation.scenario_id
+        for evaluation in manager.evaluation_managers[problem_id].list_evaluations()
+    ] == [manager.base_problem_config.scenario_id]
+    assert manager.read_session(problem_id, session_id).drafts == {}
+
+    with pytest.raises(EvaluationDoesNotExist):
+        manager.read_session_evaluation(problem_id, session_id, draft.scenario_id)
+
+
+def test_evaluate_scenario_creates_missing_scenarios_on_demand(tmp_path) -> None:
+    manager, evaluator, model = _make_manager(tmp_path)
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    evaluation = manager.evaluate_scenario(problem_id, "scenario-created")
+
+    assert (
+        manager.read_scenario(problem_id, "scenario-created").problem_id == problem_id
+    )
+    assert evaluation.result.to_dict() == {"ensemble_size": 20, "values": {}}
+    assert evaluator.evaluate_calls[-1] == {
+        "model": model,
+        "ensemble_size": 20,
+        "values": {},
+    }
+
+
+def test_read_scenario_data_re_evaluates_when_persisted_result_cannot_be_rebuilt(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    manager, evaluator, model = _make_manager(tmp_path)
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    broken_evaluation = Evaluation.create_default(
+        "evaluation-broken",
+        scenario_id=manager.base_problem_config.scenario_id,
+        type=DEFAULT_EVALUATION_TYPE,
+        state=EvaluationState.COMPLETED,
+        started="9999-12-31T23:59:59Z",
+        finished="9999-12-31T23:59:59Z",
+        result={"broken": True},
+    )
+    manager.evaluation_managers[problem_id].save_evaluation(broken_evaluation)
+
+    monkeypatch.setattr(
+        manager.model_evaluator,
+        "build_output",
+        lambda data: (_ for _ in ()).throw(RuntimeError("cannot rebuild")),
+    )
+
+    result = manager.read_scenario_data(
+        problem_id, manager.base_problem_config.scenario_id
+    )
+
+    assert result.to_dict() == {"ensemble_size": 20, "values": {}}
+    assert evaluator.evaluate_calls[-1] == {
+        "model": model,
+        "ensemble_size": 20,
+        "values": {},
+    }
+
+
+def test_create_proposal_without_identifier_uses_the_next_generated_id(
+    tmp_path,
+) -> None:
+    manager, _evaluator, _model = _make_manager(tmp_path)
+
+    problem_id = "problem-alpha"
+    manager.create_problem(
+        problem_id,
+        problem_kwargs={
+            "name": "Problem Alpha",
+            "description": "Primary problem",
+        },
+    )
+
+    proposal = manager.create_proposal(problem_id, name="Generated proposal")
+
+    assert proposal.proposal_id == "proposal_0"
+    assert [item.proposal_id for item in manager.list_proposals(problem_id)] == [
+        "proposal_0"
+    ]

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
     EvaluationState,
 )
-
-from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 
 FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 

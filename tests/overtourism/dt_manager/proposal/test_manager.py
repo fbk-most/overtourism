@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import pytest
+from overtourism.dt_manager.proposal import manager as proposal_manager_module
+from overtourism.dt_manager.proposal import proposal as proposal_module
 from overtourism.dt_manager.proposal.manager import ProposalManager
 from overtourism.dt_manager.utils.exception import (
     ProposalAlreadyExists,
     ProposalDoesNotExist,
 )
-
-from overtourism.dt_manager.proposal import manager as proposal_manager_module
-from overtourism.dt_manager.proposal import proposal as proposal_module
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 UPDATED_TIMESTAMP = "2026-05-15T09:00:00Z"

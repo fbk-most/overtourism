@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.proposal.proposal import Proposal
-
 from overtourism.dt_manager.proposal import proposal as proposal_module
+from overtourism.dt_manager.proposal.proposal import Proposal
 
 FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 

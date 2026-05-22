@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import pytest
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
+from overtourism.dt_manager.scenario import manager as scenario_manager_module
+from overtourism.dt_manager.scenario import values as scenario_values_module
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.utils.exception import (
     ScenarioAlreadyExists,
     ScenarioDoesNotExist,
     SessionDoesNotExist,
 )
-
-from overtourism.dt_manager.scenario import manager as scenario_manager_module
-from overtourism.dt_manager.scenario import values as scenario_values_module
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 UPDATED_TIMESTAMP = "2026-05-15T09:00:00Z"

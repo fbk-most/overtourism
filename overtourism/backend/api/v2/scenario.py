@@ -17,6 +17,7 @@ from overtourism.backend.api.v2.models.scenario import (
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
+    get_scenario_or_404,
     get_session_scenario_or_404,
     prepare_values,
     set_version_header,
@@ -77,6 +78,7 @@ async def create_scenario(
 ) -> dict[str, str]:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        get_scenario_or_404(handler, problem_id, data.base_scenario_id)
         scenario = handler.manager.create_session_scenario(
             problem_id,
             session_id,
@@ -118,7 +120,7 @@ async def read_scenario(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
-            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            scenario = get_scenario_or_404(handler, problem_id, scenario_id)
         else:
             scenario = get_session_scenario_or_404(
                 handler,
@@ -158,7 +160,7 @@ async def update_scenario(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
-            current_scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            current_scenario = get_scenario_or_404(handler, problem_id, scenario_id)
         else:
             current_scenario = get_session_scenario_or_404(
                 handler,
@@ -269,7 +271,7 @@ async def delete_scenario(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         if session_id is None:
-            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            scenario = get_scenario_or_404(handler, problem_id, scenario_id)
             check_version(scenario.version, version)
             handler.manager.delete_scenario(problem_id, scenario_id)
             logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")

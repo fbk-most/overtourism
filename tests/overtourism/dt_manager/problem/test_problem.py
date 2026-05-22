@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.problem.problem import Problem
-
 from overtourism.dt_manager.problem import problem as problem_module
+from overtourism.dt_manager.problem.problem import Problem
 
 FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 

@@ -127,6 +127,7 @@ async def delete_session(
 ) -> dict:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        get_session_or_404(handler, problem_id, session_id)
         handler.manager.delete_session(problem_id, session_id)
         logger.info(f"Session deleted: {session_id} for problem {problem_id}")
         return {"message": "Session deleted successfully"}

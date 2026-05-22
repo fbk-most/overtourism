@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
-from overtourism.dt_manager.scenario.scenario import Scenario
-
 from overtourism.dt_manager.scenario import scenario as scenario_module
+from overtourism.dt_manager.scenario.scenario import Scenario
 
 FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 

@@ -15,6 +15,11 @@ from overtourism.backend.handler import Handler
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.scenario.values import values_as_scipy
+from overtourism.dt_manager.utils.exception import (
+    EvaluationDoesNotExist,
+    ProposalDoesNotExist,
+    ScenarioDoesNotExist,
+)
 
 if typing.TYPE_CHECKING:
     from overtourism.backend.api.v2.models.problem import (
@@ -43,11 +48,61 @@ def get_problem_or_404(
     msg = f"Problem '{problem_id}' not found for tenant '{tenant}'"
     try:
         problem = handler.manager.read_problem(problem_id)
-    except KeyError:
+    except (FileNotFoundError, KeyError):
         raise ProblemNotFound(msg)
     if problem.tenant != tenant:
         raise ProblemNotFound(msg)
     return problem
+
+
+def get_scenario_or_404(
+    handler: Handler,
+    problem_id: str,
+    scenario_id: str,
+) -> Scenario:
+    """Return a stored scenario or raise a not-found error."""
+    detail = f"Scenario '{scenario_id}' not found for problem '{problem_id}'"
+    try:
+        return handler.manager.read_scenario(problem_id, scenario_id)
+    except ScenarioDoesNotExist as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
+
+
+def get_proposal_or_404(
+    handler: Handler,
+    problem_id: str,
+    proposal_id: str,
+):
+    """Return a stored proposal or raise a not-found error."""
+    detail = f"Proposal '{proposal_id}' not found for problem '{problem_id}'"
+    try:
+        return handler.manager.read_proposal(problem_id, proposal_id)
+    except ProposalDoesNotExist as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
+
+
+def get_evaluation_or_404(
+    handler: Handler,
+    problem_id: str,
+    scenario_id: str,
+) -> Evaluation:
+    """Return the latest stored evaluation or raise a not-found error."""
+    detail = (
+        f"Evaluation for scenario '{scenario_id}' not found for problem '{problem_id}'"
+    )
+    try:
+        return handler.manager.read_latest_evaluation(problem_id, scenario_id)
+    except EvaluationDoesNotExist as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
 
 
 def problem_from_model(
