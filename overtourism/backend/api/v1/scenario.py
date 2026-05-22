@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
@@ -35,6 +35,16 @@ scenario_router = APIRouter(
 )
 
 
+def _matches_requested_session_scenario(
+    requested_scenario_id: str,
+    session_scenario_id: str,
+    session_id: str,
+) -> bool:
+    if session_scenario_id == requested_scenario_id:
+        return True
+    return session_scenario_id.startswith(f"{requested_scenario_id}_{session_id}_")
+
+
 @scenario_router.get(
     "/{scenario_id}",
     response_model=OutputData,
@@ -62,9 +72,25 @@ async def get_data(
         if session_id is not None:
             try:
                 session_scenario = manager.read_session_scenario(problem_id, session_id)
+                if not _matches_requested_session_scenario(
+                    scenario_id,
+                    session_scenario.scenario_id,
+                    session_id,
+                ):
+                    raise HTTPException(
+                        status_code=404,
+                        detail=(
+                            f"Scenario '{scenario_id}' does not exist in session "
+                            f"'{session_id}'"
+                        ),
+                    )
                 session_evaluation = manager.read_session_evaluation(
-                    problem_id, session_id
+                    problem_id,
+                    session_id,
+                    session_scenario.scenario_id,
                 )
+            except HTTPException:
+                raise
             except Exception:
                 session_scenario = None
                 session_evaluation = None
@@ -125,7 +151,7 @@ async def update_data(
     problem_id: str,
     scenario_id: str,
     data: InputEvaluationData,
-    session_id: str,
+    session_id: str | None = None,
     language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),
 ) -> OutputData:
@@ -133,29 +159,54 @@ async def update_data(
     try:
         problem = get_problem_or_404(handler, problem_id)
         values = prepare_values(handler, data.values)
-        session_scenario = handler.manager.evaluate_session(
-            problem_id=problem_id,
-            session_id=session_id,
-            scenario_id=scenario_id,
-            values=values,
-            ensemble_size=data.ensemble_size,
-        )
-        session_evaluation = handler.manager.read_session_evaluation(
-            problem_id, session_id
-        )
-        out_data = arrange_data(
-            handler,
-            session_evaluation.result,
-        )
-        merged = {
-            **model_values(handler),
-            **values,
-        }
+        if session_id is None:
+            handler.manager.update_scenario(
+                problem_id=problem_id,
+                scenario_id=scenario_id,
+                values=values,
+            )
+            scenario = handler.manager.read_scenario(problem_id, scenario_id)
+            evaluation = handler.manager.evaluate_scenario(
+                problem_id,
+                scenario_id,
+                ensemble_size=data.ensemble_size,
+            )
+            out_data = arrange_data(
+                handler,
+                evaluation.result,
+            )
+            merged = {
+                **model_values(handler),
+                **values_as_scipy(scenario),
+            }
+            index_diffs = scenario_index_diffs(handler, scenario)
+        else:
+            session_scenario = handler.manager.evaluate_session(
+                problem_id=problem_id,
+                session_id=session_id,
+                scenario_id=scenario_id,
+                values=values,
+                ensemble_size=data.ensemble_size,
+            )
+            session_evaluation = handler.manager.read_session_evaluation(
+                problem_id,
+                session_id,
+                session_scenario.scenario_id,
+            )
+            out_data = arrange_data(
+                handler,
+                session_evaluation.result,
+            )
+            merged = {
+                **model_values(handler),
+                **values,
+            }
+            index_diffs = scenario_index_diffs(handler, session_scenario)
         return OutputData(
             data=out_data,
             scenario_id=scenario_id,
             problem_id=problem_id,
-            index_diffs=scenario_index_diffs(handler, session_scenario),
+            index_diffs=index_diffs,
             widgets=get_widgets(handler, merged, language=language),
             editable_indexes=get_problem_editable_indexes(problem.extras),
         )

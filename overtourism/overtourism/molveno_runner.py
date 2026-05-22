@@ -352,9 +352,16 @@ def _presence_transformation(
     )
 
 
+def _get_effective_capacity_value(constraint: Any, scenario: Any = None) -> Any:
+    if scenario is None:
+        return constraint.capacity.value
+    return scenario.overrides.get(constraint.capacity, constraint.capacity.value)
+
+
 def compute_sustainability_field(
     model: MolvenoModel,
     result: Any,
+    scenario: Any = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Compute the sustainability field and per-constraint field elements."""
     field = np.ones(
@@ -366,10 +373,14 @@ def compute_sustainability_field(
     field_elements: dict = {}
     for c in model.constraints:
         usage = np.broadcast_to(result[c.usage], result.full_shape)
-        if isinstance(c.capacity.value, Distribution):
-            mask = (1.0 - c.capacity.value.cdf(usage)).astype(float)
+        cap_value = _get_effective_capacity_value(c, scenario)
+        if isinstance(cap_value, Distribution):
+            mask = (1.0 - cap_value.cdf(usage)).astype(float)
         else:
-            cap = np.broadcast_to(result[c.capacity], result.full_shape)
+            if scenario is not None and c.capacity in scenario.overrides:
+                cap = np.broadcast_to(cap_value, result.full_shape)
+            else:
+                cap = np.broadcast_to(result[c.capacity], result.full_shape)
             mask = (usage <= cap).astype(float)
         field_elem = np.tensordot(mask, result.weights, axes=([-1], [0]))
         field_elements[c.name] = field_elem
@@ -696,7 +707,11 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
     ) -> MolvenoOutput:
         """Build a :class:`MolvenoOutput` from an evaluated result."""
         model = self._model
-        field, field_elements = compute_sustainability_field(model, result)
+        field, field_elements = compute_sustainability_field(
+            model,
+            result,
+            scenario=scenario,
+        )
         rf_t = float(np.mean(result[model.i_p_tourists_reduction_factor]))
         sl_t = float(np.mean(result[model.i_p_tourists_saturation_level]))
         rf_e = float(np.mean(result[model.i_p_excursionists_reduction_factor]))
@@ -717,11 +732,7 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
             usage_fields[c.name] = np.broadcast_to(
                 result.marginalize(c.usage), field.shape
             ).copy()
-            cap_value = (
-                scenario.overrides.get(c.capacity) if scenario is not None else None
-            )
-            if cap_value is None:
-                cap_value = c.capacity.value
+            cap_value = _get_effective_capacity_value(c, scenario)
             if isinstance(cap_value, Distribution):
                 cap_loc = float(cap_value.mean())
                 cap_scale = float(cap_value.std())
