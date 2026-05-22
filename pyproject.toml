@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Trentino overtourism analysis and modeling"
 requires-python = ">=3.12"
 dependencies = [
-    "civic-digital-twins @ git+https://github.com/fbk-most/civic-digital-twins.git@feat/scenario-runner-protocol",
+    "civic-digital-twins @ git+https://github.com/fbk-most/civic-digital-twins.git",
     "digitalhub==0.14.4",
     "fastapi[standard]",
     "geojson>=3.2.0",
@@ -38,6 +38,9 @@ license = "Apache-2.0"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [dependency-groups]
 dev = ["black>=24.10.0", "pytest>=8.4.1"]

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from civic_digital_twins.dt_model.simulation.runner import EvaluationConfig
+
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
@@ -18,7 +20,8 @@ from overtourism.dt_manager.utils.exception import (
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 if TYPE_CHECKING:
-    from overtourism.dt_manager.classes.model import ModelOutput
+    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
+
     from overtourism.dt_manager.scenario.scenario import Scenario
 
 
@@ -223,7 +226,7 @@ class EvaluationManager:
         evaluation_id: str,
         scenario: Scenario,
         *,
-        ensemble_size: int = 20,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
         **kwargs: Any,
     ) -> Evaluation:
         """Execute an evaluation and persist the final state in memory."""
@@ -231,7 +234,7 @@ class EvaluationManager:
         return self.execute_evaluation(
             evaluation,
             scenario,
-            ensemble_size=ensemble_size,
+            evaluation_config=evaluation_config,
             persist=True,
             **kwargs,
         )
@@ -241,7 +244,7 @@ class EvaluationManager:
         session_id: str,
         scenario: Scenario,
         *,
-        ensemble_size: int = 20,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
         **kwargs: Any,
     ) -> Evaluation:
         """Execute a transient evaluation and keep it in session memory only."""
@@ -249,7 +252,7 @@ class EvaluationManager:
         return self.execute_evaluation(
             evaluation,
             scenario,
-            ensemble_size=ensemble_size,
+            evaluation_config=evaluation_config,
             **kwargs,
         )
 
@@ -258,7 +261,7 @@ class EvaluationManager:
         evaluation: Evaluation,
         scenario: Scenario,
         *,
-        ensemble_size: int = 20,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
         persist: bool = False,
         **kwargs: Any,
     ) -> Evaluation:
@@ -266,7 +269,7 @@ class EvaluationManager:
         try:
             result = self.executor.execute(
                 scenario,
-                ensemble_size=ensemble_size,
+                evaluation_config=evaluation_config,
                 **kwargs,
             )
         except Exception:
@@ -315,7 +318,9 @@ class EvaluationManager:
 
     def _build_evaluation(self, evaluation_data: dict) -> Evaluation:
         evaluation = Evaluation.from_dict(evaluation_data)
-        if isinstance(evaluation.result, dict):
+        if isinstance(evaluation.result, dict) and hasattr(
+            self.executor.model_evaluator, "build_output"
+        ):
             evaluation.result = self.executor.model_evaluator.build_output(
                 evaluation.result
             )

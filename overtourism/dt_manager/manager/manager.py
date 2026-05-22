@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from civic_digital_twins.dt_model.model import Model
+from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
 
 from overtourism.dt_manager.classes.metadata import ExtrasConfig
-from overtourism.dt_manager.classes.model import ModelEvaluator
 from overtourism.dt_manager.evaluation.evaluation import DEFAULT_EVALUATION_TYPE
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
@@ -27,7 +27,8 @@ from overtourism.dt_manager.utils.exception import (
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:
-    from overtourism.dt_manager.classes.model import ModelOutput
+    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
+
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
     from overtourism.dt_manager.problem.problem import Problem
     from overtourism.dt_manager.proposal.proposal import Proposal
@@ -627,7 +628,6 @@ class Manager:
         session_id: str,
         scenario_id: str,
         values: dict,
-        ensemble_size: int = 20,
         **kwargs,
     ):
         """Evaluate a transient session scenario and keep both states in memory."""
@@ -641,7 +641,6 @@ class Manager:
             problem_id,
             session_id,
             session_scenario.scenario_id,
-            ensemble_size=ensemble_size,
             **kwargs,
         )
         return session_scenario
@@ -651,7 +650,6 @@ class Manager:
         problem_id: str,
         session_id: str,
         scenario_id: str,
-        ensemble_size: int = 20,
         **kwargs,
     ) -> Evaluation:
         """Evaluate an existing transient session scenario."""
@@ -668,7 +666,6 @@ class Manager:
         evaluation = evaluation_manager.execute_evaluation(
             evaluation,
             scenario,
-            ensemble_size=ensemble_size,
             **kwargs,
         )
         session.evaluations[scenario.scenario_id] = evaluation
@@ -696,12 +693,15 @@ class Manager:
                 .result
             )
         except Exception:
-            result = self.evaluate_scenario(problem_id, scenario_id).result
-        if hasattr(result, "to_dict"):
-            return result.to_dict()
-        if isinstance(result, dict):
+            return self.evaluate_scenario(problem_id, scenario_id).result
+        if hasattr(result, "to_snapshot"):
             return result
-        return {}
+        if isinstance(result, dict):
+            try:
+                return self.model_evaluator.build_output(result)
+            except Exception:
+                return self.evaluate_scenario(problem_id, scenario_id).result
+        return self.evaluate_scenario(problem_id, scenario_id).result
 
     def read_latest_evaluation(self, problem_id: str, scenario_id: str) -> Evaluation:
         """Return the latest evaluation for a scenario."""

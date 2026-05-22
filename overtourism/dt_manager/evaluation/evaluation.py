@@ -11,7 +11,7 @@ from overtourism.dt_manager.classes.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:
-    from overtourism.dt_manager.classes.model import ModelOutput
+    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 
 DEFAULT_EVALUATION_TYPE = "default"
 

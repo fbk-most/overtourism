@@ -12,7 +12,7 @@ from overtourism.backend.data.catalog import MOLVENO_SIM_INDEXES
 from overtourism.backend.data.loader import OvertourismIndexesLoader
 from overtourism.backend.data.viewer.viewer import ModelViewer
 from overtourism.backend.handler import Handler
-from overtourism.overtourism.molveno_runner import arrange_data
+from overtourism.overtourism.molveno_runner import arrange_data as _arrange_data
 from overtourism.overtourism.setup import manager
 
 viewer = ModelViewer(MOLVENO_SIM_INDEXES)
@@ -25,7 +25,7 @@ def build_handler() -> Handler:
     """Build the backend handler and its collaborators."""
     return Handler(
         manager=manager,
-        arrange_data_fn=arrange_data,
+        arrange_data_fn=lambda data: _arrange_data(data, api_version="v2"),
         viewer=viewer,
         prepare_values_fn=viewer.prepare_values,
         data_loader=data_loader,

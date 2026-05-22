@@ -16,7 +16,6 @@ from overtourism.backend.api.v1.models.scenario import (
 )
 from overtourism.backend.api.v1.utils import (
     arrange_data,
-    evaluation_result_to_dict,
     get_problem_editable_indexes,
     get_problem_or_404,
     get_widgets,
@@ -73,7 +72,7 @@ async def get_data(
         if session_scenario is not None and session_evaluation is not None:
             out_data = arrange_data(
                 handler,
-                evaluation_result_to_dict(session_evaluation.result),
+                session_evaluation.result,
             )
             values = {
                 **model_values(handler),
@@ -90,7 +89,8 @@ async def get_data(
 
         # No active session — return the stored scenario.
         out_data = arrange_data(
-            handler, manager.read_scenario_data(problem_id, scenario_id).to_dict()
+            handler,
+            manager.read_scenario_data(problem_id, scenario_id),  # .to_dict()
         )
         scenario = manager.read_scenario(problem_id, scenario_id)
         values = {
@@ -145,7 +145,7 @@ async def update_data(
         )
         out_data = arrange_data(
             handler,
-            evaluation_result_to_dict(session_evaluation.result),
+            session_evaluation.result,
         )
         merged = {
             **model_values(handler),
@@ -190,7 +190,7 @@ async def resume_session(
         )
         out_data = arrange_data(
             handler,
-            evaluation_result_to_dict(session_evaluation.result),
+            session_evaluation.result,
         )
         values = {
             **model_values(handler),

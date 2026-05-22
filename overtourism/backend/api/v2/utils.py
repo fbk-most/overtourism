@@ -128,7 +128,6 @@ def prepare_values(
 
 def arrange_data(handler: Handler, data: typing.Any) -> dict:
     """Convert model output to API dict using arrange_data_fn if available."""
-    data = evaluation_result_to_dict(data)
     if handler.arrange_data_fn is not None:
         return handler.arrange_data_fn(data)
     return data

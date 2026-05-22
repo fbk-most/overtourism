@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
-from overtourism.dt_manager.evaluation import evaluation as evaluation_module
-from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     EvaluationState,
@@ -15,6 +12,9 @@ from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import EvaluationDoesNotExist
+
+from overtourism.dt_manager.evaluation import evaluation as evaluation_module
+from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 FINISHED_TIMESTAMP = "2026-05-15T09:00:00Z"
@@ -50,7 +50,9 @@ def _make_manager(
     )
 
 
-def _persist_problem_scenarios(sql_store, problem_payload: dict, *scenarios: Scenario) -> None:
+def _persist_problem_scenarios(
+    sql_store, problem_payload: dict, *scenarios: Scenario
+) -> None:
     problem_id = problem_payload["problem_id"]
     sql_store.save_problem(problem_id, problem_payload)
     for scenario in scenarios:
@@ -104,7 +106,9 @@ def test_create_run_load_and_delete_evaluation(
     assert latest.to_dict() == completed.to_dict()
 
     latest.state = EvaluationState.FAILED
-    assert manager.read_evaluation("evaluation-alpha").state is EvaluationState.COMPLETED
+    assert (
+        manager.read_evaluation("evaluation-alpha").state is EvaluationState.COMPLETED
+    )
 
     reloaded_manager = _make_manager(
         sql_store, fake_model, fake_model_evaluator, problem_id
@@ -178,7 +182,10 @@ def test_session_evaluation_lifecycle_and_save_session(
     loaded = reloaded_manager.read_evaluation(saved.evaluation_id)
 
     assert loaded.result.to_dict() == completed.result.to_dict()
-    assert reloaded_manager.read_evaluation(saved.evaluation_id).to_dict() == loaded.to_dict()
+    assert (
+        reloaded_manager.read_evaluation(saved.evaluation_id).to_dict()
+        == loaded.to_dict()
+    )
 
 
 def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
@@ -224,8 +231,7 @@ def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
         "evaluation-beta"
     ]
     assert (
-        sql_store.load_evaluations(problem_id)[0]["evaluation_id"]
-        == "evaluation-beta"
+        sql_store.load_evaluations(problem_id)[0]["evaluation_id"] == "evaluation-beta"
     )
 
     with pytest.raises(EvaluationDoesNotExist):

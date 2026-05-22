@@ -71,9 +71,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
-from scipy import stats
-
 from civic_digital_twins.dt_model import (
     CategoricalIndex,
     ConditionalDistributionIndex,
@@ -83,7 +80,7 @@ from civic_digital_twins.dt_model import (
     Model,
     graph,
 )
-from civic_digital_twins.dt_model.model.index import Distribution
+from scipy import stats
 
 try:
     from .molveno_presence_stats import (

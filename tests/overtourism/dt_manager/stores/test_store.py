@@ -161,7 +161,9 @@ def test_entity_round_trip_and_sorted_listings(
         },
     ]
 
-    assert [item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)] == [
+    assert [
+        item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)
+    ] == [
         evaluation_payload["evaluation_id"],
         other_evaluation_payload["evaluation_id"],
     ]
@@ -186,7 +188,9 @@ def test_entity_round_trip_and_sorted_listings(
             "scenario_id": scenario_payload["scenario_id"],
         },
     ]
-    assert [item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)] == [
+    assert [
+        item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)
+    ] == [
         evaluation_payload["evaluation_id"],
     ]
 

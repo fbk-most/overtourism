@@ -5,11 +5,9 @@ from __future__ import annotations
 import dataclasses
 import functools
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
-from scipy import interpolate, ndimage, stats
-
 from civic_digital_twins.dt_model import (
     CrossProductEnsemble,
     Evaluation,
@@ -29,6 +27,7 @@ from civic_digital_twins.dt_model.simulation.runner import (
     ModelRunHandle,
 )
 from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
+from scipy import interpolate, ndimage, stats
 
 from overtourism.overtourism.molveno_model import MolvenoModel
 
@@ -77,11 +76,36 @@ def _translate_constraint_names(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def arrange_data(data: dict) -> dict:
-    """Transform a :class:`MolvenoOutput` snapshot into the API response format."""
-    data = _translate_constraint_names(data)
+def arrange_data(
+    data: MolvenoOutput,
+    api_version: Literal["v1", "v2"] = "v1",
+    fields: list[str] | None = None,
+) -> dict:
+    """Transform a :class:`MolvenoOutput` into the API response format.
 
-    d: dict = {}
+    Parameters
+    ----------
+    data:
+        The :class:`MolvenoOutput` object returned by the evaluator.
+    api_version:
+        ``"v1"`` returns the legacy nested ``points`` structure consumed by the
+        v1 frontend.  ``"v2"`` returns the translated snapshot dict directly,
+        optionally filtered to *fields*.
+    fields:
+        For ``api_version="v2"`` only: list of top-level snapshot keys to
+        include.  When *None* all keys are returned.
+    """
+    snapshot = _translate_constraint_names(data.to_snapshot())
+
+    if api_version == "v2":
+        if fields is not None:
+            return {k: snapshot[k] for k in fields if k in snapshot}
+        return snapshot
+
+    data = snapshot  # type: ignore[assignment]  # reuse variable for v1 dict path
+
+    # v1 ───────────────────────────────────────────────────────────────────────
+    d: dict = {}  # type: ignore[unreachable]
     d["points"] = {}
     d["points"]["uncertainty"] = []
     d["points"]["uncertainty_by_constraint"] = {
@@ -518,7 +542,9 @@ class MolvenoOutput(ModelOutput):
     @functools.cached_property
     def _capacity_mean_by_constraint(self) -> dict[str, float]:
         """Mean capacity per constraint."""
-        return {name: params["loc"] for name, params in self.capacity_distributions.items()}
+        return {
+            name: params["loc"] for name, params in self.capacity_distributions.items()
+        }
 
     @functools.cached_property
     def _capacity_mean(self) -> float:
@@ -676,7 +702,8 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
         rf_e = float(np.mean(result[model.i_p_excursionists_reduction_factor]))
         sl_e = float(np.mean(result[model.i_p_excursionists_saturation_level]))
         sample_tourists = [
-            _presence_transformation(s, rf_t, sl_t) for s in pv_samples[model.pv_tourists]
+            _presence_transformation(s, rf_t, sl_t)
+            for s in pv_samples[model.pv_tourists]
         ]
         sample_excursionists = [
             _presence_transformation(s, rf_e, sl_e)

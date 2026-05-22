@@ -17,8 +17,7 @@ from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:
     from civic_digital_twins.dt_model.model import Model
-
-    from overtourism.dt_manager.classes.model import ModelEvaluator
+    from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
 
 
 class ScenarioManager:

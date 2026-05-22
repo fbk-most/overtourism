@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from overtourism.dt_manager.proposal.manager import ProposalManager
-from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.utils.exception import (
     ProposalAlreadyExists,
     ProposalDoesNotExist,
@@ -103,4 +102,6 @@ def test_list_proposals_reads_persisted_objects(
     assert loaded[1].to_dict() == other_proposal_payload
 
     reloaded_manager = ProposalManager(problem_id, sql_store)
-    assert reloaded_manager.read_proposal("proposal-alpha").to_dict() == proposal_payload
+    assert (
+        reloaded_manager.read_proposal("proposal-alpha").to_dict() == proposal_payload
+    )

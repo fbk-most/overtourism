@@ -79,7 +79,7 @@ def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> Non
     ]
     assert manager.read_scenario_data(
         default_config.problem_id, default_config.scenario_id
-    ) == {
+    ).to_dict() == {
         "ensemble_size": 20,
         "values": {},
     }
@@ -125,7 +125,7 @@ def test_create_problem_workflow_creates_default_child_graph(tmp_path) -> None:
     }
     assert manager.read_scenario_data(
         problem_id, manager.base_problem_config.scenario_id
-    ) == {
+    ).to_dict() == {
         "ensemble_size": 20,
         "values": {},
     }
@@ -179,7 +179,7 @@ def test_create_and_delete_workflows_manage_relationships(tmp_path) -> None:
         manager.base_problem_config.scenario_id,
         scenario.scenario_id,
     ]
-    assert manager.read_scenario_data(problem_id, scenario.scenario_id) == {
+    assert manager.read_scenario_data(problem_id, scenario.scenario_id).to_dict() == {
         "ensemble_size": 20,
         "values": {"visits": 7},
     }
@@ -337,7 +337,7 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
         evaluation.scenario_id
         for evaluation in manager.evaluation_managers[problem_id].list_evaluations()
     ] == [default_config.scenario_id, promoted.scenario_id]
-    assert manager.read_scenario_data(problem_id, promoted.scenario_id) == {
+    assert manager.read_scenario_data(problem_id, promoted.scenario_id).to_dict() == {
         "ensemble_size": 5,
         "values": {"visits": 11},
     }
@@ -399,7 +399,9 @@ def test_session_workflow_can_be_promoted_and_reloaded(tmp_path) -> None:
         "ensemble_size": 5,
         "values": {"visits": 11},
     }
-    assert reloaded_manager.read_scenario_data(problem_id, promoted.scenario_id) == {
+    assert reloaded_manager.read_scenario_data(
+        problem_id, promoted.scenario_id
+    ).to_dict() == {
         "ensemble_size": 5,
         "values": {"visits": 11},
     }
@@ -638,7 +640,9 @@ def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
         scenario.scenario_id,
     ]
     assert len(reloaded_manager.evaluation_managers[problem_id].list_evaluations()) == 2
-    assert reloaded_manager.read_scenario_data(problem_id, scenario.scenario_id) == {
+    assert reloaded_manager.read_scenario_data(
+        problem_id, scenario.scenario_id
+    ).to_dict() == {
         "ensemble_size": 20,
         "values": {"visits": 7},
     }
