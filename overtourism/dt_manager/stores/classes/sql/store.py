@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Mapping, Protocol, TypeVar
 
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
@@ -24,12 +25,19 @@ from overtourism.dt_manager.stores.classes.sql.orm import (
     scenario_to_orm,
 )
 from overtourism.dt_manager.stores.classes.sql.schema import build_sql_schema
-from overtourism.dt_manager.stores.enums import ProblemDocumentKey, ProblemNestedKey
+from overtourism.dt_manager.stores.enums import ProblemNestedKey
 from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
     ProposalDoesNotExist,
     ScenarioDoesNotExist,
 )
+
+
+class _ScopedEntityRow(Protocol):
+    problem_id: str
+
+
+ScopedEntityRowT = TypeVar("ScopedEntityRowT", bound=_ScopedEntityRow)
 
 
 class SQLStore(Store):
@@ -118,15 +126,15 @@ class SQLStore(Store):
         scenario_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            scenario_row = scenario_to_orm(scenario_data, problem_id)
-            if (
-                scenario_data["scenario_id"] != scenario_id
-                or scenario_row.problem_id != problem_id
-            ):
-                raise ValueError(
-                    "Scenario identifiers do not match the provided arguments"
-                )
-            session.merge(scenario_row)
+            self._merge_scoped_entity(
+                session,
+                entity_name="Scenario",
+                problem_id=problem_id,
+                entity_id=scenario_id,
+                payload=scenario_data,
+                payload_id_key="scenario_id",
+                entity_row=scenario_to_orm(scenario_data, problem_id),
+            )
 
     def load_scenarios(self, problem_id: str) -> list[dict]:
         with self.session_factory() as session:
@@ -139,20 +147,28 @@ class SQLStore(Store):
 
     def load_scenario(self, problem_id: str, scenario_id: str) -> dict:
         with self.session_factory() as session:
-            row = session.get(self.schema.scenarios, (problem_id, scenario_id))
-            if row is None:
-                raise ScenarioDoesNotExist(
-                    f"Scenario with ID {scenario_id} does not exist"
-                )
+            row = self._load_scoped_row_or_raise(
+                session,
+                self.schema.scenarios,
+                (problem_id, scenario_id),
+                entity_name="Scenario",
+                entity_id=scenario_id,
+                problem_id=problem_id,
+                exception_type=ScenarioDoesNotExist,
+            )
             return scenario_from_orm(row)
 
     def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
         with self.session_factory.begin() as session:
-            row = session.get(self.schema.scenarios, (problem_id, scenario_id))
-            if row is None:
-                raise ScenarioDoesNotExist(
-                    f"Scenario with ID {scenario_id} does not exist"
-                )
+            row = self._load_scoped_row_or_raise(
+                session,
+                self.schema.scenarios,
+                (problem_id, scenario_id),
+                entity_name="Scenario",
+                entity_id=scenario_id,
+                problem_id=problem_id,
+                exception_type=ScenarioDoesNotExist,
+            )
             session.delete(row)
 
     # ───────────────────────────────────────────────────────────
@@ -166,15 +182,15 @@ class SQLStore(Store):
         proposal_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            proposal_row = proposal_to_orm(proposal_data)
-            if (
-                proposal_data["proposal_id"] != proposal_id
-                or proposal_row.problem_id != problem_id
-            ):
-                raise ValueError(
-                    "Proposal identifiers do not match the provided arguments"
-                )
-            session.merge(proposal_row)
+            self._merge_scoped_entity(
+                session,
+                entity_name="Proposal",
+                problem_id=problem_id,
+                entity_id=proposal_id,
+                payload=proposal_data,
+                payload_id_key="proposal_id",
+                entity_row=proposal_to_orm(proposal_data),
+            )
 
     def load_proposals(self, problem_id: str) -> list[dict]:
         with self.session_factory() as session:
@@ -187,20 +203,28 @@ class SQLStore(Store):
 
     def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
         with self.session_factory() as session:
-            row = session.get(self.schema.proposals, (problem_id, proposal_id))
-            if row is None:
-                raise ProposalDoesNotExist(
-                    f"Proposal with ID {proposal_id} does not exist"
-                )
+            row = self._load_scoped_row_or_raise(
+                session,
+                self.schema.proposals,
+                (problem_id, proposal_id),
+                entity_name="Proposal",
+                entity_id=proposal_id,
+                problem_id=problem_id,
+                exception_type=ProposalDoesNotExist,
+            )
             return proposal_from_orm(row)
 
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         with self.session_factory.begin() as session:
-            proposal = session.get(self.schema.proposals, (problem_id, proposal_id))
-            if proposal is None:
-                raise ProposalDoesNotExist(
-                    f"Proposal with ID {proposal_id} does not exist"
-                )
+            proposal = self._load_scoped_row_or_raise(
+                session,
+                self.schema.proposals,
+                (problem_id, proposal_id),
+                entity_name="Proposal",
+                entity_id=proposal_id,
+                problem_id=problem_id,
+                exception_type=ProposalDoesNotExist,
+            )
             session.delete(proposal)
 
     # ───────────────────────────────────────────────────────────
@@ -254,15 +278,15 @@ class SQLStore(Store):
         evaluation_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            evaluation_row = evaluation_to_orm(evaluation_data, problem_id)
-            if (
-                evaluation_data["evaluation_id"] != evaluation_id
-                or evaluation_row.problem_id != problem_id
-            ):
-                raise ValueError(
-                    "Evaluation identifiers do not match the provided arguments"
-                )
-            session.merge(evaluation_row)
+            self._merge_scoped_entity(
+                session,
+                entity_name="Evaluation",
+                problem_id=problem_id,
+                entity_id=evaluation_id,
+                payload=evaluation_data,
+                payload_id_key="evaluation_id",
+                entity_row=evaluation_to_orm(evaluation_data, problem_id),
+            )
 
     def load_evaluations(self, problem_id: str) -> list[dict]:
         with self.session_factory() as session:
@@ -275,58 +299,63 @@ class SQLStore(Store):
 
     def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
         with self.session_factory() as session:
-            row = session.get(self.schema.evaluations, evaluation_id)
-            if row is None or row.problem_id != problem_id:
-                raise EvaluationDoesNotExist(
-                    f"Evaluation with ID {evaluation_id} does not exist"
-                )
+            row = self._load_scoped_row_or_raise(
+                session,
+                self.schema.evaluations,
+                evaluation_id,
+                entity_name="Evaluation",
+                entity_id=evaluation_id,
+                problem_id=problem_id,
+                exception_type=EvaluationDoesNotExist,
+            )
             return evaluation_from_orm(row)
 
     def delete_evaluation(self, problem_id: str, evaluation_id: str) -> None:
         with self.session_factory.begin() as session:
-            evaluation = session.get(self.schema.evaluations, evaluation_id)
-            if evaluation is None or evaluation.problem_id != problem_id:
-                raise EvaluationDoesNotExist(
-                    f"Evaluation with ID {evaluation_id} does not exist"
-                )
+            evaluation = self._load_scoped_row_or_raise(
+                session,
+                self.schema.evaluations,
+                evaluation_id,
+                entity_name="Evaluation",
+                entity_id=evaluation_id,
+                problem_id=problem_id,
+                exception_type=EvaluationDoesNotExist,
+            )
             session.delete(evaluation)
 
     # ───────────────────────────────────────────────────────────
     # Internal
     # ───────────────────────────────────────────────────────────
 
-    def _save_problem_document(
+    def _merge_scoped_entity(
         self,
-        session,
+        session: Session,
+        *,
+        entity_name: str,
         problem_id: str,
-        problem_data: dict,
+        entity_id: str,
+        payload: Mapping[str, object],
+        payload_id_key: str,
+        entity_row: _ScopedEntityRow,
     ) -> None:
-        problem_payload = {
-            **problem_data.get(ProblemDocumentKey.PROBLEM, problem_data),
-            ProblemNestedKey.PROBLEM_ID: problem_id,
-        }
-        existing = session.get(self.schema.problems, problem_id)
-        if existing is not None:
-            session.delete(existing)
-            session.flush()
+        if payload[payload_id_key] != entity_id or entity_row.problem_id != problem_id:
+            raise ValueError(
+                f"{entity_name} identifiers do not match the provided arguments"
+            )
+        session.merge(entity_row)
 
-        problem_orm = problem_to_orm(problem_payload)
-        problem_orm.proposals = [
-            proposal_to_orm(payload)
-            for payload in problem_data.get(ProblemDocumentKey.PROPOSALS, [])
-        ]
-        problem_orm.scenarios = [
-            scenario_to_orm(payload, problem_id)
-            for payload in problem_data.get(ProblemDocumentKey.SCENARIOS, [])
-        ]
-        session.add(problem_orm)
-        session.flush()
-        problem_orm.relationships = [
-            relationship_to_orm(payload, problem_id)
-            for payload in problem_data.get(ProblemDocumentKey.RELATIONSHIP, [])
-        ]
-        session.flush()
-        problem_orm.evaluations = [
-            evaluation_to_orm(payload, problem_id)
-            for payload in problem_data.get(ProblemDocumentKey.EVALUATIONS, [])
-        ]
+    def _load_scoped_row_or_raise(
+        self,
+        session: Session,
+        orm_model: type[ScopedEntityRowT],
+        primary_key: object,
+        *,
+        entity_name: str,
+        entity_id: str,
+        problem_id: str,
+        exception_type: type[Exception],
+    ) -> ScopedEntityRowT:
+        row = session.get(orm_model, primary_key)
+        if row is None or row.problem_id != problem_id:
+            raise exception_type(f"{entity_name} with ID {entity_id} does not exist")
+        return row

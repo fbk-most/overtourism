@@ -71,7 +71,10 @@ async def get_data(
         session_evaluation = None
         if session_id is not None:
             try:
-                session_scenario = manager.read_session_scenario(problem_id, session_id)
+                session_scenario = manager.session_manager.read_session_scenario(
+                    problem_id,
+                    session_id,
+                )
                 if not _matches_requested_session_scenario(
                     scenario_id,
                     session_scenario.scenario_id,
@@ -84,7 +87,7 @@ async def get_data(
                             f"'{session_id}'"
                         ),
                     )
-                session_evaluation = manager.read_session_evaluation(
+                session_evaluation = manager.session_manager.read_session_evaluation(
                     problem_id,
                     session_id,
                     session_scenario.scenario_id,
@@ -181,17 +184,19 @@ async def update_data(
             }
             index_diffs = scenario_index_diffs(handler, scenario)
         else:
-            session_scenario = handler.manager.evaluate_session(
+            session_scenario = handler.manager.session_manager.evaluate_session(
                 problem_id=problem_id,
                 session_id=session_id,
                 scenario_id=scenario_id,
                 values=values,
                 ensemble_size=data.ensemble_size,
             )
-            session_evaluation = handler.manager.read_session_evaluation(
-                problem_id,
-                session_id,
-                session_scenario.scenario_id,
+            session_evaluation = (
+                handler.manager.session_manager.read_session_evaluation(
+                    problem_id,
+                    session_id,
+                    session_scenario.scenario_id,
+                )
             )
             out_data = arrange_data(
                 handler,
@@ -235,9 +240,11 @@ async def resume_session(
     """Resume an in-memory session scenario and return its evaluated data."""
     try:
         problem = get_problem_or_404(handler, problem_id)
-        session_scenario, session_evaluation = handler.manager.resume_session(
-            problem_id,
-            session_id,
+        session_scenario, session_evaluation = (
+            handler.manager.session_manager.resume_session(
+                problem_id,
+                session_id,
+            )
         )
         out_data = arrange_data(
             handler,
@@ -281,7 +288,7 @@ async def create_scenario(
     """Persist the current session scenario as a stored scenario."""
     try:
         extras = handler.manager.scenario_extras_from_dict(data.model_dump())
-        saved_scenario = handler.manager.save_session_scenario(
+        saved_scenario = handler.manager.session_manager.save_session_scenario(
             problem_id,
             session_id=session_id,
             name=data.scenario_name,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.proposal import manager as proposal_manager_module
 from overtourism.dt_manager.proposal import proposal as proposal_module
 from overtourism.dt_manager.proposal.manager import ProposalManager

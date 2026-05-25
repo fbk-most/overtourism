@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
+
 from overtourism.backend.api.v2.main import create_app
 
 

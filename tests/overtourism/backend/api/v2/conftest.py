@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+
 from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
@@ -16,7 +17,6 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 

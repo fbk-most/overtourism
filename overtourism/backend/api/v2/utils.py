@@ -31,10 +31,10 @@ if typing.TYPE_CHECKING:
     )
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
     from overtourism.dt_manager.evaluation.manager import EvaluationManager
-    from overtourism.dt_manager.manager.manager import SessionState
     from overtourism.dt_manager.problem.manager import ProblemManager
     from overtourism.dt_manager.proposal.manager import ProposalManager
     from overtourism.dt_manager.scenario.manager import ScenarioManager
+    from overtourism.dt_manager.session.session import SessionState
 
 
 # ──────────────────────────────────────────────
@@ -263,7 +263,7 @@ def get_session_scenario_or_404(
     """Return an in-memory session scenario or raise a not-found error."""
     detail = f"Scenario '{scenario_id}' not found for problem '{problem_id}' in session '{session_id}'"
     try:
-        scenario = handler.manager.read_session_scenario(
+        scenario = handler.manager.session_manager.read_session_scenario(
             problem_id,
             session_id,
             scenario_id,
@@ -284,7 +284,7 @@ def get_session_evaluation_or_404(
     """Return an in-memory session evaluation or raise a not-found error."""
     detail = f"Evaluation for scenario '{scenario_id}' not found for problem '{problem_id}' in session '{session_id}'"
     try:
-        evaluation = handler.manager.read_session_evaluation(
+        evaluation = handler.manager.session_manager.read_session_evaluation(
             problem_id,
             session_id,
             scenario_id,
@@ -305,7 +305,7 @@ def get_session_evaluation_by_id_or_404(
     """Return an in-memory session evaluation by identifier or raise a not-found error."""
     detail = f"Evaluation '{evaluation_id}' not found for problem '{problem_id}' in session '{session_id}'"
     try:
-        return handler.manager.read_session_evaluation_by_id(
+        return handler.manager.session_manager.read_session_evaluation_by_id(
             problem_id,
             session_id,
             evaluation_id,
@@ -325,7 +325,7 @@ def get_session_or_404(
     """Return an in-memory session or raise a not-found error."""
     detail = f"Session '{session_id}' not found for problem '{problem_id}'"
     try:
-        return handler.manager.read_session(problem_id, session_id)
+        return handler.manager.session_manager.read_session(problem_id, session_id)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

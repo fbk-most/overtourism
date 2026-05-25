@@ -56,4 +56,4 @@ def test_session_routes_manage_the_full_session_lifecycle(
 
     assert delete_response.status_code == 200
     assert delete_response.json() == {"message": "Session deleted successfully"}
-    assert manager.list_sessions(problem_id) == []
+    assert manager.session_manager.list_sessions(problem_id) == []

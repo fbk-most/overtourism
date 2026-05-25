@@ -107,7 +107,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     tenant: str,
     problem_id: str,
 ) -> None:
-    draft = manager.create_session_scenario(
+    draft = manager.session_manager.create_session_scenario(
         problem_id,
         "session-eval",
         "default",
@@ -154,7 +154,7 @@ def test_session_evaluation_can_be_updated_and_deleted(
     tenant: str,
     problem_id: str,
 ) -> None:
-    draft = manager.create_session_scenario(
+    draft = manager.session_manager.create_session_scenario(
         problem_id,
         "session-update",
         "default",

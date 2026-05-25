@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.scenario import manager as scenario_manager_module
 from overtourism.dt_manager.scenario import values as scenario_values_module
@@ -10,7 +11,6 @@ from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.utils.exception import (
     ScenarioAlreadyExists,
     ScenarioDoesNotExist,
-    SessionDoesNotExist,
 )
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
@@ -95,7 +95,25 @@ def test_create_update_save_load_and_delete_scenario(
         sql_store.load_scenario(problem_id, "scenario-alpha")
 
 
-def test_session_scenario_lifecycle(
+def test_scenario_manager_exposes_only_stateless_scenario_operations(
+    sql_store,
+    fake_model,
+    fake_model_evaluator,
+    problem_payload,
+) -> None:
+    problem_id = problem_payload["problem_id"]
+    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
+
+    assert not hasattr(manager, "create_session_scenario")
+    assert not hasattr(manager, "update_session_scenario")
+    assert not hasattr(manager, "save_session_scenario")
+    assert not hasattr(manager, "register_session_scenario")
+    assert not hasattr(manager, "read_session_scenario")
+    assert not hasattr(manager, "has_session")
+    assert not hasattr(manager, "close_session")
+
+
+def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     sql_store,
     fake_model,
     fake_model_evaluator,
@@ -119,7 +137,7 @@ def test_session_scenario_lifecycle(
     monkeypatch.setattr(
         scenario_manager_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
-    session_scenario = manager.create_session_scenario(
+    session_scenario = manager.build_session_scenario(
         "session-1",
         "scenario-alpha",
         {"visits": 9},
@@ -139,15 +157,16 @@ def test_session_scenario_lifecycle(
         )
     ]
 
-    assert manager.has_session("session-1")
-    assert manager.read_session_scenario("session-1") is session_scenario
-
-    updated_session_scenario = manager.update_session_scenario(
-        "session-1",
-        session_scenario.scenario_id,
-        {"visits": 12},
+    monkeypatch.setattr(
+        scenario_manager_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
+    )
+    updated_session_scenario = manager.update_scenario_object(
+        session_scenario,
+        values={"visits": 12},
     )
     assert updated_session_scenario.scenario_id == session_scenario.scenario_id
+    assert updated_session_scenario.updated == UPDATED_TIMESTAMP
+    assert updated_session_scenario.version == session_scenario.version + 1
     assert updated_session_scenario.index_values == [
         IndexEntry(
             index_name="visits",
@@ -156,17 +175,8 @@ def test_session_scenario_lifecycle(
         )
     ]
 
-    saved_session_scenario = manager.save_session_scenario(
-        "session-1",
-        session_scenario.scenario_id,
-    )
+    saved_session_scenario = manager.save_scenario_object(updated_session_scenario)
     assert saved_session_scenario.to_dict() == updated_session_scenario.to_dict()
     assert manager.read_scenario(session_scenario.scenario_id).to_dict() == (
         updated_session_scenario.to_dict()
     )
-
-    manager.close_session("session-1")
-
-    assert not manager.has_session("session-1")
-    with pytest.raises(SessionDoesNotExist):
-        manager.read_session_scenario("session-1")

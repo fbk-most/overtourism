@@ -7,6 +7,7 @@ from types import ModuleType
 
 import pytest
 from fastapi import HTTPException
+
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
 from overtourism.backend.api.v2.models.problem import PostProblemData, UpdateProblemData
 from overtourism.backend.api.v2.utils import (
@@ -177,17 +178,17 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_evaluation_or_404(handler, problem_id, "missing-scenario")
     assert evaluation_exc.value.status_code == 404
 
-    session = manager.create_session(
+    session = manager.session_manager.create_session(
         problem_id, "session-utils", metadata={"source": "ui"}
     )
-    draft = manager.create_session_scenario(
+    draft = manager.session_manager.create_session_scenario(
         problem_id,
         "session-utils",
         "default",
         values={"visits": 8},
         name="Draft",
     )
-    evaluation = manager.create_session_evaluation(
+    evaluation = manager.session_manager.create_session_evaluation(
         problem_id,
         "session-utils",
         draft.scenario_id,

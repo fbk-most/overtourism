@@ -65,7 +65,7 @@ async def create_session_evaluation(
             session_id,
             data.scenario_id,
         )
-        evaluation = handler.manager.create_session_evaluation(
+        evaluation = handler.manager.session_manager.create_session_evaluation(
             problem_id,
             session_id,
             data.scenario_id,
@@ -98,7 +98,7 @@ async def list_session_evaluations(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         get_session_or_404(handler, problem_id, session_id)
-        evaluations = handler.manager.list_session_evaluations(
+        evaluations = handler.manager.session_manager.list_session_evaluations(
             problem_id,
             session_id,
             scenario_id,
@@ -167,7 +167,7 @@ async def update_session_evaluation(
             evaluation_id,
         )
         check_version(current.version, data.version)
-        evaluation = handler.manager.update_session_evaluation(
+        evaluation = handler.manager.session_manager.update_session_evaluation(
             problem_id,
             session_id,
             evaluation_id,
@@ -208,7 +208,7 @@ async def delete_session_evaluation(
             evaluation_id,
         )
         check_version(evaluation.version, None if data is None else data.version)
-        handler.manager.delete_session_evaluation(
+        handler.manager.session_manager.delete_session_evaluation(
             problem_id,
             session_id,
             evaluation_id,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
@@ -131,7 +132,25 @@ def test_create_run_load_and_delete_evaluation(
         manager.read_evaluation("evaluation-alpha")
 
 
-def test_session_evaluation_lifecycle_and_save_session(
+def test_evaluation_manager_exposes_only_persistent_and_object_lifecycle_operations(
+    sql_store,
+    fake_model,
+    fake_model_evaluator,
+    problem_payload,
+) -> None:
+    problem_id = problem_payload["problem_id"]
+    manager = _make_manager(sql_store, fake_model, fake_model_evaluator, problem_id)
+
+    assert not hasattr(manager, "create_session_evaluation")
+    assert not hasattr(manager, "read_session_evaluation")
+    assert not hasattr(manager, "save_session_evaluation")
+    assert not hasattr(manager, "delete_session_evaluation")
+    assert not hasattr(manager, "run_session_evaluation")
+    assert not hasattr(manager, "rerun_session_evaluation")
+    assert not hasattr(manager, "close_session")
+
+
+def test_evaluation_objects_can_be_executed_saved_and_rerun(
     sql_store,
     fake_model,
     fake_model_evaluator,
@@ -149,48 +168,72 @@ def test_session_evaluation_lifecycle_and_save_session(
     scenario = _make_scenario(problem_id, "scenario-alpha", 11)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
-    session_evaluation = manager.create_session_evaluation(
-        "session-1",
+    evaluation = manager.build_running_evaluation(
         "evaluation-session",
-        scenario.scenario_id,
+        scenario_id=scenario.scenario_id,
         type=DEFAULT_EVALUATION_TYPE,
     )
-    assert session_evaluation.state is EvaluationState.RUNNING
-    assert session_evaluation.started == CREATED_TIMESTAMP
-    assert manager.read_session_evaluation("session-1") is session_evaluation
+    assert evaluation.state is EvaluationState.RUNNING
+    assert evaluation.started == CREATED_TIMESTAMP
 
-    completed = manager.run_session_evaluation("session-1", scenario, ensemble_size=3)
+    completed = manager.execute_evaluation(evaluation, scenario, ensemble_size=3)
     assert completed.state is EvaluationState.COMPLETED
+    assert completed.finished == SESSION_TIMESTAMP
     assert completed.result.to_dict() == {
         "ensemble_size": 3,
         "values": {"visits": 11},
     }
+    assert fake_model_evaluator.evaluate_calls[-1] == {
+        "model": fake_model,
+        "ensemble_size": 3,
+        "values": {"visits": 11},
+    }
 
-    saved = manager.save_session_evaluation("session-1")
-    assert saved is completed
-    assert manager.read_evaluation(saved.evaluation_id).to_dict() == saved.to_dict()
+    manager.save_evaluation(completed)
+    assert manager.read_evaluation(completed.evaluation_id).to_dict() == (
+        completed.to_dict()
+    )
     assert (
-        sql_store.load_evaluation(problem_id, saved.evaluation_id)["state"]
+        sql_store.load_evaluation(problem_id, completed.evaluation_id)["state"]
         == EvaluationState.COMPLETED.value
     )
 
-    manager.close_session("session-1")
-    with pytest.raises(EvaluationDoesNotExist):
-        manager.read_session_evaluation("session-1")
+    monkeypatch.setattr(
+        evaluation_manager_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+    )
+    rerun = manager.rerun_evaluation_object(
+        completed,
+        scenario,
+        ensemble_size=6,
+        persist=True,
+    )
+
+    assert rerun.evaluation_id == completed.evaluation_id
+    assert rerun.version == completed.version + 1
+    assert rerun.finished == FINISHED_TIMESTAMP
+    assert rerun.result.to_dict() == {
+        "ensemble_size": 6,
+        "values": {"visits": 11},
+    }
+    assert fake_model_evaluator.evaluate_calls[-1] == {
+        "model": fake_model,
+        "ensemble_size": 6,
+        "values": {"visits": 11},
+    }
+    assert manager.read_evaluation(rerun.evaluation_id).to_dict() == rerun.to_dict()
 
     reloaded_manager = _make_manager(
         sql_store, fake_model, fake_model_evaluator, problem_id
     )
-    loaded = reloaded_manager.read_evaluation(saved.evaluation_id)
+    loaded = reloaded_manager.read_evaluation(rerun.evaluation_id)
 
-    assert loaded.result.to_dict() == completed.result.to_dict()
-    assert (
-        reloaded_manager.read_evaluation(saved.evaluation_id).to_dict()
-        == loaded.to_dict()
+    assert loaded.result.to_dict() == rerun.result.to_dict()
+    assert reloaded_manager.read_evaluation(rerun.evaluation_id).to_dict() == (
+        loaded.to_dict()
     )
 
 
-def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
+def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
     sql_store,
     fake_model,
     fake_model_evaluator,
@@ -217,13 +260,6 @@ def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
     manager.create_evaluation("evaluation-alpha", primary_scenario.scenario_id)
     manager.run_evaluation("evaluation-alpha", primary_scenario, ensemble_size=2)
 
-    manager.create_session_evaluation(
-        "session-1",
-        "evaluation-session",
-        primary_scenario.scenario_id,
-    )
-    manager.run_session_evaluation("session-1", primary_scenario, ensemble_size=2)
-
     manager.create_evaluation("evaluation-beta", secondary_scenario.scenario_id)
     manager.run_evaluation("evaluation-beta", secondary_scenario, ensemble_size=2)
 
@@ -236,8 +272,6 @@ def test_delete_evaluations_for_scenario_clears_persistent_and_session_state(
         sql_store.load_evaluations(problem_id)[0]["evaluation_id"] == "evaluation-beta"
     )
 
-    with pytest.raises(EvaluationDoesNotExist):
-        manager.read_session_evaluation("session-1")
     with pytest.raises(EvaluationDoesNotExist):
         manager.read_evaluation("evaluation-alpha")
 
@@ -261,35 +295,6 @@ def test_duplicate_and_missing_evaluation_operations_raise_clear_errors(
 
     with pytest.raises(EvaluationDoesNotExist, match="scenario scenario-missing"):
         manager.read_latest_evaluation("scenario-missing")
-
-
-def test_delete_session_evaluation_is_noop_for_missing_session_and_validates_scenario_id(
-    sql_store,
-    fake_model,
-    fake_model_evaluator,
-    problem_payload,
-) -> None:
-    problem_id = problem_payload["problem_id"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator, problem_id)
-
-    manager.delete_session_evaluation("missing-session")
-
-    manager.create_session_evaluation(
-        "session-1",
-        "evaluation-session",
-        "scenario-alpha",
-    )
-
-    with pytest.raises(
-        EvaluationDoesNotExist,
-        match="scenario scenario-beta does not exist in session session-1",
-    ):
-        manager.delete_session_evaluation("session-1", "scenario-beta")
-
-    manager.delete_session_evaluation("session-1", "scenario-alpha")
-
-    with pytest.raises(EvaluationDoesNotExist):
-        manager.read_session_evaluation("session-1")
 
 
 def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
@@ -344,16 +349,12 @@ def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
 
     manager.create_evaluation("evaluation-alpha", scenario.scenario_id)
     manager.run_evaluation("evaluation-alpha", scenario, ensemble_size=2)
-    manager.create_session_evaluation(
-        "session-1",
-        "evaluation-session",
-        scenario.scenario_id,
-    )
 
     original_delete = manager.store.delete_evaluation
 
     def _delete_once(problem_id_arg: str, evaluation_id: str) -> None:
         if evaluation_id == "evaluation-alpha":
+            original_delete(problem_id_arg, evaluation_id)
             raise EvaluationDoesNotExist(
                 f"Evaluation with ID {evaluation_id} does not exist"
             )
@@ -363,8 +364,7 @@ def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
 
     manager.delete_evaluations_for_scenario(scenario.scenario_id)
 
-    with pytest.raises(EvaluationDoesNotExist):
-        manager.read_session_evaluation("session-1")
+    assert manager.list_evaluations(scenario.scenario_id) == []
 
 
 def test_build_evaluation_preserves_none_results_without_rebuilding_them(

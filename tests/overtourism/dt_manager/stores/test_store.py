@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
     ProposalDoesNotExist,
@@ -246,3 +247,60 @@ def test_missing_entities_raise(sql_store) -> None:
         sql_store.load_evaluation("missing-problem", "missing-evaluation")
     with pytest.raises(EvaluationDoesNotExist):
         sql_store.delete_evaluation("missing-problem", "missing-evaluation")
+
+
+def test_entity_reads_and_deletes_are_scoped_to_the_problem(
+    sql_store,
+    problem_payload,
+    other_problem_payload,
+    scenario_payload,
+    proposal_payload,
+    evaluation_payload,
+) -> None:
+    problem_id = problem_payload["problem_id"]
+    other_problem_id = other_problem_payload["problem_id"]
+
+    sql_store.save_problem(problem_id, problem_payload)
+    sql_store.save_problem(other_problem_id, other_problem_payload)
+    sql_store.save_scenario(
+        problem_id, scenario_payload["scenario_id"], scenario_payload
+    )
+    sql_store.save_proposal(
+        problem_id, proposal_payload["proposal_id"], proposal_payload
+    )
+    sql_store.save_evaluation(
+        problem_id,
+        evaluation_payload["evaluation_id"],
+        evaluation_payload,
+    )
+
+    with pytest.raises(ScenarioDoesNotExist):
+        sql_store.load_scenario(other_problem_id, scenario_payload["scenario_id"])
+    with pytest.raises(ScenarioDoesNotExist):
+        sql_store.delete_scenario(other_problem_id, scenario_payload["scenario_id"])
+
+    with pytest.raises(ProposalDoesNotExist):
+        sql_store.load_proposal(other_problem_id, proposal_payload["proposal_id"])
+    with pytest.raises(ProposalDoesNotExist):
+        sql_store.delete_proposal(other_problem_id, proposal_payload["proposal_id"])
+
+    with pytest.raises(EvaluationDoesNotExist):
+        sql_store.load_evaluation(other_problem_id, evaluation_payload["evaluation_id"])
+    with pytest.raises(EvaluationDoesNotExist):
+        sql_store.delete_evaluation(
+            other_problem_id,
+            evaluation_payload["evaluation_id"],
+        )
+
+    assert (
+        sql_store.load_scenario(problem_id, scenario_payload["scenario_id"])
+        == scenario_payload
+    )
+    assert (
+        sql_store.load_proposal(problem_id, proposal_payload["proposal_id"])
+        == proposal_payload
+    )
+    assert (
+        sql_store.load_evaluation(problem_id, evaluation_payload["evaluation_id"])
+        == evaluation_payload
+    )

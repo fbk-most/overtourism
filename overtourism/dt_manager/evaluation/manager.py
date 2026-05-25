@@ -38,7 +38,6 @@ class EvaluationManager:
         self.executor = executor
         self.store = store
         self.problem_id = problem_id
-        self._session_evaluations: dict[str, Evaluation] = {}
 
     # ───────────────────────────────────────────────────────────
     # CRUD
@@ -117,7 +116,7 @@ class EvaluationManager:
         self.store.delete_evaluation(self.problem_id, evaluation_id)
 
     def delete_evaluations_for_scenario(self, scenario_id: str) -> None:
-        """Remove all persisted and session evaluations for a scenario."""
+        """Remove all persisted evaluations for a scenario."""
         for evaluation in self.list_evaluations(scenario_id):
             try:
                 self.store.delete_evaluation(
@@ -126,11 +125,6 @@ class EvaluationManager:
                 )
             except EvaluationDoesNotExist:
                 pass
-        self._session_evaluations = {
-            session_id: evaluation
-            for session_id, evaluation in self._session_evaluations.items()
-            if evaluation.scenario_id != scenario_id
-        }
 
     # ───────────────────────────────────────────────────────────
     # I/O
@@ -159,63 +153,6 @@ class EvaluationManager:
             started=started,
             state=EvaluationState.RUNNING,
         )
-
-    # ───────────────────────────────────────────────────────────
-    # Sessions
-    # ───────────────────────────────────────────────────────────
-
-    def save_session_evaluation(self, session_id: str) -> Evaluation:
-        """Promote a transient session evaluation to persistent storage."""
-        evaluation = self.read_session_evaluation(session_id)
-        self.save_evaluation(evaluation)
-        return evaluation
-
-    def delete_session_evaluation(
-        self,
-        session_id: str,
-        scenario_id: str | None = None,
-    ) -> None:
-        """Discard a transient evaluation, optionally checking its scenario."""
-        evaluation = self._session_evaluations.get(session_id)
-        if evaluation is None:
-            return
-        if scenario_id is not None and evaluation.scenario_id != scenario_id:
-            raise EvaluationDoesNotExist(
-                f"Evaluation for scenario {scenario_id} does not exist in session {session_id}"
-            )
-        self._session_evaluations.pop(session_id, None)
-
-    def create_session_evaluation(
-        self,
-        session_id: str,
-        evaluation_id: str,
-        scenario_id: str,
-        type: str = DEFAULT_EVALUATION_TYPE,
-        *,
-        started: str | None = None,
-    ) -> Evaluation:
-        """Create a transient evaluation for a session."""
-        evaluation = Evaluation.create_default(
-            evaluation_id,
-            scenario_id=scenario_id,
-            type=type,
-            started=started,
-            state=EvaluationState.RUNNING,
-        )
-        self._session_evaluations[session_id] = evaluation
-        return evaluation
-
-    def read_session_evaluation(self, session_id: str) -> Evaluation:
-        """Return the evaluation attached to a transient session."""
-        if session_id not in self._session_evaluations:
-            raise EvaluationDoesNotExist(
-                f"Evaluation for session {session_id} does not exist"
-            )
-        return self._session_evaluations[session_id]
-
-    def close_session(self, session_id: str) -> None:
-        """Discard a transient session evaluation."""
-        self._session_evaluations.pop(session_id, None)
 
     # ───────────────────────────────────────────────────────────
     # Execution
@@ -257,42 +194,6 @@ class EvaluationManager:
             **kwargs,
         )
 
-    def run_session_evaluation(
-        self,
-        session_id: str,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Execute a transient evaluation and keep it in session memory only."""
-        evaluation = self.read_session_evaluation(session_id)
-        return self.execute_evaluation(
-            evaluation,
-            scenario,
-            evaluation_config=evaluation_config,
-            **kwargs,
-        )
-
-    def rerun_session_evaluation(
-        self,
-        session_id: str,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Re-execute a transient evaluation in place."""
-        evaluation = self.read_session_evaluation(session_id)
-        updated = self.rerun_evaluation_object(
-            evaluation,
-            scenario,
-            evaluation_config=evaluation_config,
-            **kwargs,
-        )
-        self._session_evaluations[session_id] = updated
-        return updated
-
     def rerun_evaluation_object(
         self,
         evaluation: Evaluation,
@@ -303,7 +204,12 @@ class EvaluationManager:
         **kwargs: Any,
     ) -> Evaluation:
         """Re-execute an existing evaluation object with a fresh running state."""
-        restarted = self._restart_evaluation_object(evaluation)
+        restarted = Evaluation.create_default(
+            evaluation.evaluation_id,
+            scenario_id=evaluation.scenario_id,
+            type=evaluation.type,
+            version=evaluation.version,
+        )
         return self.execute_evaluation(
             restarted,
             scenario,
@@ -381,12 +287,3 @@ class EvaluationManager:
                 evaluation.result
             )
         return evaluation
-
-    def _restart_evaluation_object(self, evaluation: Evaluation) -> Evaluation:
-        """Build a fresh running evaluation preserving identifier and version lineage."""
-        return Evaluation.create_default(
-            evaluation.evaluation_id,
-            scenario_id=evaluation.scenario_id,
-            type=evaluation.type,
-            version=evaluation.version,
-        )

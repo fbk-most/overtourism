@@ -83,7 +83,7 @@ async def create_session_scenario(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         get_scenario_or_404(handler, problem_id, data.base_scenario_id)
-        scenario = handler.manager.create_session_scenario(
+        scenario = handler.manager.session_manager.create_session_scenario(
             problem_id,
             session_id,
             data.base_scenario_id,
@@ -166,7 +166,7 @@ async def update_session_scenario(
             if data.values is None
             else prepare_values(handler, data.values)
         )
-        scenario = handler.manager.update_session_scenario(
+        scenario = handler.manager.session_manager.update_session_scenario(
             problem_id,
             session_id,
             scenario_id,
@@ -210,7 +210,7 @@ async def save_scenario(
             scenario_id,
         )
         check_version(current_scenario.version, data.version)
-        saved_scenario = handler.manager.save_session_scenario(
+        saved_scenario = handler.manager.session_manager.save_session_scenario(
             problem_id,
             session_id,
             scenario_id=scenario_id,
@@ -253,7 +253,11 @@ async def delete_session_scenario(
             scenario_id,
         )
         check_version(scenario.version, None if data is None else data.version)
-        handler.manager.delete_session_scenario(problem_id, session_id, scenario_id)
+        handler.manager.session_manager.delete_session_scenario(
+            problem_id,
+            session_id,
+            scenario_id,
+        )
         logger.info(f"Session scenario deleted: {scenario_id} for problem {problem_id}")
         return {"message": "Session scenario deleted successfully"}
     except Exception as e:

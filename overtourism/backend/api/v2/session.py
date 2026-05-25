@@ -48,7 +48,7 @@ async def create_session(
 ) -> SessionSummaryData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        session = handler.manager.create_session(
+        session = handler.manager.session_manager.create_session(
             problem_id,
             uuid4().hex,
             metadata=data.metadata,
@@ -78,7 +78,7 @@ async def list_sessions(
         get_problem_or_404(handler, tenant, problem_id)
         return [
             session_summary_to_api(session)
-            for session in handler.manager.list_sessions(problem_id)
+            for session in handler.manager.session_manager.list_sessions(problem_id)
         ]
     except Exception as e:
         logger.error(f"Error listing sessions for problem {problem_id}: {e}")
@@ -128,7 +128,7 @@ async def delete_session(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         get_session_or_404(handler, problem_id, session_id)
-        handler.manager.delete_session(problem_id, session_id)
+        handler.manager.session_manager.delete_session(problem_id, session_id)
         logger.info(f"Session deleted: {session_id} for problem {problem_id}")
         return {"message": "Session deleted successfully"}
     except Exception as e:

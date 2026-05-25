@@ -128,7 +128,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
         manager.problem_manager.get_related_scenario_ids(problem_id, proposal_id)[-1]
         == draft_id
     )
-    assert manager.list_session_scenarios(problem_id, "session-1") == []
+    assert manager.session_manager.list_session_scenarios(problem_id, "session-1") == []
 
 
 def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
@@ -137,7 +137,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
     problem_id: str,
     manager: Manager,
 ) -> None:
-    draft = manager.create_session_scenario(
+    draft = manager.session_manager.create_session_scenario(
         problem_id,
         "session-delete",
         "default",
@@ -156,7 +156,13 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
     assert delete_response.json() == {
         "message": "Session scenario deleted successfully"
     }
-    assert manager.list_session_scenarios(problem_id, "session-delete") == []
+    assert (
+        manager.session_manager.list_session_scenarios(
+            problem_id,
+            "session-delete",
+        )
+        == []
+    )
 
 
 def test_delete_stored_scenario_removes_it_from_the_problem(

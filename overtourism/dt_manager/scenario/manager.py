@@ -11,7 +11,6 @@ from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import (
     ScenarioAlreadyExists,
     ScenarioDoesNotExist,
-    SessionDoesNotExist,
 )
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -35,7 +34,6 @@ class ScenarioManager:
         self.model = model
         self.model_evaluator = model_evaluator
         self.store = store
-        self._sessions: dict[str, Scenario] = {}
 
     # ───────────────────────────────────────────────────────────
     # CRUD
@@ -238,103 +236,3 @@ class ScenarioManager:
             scenario.to_dict(),
         )
         return scenario
-
-    def _read_registered_session_scenario(
-        self,
-        session_id: str,
-        scenario_id: str,
-    ) -> Scenario:
-        scenario = self.read_session_scenario(session_id)
-        if scenario.scenario_id != scenario_id:
-            raise ScenarioDoesNotExist(
-                f"Scenario with ID {scenario_id} does not exist in session {session_id}"
-            )
-        return scenario
-
-    # ───────────────────────────────────────────────────────────
-    # Sessions
-    # ───────────────────────────────────────────────────────────
-
-    def create_session_scenario(
-        self,
-        session_id: str,
-        scenario_id: str,
-        values: dict | None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        extras: dict | None = None,
-    ) -> Scenario:
-        """Create a transient scenario used for a session evaluation."""
-        scenario = self.build_session_scenario(
-            session_id,
-            scenario_id,
-            values,
-            name=name,
-            description=description,
-            extras=extras,
-        )
-        self._sessions[session_id] = scenario
-        return scenario
-
-    def update_session_scenario(
-        self,
-        session_id: str,
-        scenario_id: str,
-        values: dict | None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        extras: dict | None = None,
-    ) -> Scenario:
-        """Update an in-memory session scenario."""
-        session_scenario = self._read_registered_session_scenario(
-            session_id, scenario_id
-        )
-        updated_scenario = self._update_existing_scenario(
-            session_scenario,
-            scenario_id,
-            values=values,
-            name=name,
-            description=description,
-            extras=extras,
-        )
-        self._sessions[session_id] = updated_scenario
-        return updated_scenario
-
-    def save_session_scenario(
-        self,
-        session_id: str,
-        scenario_id: str | None = None,
-    ) -> Scenario:
-        """Promote a transient session scenario to persistent storage."""
-        scenario = (
-            self.read_session_scenario(session_id)
-            if scenario_id is None
-            else self._read_registered_session_scenario(session_id, scenario_id)
-        )
-        scenario.problem_id = self.problem_id
-        self.store.save_scenario(
-            self.problem_id,
-            scenario.scenario_id,
-            scenario.to_dict(),
-        )
-        return scenario
-
-    def register_session_scenario(self, session_id: str, scenario: Scenario) -> None:
-        """Store a transient scenario under its session identifier."""
-        self._sessions[session_id] = scenario
-
-    def read_session_scenario(self, session_id: str) -> Scenario:
-        """Return an active session scenario."""
-        if session_id not in self._sessions:
-            raise SessionDoesNotExist(f"Session '{session_id}' does not exist")
-        return self._sessions[session_id]
-
-    def has_session(self, session_id: str) -> bool:
-        """Check whether a session is active."""
-        return session_id in self._sessions
-
-    def close_session(self, session_id: str) -> None:
-        """Close a session and discard its transient scenario."""
-        self._sessions.pop(session_id, None)
