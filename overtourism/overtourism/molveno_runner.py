@@ -32,7 +32,7 @@ from scipy import interpolate, ndimage, stats
 from overtourism.overtourism.molveno_model import MolvenoModel
 
 # Type alias used by Managers
-ArrangeDataFn = Callable[[dict], dict]
+ArrangeDataFn = Callable[[Any, list[str] | None], dict]
 
 # EN → IT constraint name mapping (remove when frontend uses English)
 CONSTRAINT_NAME_IT: dict[str, str] = {

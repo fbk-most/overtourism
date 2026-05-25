@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from overtourism.backend.api.v2 import evaluation as evaluation_api
 from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -23,17 +22,81 @@ def test_create_and_read_stored_evaluation(
         "ensemble_size": 7,
         "values": {},
     }
+    evaluation_id = create_response.json()["evaluation_id"]
 
-    read_response = client.get(
+    list_response = client.get(
         f"/api/v2/{tenant}/evaluations",
         params={"problem_id": problem_id, "scenario_id": "default"},
     )
 
+    assert list_response.status_code == 200
+    assert evaluation_id in [item["evaluation_id"] for item in list_response.json()]
+
+    read_response = client.get(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+    )
+
     assert read_response.status_code == 200
     assert read_response.headers["etag"] == "2"
-    assert (
-        read_response.json()["evaluation_id"] == create_response.json()["evaluation_id"]
+    assert read_response.json()["evaluation_id"] == evaluation_id
+
+
+def test_stored_evaluation_can_be_updated_and_deleted(
+    client,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    create_response = client.post(
+        f"/api/v2/{tenant}/evaluations",
+        params={"problem_id": problem_id},
+        json={"scenario_id": "default", "ensemble_size": 2},
     )
+    evaluation_id = create_response.json()["evaluation_id"]
+
+    missing_version = client.put(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        json={"ensemble_size": 5},
+    )
+
+    assert missing_version.status_code == 428
+    assert missing_version.json() == {"detail": "Missing Version header"}
+
+    update_response = client.put(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        headers={"Version": "2"},
+        json={"ensemble_size": 5},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.headers["etag"] == "3"
+    assert update_response.json()["version"] == 3
+    assert update_response.json()["result"] == {
+        "ensemble_size": 5,
+        "values": {},
+    }
+
+    delete_missing_version = client.delete(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+    )
+
+    assert delete_missing_version.status_code == 428
+
+    delete_response = client.delete(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        headers={"Version": "3"},
+    )
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"message": "Evaluation deleted successfully"}
+    assert client.get(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+    ).status_code == 404
 
 
 def test_create_and_read_session_evaluation_for_a_draft(
@@ -64,53 +127,95 @@ def test_create_and_read_session_evaluation_for_a_draft(
         "ensemble_size": 4,
         "values": {"visits": 5},
     }
+    evaluation_id = create_response.json()["evaluation_id"]
 
-    read_response = client.get(
+    list_response = client.get(
         f"/api/v2/{tenant}/evaluations",
         params={"problem_id": problem_id, "scenario_id": draft.scenario_id},
         headers={"Session-ID": "session-eval"},
     )
 
-    assert read_response.status_code == 200
-    assert (
-        read_response.json()["evaluation_id"] == create_response.json()["evaluation_id"]
+    assert list_response.status_code == 200
+    assert [item["evaluation_id"] for item in list_response.json()] == [evaluation_id]
+
+    read_response = client.get(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        headers={"Session-ID": "session-eval"},
     )
 
+    assert read_response.status_code == 200
+    assert read_response.json()["evaluation_id"] == evaluation_id
 
-def test_evaluation_data_returns_arranged_data_widgets_and_editable_indexes(
+
+def test_session_evaluation_can_be_updated_and_deleted(
     client,
     manager: Manager,
     tenant: str,
     problem_id: str,
-    monkeypatch,
 ) -> None:
-    manager.update_problem(problem_id, extras={"editable_indexes": ["visits"]})
-    manager.update_scenario(problem_id, "default", values={"visits": 9})
-    manager.evaluate_scenario(problem_id, "default", ensemble_size=3)
+    draft = manager.create_session_scenario(
+        problem_id,
+        "session-update",
+        "default",
+        values={"visits": 6},
+        name="Session draft",
+    )
+    create_response = client.post(
+        f"/api/v2/{tenant}/evaluations",
+        params={"problem_id": problem_id},
+        headers={"Session-ID": "session-update"},
+        json={"scenario_id": draft.scenario_id, "ensemble_size": 3},
+    )
+    evaluation_id = create_response.json()["evaluation_id"]
 
-    monkeypatch.setattr(evaluation_api, "model_values", lambda handler: {"base": 1})
-    monkeypatch.setattr(
-        evaluation_api,
-        "scenario_index_diffs",
-        lambda handler, scenario: {"visits": "+9"},
+    update_response = client.put(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        headers={"Session-ID": "session-update", "Version": "2"},
+        json={"ensemble_size": 8},
     )
 
+    assert update_response.status_code == 200
+    assert update_response.headers["etag"] == "3"
+    assert update_response.json()["result"] == {
+        "ensemble_size": 8,
+        "values": {"visits": 6},
+    }
+
+    delete_response = client.delete(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+        headers={"Session-ID": "session-update", "Version": "3"},
+    )
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {
+        "message": "Session evaluation deleted successfully"
+    }
+
+
+def test_evaluation_data_returns_arranged_data(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    manager.update_scenario(problem_id, "default", values={"visits": 9})
+    evaluation = manager.evaluate_scenario(problem_id, "default", ensemble_size=3)
+
     response = client.get(
-        f"/api/v2/{tenant}/evaluations/data",
-        params={"problem_id": problem_id, "scenario_id": "default", "language": "en"},
+        f"/api/v2/{tenant}/evaluations/{evaluation.evaluation_id}/data",
+        params=[
+            ("problem_id", problem_id),
+            ("params", "ensemble_size"),
+        ],
     )
 
     assert response.status_code == 200
     assert response.json() == {
         "problem_id": problem_id,
+        "evaluation_id": evaluation.evaluation_id,
         "scenario_id": "default",
-        "data": {"ensemble_size": 3, "values": {"visits": 9}},
-        "index_diffs": {"visits": "+9"},
-        "widgets": {
-            "summary": {
-                "language": "en",
-                "values": {"base": 1, "visits": 9},
-            }
-        },
-        "editable_indexes": ["visits"],
+        "data": {"ensemble_size": 3},
     }

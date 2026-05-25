@@ -21,6 +21,7 @@ class ProposalData(BaseModel):
     created: str | None = None
     updated: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)
+    related_scenario_ids: list[str] = Field(default_factory=list)
 
 
 class PostProposalData(BaseModel):

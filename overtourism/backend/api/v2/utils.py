@@ -8,7 +8,7 @@ from fastapi import HTTPException, Response, status
 from slugify import slugify
 
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
-from overtourism.backend.api.v2.models.evaluation import EvaluationData
+from overtourism.backend.api.v2.models.evaluation import EvaluationData, EvaluationOutputData
 from overtourism.backend.api.v2.models.scenario import ScenarioData
 from overtourism.backend.api.v2.models.session import SessionData, SessionSummaryData
 from overtourism.backend.handler import Handler
@@ -105,6 +105,22 @@ def get_evaluation_or_404(
         ) from exc
 
 
+def get_evaluation_by_id_or_404(
+    handler: Handler,
+    problem_id: str,
+    evaluation_id: str,
+) -> Evaluation:
+    """Return a stored evaluation by identifier or raise a not-found error."""
+    detail = f"Evaluation '{evaluation_id}' not found for problem '{problem_id}'"
+    try:
+        return handler.manager.read_evaluation(problem_id, evaluation_id)
+    except EvaluationDoesNotExist as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
+
+
 def problem_from_model(
     handler: Handler,
     data: PostProblemData,
@@ -141,6 +157,24 @@ def build_problem_extras(
 
 def get_problem_editable_indexes(extras: dict) -> list[str]:
     return [str(item) for item in extras.get("editable_indexes", [])]
+
+
+def build_evaluation_output(
+    handler: Handler,
+    scenario: Scenario,
+    evaluation: Evaluation,
+    *,
+    params: list[str] | None = None,
+) -> EvaluationOutputData:
+    """Build the v2 evaluation output payload for a specific evaluation snapshot."""
+    return EvaluationOutputData(
+        problem_id=scenario.problem_id,
+        scenario_id=scenario.scenario_id,
+        evaluation_id=evaluation.evaluation_id,
+        data=evaluation_result_to_dict(
+            arrange_data(handler, evaluation.result, params=params)
+        ),
+    )
 
 
 # ──────────────────────────────────────────────
@@ -181,10 +215,14 @@ def prepare_values(
     return values
 
 
-def arrange_data(handler: Handler, data: typing.Any) -> dict:
+def arrange_data(
+    handler: Handler,
+    data: typing.Any,
+    params: list[str] | None = None,
+) -> dict:
     """Convert model output to API dict using arrange_data_fn if available."""
     if handler.arrange_data_fn is not None:
-        return handler.arrange_data_fn(data)
+        return handler.arrange_data_fn(data, params)
     return data
 
 
@@ -252,6 +290,29 @@ def get_session_evaluation_or_404(
             status_code=status.HTTP_404_NOT_FOUND, detail=detail
         ) from exc
     return evaluation
+
+
+def get_session_evaluation_by_id_or_404(
+    handler: Handler,
+    problem_id: str,
+    session_id: str,
+    evaluation_id: str,
+) -> Evaluation:
+    """Return an in-memory session evaluation by identifier or raise a not-found error."""
+    detail = (
+        f"Evaluation '{evaluation_id}' not found for problem '{problem_id}' in session '{session_id}'"
+    )
+    try:
+        return handler.manager.read_session_evaluation_by_id(
+            problem_id,
+            session_id,
+            evaluation_id,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
 
 
 def get_session_or_404(

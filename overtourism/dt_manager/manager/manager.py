@@ -703,9 +703,116 @@ class Manager:
                 return self.evaluate_scenario(problem_id, scenario_id).result
         return self.evaluate_scenario(problem_id, scenario_id).result
 
+    def read_evaluation(self, problem_id: str, evaluation_id: str) -> Evaluation:
+        """Return a stored evaluation by identifier."""
+        return self.evaluation_managers[problem_id].read_evaluation(evaluation_id)
+
+    def list_evaluations(
+        self,
+        problem_id: str,
+        scenario_id: str | None = None,
+    ) -> list[Evaluation]:
+        """Return stored evaluations for a problem."""
+        return self.evaluation_managers[problem_id].list_evaluations(scenario_id)
+
     def read_latest_evaluation(self, problem_id: str, scenario_id: str) -> Evaluation:
         """Return the latest evaluation for a scenario."""
         return self.evaluation_managers[problem_id].read_latest_evaluation(scenario_id)
+
+    def update_evaluation(
+        self,
+        problem_id: str,
+        evaluation_id: str,
+        ensemble_size: int = 20,
+        **kwargs,
+    ) -> Evaluation:
+        """Re-run a stored evaluation for its current scenario."""
+        evaluation = self.read_evaluation(problem_id, evaluation_id)
+        scenario = self.read_scenario(problem_id, evaluation.scenario_id)
+        return self.evaluation_managers[problem_id].rerun_evaluation(
+            evaluation_id,
+            scenario,
+            ensemble_size=ensemble_size,
+            **kwargs,
+        )
+
+    def delete_evaluation(self, problem_id: str, evaluation_id: str) -> None:
+        """Delete a stored evaluation by identifier."""
+        self.evaluation_managers[problem_id].delete_evaluation(evaluation_id)
+
+    def list_session_evaluations(
+        self,
+        problem_id: str,
+        session_id: str,
+        scenario_id: str | None = None,
+    ) -> list[Evaluation]:
+        """Return in-memory evaluations for a session."""
+        session = self._read_session_state(problem_id, session_id)
+        evaluations = list(session.evaluations.values())
+        if scenario_id is None:
+            return evaluations
+        return [
+            evaluation
+            for evaluation in evaluations
+            if evaluation.scenario_id == scenario_id
+        ]
+
+    def read_session_evaluation_by_id(
+        self,
+        problem_id: str,
+        session_id: str,
+        evaluation_id: str,
+    ) -> Evaluation:
+        """Return an in-memory evaluation by identifier."""
+        session = self._read_session_state(problem_id, session_id)
+        for evaluation in session.evaluations.values():
+            if evaluation.evaluation_id == evaluation_id:
+                return evaluation
+        raise EvaluationDoesNotExist(
+            f"Evaluation '{evaluation_id}' does not exist in session '{session_id}'"
+        )
+
+    def update_session_evaluation(
+        self,
+        problem_id: str,
+        session_id: str,
+        evaluation_id: str,
+        ensemble_size: int = 20,
+        **kwargs,
+    ) -> Evaluation:
+        """Re-run an in-memory evaluation for its current draft scenario."""
+        session = self._read_session_state(problem_id, session_id)
+        evaluation = self.read_session_evaluation_by_id(
+            problem_id,
+            session_id,
+            evaluation_id,
+        )
+        scenario = self._read_session_draft(session, evaluation.scenario_id)
+        updated = self.evaluation_managers[problem_id].rerun_evaluation_object(
+            evaluation,
+            scenario,
+            ensemble_size=ensemble_size,
+            **kwargs,
+        )
+        session.evaluations[scenario.scenario_id] = updated
+        self._set_active_session_draft(session, scenario.scenario_id)
+        return updated
+
+    def delete_session_evaluation(
+        self,
+        problem_id: str,
+        session_id: str,
+        evaluation_id: str,
+    ) -> None:
+        """Delete an in-memory evaluation by identifier."""
+        session = self._read_session_state(problem_id, session_id)
+        evaluation = self.read_session_evaluation_by_id(
+            problem_id,
+            session_id,
+            evaluation_id,
+        )
+        session.evaluations.pop(evaluation.scenario_id, None)
+        self._touch_session(session)
 
     # ───────────────────────────────────────────────────────────
     # Proposals

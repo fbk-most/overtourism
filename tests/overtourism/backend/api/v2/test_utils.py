@@ -97,6 +97,11 @@ def test_optional_viewer_and_data_hooks_are_respected(
     assert get_widget_by_group(handler, ["pressure"]) == ["pressure-widget"]
     assert prepare_values(handler, {"visits": 2}) == {"visits": 2}
     assert arrange_data(handler, SnapshotResult({"score": 1})) == {"score": 1}
+    assert arrange_data(
+        handler,
+        SnapshotResult({"score": 1, "detail": 2}),
+        params=["detail"],
+    ) == {"detail": 2}
 
     bare_handler = Handler(manager=manager)
     payload = {"visits": 5}

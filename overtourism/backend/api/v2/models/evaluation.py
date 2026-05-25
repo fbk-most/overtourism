@@ -30,10 +30,8 @@ class EvaluationOutputData(BaseModel):
 
     problem_id: str
     scenario_id: str
+    evaluation_id: str
     data: dict[str, Any] = Field(default_factory=dict)
-    index_diffs: dict[str, str] = Field(default_factory=dict)
-    widgets: dict[str, Any] | None = None
-    editable_indexes: list[str] | None = None
 
 
 class PostEvaluationData(BaseModel):
@@ -45,5 +43,7 @@ class PostEvaluationData(BaseModel):
 
 
 class UpdateEvaluationData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ensemble_size: int = 20
     kwargs: dict[str, Any] = Field(default_factory=dict)

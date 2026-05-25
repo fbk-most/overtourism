@@ -20,12 +20,19 @@ from overtourism.dt_manager.stores.enums import StoreType
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
-def _normalize_output(data: Any) -> dict[str, Any]:
+def _normalize_output(
+    data: Any,
+    params: list[str] | None = None,
+) -> dict[str, Any]:
     if hasattr(data, "to_dict"):
-        return data.to_dict()
-    if hasattr(data, "to_snapshot"):
-        return data.to_snapshot()
-    return data
+        normalized = data.to_dict()
+    elif hasattr(data, "to_snapshot"):
+        normalized = data.to_snapshot()
+    else:
+        normalized = data
+    if params is None or not isinstance(normalized, dict):
+        return normalized
+    return {key: normalized[key] for key in params if key in normalized}
 
 
 @dataclass

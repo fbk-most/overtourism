@@ -17,6 +17,7 @@ from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
     get_proposal_or_404,
+    get_scenario_or_404,
     set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -28,6 +29,32 @@ proposal_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/proposals",
     dependencies=[Depends(get_auth_context)],
 )
+
+
+def _validate_related_scenario_ids(
+    handler: Handler,
+    problem_id: str,
+    related_scenario_ids: list[str] | None,
+) -> list[str] | None:
+    if related_scenario_ids is None:
+        return None
+    validated_ids = list(dict.fromkeys(related_scenario_ids))
+    for scenario_id in validated_ids:
+        get_scenario_or_404(handler, problem_id, scenario_id)
+    return validated_ids
+
+
+def _proposal_to_api(
+    handler: Handler,
+    problem_id: str,
+    proposal,
+) -> dict:
+    payload = proposal.to_dict()
+    payload["related_scenario_ids"] = handler.manager.problem_manager.get_related_scenario_ids(
+        problem_id,
+        proposal.proposal_id,
+    )
+    return payload
 
 
 @proposal_router.get(
@@ -48,7 +75,7 @@ async def list_proposals(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         return [
-            proposal.to_dict()
+            _proposal_to_api(handler, problem_id, proposal)
             for proposal in handler.manager.list_proposals(problem_id)
         ]
     except Exception as e:
@@ -75,14 +102,20 @@ async def create_proposal(
     """Create a proposal for a problem."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        proposal_payload = proposal.model_dump(exclude_unset=True)
+        proposal_payload["related_scenario_ids"] = _validate_related_scenario_ids(
+            handler,
+            problem_id,
+            proposal_payload.get("related_scenario_ids"),
+        )
         proposal_id = handler.manager.create_proposal(
             problem_id,
-            **proposal.model_dump(exclude_unset=True),
+            **proposal_payload,
         ).proposal_id
         proposal_entity = handler.manager.read_proposal(problem_id, proposal_id)
         set_version_header(response, proposal_entity.version)
         logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
-        return proposal_entity.to_dict()
+        return _proposal_to_api(handler, problem_id, proposal_entity)
     except Exception as e:
         logger.error(f"Error creating proposal for problem {problem_id}: {e}")
         raise
@@ -109,7 +142,7 @@ async def read_proposal(
         get_problem_or_404(handler, tenant, problem_id)
         proposal = get_proposal_or_404(handler, problem_id, proposal_id)
         set_version_header(response, proposal.version)
-        return proposal.to_dict()
+        return _proposal_to_api(handler, problem_id, proposal)
     except Exception as e:
         logger.error(
             f"Error reading proposal {proposal_id} for problem {problem_id}: {e}"
@@ -141,15 +174,21 @@ async def update_proposal(
         get_problem_or_404(handler, tenant, problem_id)
         current_proposal = get_proposal_or_404(handler, problem_id, proposal_id)
         check_version(current_proposal.version, version)
+        proposal_payload = proposal.model_dump(exclude_unset=True)
+        proposal_payload["related_scenario_ids"] = _validate_related_scenario_ids(
+            handler,
+            problem_id,
+            proposal_payload.get("related_scenario_ids"),
+        )
         handler.manager.update_proposal(
             problem_id,
             proposal_id,
-            **proposal.model_dump(exclude_unset=True),
+            **proposal_payload,
         )
         updated_proposal = handler.manager.read_proposal(problem_id, proposal_id)
         set_version_header(response, updated_proposal.version)
         logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
-        return updated_proposal.to_dict()
+        return _proposal_to_api(handler, problem_id, updated_proposal)
     except Exception as e:
         logger.error(
             f"Error updating proposal {proposal_id} for problem {problem_id}: {e}"

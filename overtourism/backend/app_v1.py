@@ -25,7 +25,10 @@ def build_handler() -> Handler:
     """Build the backend handler and its collaborators."""
     return Handler(
         manager=manager,
-        arrange_data_fn=lambda data: _arrange_data(data, api_version="v1"),
+        arrange_data_fn=lambda data, params=None: _arrange_data(
+            data,
+            api_version="v1",
+        ),
         viewer=viewer,
         prepare_values_fn=viewer.prepare_values,
         data_loader=data_loader,

@@ -239,6 +239,24 @@ class EvaluationManager:
             **kwargs,
         )
 
+    def rerun_evaluation(
+        self,
+        evaluation_id: str,
+        scenario: Scenario,
+        *,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
+        **kwargs: Any,
+    ) -> Evaluation:
+        """Re-execute a persisted evaluation in place."""
+        evaluation = self.read_evaluation(evaluation_id)
+        return self.rerun_evaluation_object(
+            evaluation,
+            scenario,
+            evaluation_config=evaluation_config,
+            persist=True,
+            **kwargs,
+        )
+
     def run_session_evaluation(
         self,
         session_id: str,
@@ -253,6 +271,44 @@ class EvaluationManager:
             evaluation,
             scenario,
             evaluation_config=evaluation_config,
+            **kwargs,
+        )
+
+    def rerun_session_evaluation(
+        self,
+        session_id: str,
+        scenario: Scenario,
+        *,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
+        **kwargs: Any,
+    ) -> Evaluation:
+        """Re-execute a transient evaluation in place."""
+        evaluation = self.read_session_evaluation(session_id)
+        updated = self.rerun_evaluation_object(
+            evaluation,
+            scenario,
+            evaluation_config=evaluation_config,
+            **kwargs,
+        )
+        self._session_evaluations[session_id] = updated
+        return updated
+
+    def rerun_evaluation_object(
+        self,
+        evaluation: Evaluation,
+        scenario: Scenario,
+        *,
+        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
+        persist: bool = False,
+        **kwargs: Any,
+    ) -> Evaluation:
+        """Re-execute an existing evaluation object with a fresh running state."""
+        restarted = self._restart_evaluation_object(evaluation)
+        return self.execute_evaluation(
+            restarted,
+            scenario,
+            evaluation_config=evaluation_config,
+            persist=persist,
             **kwargs,
         )
 
@@ -325,3 +381,12 @@ class EvaluationManager:
                 evaluation.result
             )
         return evaluation
+
+    def _restart_evaluation_object(self, evaluation: Evaluation) -> Evaluation:
+        """Build a fresh running evaluation preserving identifier and version lineage."""
+        return Evaluation.create_default(
+            evaluation.evaluation_id,
+            scenario_id=evaluation.scenario_id,
+            type=evaluation.type,
+            version=evaluation.version,
+        )

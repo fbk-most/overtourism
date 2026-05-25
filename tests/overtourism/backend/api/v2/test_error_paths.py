@@ -188,19 +188,34 @@ def test_evaluation_routes_return_404_for_missing_entities(
     }
 
     read_response = client.get(
-        f"/api/v2/{tenant}/evaluations",
-        params={"problem_id": problem_id, "scenario_id": "missing-scenario"},
+        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        params={"problem_id": problem_id},
     )
     assert read_response.status_code == 404
     assert read_response.json() == {
-        "detail": "Evaluation for scenario 'missing-scenario' not found for problem 'default'"
+        "detail": "Evaluation 'missing-evaluation' not found for problem 'default'"
     }
 
     data_response = client.get(
-        f"/api/v2/{tenant}/evaluations/data",
-        params={"problem_id": problem_id, "scenario_id": "missing-scenario"},
+        f"/api/v2/{tenant}/evaluations/missing-evaluation/data",
+        params={"problem_id": problem_id},
     )
     assert data_response.status_code == 404
+
+    update_response = client.put(
+        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        params={"problem_id": problem_id},
+        headers={"Version": "1"},
+        json={"ensemble_size": 4},
+    )
+    assert update_response.status_code == 404
+
+    delete_response = client.delete(
+        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        params={"problem_id": problem_id},
+        headers={"Version": "1"},
+    )
+    assert delete_response.status_code == 404
 
     session_response = client.post(
         f"/api/v2/{tenant}/evaluations",
