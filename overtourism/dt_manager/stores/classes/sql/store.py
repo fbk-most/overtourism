@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker
 
 from overtourism.dt_manager.stores.classes.base import Store
@@ -36,6 +39,7 @@ class SQLStore(Store):
         self._setup(url)
 
     def _setup(self, url: str) -> None:
+        self._ensure_sqlite_parent_dirs(url)
         self.engine = create_engine(url)
         if self.engine.url.get_backend_name() == "sqlite":
             self._enable_sqlite_foreign_keys(self.engine)
@@ -45,6 +49,17 @@ class SQLStore(Store):
             expire_on_commit=False,
         )
         SQLBase.metadata.create_all(self.engine)
+
+    def _ensure_sqlite_parent_dirs(self, url: str) -> None:
+        parsed_url = make_url(url)
+        if parsed_url.get_backend_name() != "sqlite":
+            return
+
+        database = parsed_url.database
+        if database in (None, "", ":memory:"):
+            return
+
+        Path(database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 
     def _enable_sqlite_foreign_keys(self, engine: Engine) -> None:
         """Enable SQLite foreign key enforcement for each new connection.
