@@ -24,8 +24,8 @@ def test_create_and_list_proposals_for_a_problem(
     )
 
     assert create_response.status_code == 200
-    assert create_response.headers["etag"] == "1"
     assert create_response.json()["proposal_id"] == "proposal-api"
+    assert create_response.json()["version"] == 1
     assert create_response.json()["extras"] == {"channel": "api"}
     assert create_response.json()["related_scenario_ids"] == ["default"]
 
@@ -43,10 +43,7 @@ def test_create_and_list_proposals_for_a_problem(
     )
 
     assert list_response.status_code == 200
-    proposals = {
-        item["proposal_id"]: item
-        for item in list_response.json()
-    }
+    proposals = {item["proposal_id"]: item for item in list_response.json()}
     assert set(proposals) == {"default", "proposal-api"}
     assert proposals["proposal-api"]["related_scenario_ids"] == ["default"]
 
@@ -72,13 +69,13 @@ def test_update_and_delete_proposal_require_the_current_version(
     )
 
     assert missing_version.status_code == 428
-    assert missing_version.json() == {"detail": "Missing Version header"}
+    assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     update_response = client.put(
         f"/api/v2/{tenant}/proposals/proposal-versioned",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
         json={
+            "version": 1,
             "name": "Updated proposal",
             "status": "accepted",
             "related_scenario_ids": [],
@@ -86,7 +83,7 @@ def test_update_and_delete_proposal_require_the_current_version(
     )
 
     assert update_response.status_code == 200
-    assert update_response.headers["etag"] == "2"
+    assert update_response.json()["version"] == 2
     assert update_response.json()["name"] == "Updated proposal"
     assert update_response.json()["status"] == "accepted"
     assert update_response.json()["related_scenario_ids"] == []
@@ -104,12 +101,15 @@ def test_update_and_delete_proposal_require_the_current_version(
     )
 
     assert delete_missing_version.status_code == 428
-    assert delete_missing_version.json() == {"detail": "Missing Version header"}
+    assert delete_missing_version.json() == {
+        "detail": "Missing version in entity payload"
+    }
 
-    delete_response = client.delete(
+    delete_response = client.request(
+        "DELETE",
         f"/api/v2/{tenant}/proposals/proposal-versioned",
         params={"problem_id": problem_id},
-        headers={"Version": "2"},
+        json={"version": 2},
     )
 
     assert delete_response.status_code == 200
@@ -148,8 +148,10 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     update_response = client.put(
         f"/api/v2/{tenant}/proposals/proposal-valid",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
-        json={"related_scenario_ids": ["default", "missing-scenario"]},
+        json={
+            "version": 1,
+            "related_scenario_ids": ["default", "missing-scenario"],
+        },
     )
 
     assert update_response.status_code == 404

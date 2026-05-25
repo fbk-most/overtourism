@@ -6,10 +6,11 @@ import sys
 from types import ModuleType
 
 import pytest
-from fastapi import HTTPException, Response
+from fastapi import HTTPException
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
 from overtourism.backend.api.v2.models.problem import PostProblemData, UpdateProblemData
 from overtourism.backend.api.v2.utils import (
+    api_entity_payload,
     arrange_data,
     build_problem_extras,
     check_version,
@@ -36,7 +37,6 @@ from overtourism.backend.api.v2.utils import (
     scenario_manager,
     session_summary_to_api,
     session_to_api,
-    set_version_header,
     slugify_name,
 )
 from overtourism.backend.handler import Handler
@@ -201,10 +201,12 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
     session_payload = session_to_api(session)
     assert session_payload.draft_ids == [draft.scenario_id]
     assert [item.scenario_id for item in session_payload.drafts] == [draft.scenario_id]
+    assert session_payload.drafts[0].version == 1
     assert (
         session_payload.evaluations[draft.scenario_id].evaluation_id
         == evaluation.evaluation_id
     )
+    assert session_payload.evaluations[draft.scenario_id].version == 2
 
     assert (
         get_session_or_404(handler, problem_id, "session-utils").session_id
@@ -258,30 +260,39 @@ def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
     problem_id: str,
     monkeypatch,
 ) -> None:
-    response = Response()
-    set_version_header(response, 7)
-    assert response.headers["etag"] == "7"
+    assert api_entity_payload({"problem_id": problem_id, "version": 7}) == {
+        "problem_id": problem_id,
+        "version": 7,
+    }
 
     assert parse_version(None) is None
+    assert parse_version(3) == 3
     assert parse_version("3") == 3
 
     with pytest.raises(HTTPException) as non_integer_exc:
         parse_version("abc")
     assert non_integer_exc.value.status_code == 400
+    assert non_integer_exc.value.detail == "version must contain an integer value"
 
     with pytest.raises(HTTPException) as non_positive_exc:
         parse_version("0")
     assert non_positive_exc.value.status_code == 400
+    assert non_positive_exc.value.detail == "version must be a positive integer"
 
-    check_version(3, "3")
+    check_version(3, 3)
 
     with pytest.raises(HTTPException) as missing_exc:
         check_version(3, None)
     assert missing_exc.value.status_code == 428
+    assert missing_exc.value.detail == "Missing version in entity payload"
 
     with pytest.raises(HTTPException) as mismatch_exc:
         check_version(3, "2")
     assert mismatch_exc.value.status_code == 412
+    assert (
+        mismatch_exc.value.detail
+        == "version mismatch: expected 2, current version is 3"
+    )
 
     fake_module = ModuleType("scenario")
 

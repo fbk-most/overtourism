@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import typing
 
-from fastapi import HTTPException, Response, status
+from fastapi import HTTPException, status
 from slugify import slugify
 
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
-from overtourism.backend.api.v2.models.evaluation import EvaluationData, EvaluationOutputData
+from overtourism.backend.api.v2.models.evaluation import (
+    EvaluationData,
+    EvaluationOutputData,
+)
 from overtourism.backend.api.v2.models.scenario import ScenarioData
 from overtourism.backend.api.v2.models.session import SessionData, SessionSummaryData
 from overtourism.backend.handler import Handler
@@ -138,10 +141,11 @@ def problem_update_from_model(
     data: UpdateProblemData,
 ) -> dict[str, typing.Any]:
     """Extract problem update fields and extras from a payload."""
+    payload = data.model_dump(exclude_unset=True, exclude={"version"})
     return {
         "name": data.problem_name,
         "description": data.problem_description,
-        "extras": build_problem_extras(handler, data.model_dump(exclude_unset=True)),
+        "extras": build_problem_extras(handler, payload),
     }
 
 
@@ -299,9 +303,7 @@ def get_session_evaluation_by_id_or_404(
     evaluation_id: str,
 ) -> Evaluation:
     """Return an in-memory session evaluation by identifier or raise a not-found error."""
-    detail = (
-        f"Evaluation '{evaluation_id}' not found for problem '{problem_id}' in session '{session_id}'"
-    )
+    detail = f"Evaluation '{evaluation_id}' not found for problem '{problem_id}' in session '{session_id}'"
     try:
         return handler.manager.read_session_evaluation_by_id(
             problem_id,
@@ -352,57 +354,58 @@ def session_to_api(session) -> SessionData:
         metadata=dict(session.metadata),
         active_scenario_id=session.active_scenario_id,
         draft_ids=list(session.drafts),
-        drafts=[ScenarioData(**draft.to_dict()) for draft in session.drafts.values()],
+        drafts=[
+            ScenarioData(**api_entity_payload(draft.to_dict()))
+            for draft in session.drafts.values()
+        ],
         evaluations={
-            scenario_id: EvaluationData(**evaluation.to_dict())
+            scenario_id: EvaluationData(**api_entity_payload(evaluation.to_dict()))
             for scenario_id, evaluation in session.evaluations.items()
         },
     )
 
 
-# ──────────────────────────────────────────────
-# Versioning
-# ──────────────────────────────────────────────
+def api_entity_payload(payload: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    """Expose the persistence payload without renaming its version field."""
+    return dict(payload)
 
 
-def set_version_header(response: Response, version: int) -> None:
-    """Expose the current entity version through a standard ETag header."""
-    response.headers["ETag"] = str(version)
-
-
-def parse_version(version: str | None) -> int | None:
-    """Parse a single Version version token into an integer version."""
+def parse_version(version: int | str | None) -> int | None:
+    """Parse an incoming concurrency token into an integer version."""
     if version is None:
         return None
-    try:
-        parsed_version = int(version)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Version must contain an integer version",
-        ) from exc
+    if isinstance(version, int):
+        parsed_version = version
+    else:
+        try:
+            parsed_version = int(version)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="version must contain an integer value",
+            ) from exc
 
     if parsed_version < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Version must be a positive integer version",
+            detail="version must be a positive integer",
         )
     return parsed_version
 
 
-def check_version(current_version: int, version: str | None) -> None:
-    """Reject stale or missing Version validators before a write."""
+def check_version(current_version: int, version: int | str | None) -> None:
+    """Reject stale or missing entity versions before a write."""
     expected_version = parse_version(version)
     if expected_version is None:
         raise HTTPException(
             status_code=status.HTTP_428_PRECONDITION_REQUIRED,
-            detail="Missing Version header",
+            detail="Missing version in entity payload",
         )
     if expected_version != current_version:
         raise HTTPException(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             detail=(
-                f"Version mismatch: expected {expected_version}, current version is {current_version}"
+                f"version mismatch: expected {expected_version}, current version is {current_version}"
             ),
         )
 

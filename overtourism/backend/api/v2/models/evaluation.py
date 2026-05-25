@@ -45,5 +45,6 @@ class PostEvaluationData(BaseModel):
 class UpdateEvaluationData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    version: int | None = None
     ensemble_size: int = 20
     kwargs: dict[str, Any] = Field(default_factory=dict)

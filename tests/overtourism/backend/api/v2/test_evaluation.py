@@ -15,7 +15,7 @@ def test_create_and_read_stored_evaluation(
     )
 
     assert create_response.status_code == 200
-    assert create_response.headers["etag"] == "2"
+    assert create_response.json()["version"] == 2
     assert create_response.json()["scenario_id"] == "default"
     assert create_response.json()["state"] == "COMPLETED"
     assert create_response.json()["result"] == {
@@ -38,11 +38,11 @@ def test_create_and_read_stored_evaluation(
     )
 
     assert read_response.status_code == 200
-    assert read_response.headers["etag"] == "2"
+    assert read_response.json()["version"] == 2
     assert read_response.json()["evaluation_id"] == evaluation_id
 
 
-def test_stored_evaluation_can_be_updated_and_deleted(
+def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
     client,
     tenant: str,
     problem_id: str,
@@ -61,17 +61,15 @@ def test_stored_evaluation_can_be_updated_and_deleted(
     )
 
     assert missing_version.status_code == 428
-    assert missing_version.json() == {"detail": "Missing Version header"}
+    assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     update_response = client.put(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
-        headers={"Version": "2"},
-        json={"ensemble_size": 5},
+        json={"version": 2, "ensemble_size": 5},
     )
 
     assert update_response.status_code == 200
-    assert update_response.headers["etag"] == "3"
     assert update_response.json()["version"] == 3
     assert update_response.json()["result"] == {
         "ensemble_size": 5,
@@ -85,18 +83,22 @@ def test_stored_evaluation_can_be_updated_and_deleted(
 
     assert delete_missing_version.status_code == 428
 
-    delete_response = client.delete(
+    delete_response = client.request(
+        "DELETE",
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
-        headers={"Version": "3"},
+        json={"version": 3},
     )
 
     assert delete_response.status_code == 200
     assert delete_response.json() == {"message": "Evaluation deleted successfully"}
-    assert client.get(
-        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
-        params={"problem_id": problem_id},
-    ).status_code == 404
+    assert (
+        client.get(
+            f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+            params={"problem_id": problem_id},
+        ).status_code
+        == 404
+    )
 
 
 def test_create_and_read_session_evaluation_for_a_draft(
@@ -114,14 +116,13 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     create_response = client.post(
-        f"/api/v2/{tenant}/evaluations",
+        f"/api/v2/{tenant}/evaluations/session/session-eval",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-eval"},
         json={"scenario_id": draft.scenario_id, "ensemble_size": 4},
     )
 
     assert create_response.status_code == 200
-    assert create_response.headers["etag"] == "2"
+    assert create_response.json()["version"] == 2
     assert create_response.json()["scenario_id"] == draft.scenario_id
     assert create_response.json()["result"] == {
         "ensemble_size": 4,
@@ -130,21 +131,20 @@ def test_create_and_read_session_evaluation_for_a_draft(
     evaluation_id = create_response.json()["evaluation_id"]
 
     list_response = client.get(
-        f"/api/v2/{tenant}/evaluations",
+        f"/api/v2/{tenant}/evaluations/session/session-eval",
         params={"problem_id": problem_id, "scenario_id": draft.scenario_id},
-        headers={"Session-ID": "session-eval"},
     )
 
     assert list_response.status_code == 200
     assert [item["evaluation_id"] for item in list_response.json()] == [evaluation_id]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        f"/api/v2/{tenant}/evaluations/session/session-eval/{evaluation_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-eval"},
     )
 
     assert read_response.status_code == 200
+    assert read_response.json()["version"] == 2
     assert read_response.json()["evaluation_id"] == evaluation_id
 
 
@@ -162,31 +162,30 @@ def test_session_evaluation_can_be_updated_and_deleted(
         name="Session draft",
     )
     create_response = client.post(
-        f"/api/v2/{tenant}/evaluations",
+        f"/api/v2/{tenant}/evaluations/session/session-update",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-update"},
         json={"scenario_id": draft.scenario_id, "ensemble_size": 3},
     )
     evaluation_id = create_response.json()["evaluation_id"]
 
     update_response = client.put(
-        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        f"/api/v2/{tenant}/evaluations/session/session-update/{evaluation_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-update", "Version": "2"},
-        json={"ensemble_size": 8},
+        json={"version": 2, "ensemble_size": 8},
     )
 
     assert update_response.status_code == 200
-    assert update_response.headers["etag"] == "3"
+    assert update_response.json()["version"] == 3
     assert update_response.json()["result"] == {
         "ensemble_size": 8,
         "values": {"visits": 6},
     }
 
-    delete_response = client.delete(
-        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+    delete_response = client.request(
+        "DELETE",
+        f"/api/v2/{tenant}/evaluations/session/session-update/{evaluation_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-update", "Version": "3"},
+        json={"version": 3},
     )
 
     assert delete_response.status_code == 200

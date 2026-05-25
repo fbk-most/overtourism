@@ -20,8 +20,8 @@ def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) ->
     )
 
     assert read_response.status_code == 200
-    assert read_response.headers["etag"] == "1"
     assert read_response.json()["scenario_id"] == "default"
+    assert read_response.json()["version"] == 1
 
 
 def test_update_stored_scenario_requires_the_current_version(
@@ -36,13 +36,13 @@ def test_update_stored_scenario_requires_the_current_version(
     )
 
     assert missing_version.status_code == 428
-    assert missing_version.json() == {"detail": "Missing Version header"}
+    assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     update_response = client.put(
         f"/api/v2/{tenant}/scenarios/default",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
         json={
+            "version": 1,
             "name": "Updated default",
             "description": "Updated through the route",
             "values": {"visits": 11},
@@ -50,7 +50,6 @@ def test_update_stored_scenario_requires_the_current_version(
     )
 
     assert update_response.status_code == 200
-    assert update_response.headers["etag"] == "2"
     assert update_response.json()["version"] == 2
     assert update_response.json()["name"] == "Updated default"
     assert update_response.json()["index_values"] == [
@@ -70,9 +69,8 @@ def test_session_scenario_can_be_created_updated_and_saved(
     proposal_id: str,
 ) -> None:
     create_response = client.post(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{tenant}/scenarios/session/session-1",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-1"},
         json={
             "base_scenario_id": "default",
             "name": "Draft scenario",
@@ -85,22 +83,21 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert create_response.status_code == 200
     draft_id = create_response.json()["scenario_id"]
     assert draft_id.startswith("default_session-1_")
-    assert create_response.headers["etag"] == "1"
+    assert create_response.json()["version"] == 1
 
     read_response = client.get(
-        f"/api/v2/{tenant}/scenarios/{draft_id}",
+        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-1"},
     )
 
     assert read_response.status_code == 200
     assert read_response.json()["extras"] == {"stage": "draft"}
 
     update_response = client.put(
-        f"/api/v2/{tenant}/scenarios/{draft_id}",
+        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-1", "Version": "1"},
         json={
+            "version": 1,
             "name": "Draft scenario updated",
             "values": {"visits": 9},
             "extras": {"stage": "review"},
@@ -108,16 +105,15 @@ def test_session_scenario_can_be_created_updated_and_saved(
     )
 
     assert update_response.status_code == 200
-    assert update_response.headers["etag"] == "2"
     assert update_response.json()["version"] == 2
     assert update_response.json()["name"] == "Draft scenario updated"
     assert update_response.json()["extras"] == {"stage": "review"}
 
     save_response = client.post(
-        f"/api/v2/{tenant}/scenarios/{draft_id}",
+        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-1", "Version": "2"},
         json={
+            "version": 2,
             "name": "Saved scenario",
             "description": "Persisted after review",
             "proposal_id": proposal_id,
@@ -125,8 +121,8 @@ def test_session_scenario_can_be_created_updated_and_saved(
     )
 
     assert save_response.status_code == 200
-    assert save_response.headers["etag"] == "2"
     assert save_response.json()["scenario_id"] == draft_id
+    assert save_response.json()["version"] == 2
     assert save_response.json()["name"] == "Saved scenario"
     assert (
         manager.problem_manager.get_related_scenario_ids(problem_id, proposal_id)[-1]
@@ -149,10 +145,11 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
         name="Disposable draft",
     )
 
-    delete_response = client.delete(
-        f"/api/v2/{tenant}/scenarios/{draft.scenario_id}",
+    delete_response = client.request(
+        "DELETE",
+        f"/api/v2/{tenant}/scenarios/session/session-delete/{draft.scenario_id}",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-delete", "Version": "1"},
+        json={"version": 1},
     )
 
     assert delete_response.status_code == 200
@@ -176,10 +173,11 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
         name="Scenario delete",
     )
 
-    delete_response = client.delete(
+    delete_response = client.request(
+        "DELETE",
         f"/api/v2/{tenant}/scenarios/{scenario.scenario_id}",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
+        json={"version": 1},
     )
 
     assert delete_response.status_code == 200

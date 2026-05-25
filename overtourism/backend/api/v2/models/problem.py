@@ -14,6 +14,9 @@ class PostProblemData(BaseModel):
 
 
 class UpdateProblemData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: int | None = None
     problem_name: str | None = None
     problem_description: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)

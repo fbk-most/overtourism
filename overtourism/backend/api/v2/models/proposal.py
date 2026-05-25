@@ -38,6 +38,7 @@ class PostProposalData(BaseModel):
 class UpdateProposalData(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
+    version: int | None = None
     name: str | None = None
     description: str | None = None
     status: ProposalStatus | None = None

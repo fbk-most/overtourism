@@ -32,6 +32,7 @@ class PostScenarioData(BaseModel):
 class SaveScenarioData(BaseModel):
     model_config = ConfigDict(extra="forbid", exclude_none=True)
 
+    version: int | None = None
     name: str | None = None
     description: str | None = None
     extras: dict[str, Any] | None = None
@@ -41,6 +42,7 @@ class SaveScenarioData(BaseModel):
 class UpdateScenarioData(BaseModel):
     model_config = ConfigDict(extra="forbid", exclude_none=True)
 
+    version: int | None = None
     name: str | None = None
     description: str | None = None
     values: dict[str, Any] | None = None

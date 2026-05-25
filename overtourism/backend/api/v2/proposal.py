@@ -4,21 +4,22 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v2.models.common import VersionData
 from overtourism.backend.api.v2.models.proposal import (
     PostProposalData,
     ProposalData,
     UpdateProposalData,
 )
 from overtourism.backend.api.v2.utils import (
+    api_entity_payload,
     check_version,
     get_problem_or_404,
     get_proposal_or_404,
     get_scenario_or_404,
-    set_version_header,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -49,10 +50,12 @@ def _proposal_to_api(
     problem_id: str,
     proposal,
 ) -> dict:
-    payload = proposal.to_dict()
-    payload["related_scenario_ids"] = handler.manager.problem_manager.get_related_scenario_ids(
-        problem_id,
-        proposal.proposal_id,
+    payload = api_entity_payload(proposal.to_dict())
+    payload["related_scenario_ids"] = (
+        handler.manager.problem_manager.get_related_scenario_ids(
+            problem_id,
+            proposal.proposal_id,
+        )
     )
     return payload
 
@@ -96,7 +99,6 @@ async def create_proposal(
     tenant: str,
     problem_id: str,
     proposal: PostProposalData,
-    response: Response,
     handler: Handler = Depends(get_handler),
 ) -> ProposalData:
     """Create a proposal for a problem."""
@@ -113,7 +115,6 @@ async def create_proposal(
             **proposal_payload,
         ).proposal_id
         proposal_entity = handler.manager.read_proposal(problem_id, proposal_id)
-        set_version_header(response, proposal_entity.version)
         logger.info(f"Proposal created: {proposal_id} for problem {problem_id}")
         return _proposal_to_api(handler, problem_id, proposal_entity)
     except Exception as e:
@@ -134,14 +135,12 @@ async def read_proposal(
     tenant: str,
     problem_id: str,
     proposal_id: str,
-    response: Response,
     handler: Handler = Depends(get_handler),
 ) -> ProposalData:
     """Read a proposal by identifier."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
         proposal = get_proposal_or_404(handler, problem_id, proposal_id)
-        set_version_header(response, proposal.version)
         return _proposal_to_api(handler, problem_id, proposal)
     except Exception as e:
         logger.error(
@@ -164,17 +163,14 @@ async def update_proposal(
     problem_id: str,
     proposal_id: str,
     proposal: UpdateProposalData,
-    response: Response,
-    *,
-    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
 ) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
         current_proposal = get_proposal_or_404(handler, problem_id, proposal_id)
-        check_version(current_proposal.version, version)
-        proposal_payload = proposal.model_dump(exclude_unset=True)
+        check_version(current_proposal.version, proposal.version)
+        proposal_payload = proposal.model_dump(exclude_unset=True, exclude={"version"})
         proposal_payload["related_scenario_ids"] = _validate_related_scenario_ids(
             handler,
             problem_id,
@@ -186,7 +182,6 @@ async def update_proposal(
             **proposal_payload,
         )
         updated_proposal = handler.manager.read_proposal(problem_id, proposal_id)
-        set_version_header(response, updated_proposal.version)
         logger.info(f"Proposal updated: {proposal_id} for problem {problem_id}")
         return _proposal_to_api(handler, problem_id, updated_proposal)
     except Exception as e:
@@ -208,14 +203,14 @@ async def delete_proposal(
     tenant: str,
     problem_id: str,
     proposal_id: str,
-    version: str | None = Header(default=None, alias="Version"),
+    data: VersionData | None = None,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a proposal from a problem."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
         proposal = get_proposal_or_404(handler, problem_id, proposal_id)
-        check_version(proposal.version, version)
+        check_version(proposal.version, None if data is None else data.version)
         handler.manager.delete_proposal(problem_id, proposal_id)
         logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")
     except Exception as e:

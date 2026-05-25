@@ -20,7 +20,7 @@ def test_list_problems_filters_by_tenant(client, manager: Manager, tenant: str) 
     assert [item["problem_id"] for item in response.json()] == ["default"]
 
 
-def test_create_problem_returns_slugified_problem_with_etag(
+def test_create_problem_returns_slugified_problem_with_version(
     client, tenant: str
 ) -> None:
     response = client.post(
@@ -33,7 +33,6 @@ def test_create_problem_returns_slugified_problem_with_etag(
     )
 
     assert response.status_code == 200
-    assert response.headers["etag"] == "1"
     assert response.json() == {
         "problem_id": "lake-cleanup",
         "version": 1,
@@ -46,35 +45,36 @@ def test_create_problem_returns_slugified_problem_with_etag(
     }
 
 
-def test_read_problem_returns_current_etag(client, tenant: str) -> None:
+def test_read_problem_returns_current_version(client, tenant: str) -> None:
     response = client.get(f"/api/v2/{tenant}/problems/default")
 
     assert response.status_code == 200
-    assert response.headers["etag"] == "1"
     assert response.json()["problem_id"] == "default"
+    assert response.json()["version"] == 1
     assert response.json()["tenant"] == tenant
 
 
-def test_update_problem_requires_matching_version_header(client, tenant: str) -> None:
+def test_update_problem_requires_matching_version_in_entity(
+    client, tenant: str
+) -> None:
     missing_version = client.put(
         f"/api/v2/{tenant}/problems/default",
         json={"problem_name": "Updated default"},
     )
 
     assert missing_version.status_code == 428
-    assert missing_version.json() == {"detail": "Missing Version header"}
+    assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     response = client.put(
         f"/api/v2/{tenant}/problems/default",
-        headers={"Version": "1"},
         json={
+            "version": 1,
             "problem_name": "Updated default",
             "problem_description": "Updated description",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["etag"] == "2"
     assert response.json()["name"] == "Updated default"
     assert response.json()["description"] == "Updated description"
     assert response.json()["version"] == 2

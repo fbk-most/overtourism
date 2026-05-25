@@ -23,8 +23,7 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 
     update_response = client.put(
         f"/api/v2/{tenant}/problems/missing-problem",
-        headers={"Version": "1"},
-        json={"problem_name": "Updated"},
+        json={"version": 1, "problem_name": "Updated"},
     )
     assert update_response.status_code == 404
 
@@ -73,15 +72,13 @@ def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     update_response = client.put(
         f"/api/v2/{tenant}/proposals/missing-proposal",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
-        json={"name": "Updated"},
+        json={"version": 1, "name": "Updated"},
     )
     assert update_response.status_code == 404
 
     delete_response = client.delete(
         f"/api/v2/{tenant}/proposals/missing-proposal",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
     )
     assert delete_response.status_code == 404
 
@@ -98,9 +95,8 @@ def test_scenario_routes_return_404_for_missing_entities(
     assert list_response.status_code == 404
 
     create_response = client.post(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{tenant}/scenarios/session/session-404",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-404"},
         json={"base_scenario_id": "missing-scenario"},
     )
     assert create_response.status_code == 404
@@ -117,23 +113,20 @@ def test_scenario_routes_return_404_for_missing_entities(
     update_response = client.put(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
-        json={"name": "Updated"},
+        json={"version": 1, "name": "Updated"},
     )
     assert update_response.status_code == 404
 
     save_response = client.post(
-        f"/api/v2/{tenant}/scenarios/missing-scenario",
+        f"/api/v2/{tenant}/scenarios/session/session-404/missing-scenario",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "session-404", "Version": "1"},
-        json={"name": "Save failed"},
+        json={"version": 1, "name": "Save failed"},
     )
     assert save_response.status_code == 404
 
     delete_response = client.delete(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
     )
     assert delete_response.status_code == 404
 
@@ -205,22 +198,19 @@ def test_evaluation_routes_return_404_for_missing_entities(
     update_response = client.put(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
-        json={"ensemble_size": 4},
+        json={"version": 1, "ensemble_size": 4},
     )
     assert update_response.status_code == 404
 
     delete_response = client.delete(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
-        headers={"Version": "1"},
     )
     assert delete_response.status_code == 404
 
     session_response = client.post(
-        f"/api/v2/{tenant}/evaluations",
+        f"/api/v2/{tenant}/evaluations/session/missing-session",
         params={"problem_id": problem_id},
-        headers={"Session-ID": "missing-session"},
         json={"scenario_id": "missing-scenario"},
     )
     assert session_response.status_code == 404

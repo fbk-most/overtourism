@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
@@ -14,11 +14,11 @@ from overtourism.backend.api.v2.models.problem import (
     UpdateProblemData,
 )
 from overtourism.backend.api.v2.utils import (
+    api_entity_payload,
     check_version,
     get_problem_or_404,
     problem_from_model,
     problem_update_from_model,
-    set_version_header,
     slugify_name,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -47,7 +47,7 @@ async def list_problems(
     """List all problems in the current store."""
     try:
         return [
-            problem.to_dict()
+            api_entity_payload(problem.to_dict())
             for problem in handler.manager.list_problems()
             if problem.tenant == tenant
         ]
@@ -68,7 +68,6 @@ async def list_problems(
 async def create_problem(
     tenant: str,
     data: PostProblemData,
-    response: Response,
     handler: Handler = Depends(get_handler),
 ) -> ProblemData:
     """Create a new problem with default scenario."""
@@ -82,9 +81,8 @@ async def create_problem(
             },
         )
         problem = handler.manager.read_problem(problem_id)
-        set_version_header(response, problem.version)
         logger.info(f"Problem created: {problem_id}")
-        return problem.to_dict()
+        return api_entity_payload(problem.to_dict())
     except Exception as e:
         logger.error(f"Error creating problem {data.problem_name}: {e}")
         raise
@@ -102,14 +100,12 @@ async def create_problem(
 async def read_problem(
     tenant: str,
     problem_id: str,
-    response: Response,
     handler: Handler = Depends(get_handler),
 ) -> ProblemData:
     """Read a problem."""
     try:
         problem = get_problem_or_404(handler, tenant, problem_id)
-        set_version_header(response, problem.version)
-        return problem.to_dict()
+        return api_entity_payload(problem.to_dict())
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
         raise
@@ -128,22 +124,18 @@ async def update_problem(
     tenant: str,
     problem_id: str,
     data: UpdateProblemData,
-    response: Response,
-    *,
-    version: str | None = Header(default=None, alias="Version"),
     handler: Handler = Depends(get_handler),
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
         problem = get_problem_or_404(handler, tenant, problem_id)
-        check_version(problem.version, version)
+        check_version(problem.version, data.version)
         handler.manager.update_problem(
             problem_id, **problem_update_from_model(handler, data)
         )
         updated_problem = handler.manager.read_problem(problem_id)
-        set_version_header(response, updated_problem.version)
         logger.info(f"Problem updated: {problem_id}")
-        return updated_problem.to_dict()
+        return api_entity_payload(updated_problem.to_dict())
     except Exception as e:
         logger.error(f"Error updating problem {problem_id}: {e}")
         raise
