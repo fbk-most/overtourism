@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation import manager as evaluation_manager_module

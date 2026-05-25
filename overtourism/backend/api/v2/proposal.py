@@ -15,7 +15,6 @@ from overtourism.backend.api.v2.models.proposal import (
     UpdateProposalData,
 )
 from overtourism.backend.api.v2.utils import (
-    api_entity_payload,
     check_version,
     get_problem_or_404,
     get_proposal_or_404,
@@ -50,7 +49,7 @@ def _proposal_to_api(
     problem_id: str,
     proposal,
 ) -> dict:
-    payload = api_entity_payload(proposal.to_dict())
+    payload = proposal.to_dict()
     payload["related_scenario_ids"] = (
         handler.manager.problem_manager.get_related_scenario_ids(
             problem_id,

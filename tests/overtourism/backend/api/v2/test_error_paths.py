@@ -95,7 +95,7 @@ def test_scenario_routes_return_404_for_missing_entities(
     assert list_response.status_code == 404
 
     create_response = client.post(
-        f"/api/v2/{tenant}/scenarios/session/session-404",
+        f"/api/v2/{tenant}/sessions/session-404/scenarios",
         params={"problem_id": problem_id},
         json={"base_scenario_id": "missing-scenario"},
     )
@@ -118,7 +118,7 @@ def test_scenario_routes_return_404_for_missing_entities(
     assert update_response.status_code == 404
 
     save_response = client.post(
-        f"/api/v2/{tenant}/scenarios/session/session-404/missing-scenario",
+        f"/api/v2/{tenant}/sessions/session-404/scenarios/missing-scenario",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Save failed"},
     )
@@ -209,11 +209,17 @@ def test_evaluation_routes_return_404_for_missing_entities(
     assert delete_response.status_code == 404
 
     session_response = client.post(
-        f"/api/v2/{tenant}/evaluations/session/missing-session",
+        f"/api/v2/{tenant}/sessions/missing-session/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": "missing-scenario"},
     )
     assert session_response.status_code == 404
+
+    session_data_response = client.get(
+        f"/api/v2/{tenant}/sessions/missing-session/evaluations/missing-evaluation/data",
+        params={"problem_id": problem_id},
+    )
+    assert session_data_response.status_code == 404
 
 
 def test_data_and_widget_routes_return_500_for_failing_collaborators(

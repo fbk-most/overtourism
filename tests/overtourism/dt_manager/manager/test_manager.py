@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
@@ -20,6 +19,7 @@ from overtourism.dt_manager.utils.exception import (
     ScenarioDoesNotExist,
     SessionDoesNotExist,
 )
+
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 

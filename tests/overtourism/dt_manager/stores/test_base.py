@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.stores.classes.base import Store
 
 

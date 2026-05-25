@@ -116,7 +116,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     create_response = client.post(
-        f"/api/v2/{tenant}/evaluations/session/session-eval",
+        f"/api/v2/{tenant}/sessions/session-eval/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": draft.scenario_id, "ensemble_size": 4},
     )
@@ -131,7 +131,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     evaluation_id = create_response.json()["evaluation_id"]
 
     list_response = client.get(
-        f"/api/v2/{tenant}/evaluations/session/session-eval",
+        f"/api/v2/{tenant}/sessions/session-eval/evaluations",
         params={"problem_id": problem_id, "scenario_id": draft.scenario_id},
     )
 
@@ -139,7 +139,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     assert [item["evaluation_id"] for item in list_response.json()] == [evaluation_id]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/evaluations/session/session-eval/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/session-eval/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
     )
 
@@ -162,14 +162,14 @@ def test_session_evaluation_can_be_updated_and_deleted(
         name="Session draft",
     )
     create_response = client.post(
-        f"/api/v2/{tenant}/evaluations/session/session-update",
+        f"/api/v2/{tenant}/sessions/session-update/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": draft.scenario_id, "ensemble_size": 3},
     )
     evaluation_id = create_response.json()["evaluation_id"]
 
     update_response = client.put(
-        f"/api/v2/{tenant}/evaluations/session/session-update/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/session-update/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 2, "ensemble_size": 8},
     )
@@ -183,7 +183,7 @@ def test_session_evaluation_can_be_updated_and_deleted(
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/evaluations/session/session-update/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/session-update/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 3},
     )
@@ -217,4 +217,41 @@ def test_evaluation_data_returns_arranged_data(
         "evaluation_id": evaluation.evaluation_id,
         "scenario_id": "default",
         "data": {"ensemble_size": 3},
+    }
+
+
+def test_session_evaluation_data_returns_arranged_data(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    draft = manager.session_manager.create_session_scenario(
+        problem_id,
+        "session-data",
+        "default",
+        values={"visits": 12},
+        name="Session draft",
+    )
+    evaluation = manager.session_manager.create_session_evaluation(
+        problem_id,
+        "session-data",
+        draft.scenario_id,
+        ensemble_size=6,
+    )
+
+    response = client.get(
+        f"/api/v2/{tenant}/sessions/session-data/evaluations/{evaluation.evaluation_id}/data",
+        params=[
+            ("problem_id", problem_id),
+            ("params", "ensemble_size"),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "problem_id": problem_id,
+        "evaluation_id": evaluation.evaluation_id,
+        "scenario_id": draft.scenario_id,
+        "data": {"ensemble_size": 6},
     }

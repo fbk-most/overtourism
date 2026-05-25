@@ -69,7 +69,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     proposal_id: str,
 ) -> None:
     create_response = client.post(
-        f"/api/v2/{tenant}/scenarios/session/session-1",
+        f"/api/v2/{tenant}/sessions/session-1/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": "default",
@@ -86,7 +86,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert create_response.json()["version"] == 1
 
     read_response = client.get(
-        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
+        f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
         params={"problem_id": problem_id},
     )
 
@@ -94,7 +94,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert read_response.json()["extras"] == {"stage": "draft"}
 
     update_response = client.put(
-        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
+        f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={
             "version": 1,
@@ -110,7 +110,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert update_response.json()["extras"] == {"stage": "review"}
 
     save_response = client.post(
-        f"/api/v2/{tenant}/scenarios/session/session-1/{draft_id}",
+        f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={
             "version": 2,
@@ -147,7 +147,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/scenarios/session/session-delete/{draft.scenario_id}",
+        f"/api/v2/{tenant}/sessions/session-delete/scenarios/{draft.scenario_id}",
         params={"problem_id": problem_id},
         json={"version": 1},
     )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
     ProposalDoesNotExist,

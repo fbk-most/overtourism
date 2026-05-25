@@ -5,15 +5,8 @@ from __future__ import annotations
 import typing
 
 from fastapi import HTTPException, status
-from slugify import slugify
 
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
-from overtourism.backend.api.v2.models.evaluation import (
-    EvaluationData,
-    EvaluationOutputData,
-)
-from overtourism.backend.api.v2.models.scenario import ScenarioData
-from overtourism.backend.api.v2.models.session import SessionData, SessionSummaryData
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.scenario.scenario import Scenario
@@ -25,15 +18,7 @@ from overtourism.dt_manager.utils.exception import (
 )
 
 if typing.TYPE_CHECKING:
-    from overtourism.backend.api.v2.models.problem import (
-        PostProblemData,
-        UpdateProblemData,
-    )
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
-    from overtourism.dt_manager.evaluation.manager import EvaluationManager
-    from overtourism.dt_manager.problem.manager import ProblemManager
-    from overtourism.dt_manager.proposal.manager import ProposalManager
-    from overtourism.dt_manager.scenario.manager import ScenarioManager
     from overtourism.dt_manager.session.session import SessionState
 
 
@@ -58,6 +43,11 @@ def get_problem_or_404(
     return problem
 
 
+# ──────────────────────────────────────────────
+# Scenario
+# ──────────────────────────────────────────────
+
+
 def get_scenario_or_404(
     handler: Handler,
     problem_id: str,
@@ -74,6 +64,11 @@ def get_scenario_or_404(
         ) from exc
 
 
+# ──────────────────────────────────────────────
+# Proposal
+# ──────────────────────────────────────────────
+
+
 def get_proposal_or_404(
     handler: Handler,
     problem_id: str,
@@ -88,6 +83,11 @@ def get_proposal_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=detail,
         ) from exc
+
+
+# ──────────────────────────────────────────────
+# Evaluation
+# ──────────────────────────────────────────────
 
 
 def get_evaluation_or_404(
@@ -122,63 +122,6 @@ def get_evaluation_by_id_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=detail,
         ) from exc
-
-
-def problem_from_model(
-    handler: Handler,
-    data: PostProblemData,
-) -> dict[str, typing.Any]:
-    """Extract problem fields and extras from a payload."""
-    return {
-        "name": data.problem_name,
-        "description": data.problem_description,
-        "extras": build_problem_extras(handler, data.model_dump(exclude_unset=True)),
-    }
-
-
-def problem_update_from_model(
-    handler: Handler,
-    data: UpdateProblemData,
-) -> dict[str, typing.Any]:
-    """Extract problem update fields and extras from a payload."""
-    payload = data.model_dump(exclude_unset=True, exclude={"version"})
-    return {
-        "name": data.problem_name,
-        "description": data.problem_description,
-        "extras": build_problem_extras(handler, payload),
-    }
-
-
-def build_problem_extras(
-    handler: Handler,
-    payload: dict[str, typing.Any],
-) -> dict[str, typing.Any]:
-    """Build problem extras from a request payload."""
-    extras = handler.manager.problem_extras_from_dict(payload)
-    extras["editable_indexes"] = get_widget_by_group(handler, payload.get("groups", []))
-    return extras
-
-
-def get_problem_editable_indexes(extras: dict) -> list[str]:
-    return [str(item) for item in extras.get("editable_indexes", [])]
-
-
-def build_evaluation_output(
-    handler: Handler,
-    scenario: Scenario,
-    evaluation: Evaluation,
-    *,
-    params: list[str] | None = None,
-) -> EvaluationOutputData:
-    """Build the v2 evaluation output payload for a specific evaluation snapshot."""
-    return EvaluationOutputData(
-        problem_id=scenario.problem_id,
-        scenario_id=scenario.scenario_id,
-        evaluation_id=evaluation.evaluation_id,
-        data=evaluation_result_to_dict(
-            arrange_data(handler, evaluation.result, params=params)
-        ),
-    )
 
 
 # ──────────────────────────────────────────────
@@ -254,6 +197,22 @@ def model_values(handler: Handler) -> dict[str, typing.Any]:
 # ──────────────────────────────────────────────
 
 
+def get_session_or_404(
+    handler: Handler,
+    problem_id: str,
+    session_id: str,
+) -> SessionState:
+    """Return an in-memory session or raise a not-found error."""
+    detail = f"Session '{session_id}' not found for problem '{problem_id}'"
+    try:
+        return handler.manager.session_manager.read_session(problem_id, session_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        ) from exc
+
+
 def get_session_scenario_or_404(
     handler: Handler,
     problem_id: str,
@@ -317,57 +276,9 @@ def get_session_evaluation_by_id_or_404(
         ) from exc
 
 
-def get_session_or_404(
-    handler: Handler,
-    problem_id: str,
-    session_id: str,
-) -> SessionState:
-    """Return an in-memory session or raise a not-found error."""
-    detail = f"Session '{session_id}' not found for problem '{problem_id}'"
-    try:
-        return handler.manager.session_manager.read_session(problem_id, session_id)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=detail,
-        ) from exc
-
-
-def session_summary_to_api(session) -> SessionSummaryData:
-    return SessionSummaryData(
-        problem_id=session.problem_id,
-        session_id=session.session_id,
-        created=session.created,
-        updated=session.updated,
-        metadata=dict(session.metadata),
-        active_scenario_id=session.active_scenario_id,
-        draft_ids=list(session.drafts),
-    )
-
-
-def session_to_api(session) -> SessionData:
-    return SessionData(
-        problem_id=session.problem_id,
-        session_id=session.session_id,
-        created=session.created,
-        updated=session.updated,
-        metadata=dict(session.metadata),
-        active_scenario_id=session.active_scenario_id,
-        draft_ids=list(session.drafts),
-        drafts=[
-            ScenarioData(**api_entity_payload(draft.to_dict()))
-            for draft in session.drafts.values()
-        ],
-        evaluations={
-            scenario_id: EvaluationData(**api_entity_payload(evaluation.to_dict()))
-            for scenario_id, evaluation in session.evaluations.items()
-        },
-    )
-
-
-def api_entity_payload(payload: dict[str, typing.Any]) -> dict[str, typing.Any]:
-    """Expose the persistence payload without renaming its version field."""
-    return dict(payload)
+# ──────────────────────────────────────────────
+# Validation
+# ──────────────────────────────────────────────
 
 
 def parse_version(version: int | str | None) -> int | None:
@@ -408,36 +319,3 @@ def check_version(current_version: int, version: int | str | None) -> None:
                 f"version mismatch: expected {expected_version}, current version is {current_version}"
             ),
         )
-
-
-# ──────────────────────────────────────────────
-# Utils
-# ──────────────────────────────────────────────
-
-
-def slugify_name(name: str) -> str:
-    """Generate a slugified identifier from a name."""
-    return slugify(name)
-
-
-def problem_manager(handler: Handler, problem_id: str) -> ProblemManager:
-    return handler.manager.problem_manager
-
-
-def proposal_manager(handler: Handler, problem_id: str) -> ProposalManager:
-    return handler.manager.proposal_managers[problem_id]
-
-
-def scenario_manager(handler: Handler, problem_id: str) -> ScenarioManager:
-    return handler.manager.scenario_managers[problem_id]
-
-
-def evaluation_manager(handler: Handler, problem_id: str) -> EvaluationManager:
-    return handler.manager.evaluation_managers[problem_id]
-
-
-def evaluation_result_to_dict(result: typing.Any) -> dict:
-    """Normalize a model output or mapping into a plain dictionary."""
-    if result is None:
-        return {}
-    return result.to_snapshot() if hasattr(result, "to_snapshot") else result

@@ -7,18 +7,11 @@ from types import ModuleType
 
 import pytest
 from fastapi import HTTPException
-
 from overtourism.backend.api.shared.exceptions import ProblemNotFound
-from overtourism.backend.api.v2.models.problem import PostProblemData, UpdateProblemData
 from overtourism.backend.api.v2.utils import (
-    api_entity_payload,
     arrange_data,
-    build_problem_extras,
     check_version,
-    evaluation_manager,
-    evaluation_result_to_dict,
     get_evaluation_or_404,
-    get_problem_editable_indexes,
     get_problem_or_404,
     get_proposal_or_404,
     get_scenario_or_404,
@@ -30,15 +23,7 @@ from overtourism.backend.api.v2.utils import (
     model_values,
     parse_version,
     prepare_values,
-    problem_from_model,
-    problem_manager,
-    problem_update_from_model,
-    proposal_manager,
     scenario_index_diffs,
-    scenario_manager,
-    session_summary_to_api,
-    session_to_api,
-    slugify_name,
 )
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
@@ -50,38 +35,6 @@ class SnapshotResult:
 
     def to_snapshot(self):
         return self.payload
-
-
-def test_problem_helpers_build_expected_payloads(handler) -> None:
-    extras = build_problem_extras(handler, {"groups": ["pressure"]})
-    assert extras == {"editable_indexes": ["pressure-widget"]}
-
-    create_model = PostProblemData(
-        problem_name="Lake Cleanup",
-        problem_description="Reduce pressure",
-        extras={"ignored": True},
-    )
-    assert problem_from_model(handler, create_model) == {
-        "name": "Lake Cleanup",
-        "description": "Reduce pressure",
-        "extras": {"editable_indexes": []},
-    }
-
-    update_model = UpdateProblemData(
-        problem_name="Updated",
-        problem_description="Updated description",
-    )
-    assert problem_update_from_model(handler, update_model) == {
-        "name": "Updated",
-        "description": "Updated description",
-        "extras": {"editable_indexes": []},
-    }
-
-    assert get_problem_editable_indexes({"editable_indexes": [1, "two"]}) == [
-        "1",
-        "two",
-    ]
-    assert slugify_name("Lake Cleanup 2026!") == "lake-cleanup-2026"
 
 
 def test_optional_viewer_and_data_hooks_are_respected(
@@ -110,22 +63,6 @@ def test_optional_viewer_and_data_hooks_are_respected(
     assert get_widget_by_group(bare_handler, ["pressure"]) == []
     assert prepare_values(bare_handler, payload) is payload
     assert arrange_data(bare_handler, payload) is payload
-
-    assert problem_manager(handler, problem_id) is manager.problem_manager
-    assert (
-        proposal_manager(handler, problem_id) is manager.proposal_managers[problem_id]
-    )
-    assert (
-        scenario_manager(handler, problem_id) is manager.scenario_managers[problem_id]
-    )
-    assert (
-        evaluation_manager(handler, problem_id)
-        is manager.evaluation_managers[problem_id]
-    )
-
-    assert evaluation_result_to_dict(None) == {}
-    assert evaluation_result_to_dict({"score": 2}) == {"score": 2}
-    assert evaluation_result_to_dict(SnapshotResult({"score": 3})) == {"score": 3}
 
 
 def test_not_found_helpers_translate_backend_errors_to_http_exceptions(
@@ -178,7 +115,7 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_evaluation_or_404(handler, problem_id, "missing-scenario")
     assert evaluation_exc.value.status_code == 404
 
-    session = manager.session_manager.create_session(
+    manager.session_manager.create_session(
         problem_id, "session-utils", metadata={"source": "ui"}
     )
     draft = manager.session_manager.create_session_scenario(
@@ -194,20 +131,6 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         draft.scenario_id,
         ensemble_size=4,
     )
-
-    summary = session_summary_to_api(session)
-    assert summary.session_id == "session-utils"
-    assert summary.metadata == {"source": "ui"}
-
-    session_payload = session_to_api(session)
-    assert session_payload.draft_ids == [draft.scenario_id]
-    assert [item.scenario_id for item in session_payload.drafts] == [draft.scenario_id]
-    assert session_payload.drafts[0].version == 1
-    assert (
-        session_payload.evaluations[draft.scenario_id].evaluation_id
-        == evaluation.evaluation_id
-    )
-    assert session_payload.evaluations[draft.scenario_id].version == 2
 
     assert (
         get_session_or_404(handler, problem_id, "session-utils").session_id
@@ -261,11 +184,6 @@ def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
     problem_id: str,
     monkeypatch,
 ) -> None:
-    assert api_entity_payload({"problem_id": problem_id, "version": 7}) == {
-        "problem_id": problem_id,
-        "version": 7,
-    }
-
     assert parse_version(None) is None
     assert parse_version(3) == 3
     assert parse_version("3") == 3
