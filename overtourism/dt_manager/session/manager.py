@@ -235,7 +235,7 @@ class SessionManager:
             self.evaluation_managers[problem_id].save_evaluation(session_evaluation)
 
         if proposal_id is not None:
-            self.problem_manager.link_scenario_to_proposal(
+            self.problem_manager.link_scenario_proposal(
                 problem_id,
                 proposal_id,
                 session_scenario.scenario_id,

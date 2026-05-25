@@ -72,14 +72,14 @@ class ScenarioManager:
 
     def read_scenario(self, scenario_id: str) -> Scenario:
         """Return a persisted scenario."""
-        return self._build_scenario(
+        return Scenario.from_dict(
             self.store.load_scenario(self.problem_id, scenario_id)
         )
 
     def list_scenarios(self) -> list[Scenario]:
         """Return all persisted scenarios for the problem."""
         return [
-            self._build_scenario(scenario_data)
+            Scenario.from_dict(scenario_data)
             for scenario_data in self.store.load_scenarios(self.problem_id)
         ]
 
@@ -107,7 +107,6 @@ class ScenarioManager:
 
     def delete_scenario(self, scenario_id: str) -> None:
         """Delete a persisted scenario."""
-        self.read_scenario(scenario_id)
         self.store.delete_scenario(self.problem_id, scenario_id)
 
     # ───────────────────────────────────────────────────────────
@@ -136,9 +135,6 @@ class ScenarioManager:
             extras=extras,
             problem_id=self.problem_id,
         )
-
-    def _build_scenario(self, scenario_data: dict) -> Scenario:
-        return Scenario.from_dict(scenario_data)
 
     def _create_session_scenario(
         self,

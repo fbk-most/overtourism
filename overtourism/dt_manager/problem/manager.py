@@ -142,14 +142,11 @@ class ProblemManager:
                 "proposal_id": proposal_id,
                 "scenario_id": scenario_id,
             }
-            for scenario_id in dict.fromkeys(scenario_ids)
+            for scenario_id in scenario_ids
         )
-        self.store.save_relationships(
-            problem_id,
-            self._normalize_relationships(retained),
-        )
+        self._save_relationships(problem_id, retained)
 
-    def link_scenario_to_proposal(
+    def link_scenario_proposal(
         self,
         problem_id: str,
         proposal_id: str,
@@ -157,28 +154,33 @@ class ProblemManager:
     ) -> None:
         """Link a scenario to a proposal."""
         relationships = self.get_relationships(problem_id)
-        relationship = {"proposal_id": proposal_id, "scenario_id": scenario_id}
-        if relationship not in relationships:
-            relationships.append(relationship)
-        self.store.save_relationships(problem_id, relationships)
+        relationships.append({"proposal_id": proposal_id, "scenario_id": scenario_id})
+        self._save_relationships(problem_id, relationships)
 
-    def unlink_scenario(self, problem_id: str, scenario_id: str) -> None:
-        """Remove all links for a scenario."""
-        relationships = [
-            relationship
-            for relationship in self.get_relationships(problem_id)
-            if relationship["scenario_id"] != scenario_id
-        ]
-        self.store.save_relationships(problem_id, relationships)
-
-    def unlink_proposal(self, problem_id: str, proposal_id: str) -> None:
-        """Remove all links for a proposal."""
+    def unlink_scenario_proposal(
+        self,
+        problem_id: str,
+        proposal_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Remove a single scenario-proposal link."""
         relationships = [
             relationship
             for relationship in self.get_relationships(problem_id)
             if relationship["proposal_id"] != proposal_id
+            or relationship["scenario_id"] != scenario_id
         ]
-        self.store.save_relationships(problem_id, relationships)
+        self._save_relationships(problem_id, relationships)
+
+    def _save_relationships(
+        self,
+        problem_id: str,
+        relationships: list[dict[str, str]],
+    ) -> None:
+        self.store.save_relationships(
+            problem_id,
+            self._normalize_relationships(relationships),
+        )
 
     def _normalize_relationships(
         self,

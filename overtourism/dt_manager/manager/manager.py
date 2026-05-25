@@ -111,7 +111,7 @@ class Manager:
             status=self.base_problem_config.proposal_status,
             extras=self.base_problem_config.proposal_extras,
         )
-        self.problem_manager.link_scenario_to_proposal(
+        self.problem_manager.link_scenario_proposal(
             self.base_problem_config.problem_id,
             self.base_problem_config.proposal_id,
             self.base_problem_config.scenario_id,
@@ -193,7 +193,20 @@ class Manager:
         scenario_id: str,
     ) -> None:
         """Link a scenario to a proposal."""
-        self.problem_manager.link_scenario_to_proposal(
+        self.problem_manager.link_scenario_proposal(
+            problem_id,
+            proposal_id,
+            scenario_id,
+        )
+
+    def unlink_scenario_from_proposal(
+        self,
+        problem_id: str,
+        proposal_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Remove a stored link between a scenario and a proposal."""
+        self.problem_manager.unlink_scenario_proposal(
             problem_id,
             proposal_id,
             scenario_id,
@@ -237,7 +250,7 @@ class Manager:
             **kwargs,
         )
         if proposal_id is not None:
-            self.problem_manager.link_scenario_to_proposal(
+            self.problem_manager.link_scenario_proposal(
                 problem_id,
                 proposal_id,
                 scenario.scenario_id,
@@ -283,7 +296,6 @@ class Manager:
         self.evaluation_managers[problem_id].delete_evaluations_for_scenario(
             scenario_id
         )
-        self.problem_manager.unlink_scenario(problem_id, scenario_id)
 
     def scenario_extras_from_dict(self, scenario_dict: dict) -> dict:
         """Extract scenario extras from a dictionary."""
@@ -451,7 +463,6 @@ class Manager:
     def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
         """Delete a proposal and persist the resulting aggregate."""
         self.proposal_managers[problem_id].delete_proposal(proposal_id)
-        self.problem_manager.unlink_proposal(problem_id, proposal_id)
 
     def proposal_extras_from_dict(self, proposal_dict: dict) -> dict:
         """Extract proposal extras from a dictionary."""

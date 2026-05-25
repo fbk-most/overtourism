@@ -183,6 +183,27 @@ def test_create_and_delete_workflows_manage_relationships(tmp_path) -> None:
         manager.base_problem_config.scenario_id,
         scenario.scenario_id,
     ]
+    manager.unlink_scenario_from_proposal(
+        problem_id,
+        proposal.proposal_id,
+        scenario.scenario_id,
+    )
+    assert manager.problem_manager.get_related_scenario_ids(
+        problem_id,
+        proposal.proposal_id,
+    ) == [manager.base_problem_config.scenario_id]
+    manager.link_scenario_to_proposal(
+        problem_id,
+        proposal.proposal_id,
+        scenario.scenario_id,
+    )
+    assert manager.problem_manager.get_related_scenario_ids(
+        problem_id,
+        proposal.proposal_id,
+    ) == [
+        manager.base_problem_config.scenario_id,
+        scenario.scenario_id,
+    ]
     assert manager.read_scenario_data(problem_id, scenario.scenario_id).to_dict() == {
         "ensemble_size": 20,
         "values": {"visits": 7},

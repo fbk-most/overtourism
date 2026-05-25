@@ -91,14 +91,14 @@ class ProposalManager:
         Proposal
             Persisted proposal instance.
         """
-        return self._build_proposal(
+        return Proposal.from_dict(
             self.store.load_proposal(self.problem_id, proposal_id)
         )
 
     def list_proposals(self) -> list[Proposal]:
         """Return all persisted proposals for the problem."""
         return [
-            self._build_proposal(proposal_data)
+            Proposal.from_dict(proposal_data)
             for proposal_data in self.store.load_proposals(self.problem_id)
         ]
 
@@ -137,8 +137,4 @@ class ProposalManager:
 
     def delete_proposal(self, proposal_id: str) -> None:
         """Delete a persisted proposal."""
-        self.store.load_proposal(self.problem_id, proposal_id)
         self.store.delete_proposal(self.problem_id, proposal_id)
-
-    def _build_proposal(self, proposal_data: dict) -> Proposal:
-        return Proposal.from_dict(proposal_data)
