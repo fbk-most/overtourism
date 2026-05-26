@@ -20,7 +20,7 @@ necessary to specify the project from which the data items and artefacts should 
 
 ## Local execution
 
-Before deploying the FastAPI backend, log in into the digitalhub platform. To do so, you need the CLI tool that you can find [here](https://github.com/scc-digitalhub/digitalhub-cli/releases). Pick an executable suitable for your operating system, unzip the archive.
+Before deploying the FastAPI backend, log in into the digitalhub platform. To do so, you need the [CLI tool](https://github.com/scc-digitalhub/digitalhub-cli/releases). Pick an executable suitable for your operating system, unzip the archive.
 
 Then launch the CLI tool and log in.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
@@ -45,6 +45,56 @@ def _matches_requested_session_scenario(
     return session_scenario_id.startswith(f"{requested_scenario_id}_{session_id}_")
 
 
+def _read_matching_session_state(
+    handler: Handler,
+    problem_id: str,
+    session_id: str,
+    scenario_id: str,
+):
+    try:
+        session = handler.manager.session_manager.read_session(problem_id, session_id)
+    except Exception:
+        return (None, None)
+
+    candidate_ids: list[str] = []
+    if scenario_id in session.drafts:
+        candidate_ids.append(scenario_id)
+
+    if session.active_scenario_id is not None and _matches_requested_session_scenario(
+        scenario_id,
+        session.active_scenario_id,
+        session_id,
+    ):
+        candidate_ids.append(session.active_scenario_id)
+
+    for draft_id in session.drafts:
+        if _matches_requested_session_scenario(scenario_id, draft_id, session_id):
+            candidate_ids.append(draft_id)
+
+    seen: set[str] = set()
+    for candidate_id in candidate_ids:
+        if candidate_id in seen:
+            continue
+        seen.add(candidate_id)
+        try:
+            return (
+                handler.manager.session_manager.read_session_scenario(
+                    problem_id,
+                    session_id,
+                    candidate_id,
+                ),
+                handler.manager.session_manager.read_session_evaluation(
+                    problem_id,
+                    session_id,
+                    candidate_id,
+                ),
+            )
+        except Exception:
+            continue
+
+    return (None, None)
+
+
 @scenario_router.get(
     "/{scenario_id}",
     response_model=OutputData,
@@ -70,33 +120,12 @@ async def get_data(
         session_scenario = None
         session_evaluation = None
         if session_id is not None:
-            try:
-                session_scenario = manager.session_manager.read_session_scenario(
-                    problem_id,
-                    session_id,
-                )
-                if not _matches_requested_session_scenario(
-                    scenario_id,
-                    session_scenario.scenario_id,
-                    session_id,
-                ):
-                    raise HTTPException(
-                        status_code=404,
-                        detail=(
-                            f"Scenario '{scenario_id}' does not exist in session "
-                            f"'{session_id}'"
-                        ),
-                    )
-                session_evaluation = manager.session_manager.read_session_evaluation(
-                    problem_id,
-                    session_id,
-                    session_scenario.scenario_id,
-                )
-            except HTTPException:
-                raise
-            except Exception:
-                session_scenario = None
-                session_evaluation = None
+            session_scenario, session_evaluation = _read_matching_session_state(
+                handler,
+                problem_id,
+                session_id,
+                scenario_id,
+            )
 
         if session_scenario is not None and session_evaluation is not None:
             out_data = arrange_data(
