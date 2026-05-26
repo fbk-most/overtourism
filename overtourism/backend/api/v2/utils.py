@@ -135,6 +135,8 @@ def get_widgets(
     language: str = "it",
 ) -> dict[str, typing.Any] | None:
     """Get widgets from viewer if available, otherwise None."""
+    if handler.get_widgets_fn is not None:
+        return handler.get_widgets_fn(values, language=language)
     if handler.viewer is not None:
         return handler.viewer.get_widgets(values, language=language)
     return None
@@ -142,6 +144,8 @@ def get_widgets(
 
 def get_widget_by_group(handler: Handler, groups: list[str]) -> list[str]:
     """Get widget IDs by group from the viewer if available."""
+    if handler.get_widget_ids_by_groups_fn is not None and groups:
+        return handler.get_widget_ids_by_groups_fn(groups)
     if handler.viewer is not None and groups:
         return handler.viewer.get_widget_ids_by_groups(groups)
     return []

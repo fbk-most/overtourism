@@ -6,6 +6,7 @@ from enum import Enum
 from types import SimpleNamespace
 
 import numpy as np
+
 from overtourism.dt_manager.indexes.index import IndexEntry
 from overtourism.dt_manager.utils.dictable import Dictable
 

@@ -8,23 +8,26 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    ("module_name", "expected_path", "expected_title"),
+    ("module_name", "expected_paths", "expected_title"),
     [
         (
             "overtourism.overtourism.app_v1",
-            "/api/v1/{tenant}/data/overtourism/indexes/categories",
+            ["/api/v1/{tenant}/data/overtourism/indexes/categories"],
             "AIxPA Over-Tourism API",
         ),
         (
             "overtourism.overtourism.app_v2",
-            "/api/v2/{tenant}/data/overtourism/indexes/categories",
+            [
+                "/api/v2/{tenant}/data/overtourism/indexes/categories",
+                "/api/v2/{tenant}/widgets",
+            ],
             "Overtourism API",
         ),
     ],
 )
 def test_domain_app_builders_wire_overtourism_collaborators(
     module_name: str,
-    expected_path: str,
+    expected_paths: list[str],
     expected_title: str,
 ) -> None:
     module = import_module(module_name)
@@ -40,5 +43,7 @@ def test_domain_app_builders_wire_overtourism_collaborators(
         handler.data_loader.get_categories(language="en")["capacity"]
         == "Capacity Indices"
     )
-    assert expected_path in {route.path for route in app.routes}
+    paths = {route.path for route in app.routes}
+    for expected_path in expected_paths:
+        assert expected_path in paths
     assert app.title == expected_title

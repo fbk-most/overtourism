@@ -17,6 +17,10 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.overtourism.api.v2.data import data_router
+from overtourism.overtourism.api.v2.problem import problem_router
+from overtourism.overtourism.api.v2.problem_extras import prepare_problem_extras
+from overtourism.overtourism.api.v2.widget import widget_router
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
@@ -55,6 +59,27 @@ class RecordingViewer:
         return [f"{group}-widget" for group in normalized_groups]
 
 
+@dataclass
+class RecordingDataLoader:
+    calls: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+
+    def get_categories(self, language: str = "it") -> dict[str, Any]:
+        self.calls.append(("categories", {"language": language}))
+        return {"language": language, "categories": ["pressure", "services"]}
+
+    def get_list(self, category: str = "", language: str = "it") -> dict[str, Any]:
+        self.calls.append(("list", {"category": category, "language": language}))
+        return {"category": category, "language": language, "indexes": ["visits"]}
+
+    def get_dataframe(self, dataframe: str) -> dict[str, Any]:
+        self.calls.append(("dataframe", {"dataframe": dataframe}))
+        return {"dataframe": dataframe, "rows": [{"value": 1}]}
+
+    def get_map(self, map_name: str) -> dict[str, Any]:
+        self.calls.append(("map", {"map": map_name}))
+        return {"map": map_name, "features": [{"id": "feature-1"}]}
+
+
 @pytest.fixture
 def tenant() -> str:
     return "tenant-alpha"
@@ -63,6 +88,11 @@ def tenant() -> str:
 @pytest.fixture
 def viewer() -> RecordingViewer:
     return RecordingViewer()
+
+
+@pytest.fixture
+def data_loader() -> RecordingDataLoader:
+    return RecordingDataLoader()
 
 
 @pytest.fixture
@@ -81,30 +111,25 @@ def manager(tmp_path, tenant: str) -> Manager:
 
 
 @pytest.fixture
-def problem_id(manager: Manager) -> str:
-    return manager.base_problem_config.problem_id
-
-
-@pytest.fixture
-def scenario_id(manager: Manager) -> str:
-    return manager.base_problem_config.scenario_id
-
-
-@pytest.fixture
-def proposal_id(manager: Manager) -> str:
-    return manager.base_problem_config.proposal_id
-
-
-@pytest.fixture
 def handler(
     manager: Manager,
     viewer: RecordingViewer,
+    data_loader: RecordingDataLoader,
 ) -> Handler:
     return Handler(
         manager=manager,
         viewer=viewer,
+        data_loader=data_loader,
         get_widgets_fn=viewer.get_widgets,
         get_widget_ids_by_groups_fn=viewer.get_widget_ids_by_groups,
+        prepare_problem_extras_fn=lambda extras,
+        payload,
+        current_extras=None: prepare_problem_extras(
+            extras,
+            payload,
+            current_extras,
+            viewer=viewer,
+        ),
         arrange_data_fn=_normalize_output,
         prepare_values_fn=lambda values: dict(values),
     )
@@ -112,7 +137,11 @@ def handler(
 
 @pytest.fixture
 def client(handler: Handler, tenant: str) -> TestClient:
-    app = create_app(handler)
+    app = create_app(
+        handler,
+        include_problem_router=False,
+        extra_routers=[problem_router, data_router, widget_router],
+    )
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         tenant=tenant,
@@ -127,7 +156,11 @@ def client(handler: Handler, tenant: str) -> TestClient:
 
 @pytest.fixture
 def error_client(handler: Handler, tenant: str) -> TestClient:
-    app = create_app(handler)
+    app = create_app(
+        handler,
+        include_problem_router=False,
+        extra_routers=[problem_router, data_router, widget_router],
+    )
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         tenant=tenant,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
+
 from overtourism.backend.api.v2.main import create_app
 
 
@@ -36,11 +37,21 @@ def test_create_app_includes_extra_routers_and_metadata(handler) -> None:
     assert ping_response.json() == {"status": "ok"}
 
 
-def test_create_app_does_not_register_overtourism_data_routes_by_default(
+def test_create_app_does_not_register_overtourism_extension_routes_by_default(
     handler,
 ) -> None:
     app = create_app(handler)
 
-    assert "/api/v2/{tenant}/data/overtourism/indexes/categories" not in {
-        route.path for route in app.routes
-    }
+    paths = {route.path for route in app.routes}
+
+    assert "/api/v2/{tenant}/data/overtourism/indexes/categories" not in paths
+    assert "/api/v2/{tenant}/widgets" not in paths
+
+
+def test_create_app_can_skip_the_default_problem_router(handler) -> None:
+    app = create_app(handler, include_problem_router=False)
+
+    paths = {route.path for route in app.routes}
+
+    assert "/api/v2/{tenant}/problems" not in paths
+    assert "/api/v2/{tenant}/problems/{problem_id}" not in paths

@@ -70,13 +70,9 @@ async def create_problem(
     """Create a new problem with default scenario."""
     try:
         problem_payload = data.model_dump(exclude_unset=True)
-        groups = problem_payload.get("groups", [])
         extras = handler.manager.problem_extras_from_dict(problem_payload)
-        extras["editable_indexes"] = (
-            handler.viewer.get_widget_ids_by_groups(groups)
-            if handler.viewer is not None and groups
-            else []
-        )
+        if handler.prepare_problem_extras_fn is not None:
+            extras = handler.prepare_problem_extras_fn(extras, problem_payload)
         problem_id = slugify(data.problem_name)
         handler.manager.create_problem(
             problem_id,
@@ -138,13 +134,13 @@ async def update_problem(
         problem = get_problem_or_404(handler, tenant, problem_id)
         check_version(problem.version, data.version)
         problem_payload = data.model_dump(exclude_unset=True, exclude={"version"})
-        groups = problem_payload.get("groups", [])
         extras = handler.manager.problem_extras_from_dict(problem_payload)
-        extras["editable_indexes"] = (
-            handler.viewer.get_widget_ids_by_groups(groups)
-            if handler.viewer is not None and groups
-            else []
-        )
+        if handler.prepare_problem_extras_fn is not None:
+            extras = handler.prepare_problem_extras_fn(
+                extras,
+                problem_payload,
+                problem.extras,
+            )
         handler.manager.update_problem(
             problem_id,
             name=data.problem_name,

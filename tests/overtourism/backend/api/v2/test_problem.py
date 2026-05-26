@@ -41,7 +41,7 @@ def test_create_problem_returns_slugified_problem_with_version(
         "description": "Reduce visitor pressure",
         "created": response.json()["created"],
         "updated": response.json()["updated"],
-        "extras": {"editable_indexes": []},
+        "extras": {},
     }
 
 

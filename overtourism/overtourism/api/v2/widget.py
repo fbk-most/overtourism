@@ -34,10 +34,12 @@ async def list_widgets(
     language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),
 ) -> Widgets:
+    del tenant
+
     try:
-        if handler.viewer is not None:
-            return Widgets(widgets=handler.viewer.get_widgets({}, language=language))
+        if handler.get_widgets_fn is not None:
+            return Widgets(widgets=handler.get_widgets_fn({}, language=language))
         return Widgets(widgets={})
-    except Exception as e:
-        logger.error(f"Error listing widgets: {e}")
+    except Exception as exc:
+        logger.error(f"Error listing widgets: {exc}")
         raise

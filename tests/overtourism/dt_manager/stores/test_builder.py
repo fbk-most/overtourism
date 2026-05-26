@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.enums import StoreType

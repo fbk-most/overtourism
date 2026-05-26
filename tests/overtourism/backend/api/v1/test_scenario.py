@@ -80,9 +80,9 @@ def test_get_saved_scenario_data_falls_back_to_stored_scenario_when_session_has_
         name="Saved Draft",
     )
 
-    assert manager.session_manager.read_session(problem_id, session_id).active_scenario_id == (
-        first_draft.scenario_id
-    )
+    assert manager.session_manager.read_session(
+        problem_id, session_id
+    ).active_scenario_id == (first_draft.scenario_id)
 
     with TestClient(app) as client:
         response = client.get(
