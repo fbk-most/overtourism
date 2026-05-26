@@ -8,14 +8,14 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v1.config import BASE_ROUTE
+from overtourism.backend.api.v1.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import DataLoaderLike, Handler
 
 logger = logging.getLogger(__name__)
 
 data_router = APIRouter(
-    prefix=f"{BASE_ROUTE}/data",
+    prefix=f"{TENANT_ROUTE_PREFIX}/data",
     dependencies=[Depends(get_auth_context)],
 )
 

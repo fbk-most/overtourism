@@ -35,12 +35,13 @@ proposal_router = APIRouter(
     },
 )
 async def list_proposals(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
 ) -> ProposalList:
     """List all proposals for a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         p_list = [
             Proposal(**proposal_to_api(handler, problem_id, proposal))
             for proposal in handler.manager.list_proposals(problem_id)
@@ -61,13 +62,14 @@ async def list_proposals(
     },
 )
 async def create_proposal(
+    tenant: str,
     problem_id: str,
     proposal: Proposal,
     handler: Handler = Depends(get_handler),
 ) -> dict:
     """Create a proposal for a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         proposal_id = handler.manager.create_proposal(
             problem_id,
             **parse_proposal_model(handler, proposal),
@@ -89,12 +91,14 @@ async def create_proposal(
     },
 )
 async def read_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
     handler: Handler = Depends(get_handler),
 ) -> Proposal:
     """Read a proposal by identifier."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         proposal = handler.manager.read_proposal(problem_id, proposal_id)
         return Proposal(**proposal_to_api(handler, problem_id, proposal))
     except Exception as e:
@@ -114,6 +118,7 @@ async def read_proposal(
     },
 )
 async def update_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
     proposal: Proposal,
@@ -121,7 +126,7 @@ async def update_proposal(
 ) -> dict:
     """Update a proposal and its related scenario links."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         handler.manager.update_proposal(
             problem_id,
             proposal_id,
@@ -145,13 +150,14 @@ async def update_proposal(
     },
 )
 async def delete_proposal(
+    tenant: str,
     problem_id: str,
     proposal_id: str,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a proposal from a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         handler.manager.delete_proposal(problem_id, proposal_id)
         logger.info(f"Proposal deleted: {proposal_id} for problem {problem_id}")
     except Exception as e:

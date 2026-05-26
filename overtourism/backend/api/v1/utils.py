@@ -28,20 +28,30 @@ if typing.TYPE_CHECKING:
 # ──────────────────────────────────────────────
 
 
-def get_problem_or_404(handler: Handler, problem_id: str) -> Problem:
-    """Return a problem or raise a not-found error."""
+def get_problem_or_404(
+    handler: Handler,
+    tenant: str,
+    problem_id: str,
+) -> Problem:
+    """Return a problem for the requested tenant or raise a not-found error."""
+    msg = f"Problem '{problem_id}' not found for tenant '{tenant}'"
     try:
-        return handler.manager.read_problem(problem_id)
-    except KeyError:
-        raise ProblemNotFound(f"Problem '{problem_id}' not found")
+        problem = handler.manager.read_problem(problem_id)
+    except (FileNotFoundError, KeyError):
+        raise ProblemNotFound(msg)
+    if problem.tenant != tenant:
+        raise ProblemNotFound(msg)
+    return problem
 
 
 def problem_from_model(
     handler: Handler,
     data: PostProblemData,
+    tenant: str,
 ) -> dict:
     """Extract problem fields and extras from a payload."""
     return {
+        "tenant": tenant,
         "name": data.problem_name,
         "description": data.problem_description,
         "created": data.created,

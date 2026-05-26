@@ -86,7 +86,7 @@ def test_get_saved_scenario_data_falls_back_to_stored_scenario_when_session_has_
 
     with TestClient(app) as client:
         response = client.get(
-            f"/api/v1/scenarios/{saved.scenario_id}",
+            f"/api/v1/{tenant}/scenarios/{saved.scenario_id}",
             params={"problem_id": problem_id, "session_id": session_id},
         )
 

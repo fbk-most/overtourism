@@ -19,6 +19,7 @@ from overtourism.backend.api.v1.utils import (
     get_problem_or_404,
     problem_from_model,
     problem_to_api,
+    problem_update_from_model,
     proposal_to_api,
     scenario_to_api,
     slugify_name,
@@ -43,12 +44,15 @@ problem_router = APIRouter(
     },
 )
 async def list_problems(
+    tenant: str,
     handler: Handler = Depends(get_handler),
 ) -> ProblemList:
     """List all problems in the current store."""
     try:
         problems = [
-            {**problem_to_api(problem)} for problem in handler.manager.list_problems()
+            {**problem_to_api(problem)}
+            for problem in handler.manager.list_problems()
+            if problem.tenant == tenant
         ]
         return ProblemList(data=problems)
     except Exception as e:
@@ -66,6 +70,7 @@ async def list_problems(
     },
 )
 async def create_problem(
+    tenant: str,
     data: PostProblemData,
     handler: Handler = Depends(get_handler),
 ) -> dict:
@@ -74,7 +79,7 @@ async def create_problem(
         problem_id = slugify_name(data.problem_name)
         handler.manager.create_problem(
             problem_id,
-            problem_kwargs=problem_from_model(handler, data),
+            problem_kwargs=problem_from_model(handler, data, tenant),
         )
 
         logger.info(f"Problem created: {problem_id}")
@@ -94,12 +99,13 @@ async def create_problem(
     },
 )
 async def read_problem(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
 ) -> GetProblemData:
     """Read a problem together with its proposals."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(handler, tenant, problem_id)
         proposals = [
             proposal_to_api(handler, problem_id, proposal)
             for proposal in handler.manager.list_proposals(problem_id)
@@ -120,14 +126,18 @@ async def read_problem(
     },
 )
 async def update_problem(
+    tenant: str,
     problem_id: str,
     data: UpdateProblemData,
     handler: Handler = Depends(get_handler),
 ) -> dict:
     """Update a problem and persist the current aggregate."""
     try:
-        get_problem_or_404(handler, problem_id)
-        handler.manager.update_problem(problem_id, **problem_from_model(handler, data))
+        get_problem_or_404(handler, tenant, problem_id)
+        handler.manager.update_problem(
+            problem_id,
+            **problem_update_from_model(handler, data),
+        )
 
         logger.info(f"Problem updated: {problem_id}")
         return {"message": "Problem updated successfully"}
@@ -145,11 +155,13 @@ async def update_problem(
     },
 )
 async def delete_problem(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a problem from the store."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
@@ -167,12 +179,13 @@ async def delete_problem(
     },
 )
 async def list_scenarios(
+    tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
 ) -> ScenarioList:
     """List all scenarios for a problem."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(handler, tenant, problem_id)
         scenarios = [
             scenario_to_api(handler, s)
             for s in handler.manager.list_scenarios(problem_id)

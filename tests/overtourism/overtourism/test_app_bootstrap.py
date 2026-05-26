@@ -12,7 +12,7 @@ import pytest
     [
         (
             "overtourism.overtourism.app_v1",
-            "/api/v1/data/overtourism/indexes/categories",
+            "/api/v1/{tenant}/data/overtourism/indexes/categories",
             "AIxPA Over-Tourism API",
         ),
         (

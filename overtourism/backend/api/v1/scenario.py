@@ -105,6 +105,7 @@ def _read_matching_session_state(
     },
 )
 async def get_data(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
     session_id: str | None = None,
@@ -114,7 +115,7 @@ async def get_data(
     """Read the evaluated outputs for a scenario."""
     try:
         manager = handler.manager
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(handler, tenant, problem_id)
 
         # If a session exists, return its already-evaluated scenario copy.
         session_scenario = None
@@ -180,6 +181,7 @@ async def get_data(
     },
 )
 async def update_data(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
     data: InputEvaluationData,
@@ -189,7 +191,7 @@ async def update_data(
 ) -> OutputData:
     """Re-evaluate a scenario with new values."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(handler, tenant, problem_id)
         values = prepare_values(handler, data.values)
         if session_id is None:
             handler.manager.update_scenario(
@@ -261,6 +263,7 @@ async def update_data(
     },
 )
 async def resume_session(
+    tenant: str,
     problem_id: str,
     session_id: str,
     language: Literal["it", "en"] = "it",
@@ -268,7 +271,7 @@ async def resume_session(
 ) -> OutputData:
     """Resume an in-memory session scenario and return its evaluated data."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(handler, tenant, problem_id)
         session_scenario, session_evaluation = (
             handler.manager.session_manager.resume_session(
                 problem_id,
@@ -307,6 +310,7 @@ async def resume_session(
     },
 )
 async def create_scenario(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
     session_id: str,
@@ -316,6 +320,7 @@ async def create_scenario(
 ) -> dict:
     """Persist the current session scenario as a stored scenario."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         extras = handler.manager.scenario_extras_from_dict(data.model_dump())
         saved_scenario = handler.manager.session_manager.save_session_scenario(
             problem_id,
@@ -345,12 +350,14 @@ async def create_scenario(
     },
 )
 async def delete_scenario(
+    tenant: str,
     problem_id: str,
     scenario_id: str,
     handler: Handler = Depends(get_handler),
 ) -> None:
     """Delete a scenario and detach any related proposal link."""
     try:
+        get_problem_or_404(handler, tenant, problem_id)
         handler.manager.delete_scenario(problem_id, scenario_id)
         logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
     except Exception as e:
