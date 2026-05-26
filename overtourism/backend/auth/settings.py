@@ -6,24 +6,13 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from overtourism.backend.auth.enums import (
+    AuthClaim,
+    AuthEnvironmentVariable,
+    JwtAlgorithm,
+)
 
-def _as_bool(value: str | None, *, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _as_int(value: str | None, *, default: int) -> int:
-    if value is None or not value.strip():
-        return default
-    return int(value)
-
-
-def _as_tuple(value: str | None, *, default: tuple[str, ...]) -> tuple[str, ...]:
-    if value is None or not value.strip():
-        return default
-    parts = [item.strip() for item in value.split(",")]
-    return tuple(item for item in parts if item)
+_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,26 +21,31 @@ class AuthSettings:
     issuer: str | None = None
     audience: str | None = None
     jwks_url: str | None = None
-    tenant_claim: str = "tenant_id"
-    algorithms: tuple[str, ...] = ("RS256",)
+    tenant_claim: str = AuthClaim.TENANT
+    algorithms: tuple[str, ...] = (JwtAlgorithm.RS256,)
     leeway_seconds: int = 30
 
     @classmethod
     def from_env(cls) -> "AuthSettings":
+        enabled_value = os.getenv(AuthEnvironmentVariable.ENABLED)
+        algorithms_value = os.getenv(AuthEnvironmentVariable.ALGORITHMS)
+        leeway_value = os.getenv(AuthEnvironmentVariable.LEEWAY_SECONDS)
         return cls(
-            enabled=_as_bool(os.getenv("AUTH_ENABLED"), default=False),
-            issuer=os.getenv("AUTH_ISSUER") or None,
-            audience=os.getenv("AUTH_AUDIENCE") or None,
-            jwks_url=os.getenv("AUTH_JWKS_URL") or None,
-            tenant_claim=os.getenv("AUTH_TENANT_CLAIM") or "tenant_id",
-            algorithms=_as_tuple(
-                os.getenv("AUTH_ALGORITHMS"),
-                default=("RS256",),
-            ),
-            leeway_seconds=_as_int(
-                os.getenv("AUTH_LEEWAY_SECONDS"),
-                default=30,
-            ),
+            enabled=enabled_value is not None
+            and enabled_value.strip().lower() in _TRUTHY_ENV_VALUES,
+            issuer=os.getenv(AuthEnvironmentVariable.ISSUER) or None,
+            audience=os.getenv(AuthEnvironmentVariable.AUDIENCE) or None,
+            jwks_url=os.getenv(AuthEnvironmentVariable.JWKS_URL) or None,
+            tenant_claim=os.getenv(AuthEnvironmentVariable.TENANT_CLAIM)
+            or AuthClaim.TENANT,
+            algorithms=tuple(
+                item.strip() for item in algorithms_value.split(",") if item.strip()
+            )
+            if algorithms_value and algorithms_value.strip()
+            else (JwtAlgorithm.RS256,),
+            leeway_seconds=int(leeway_value)
+            if leeway_value and leeway_value.strip()
+            else 30,
         )
 
 

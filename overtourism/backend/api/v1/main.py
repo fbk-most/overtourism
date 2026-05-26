@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from overtourism.backend.api.shared.dependencies import init_handler
-from overtourism.backend.api.v1.config import APP_VERSION
+from overtourism.backend.api.v1.config import APP_VERSION, BASE_ROUTE
 from overtourism.backend.api.v1.problem import problem_router
 from overtourism.backend.api.v1.proposal import proposal_router
 from overtourism.backend.api.v1.scenario import scenario_router
@@ -55,7 +55,7 @@ def create_app(
     app.include_router(problem_router)
     app.include_router(widget_router)
     app.include_router(proposal_router)
-    app.include_router(auth_router)
+    app.include_router(auth_router, prefix=BASE_ROUTE)
 
     if extra_routers:
         for router in extra_routers:
