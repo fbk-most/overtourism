@@ -7,7 +7,7 @@ from typing import Any
 
 from scipy import stats
 
-from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
+from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.utils import get_timestamp
 

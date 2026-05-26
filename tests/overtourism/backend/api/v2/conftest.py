@@ -16,6 +16,7 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.overtourism.api.v2.data import data_router
 
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
@@ -138,7 +139,7 @@ def handler(
 
 @pytest.fixture
 def client(handler: Handler, tenant: str) -> TestClient:
-    app = create_app(handler)
+    app = create_app(handler, extra_routers=[data_router])
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         tenant=tenant,
@@ -153,7 +154,7 @@ def client(handler: Handler, tenant: str) -> TestClient:
 
 @pytest.fixture
 def error_client(handler: Handler, tenant: str) -> TestClient:
-    app = create_app(handler)
+    app = create_app(handler, extra_routers=[data_router])
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         tenant=tenant,

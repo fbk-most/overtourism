@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
     EvaluationState,
 )
+from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario

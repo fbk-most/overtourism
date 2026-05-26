@@ -7,19 +7,18 @@ from typing import Any, cast
 from civic_digital_twins.dt_model.model.index import Distribution
 from scipy import stats
 
-from overtourism.backend.data.catalog import Language, SimIndexCatalog
-from overtourism.backend.data.viewer.index import (
+from overtourism.dt_manager.indexes.index import IndexType
+from overtourism.dt_manager.indexes.view import (
     VizConstIndex,
     VizIndex,
     VizLognormDistIndex,
     VizTriangDistIndex,
     VizUniformDistIndex,
 )
-from overtourism.dt_manager.classes.indexes import IndexType
 
 
 def build_indexes_from_config(config: dict) -> list[VizIndex]:
-    """Build a list of VizIndex instances from a YAML configuration dict."""
+    """Build a list of VizIndex instances from a configuration dict."""
     indexes = []
 
     for idx_config in config["indexes"]:
@@ -110,11 +109,3 @@ def prepare_values_for_eval(values: dict, indexes: list[VizIndex]) -> dict:
             if i.index_id == k:
                 new_vals[k] = format_value(i, v)
     return new_vals
-
-
-def build_indexes_from_catalog(
-    catalog: SimIndexCatalog,
-    language: Language = "it",
-) -> list[VizIndex]:
-    """Build VizIndex instances from a SimIndexCatalog for the given language."""
-    return build_indexes_from_config(catalog.to_config(language))

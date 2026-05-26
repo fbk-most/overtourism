@@ -18,7 +18,6 @@ Note that when the backend is run in a non standalone mode, the platform credent
 necessary to specify the project from which the data items and artefacts should be downloaded. The name of the project is defined with
 `PROJECT_NAME` variable.
 
-
 ## Local execution
 
 Before deploying the FastAPI backend, log in into the digitalhub platform. To do so, you need the CLI tool that you can find [here](https://github.com/scc-digitalhub/digitalhub-cli/releases). Pick an executable suitable for your operating system, unzip the archive.
@@ -34,7 +33,7 @@ Run the FastAPI backend with:
 
 ```bash
 # You should already be inside the virtual environment and the right folder
-fastapi run ./overtourism/backend/app_v1.py
+fastapi run ./overtourism/overtourism/app_v1.py
 ```
 
 ## With Docker
@@ -68,4 +67,3 @@ func.run(
     service_ports=[{"port": 8000, "targetPort": 8000}]
 )
 ```
-

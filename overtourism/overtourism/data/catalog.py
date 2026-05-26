@@ -864,23 +864,17 @@ class SimIndexEntry:
     step: float
     editable: bool = True
     index_category: str | None = None
-    # constant
     v: float | None = None
-    # uniform / lognorm / triang
     loc: float | None = None
     scale: float | None = None
-    # lognorm
     s: float | None = None
-    # triang
     c: float | None = None
 
     def to_config_dict(self, language: Language = "it") -> dict:
-        """Return a dict compatible with the YAML-based viewer config format."""
         entry: dict = {
             "index_id": self.index_id,
             "index_type": self.index_type,
             "index_name": self.index_name.resolve(language),
-            # group ID is always the Italian string for backward compatibility
             "group": self.group.it,
             "description": self.description.resolve(language),
             "min": self.min,
@@ -905,12 +899,9 @@ class SimIndexEntry:
 
 @dataclass(frozen=True)
 class SimIndexCatalog:
-    """Ordered collection of simulation parameter definitions."""
-
     entries: tuple[SimIndexEntry, ...]
 
     def to_config(self, language: Language = "it") -> dict:
-        """Build a viewer-compatible config dict for the given language."""
         return {"indexes": [e.to_config_dict(language) for e in self.entries]}
 
 

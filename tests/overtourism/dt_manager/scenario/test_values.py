@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
-from overtourism.dt_manager.classes.indexes import IndexType
+from overtourism.dt_manager.indexes.index import IndexType
 from overtourism.dt_manager.scenario import values as values_module
 from overtourism.dt_manager.scenario.values import scenario_values, values_as_scipy
 from scipy import stats

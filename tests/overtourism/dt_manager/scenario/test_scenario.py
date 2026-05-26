@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
+from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 from overtourism.dt_manager.scenario import scenario as scenario_module
 from overtourism.dt_manager.scenario.scenario import Scenario
 

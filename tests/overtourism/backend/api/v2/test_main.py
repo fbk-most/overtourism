@@ -34,3 +34,13 @@ def test_create_app_includes_extra_routers_and_metadata(handler) -> None:
     }
     assert ping_response.status_code == 200
     assert ping_response.json() == {"status": "ok"}
+
+
+def test_create_app_does_not_register_overtourism_data_routes_by_default(
+    handler,
+) -> None:
+    app = create_app(handler)
+
+    assert "/api/v2/{tenant}/data/overtourism/indexes/categories" not in {
+        route.path for route in app.routes
+    }

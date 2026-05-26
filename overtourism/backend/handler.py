@@ -3,12 +3,40 @@
 from __future__ import annotations
 
 import typing
+from typing import Any, Callable, Protocol
 
 if typing.TYPE_CHECKING:
-    from overtourism.backend.data.loader import OvertourismIndexesLoader
-    from overtourism.backend.data.viewer.viewer import ModelViewer
     from overtourism.dt_manager.manager.manager import Manager
-    from overtourism.overtourism.molveno_runner import ArrangeDataFn
+
+
+class DataLoaderLike(Protocol):
+    def get_categories(self, language: str = "it") -> dict[str, Any]: ...
+
+    def get_list(
+        self,
+        category: str = "",
+        language: str = "it",
+    ) -> dict[str, Any]: ...
+
+    def get_dataframe(self, dataframe: str) -> dict[str, Any]: ...
+
+    def get_map(self, map_name: str) -> dict[str, Any]: ...
+
+
+class ViewerLike(Protocol):
+    def get_widgets(
+        self, values: dict[str, Any], language: str = "it"
+    ) -> dict[str, Any]: ...
+
+    def get_widget_ids_by_groups(self, groups: list[str]) -> list[str]: ...
+
+
+class ArrangeDataFnLike(Protocol):
+    def __call__(
+        self,
+        data: Any,
+        params: list[str] | None = None,
+    ) -> dict[str, Any]: ...
 
 
 class Handler:
@@ -19,10 +47,10 @@ class Handler:
     def __init__(
         self,
         manager: Manager,
-        viewer: ModelViewer | None = None,
-        data_loader: OvertourismIndexesLoader | None = None,
-        arrange_data_fn: ArrangeDataFn | None = None,
-        prepare_values_fn: typing.Callable[..., dict] | None = None,
+        viewer: ViewerLike | None = None,
+        data_loader: DataLoaderLike | None = None,
+        arrange_data_fn: ArrangeDataFnLike | None = None,
+        prepare_values_fn: Callable[..., dict] | None = None,
     ) -> None:
         self.manager = manager
         self.viewer = viewer

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
+from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 
 
 def test_index_entry_round_trip() -> None:

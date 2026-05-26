@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from overtourism.dt_manager.classes.indexes import IndexEntry, IndexType
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 from overtourism.dt_manager.evaluation.evaluation import (
@@ -12,6 +11,7 @@ from overtourism.dt_manager.evaluation.evaluation import (
 )
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
+from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import (
     EvaluationAlreadyExists,

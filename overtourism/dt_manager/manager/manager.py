@@ -8,7 +8,6 @@ from uuid import uuid4
 from civic_digital_twins.dt_model.model import Model
 from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
 
-from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.manager.config import BaseConfig
@@ -18,6 +17,7 @@ from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.session.manager import SessionManager
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.utils.metadata import ExtrasConfig
 
 if typing.TYPE_CHECKING:
     from civic_digital_twins.dt_model.simulation.runner import ModelOutput

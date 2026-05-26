@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from overtourism.dt_manager.classes.dictable import Dictable
+from overtourism.dt_manager.utils.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 if typing.TYPE_CHECKING:

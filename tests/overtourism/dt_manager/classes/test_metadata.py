@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.classes.metadata import ExtrasConfig
+from overtourism.dt_manager.utils.metadata import ExtrasConfig
 
 
 def test_extras_config_filters_configured_keys() -> None:

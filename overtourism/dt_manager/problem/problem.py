@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from overtourism.dt_manager.classes.dictable import Dictable
+from overtourism.dt_manager.utils.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 

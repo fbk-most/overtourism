@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from overtourism.dt_manager.classes.dictable import Dictable
+from overtourism.dt_manager.utils.dictable import Dictable
 
 
 @dataclass

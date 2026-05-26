@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from overtourism.dt_manager.classes.metadata import ExtrasConfig
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.utils.metadata import ExtrasConfig
+from overtourism.overtourism.data import (
+    MOLVENO_SIM_INDEXES,
+    OvertourismIndexesLoader,
+    get_index_data_path,
+)
 from overtourism.overtourism.molveno_model import (
     CV_season,
     CV_weather,
@@ -20,6 +25,7 @@ from overtourism.overtourism.molveno_runner import (
     Sampler,
     Situation,
 )
+from overtourism.overtourism.viewer.viewer import ModelViewer
 
 # ──────────────────────────────────────────────
 # Widget index_id → model index name mapping
@@ -120,7 +126,7 @@ base_problem_config = BaseConfig(
 # ──────────────────────────────────────────────
 # Store
 # ──────────────────────────────────────────────
-data_dir = Path(__file__).parent / "data"
+data_dir = Path(__file__).parent / "database"
 store_conf = StoreConfig(
     "sql",
     {"url": f"sqlite:///{data_dir / 'overtourism.sqlite'}"},
@@ -136,3 +142,7 @@ manager = Manager(
     extras_config=extras_config,
     base_problem_config=base_problem_config,
 )
+
+
+viewer = ModelViewer(MOLVENO_SIM_INDEXES)
+data_loader = OvertourismIndexesLoader(get_index_data_path())
