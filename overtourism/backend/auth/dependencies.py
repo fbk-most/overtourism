@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, status
 from jwt import PyJWTError
 
 from overtourism.backend.auth.enums import (
@@ -15,20 +15,6 @@ from overtourism.backend.auth.enums import (
 from overtourism.backend.auth.jwt import decode_jwt
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
-
-
-def _resolve_tenant(
-    tenant: str | None,
-    path_tenant: object | None,
-    query_tenant: str | None,
-) -> str | None:
-    """Resolve the tenant from the explicit argument first.
-    Fall back to path and then query parameters when needed."""
-    if tenant is not None:
-        return tenant
-    if path_tenant is not None:
-        return str(path_tenant)
-    return query_tenant or None
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
@@ -52,35 +38,52 @@ def _claim_as_str(claims: Mapping[str, object], claim_name: str) -> str | None:
     return None if value is None else str(value)
 
 
+def _claim_as_strs(claims: Mapping[str, object], claim_name: str) -> tuple[str, ...]:
+    """Read a claim value and normalize it to a tuple of strings."""
+    value = claims.get(claim_name)
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return tuple(str(item) for item in value if item is not None)
+    return (str(value),)
+
+
 def _tenant_claim_error_detail(
     requested_tenant: str | None,
-    token_tenant: str | None,
+    token_tenants: tuple[str, ...],
     tenant_claim: str,
 ) -> str | None:
     """Validate the token tenant against the requested tenant.
     Return the HTTP error detail when the claim is missing or mismatched."""
     if requested_tenant is None:
         return None
-    if token_tenant is None:
+    if not token_tenants:
         return f"Token is missing tenant claim '{tenant_claim}'"
-    if token_tenant != requested_tenant:
+    if requested_tenant not in token_tenants:
         return AuthErrorDetail.TENANT_MISMATCH
     return None
 
 
+def _auth_context_tenant(
+    requested_tenant: str | None,
+    token_tenants: tuple[str, ...],
+) -> str | None:
+    """Choose the tenant exposed in the auth context."""
+    if requested_tenant is not None:
+        return requested_tenant
+    if len(token_tenants) == 1:
+        return token_tenants[0]
+    return None
+
+
 def get_auth_context(
-    request: Request,
     tenant: str | None = None,
     authorization: str | None = Header(default=None),
     settings: AuthSettings = Depends(get_auth_settings),
 ) -> AuthContext:
     """Build the auth context for the current request.
     When auth is enabled, validate the bearer token and tenant claim."""
-    resolved_tenant = _resolve_tenant(
-        tenant=tenant,
-        path_tenant=request.path_params.get("tenant"),
-        query_tenant=request.query_params.get("tenant"),
-    )
+    resolved_tenant = tenant
 
     if not settings.enabled:
         return AuthContext(
@@ -107,10 +110,10 @@ def get_auth_context(
             detail=AuthErrorDetail.INVALID_BEARER_TOKEN,
         ) from exc
 
-    token_tenant = _claim_as_str(claims, settings.tenant_claim)
+    token_tenants = _claim_as_strs(claims, settings.tenant_claim)
     tenant_error_detail = _tenant_claim_error_detail(
         requested_tenant=resolved_tenant,
-        token_tenant=token_tenant,
+        token_tenants=token_tenants,
         tenant_claim=settings.tenant_claim,
     )
     if tenant_error_detail is not None:
@@ -122,7 +125,7 @@ def get_auth_context(
     subject_value = _claim_as_str(claims, AuthClaim.SUBJECT)
     return AuthContext(
         authenticated=True,
-        tenant=resolved_tenant or token_tenant,
+        tenant=_auth_context_tenant(resolved_tenant, token_tenants),
         subject=subject_value,
         token=token,
         claims=claims,

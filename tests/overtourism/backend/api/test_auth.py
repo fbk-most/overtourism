@@ -39,8 +39,8 @@ def handler(tmp_path) -> Handler:
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/auth/me"),
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
 def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
@@ -52,7 +52,7 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(enabled=False)
 
     with TestClient(app) as client:
-        response = client.get(auth_path, params={"tenant": "tenant-alpha"})
+        response = client.get(auth_path)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -67,8 +67,8 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/auth/me"),
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
 def test_auth_me_requires_bearer_token_when_auth_is_enabled(
@@ -83,7 +83,7 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
     )
 
     with TestClient(app) as client:
-        response = client.get(auth_path, params={"tenant": "tenant-alpha"})
+        response = client.get(auth_path)
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Missing bearer token"}
@@ -92,8 +92,8 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/auth/me"),
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
 def test_auth_me_returns_authenticated_context_for_matching_tenant(
@@ -119,7 +119,6 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
     with TestClient(app) as client:
         response = client.get(
             auth_path,
-            params={"tenant": "tenant-alpha"},
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -138,10 +137,81 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
 
 
 @pytest.mark.parametrize(
+    ("app_factory", "problems_path"),
+    [
+        (create_app_v1, "/api/v1/tenant-alpha/problems"),
+        (create_app_v2, "/api/v2/tenant-alpha/problems"),
+    ],
+)
+def test_tenant_scoped_routes_accept_tokens_that_list_the_path_tenant(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+    app_factory,
+    problems_path: str,
+) -> None:
+    app = app_factory(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.dependencies.decode_jwt",
+        lambda token, settings: {
+            "sub": "user-1",
+            settings.tenant_claim: ["tenant-beta", "tenant-alpha"],
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            problems_path,
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("app_factory", "problems_path"),
+    [
+        (create_app_v1, "/api/v1/tenant-gamma/problems"),
+        (create_app_v2, "/api/v2/tenant-gamma/problems"),
+    ],
+)
+def test_tenant_scoped_routes_reject_tokens_missing_the_path_tenant(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+    app_factory,
+    problems_path: str,
+) -> None:
+    app = app_factory(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.dependencies.decode_jwt",
+        lambda token, settings: {
+            "sub": "user-1",
+            settings.tenant_claim: ["tenant-alpha", "tenant-beta"],
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            problems_path,
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Token tenant does not match requested tenant"}
+
+
+@pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/auth/me"),
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
 def test_auth_me_rejects_missing_required_tenant_claim(
@@ -164,7 +234,6 @@ def test_auth_me_rejects_missing_required_tenant_claim(
     with TestClient(app) as client:
         response = client.get(
             auth_path,
-            params={"tenant": "tenant-alpha"},
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -177,8 +246,8 @@ def test_auth_me_rejects_missing_required_tenant_claim(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/auth/me"),
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
 def test_auth_me_rejects_mismatched_token_tenant(
@@ -203,7 +272,6 @@ def test_auth_me_rejects_mismatched_token_tenant(
     with TestClient(app) as client:
         response = client.get(
             auth_path,
-            params={"tenant": "tenant-alpha"},
             headers={"Authorization": "Bearer signed-token"},
         )
 
