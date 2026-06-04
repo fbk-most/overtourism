@@ -58,7 +58,7 @@ async def create_evaluation(
             **data.kwargs,
         )
         logger.info(f"Evaluation created for problem {problem_id}")
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(f"Error creating evaluation for problem {problem_id}: {e}")
         raise
@@ -82,7 +82,7 @@ async def list_evaluations(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         evaluations = handler.manager.list_evaluations(problem_id, scenario_id)
-        return [evaluation.to_dict() for evaluation in evaluations]
+        return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
     except Exception as e:
         logger.error(f"Error listing evaluations for problem {problem_id}: {e}")
         raise
@@ -106,7 +106,7 @@ async def read_evaluation(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         evaluation = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(
             f"Error reading evaluation {evaluation_id} in problem {problem_id}: {e}"
@@ -141,7 +141,7 @@ async def update_evaluation(
             **data.kwargs,
         )
         logger.info(f"Evaluation updated: {evaluation_id} for problem {problem_id}")
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(
             f"Error updating evaluation {evaluation_id} in problem {problem_id}: {e}"

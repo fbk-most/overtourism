@@ -149,7 +149,7 @@ async def read_session(
                 ScenarioData(**draft.to_dict()) for draft in session.drafts.values()
             ],
             evaluations={
-                scenario_id: EvaluationData(**evaluation.to_dict())
+                scenario_id: EvaluationData.from_domain(evaluation)
                 for scenario_id, evaluation in session.evaluations.items()
             },
         )
@@ -422,7 +422,7 @@ async def create_session_evaluation(
             **data.kwargs,
         )
         logger.info(f"Evaluation created for problem {problem_id}")
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(f"Error creating evaluation for problem {problem_id}: {e}")
         raise
@@ -452,7 +452,7 @@ async def list_session_evaluations(
             session_id,
             scenario_id,
         )
-        return [evaluation.to_dict() for evaluation in evaluations]
+        return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
     except Exception as e:
         logger.error(f"Error listing evaluations for problem {problem_id}: {e}")
         raise
@@ -482,7 +482,7 @@ async def read_session_evaluation(
             session_id,
             evaluation_id,
         )
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(
             f"Error reading evaluation {evaluation_id} in problem {problem_id}: {e}"
@@ -524,7 +524,7 @@ async def update_session_evaluation(
             **data.kwargs,
         )
         logger.info(f"Evaluation updated: {evaluation_id} for problem {problem_id}")
-        return evaluation.to_dict()
+        return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(
             f"Error updating evaluation {evaluation_id} in problem {problem_id}: {e}"

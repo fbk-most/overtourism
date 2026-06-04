@@ -233,7 +233,7 @@ class Manager:
         """Create a scenario, evaluate it, and persist the resulting graph."""
 
         # Generate a unique scenario ID
-        new_id = f"{scenario_id}_{session_id}_{uuid4().hex}"
+        new_id = uuid4().hex
 
         # Create the scenario in memory
         scenario = self.scenario_managers[problem_id].create_scenario(
@@ -320,7 +320,7 @@ class Manager:
         except Exception:
             scenario = scenario_manager.create_scenario(scenario_id)
 
-        evaluation_id = f"{scenario.scenario_id}_{uuid4().hex}"
+        evaluation_id = uuid4().hex
         evaluation_manager.create_evaluation(
             evaluation_id,
             scenario.scenario_id,
@@ -409,7 +409,7 @@ class Manager:
         """Create a proposal and persist any requested scenario links."""
         proposal_manager = self.proposal_managers[problem_id]
         if proposal_id is None:
-            proposal_id = f"proposal_{len(proposal_manager.list_proposals())}"
+            proposal_id = uuid4().hex
 
         proposal = proposal_manager.create_proposal(
             proposal_id=proposal_id,

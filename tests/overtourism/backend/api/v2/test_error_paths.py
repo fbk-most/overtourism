@@ -9,6 +9,31 @@ def _raise_runtime_error(*args: Any, **kwargs: Any) -> Any:
     raise RuntimeError("boom")
 
 
+def test_problem_routes_return_a_friendly_422_validation_payload(
+    client,
+    tenant: str,
+) -> None:
+    response = client.post(
+        f"/api/v2/{tenant}/problems",
+        json={
+            "problem_description": "Missing required name",
+            "extras": {},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Validation failed",
+        "errors": [
+            {
+                "field": "body.problem_name",
+                "message": "Field required",
+                "type": "missing",
+            }
+        ],
+    }
+
+
 def test_problem_routes_surface_not_found_and_internal_errors(
     client,
     error_client,

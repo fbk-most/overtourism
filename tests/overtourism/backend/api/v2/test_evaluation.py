@@ -18,10 +18,7 @@ def test_create_and_read_stored_evaluation(
     assert create_response.json()["version"] == 2
     assert create_response.json()["scenario_id"] == "default"
     assert create_response.json()["state"] == "COMPLETED"
-    assert create_response.json()["result"] == {
-        "ensemble_size": 7,
-        "values": {},
-    }
+    assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
 
     list_response = client.get(
@@ -40,6 +37,7 @@ def test_create_and_read_stored_evaluation(
     assert read_response.status_code == 200
     assert read_response.json()["version"] == 2
     assert read_response.json()["evaluation_id"] == evaluation_id
+    assert "result" not in read_response.json()
 
 
 def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
@@ -71,10 +69,7 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
 
     assert update_response.status_code == 200
     assert update_response.json()["version"] == 3
-    assert update_response.json()["result"] == {
-        "ensemble_size": 5,
-        "values": {},
-    }
+    assert "result" not in update_response.json()
 
     delete_missing_version = client.delete(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
@@ -124,10 +119,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     assert create_response.status_code == 200
     assert create_response.json()["version"] == 2
     assert create_response.json()["scenario_id"] == draft.scenario_id
-    assert create_response.json()["result"] == {
-        "ensemble_size": 4,
-        "values": {"visits": 5},
-    }
+    assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
 
     list_response = client.get(
@@ -146,6 +138,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     assert read_response.status_code == 200
     assert read_response.json()["version"] == 2
     assert read_response.json()["evaluation_id"] == evaluation_id
+    assert "result" not in read_response.json()
 
 
 def test_session_evaluation_can_be_updated_and_deleted(
@@ -176,10 +169,7 @@ def test_session_evaluation_can_be_updated_and_deleted(
 
     assert update_response.status_code == 200
     assert update_response.json()["version"] == 3
-    assert update_response.json()["result"] == {
-        "ensemble_size": 8,
-        "values": {"visits": 6},
-    }
+    assert "result" not in update_response.json()
 
     delete_response = client.request(
         "DELETE",
