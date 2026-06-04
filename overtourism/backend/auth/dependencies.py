@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 
 from overtourism.backend.auth.enums import (
@@ -16,18 +17,21 @@ from overtourism.backend.auth.jwt import decode_jwt
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
 
+bearer_auth_scheme = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
 
-def _extract_bearer_token(authorization: str | None) -> str | None:
+
+def _extract_bearer_token(
+    authorization: HTTPAuthorizationCredentials | None,
+) -> str | None:
     """Extract a bearer token from the Authorization header.
     Return None when the header is missing, malformed, or empty."""
     if not authorization:
         return None
 
-    scheme, _, raw_token = authorization.partition(" ")
-    if scheme.lower() != AuthHeaderScheme.BEARER:
+    if authorization.scheme.lower() != AuthHeaderScheme.BEARER:
         return None
 
-    token = raw_token.strip()
+    token = authorization.credentials.strip()
     return token or None
 
 
@@ -78,7 +82,7 @@ def _auth_context_tenant(
 
 def get_auth_context(
     tenant: str | None = None,
-    authorization: str | None = Header(default=None),
+    authorization: HTTPAuthorizationCredentials | None = Security(bearer_auth_scheme),
     settings: AuthSettings = Depends(get_auth_settings),
 ) -> AuthContext:
     """Build the auth context for the current request.
