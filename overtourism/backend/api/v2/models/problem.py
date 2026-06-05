@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PostProblemData(BaseModel):
-    problem_name: str
-    problem_description: str
+    name: str
+    description: str
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -17,8 +17,8 @@ class UpdateProblemData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: int | None = None
-    problem_name: str | None = None
-    problem_description: str | None = None
+    name: str | None = None
+    description: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
