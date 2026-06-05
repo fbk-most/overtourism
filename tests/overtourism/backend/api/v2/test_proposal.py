@@ -48,6 +48,36 @@ def test_create_and_list_proposals_for_a_problem(
     assert proposals["proposal-api"]["related_scenario_ids"] == ["default"]
 
 
+def test_list_proposals_can_filter_by_related_scenario(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    related_scenario = manager.create_scenario(
+        problem_id,
+        scenario_id="scenario-linked",
+        session_id="seed",
+        values={"visits": 8},
+        name="Linked scenario",
+    )
+    manager.create_proposal(
+        problem_id,
+        proposal_id="proposal-linked",
+        name="Linked proposal",
+        status="draft",
+        related_scenario_ids=[related_scenario.scenario_id],
+    )
+
+    response = client.get(
+        f"/api/v2/{tenant}/proposals",
+        params={"problem_id": problem_id, "scenario_id": related_scenario.scenario_id},
+    )
+
+    assert response.status_code == 200
+    assert [item["proposal_id"] for item in response.json()] == ["proposal-linked"]
+
+
 def test_update_and_delete_proposal_require_the_current_version(
     client,
     manager: Manager,

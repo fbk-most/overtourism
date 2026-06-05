@@ -15,7 +15,6 @@ class SessionOwnershipConflict(RuntimeError):
     """Raised when a session is already owned by a different user."""
 
 
-
 class SessionOwnershipBase(DeclarativeBase):
     pass
 

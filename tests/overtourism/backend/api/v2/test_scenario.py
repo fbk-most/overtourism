@@ -24,6 +24,37 @@ def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) ->
     assert read_response.json()["version"] == 1
 
 
+def test_list_stored_scenarios_can_filter_by_related_proposal(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+    proposal_id: str,
+) -> None:
+    related_scenario = manager.create_scenario(
+        problem_id,
+        scenario_id="scenario-related",
+        session_id="seed",
+        values={"visits": 4},
+        name="Related scenario",
+    )
+    manager.link_scenario_to_proposal(
+        problem_id,
+        proposal_id,
+        related_scenario.scenario_id,
+    )
+
+    response = client.get(
+        f"/api/v2/{tenant}/scenarios",
+        params={"problem_id": problem_id, "proposal_id": proposal_id},
+    )
+
+    assert response.status_code == 200
+    assert {
+        item["scenario_id"] for item in response.json()
+    } == {"default", related_scenario.scenario_id}
+
+
 def test_update_stored_scenario_requires_the_current_version(
     client,
     tenant: str,

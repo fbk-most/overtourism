@@ -16,6 +16,7 @@ from overtourism.backend.api.v2.models.scenario import (
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
+    get_proposal_or_404,
     get_scenario_or_404,
     prepare_values,
 )
@@ -43,14 +44,26 @@ scenario_router = APIRouter(
 async def list_scenarios(
     tenant: str,
     problem_id: str,
+    proposal_id: str | None = None,
     handler: Handler = Depends(get_handler),
 ) -> list[ScenarioData]:
     try:
         get_problem_or_404(handler, tenant, problem_id)
-        return [
-            scenario.to_dict()
-            for scenario in handler.manager.list_scenarios(problem_id)
-        ]
+        scenarios = handler.manager.list_scenarios(problem_id)
+        if proposal_id is not None:
+            get_proposal_or_404(handler, problem_id, proposal_id)
+            related_scenario_ids = set(
+                handler.manager.problem_manager.get_related_scenario_ids(
+                    problem_id,
+                    proposal_id,
+                )
+            )
+            scenarios = [
+                scenario
+                for scenario in scenarios
+                if scenario.scenario_id in related_scenario_ids
+            ]
+        return [scenario.to_dict() for scenario in scenarios]
     except Exception as e:
         logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
         raise

@@ -71,14 +71,29 @@ def _proposal_to_api(
 async def list_proposals(
     tenant: str,
     problem_id: str,
+    scenario_id: str | None = None,
     handler: Handler = Depends(get_handler),
 ) -> list[ProposalData]:
     """List all proposals for a problem."""
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        proposals = handler.manager.list_proposals(problem_id)
+        if scenario_id is not None:
+            get_scenario_or_404(handler, problem_id, scenario_id)
+            related_proposal_ids = {
+                relationship["proposal_id"]
+                for relationship in handler.manager.problem_manager.get_relationships(
+                    problem_id
+                )
+                if relationship["scenario_id"] == scenario_id
+            }
+            proposals = [
+                proposal
+                for proposal in proposals
+                if proposal.proposal_id in related_proposal_ids
+            ]
         return [
-            _proposal_to_api(handler, problem_id, proposal)
-            for proposal in handler.manager.list_proposals(problem_id)
+            _proposal_to_api(handler, problem_id, proposal) for proposal in proposals
         ]
     except Exception as e:
         logger.error(f"Error listing proposals for problem {problem_id}: {e}")
