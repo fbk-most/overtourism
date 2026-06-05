@@ -14,6 +14,7 @@ from overtourism.backend.api.v2.models.problem import (
     ProblemData,
     UpdateProblemData,
 )
+from overtourism.backend.api.v2.session_ownership import delete_problem_ownership
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
@@ -172,6 +173,7 @@ async def delete_problem(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         handler.manager.delete_problem(problem_id)
+        delete_problem_ownership(handler, tenant, problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")

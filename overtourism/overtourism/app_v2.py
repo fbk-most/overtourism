@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 
 from overtourism.backend.api.v2.main import create_app
+from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.handler import Handler
 from overtourism.overtourism.api.v2.data import data_router
 from overtourism.overtourism.api.v2.problem import problem_router
@@ -16,6 +19,11 @@ from overtourism.overtourism.setup import data_loader, manager, viewer
 
 def build_handler() -> Handler:
     """Build the overtourism v2 backend handler and its collaborators."""
+    data_dir = Path(__file__).parent / "database"
+    session_ownership_store = SessionOwnershipStore(
+        data_dir / "session_ownership.sqlite"
+    )
+
     return Handler(
         manager=manager,
         get_widgets_fn=viewer.get_widgets,
@@ -36,6 +44,7 @@ def build_handler() -> Handler:
         viewer=viewer,
         prepare_values_fn=viewer.prepare_values,
         data_loader=data_loader,
+        session_ownership_store=session_ownership_store,
     )
 
 

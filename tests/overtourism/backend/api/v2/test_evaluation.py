@@ -5,6 +5,36 @@ from __future__ import annotations
 from overtourism.dt_manager.manager.manager import Manager
 
 
+def _create_owned_session_and_draft(
+    client,
+    tenant: str,
+    problem_id: str,
+    *,
+    values: dict[str, int],
+    name: str,
+    session_metadata: dict | None = None,
+) -> tuple[str, str]:
+    create_response = client.post(
+        f"/api/v2/{tenant}/sessions",
+        params={"problem_id": problem_id},
+        json={"metadata": {} if session_metadata is None else session_metadata},
+    )
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+
+    draft_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        params={"problem_id": problem_id},
+        json={
+            "base_scenario_id": "default",
+            "values": values,
+            "name": name,
+        },
+    )
+    assert draft_response.status_code == 200
+    return session_id, draft_response.json()["scenario_id"]
+
+
 def test_create_and_read_stored_evaluation(
     client, tenant: str, problem_id: str
 ) -> None:
@@ -102,36 +132,36 @@ def test_create_and_read_session_evaluation_for_a_draft(
     tenant: str,
     problem_id: str,
 ) -> None:
-    draft = manager.session_manager.create_session_scenario(
+    session_id, draft_id = _create_owned_session_and_draft(
+        client,
+        tenant,
         problem_id,
-        "session-eval",
-        "default",
         values={"visits": 5},
         name="Session draft",
     )
 
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-eval/evaluations",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
         params={"problem_id": problem_id},
-        json={"scenario_id": draft.scenario_id, "ensemble_size": 4},
+        json={"scenario_id": draft_id, "ensemble_size": 4},
     )
 
     assert create_response.status_code == 200
     assert create_response.json()["version"] == 2
-    assert create_response.json()["scenario_id"] == draft.scenario_id
+    assert create_response.json()["scenario_id"] == draft_id
     assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
 
     list_response = client.get(
-        f"/api/v2/{tenant}/sessions/session-eval/evaluations",
-        params={"problem_id": problem_id, "scenario_id": draft.scenario_id},
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
+        params={"problem_id": problem_id, "scenario_id": draft_id},
     )
 
     assert list_response.status_code == 200
     assert [item["evaluation_id"] for item in list_response.json()] == [evaluation_id]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/sessions/session-eval/evaluations/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
     )
 
@@ -147,22 +177,22 @@ def test_session_evaluation_can_be_updated_and_deleted(
     tenant: str,
     problem_id: str,
 ) -> None:
-    draft = manager.session_manager.create_session_scenario(
+    session_id, draft_id = _create_owned_session_and_draft(
+        client,
+        tenant,
         problem_id,
-        "session-update",
-        "default",
         values={"visits": 6},
         name="Session draft",
     )
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-update/evaluations",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
         params={"problem_id": problem_id},
-        json={"scenario_id": draft.scenario_id, "ensemble_size": 3},
+        json={"scenario_id": draft_id, "ensemble_size": 3},
     )
     evaluation_id = create_response.json()["evaluation_id"]
 
     update_response = client.put(
-        f"/api/v2/{tenant}/sessions/session-update/evaluations/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 2, "ensemble_size": 8},
     )
@@ -173,7 +203,7 @@ def test_session_evaluation_can_be_updated_and_deleted(
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/sessions/session-update/evaluations/{evaluation_id}",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 3},
     )
@@ -216,22 +246,23 @@ def test_session_evaluation_data_returns_arranged_data(
     tenant: str,
     problem_id: str,
 ) -> None:
-    draft = manager.session_manager.create_session_scenario(
+    session_id, draft_id = _create_owned_session_and_draft(
+        client,
+        tenant,
         problem_id,
-        "session-data",
-        "default",
         values={"visits": 12},
         name="Session draft",
     )
-    evaluation = manager.session_manager.create_session_evaluation(
-        problem_id,
-        "session-data",
-        draft.scenario_id,
-        ensemble_size=6,
+    evaluation_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
+        params={"problem_id": problem_id},
+        json={"scenario_id": draft_id, "ensemble_size": 6},
     )
+    assert evaluation_response.status_code == 200
+    evaluation_id = evaluation_response.json()["evaluation_id"]
 
     response = client.get(
-        f"/api/v2/{tenant}/sessions/session-data/evaluations/{evaluation.evaluation_id}/data",
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations/{evaluation_id}/data",
         params=[
             ("problem_id", problem_id),
             ("params", "ensemble_size"),
@@ -241,7 +272,7 @@ def test_session_evaluation_data_returns_arranged_data(
     assert response.status_code == 200
     assert response.json() == {
         "problem_id": problem_id,
-        "evaluation_id": evaluation.evaluation_id,
-        "scenario_id": draft.scenario_id,
+        "evaluation_id": evaluation_id,
+        "scenario_id": draft_id,
         "data": {"ensemble_size": 6},
     }

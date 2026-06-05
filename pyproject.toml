@@ -20,6 +20,7 @@ dependencies = [
     "slugify>=0.0.1",
     "streamlit-option-menu",
     "streamlit",
+    "sqlalchemy",
     "unidecode>=1.4.0",
     "networkx>=3.5",
     "contextily>=1.6.2",

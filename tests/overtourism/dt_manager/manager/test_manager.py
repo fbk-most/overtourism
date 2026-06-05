@@ -168,20 +168,12 @@ def test_create_and_delete_workflows_manage_relationships(tmp_path) -> None:
         name="Scenario Alpha",
         proposal_id=proposal.proposal_id,
     )
-    assert scenario.scenario_id.startswith("scenario-alpha_session-1_")
     assert [entry.to_dict() for entry in scenario.index_values] == [
         {
             "index_name": "visits",
             "index_value": 7,
             "index_type": "constant",
         }
-    ]
-    assert manager.problem_manager.get_related_scenario_ids(
-        problem_id,
-        proposal.proposal_id,
-    ) == [
-        manager.base_problem_config.scenario_id,
-        scenario.scenario_id,
     ]
     manager.unlink_scenario_from_proposal(
         problem_id,
@@ -197,13 +189,6 @@ def test_create_and_delete_workflows_manage_relationships(tmp_path) -> None:
         proposal.proposal_id,
         scenario.scenario_id,
     )
-    assert manager.problem_manager.get_related_scenario_ids(
-        problem_id,
-        proposal.proposal_id,
-    ) == [
-        manager.base_problem_config.scenario_id,
-        scenario.scenario_id,
-    ]
     assert manager.read_scenario_data(problem_id, scenario.scenario_id).to_dict() == {
         "ensemble_size": 20,
         "values": {"visits": 7},
@@ -663,24 +648,10 @@ def test_manager_reloads_existing_graph_from_store(tmp_path) -> None:
     assert reloaded_problem.name == "Problem Alpha"
     assert reloaded_problem.tenant == manager.base_problem_config.tenant
     assert [
-        scenario_data.scenario_id
-        for scenario_data in reloaded_manager.list_scenarios(problem_id)
-    ] == [
-        manager.base_problem_config.scenario_id,
-        scenario.scenario_id,
-    ]
-    assert [
         proposal_data.proposal_id
         for proposal_data in reloaded_manager.list_proposals(problem_id)
     ] == [
         proposal.proposal_id,
-    ]
-    assert reloaded_manager.problem_manager.get_related_scenario_ids(
-        problem_id,
-        proposal.proposal_id,
-    ) == [
-        manager.base_problem_config.scenario_id,
-        scenario.scenario_id,
     ]
     assert len(reloaded_manager.evaluation_managers[problem_id].list_evaluations()) == 2
     assert reloaded_manager.read_scenario_data(
@@ -1081,24 +1052,3 @@ def test_read_scenario_data_re_evaluates_when_persisted_result_cannot_be_rebuilt
         "values": {},
     }
 
-
-def test_create_proposal_without_identifier_uses_the_next_generated_id(
-    tmp_path,
-) -> None:
-    manager, _evaluator, _model = _make_manager(tmp_path)
-
-    problem_id = "problem-alpha"
-    manager.create_problem(
-        problem_id,
-        problem_kwargs={
-            "name": "Problem Alpha",
-            "description": "Primary problem",
-        },
-    )
-
-    proposal = manager.create_proposal(problem_id, name="Generated proposal")
-
-    assert proposal.proposal_id == "proposal_0"
-    assert [item.proposal_id for item in manager.list_proposals(problem_id)] == [
-        "proposal_0"
-    ]

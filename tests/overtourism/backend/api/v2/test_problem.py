@@ -99,3 +99,33 @@ def test_delete_problem_removes_it_from_the_store(
     assert all(
         problem.problem_id != "problem-delete" for problem in manager.list_problems()
     )
+
+
+def test_delete_problem_removes_session_ownership_rows(
+    client,
+    handler,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    create_response = client.post(
+        f"/api/v2/{tenant}/sessions",
+        params={"problem_id": problem_id},
+        json={"metadata": {}},
+    )
+
+    assert create_response.status_code == 200
+    session_id = create_response.json()["session_id"]
+    assert handler.session_ownership_store.list_session_ids(
+        tenant,
+        problem_id,
+        "anonymous:tenant-alpha",
+    ) == [session_id]
+
+    delete_response = client.delete(f"/api/v2/{tenant}/problems/{problem_id}")
+
+    assert delete_response.status_code == 200
+    assert handler.session_ownership_store.list_session_ids(
+        tenant,
+        problem_id,
+        "anonymous:tenant-alpha",
+    ) == []

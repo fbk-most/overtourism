@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from overtourism.backend.api.v2.main import create_app
+from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
@@ -96,6 +97,11 @@ def data_loader() -> RecordingDataLoader:
 
 
 @pytest.fixture
+def session_ownership_store(tmp_path) -> SessionOwnershipStore:
+    return SessionOwnershipStore(tmp_path / "session_ownership.sqlite")
+
+
+@pytest.fixture
 def manager(tmp_path, tenant: str) -> Manager:
     model = SimpleNamespace(name="fake-model", indexes=[])
     evaluator = FakeModelEvaluator(model)
@@ -115,6 +121,7 @@ def handler(
     manager: Manager,
     viewer: RecordingViewer,
     data_loader: RecordingDataLoader,
+    session_ownership_store: SessionOwnershipStore,
 ) -> Handler:
     return Handler(
         manager=manager,
@@ -132,6 +139,7 @@ def handler(
         ),
         arrange_data_fn=_normalize_output,
         prepare_values_fn=lambda values: dict(values),
+        session_ownership_store=session_ownership_store,
     )
 
 

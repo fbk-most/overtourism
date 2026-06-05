@@ -27,6 +27,13 @@ from overtourism.backend.api.v2.models.session import (
     SessionData,
     SessionSummaryData,
 )
+from overtourism.backend.api.v2.session_ownership import (
+    can_claim_session_ownership,
+    claim_session_ownership,
+    delete_session_ownership,
+    list_owned_session_ids,
+    require_session_ownership,
+)
 from overtourism.backend.api.v2.utils import (
     arrange_data,
     check_version,
@@ -38,6 +45,7 @@ from overtourism.backend.api.v2.utils import (
     prepare_values,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
+from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.scenario.values import values_as_scipy
 
@@ -62,6 +70,7 @@ async def create_session(
     tenant: str,
     problem_id: str,
     data: CreateSessionData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> SessionSummaryData:
     try:
@@ -71,6 +80,15 @@ async def create_session(
             uuid4().hex,
             metadata=data.metadata,
         )
+        try:
+            claim_session_ownership(
+                handler, tenant, problem_id, session.session_id, context
+            )
+        except Exception:
+            handler.manager.session_manager.delete_session(
+                problem_id, session.session_id
+            )
+            raise
         logger.info(f"Session created: {session.session_id} for problem {problem_id}")
         return SessionSummaryData(
             problem_id=session.problem_id,
@@ -98,10 +116,12 @@ async def create_session(
 async def list_sessions(
     tenant: str,
     problem_id: str,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> list[SessionSummaryData]:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        session_ids = set(list_owned_session_ids(handler, tenant, problem_id, context))
         return [
             SessionSummaryData(
                 problem_id=session.problem_id,
@@ -113,6 +133,7 @@ async def list_sessions(
                 draft_ids=list(session.drafts),
             )
             for session in handler.manager.session_manager.list_sessions(problem_id)
+            if session.session_id in session_ids
         ]
     except Exception as e:
         logger.error(f"Error listing sessions for problem {problem_id}: {e}")
@@ -132,10 +153,12 @@ async def read_session(
     tenant: str,
     problem_id: str,
     session_id: str,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> SessionData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         session = get_session_or_404(handler, problem_id, session_id)
         return SessionData(
             problem_id=session.problem_id,
@@ -172,12 +195,15 @@ async def delete_session(
     tenant: str,
     problem_id: str,
     session_id: str,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> dict:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         get_session_or_404(handler, problem_id, session_id)
         handler.manager.session_manager.delete_session(problem_id, session_id)
+        delete_session_ownership(handler, tenant, problem_id, session_id)
         logger.info(f"Session deleted: {session_id} for problem {problem_id}")
         return {"message": "Session deleted successfully"}
     except Exception as e:
@@ -201,11 +227,23 @@ async def create_session_scenario(
     problem_id: str,
     session_id: str,
     data: PostScenarioData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> ScenarioData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
         get_scenario_or_404(handler, problem_id, data.base_scenario_id)
+        can_claim_session_ownership(
+            handler,
+            tenant,
+            problem_id,
+            session_id,
+            context,
+        )
+        session_existed = handler.manager.session_manager.has_session(
+            problem_id,
+            session_id,
+        )
         scenario = handler.manager.session_manager.create_session_scenario(
             problem_id,
             session_id,
@@ -217,6 +255,12 @@ async def create_session_scenario(
             description=data.description,
             extras=data.extras,
         )
+        try:
+            claim_session_ownership(handler, tenant, problem_id, session_id, context)
+        except Exception:
+            if not session_existed:
+                handler.manager.session_manager.delete_session(problem_id, session_id)
+            raise
         logger.info(
             f"Session draft created: {scenario.scenario_id} for problem {problem_id}"
         )
@@ -240,10 +284,12 @@ async def read_session_scenario(
     problem_id: str,
     session_id: str,
     scenario_id: str,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> ScenarioData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         scenario = get_session_scenario_or_404(
             handler,
             problem_id,
@@ -273,10 +319,12 @@ async def update_session_scenario(
     session_id: str,
     scenario_id: str,
     data: UpdateScenarioData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> ScenarioData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         current_scenario = get_session_scenario_or_404(
             handler,
             problem_id,
@@ -322,10 +370,12 @@ async def save_scenario(
     session_id: str,
     scenario_id: str,
     data: SaveScenarioData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> ScenarioData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         current_scenario = get_session_scenario_or_404(
             handler,
             problem_id,
@@ -365,10 +415,12 @@ async def delete_session_scenario(
     session_id: str,
     scenario_id: str,
     data: VersionData | None = None,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> dict:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         scenario = get_session_scenario_or_404(
             handler,
             problem_id,
@@ -404,10 +456,12 @@ async def create_session_evaluation(
     problem_id: str,
     session_id: str,
     data: PostEvaluationData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> EvaluationData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         get_session_scenario_or_404(
             handler,
             problem_id,
@@ -442,10 +496,12 @@ async def list_session_evaluations(
     problem_id: str,
     session_id: str,
     scenario_id: str | None = None,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> list[EvaluationData]:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         get_session_or_404(handler, problem_id, session_id)
         evaluations = handler.manager.session_manager.list_session_evaluations(
             problem_id,
@@ -472,10 +528,12 @@ async def read_session_evaluation(
     problem_id: str,
     session_id: str,
     evaluation_id: str,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> EvaluationData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         evaluation = get_session_evaluation_by_id_or_404(
             handler,
             problem_id,
@@ -505,10 +563,12 @@ async def update_session_evaluation(
     session_id: str,
     evaluation_id: str,
     data: UpdateEvaluationData,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> EvaluationData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         current = get_session_evaluation_by_id_or_404(
             handler,
             problem_id,
@@ -546,10 +606,12 @@ async def delete_session_evaluation(
     session_id: str,
     evaluation_id: str,
     data: VersionData | None = None,
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> dict[str, str]:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         evaluation = get_session_evaluation_by_id_or_404(
             handler,
             problem_id,
@@ -588,10 +650,12 @@ async def get_session_data(
     session_id: str,
     evaluation_id: str,
     params: list[str] | None = Query(default=None),
+    context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
 ) -> EvaluationOutputData:
     try:
         get_problem_or_404(handler, tenant, problem_id)
+        require_session_ownership(handler, tenant, problem_id, session_id, context)
         evaluation = get_session_evaluation_by_id_or_404(
             handler,
             problem_id,

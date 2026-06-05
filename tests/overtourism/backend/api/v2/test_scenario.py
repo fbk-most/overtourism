@@ -137,17 +137,21 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
     problem_id: str,
     manager: Manager,
 ) -> None:
-    draft = manager.session_manager.create_session_scenario(
-        problem_id,
-        "session-delete",
-        "default",
-        values={"visits": 3},
-        name="Disposable draft",
+    draft_response = client.post(
+        f"/api/v2/{tenant}/sessions/session-delete/scenarios",
+        params={"problem_id": problem_id},
+        json={
+            "base_scenario_id": "default",
+            "values": {"visits": 3},
+            "name": "Disposable draft",
+        },
     )
+    assert draft_response.status_code == 200
+    draft_id = draft_response.json()["scenario_id"]
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/sessions/session-delete/scenarios/{draft.scenario_id}",
+        f"/api/v2/{tenant}/sessions/session-delete/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={"version": 1},
     )

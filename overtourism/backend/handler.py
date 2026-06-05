@@ -6,6 +6,7 @@ import typing
 from typing import Any, Callable, Protocol
 
 if typing.TYPE_CHECKING:
+    from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
     from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -67,6 +68,7 @@ class Handler:
         prepare_problem_extras_fn: PrepareProblemExtrasFnLike | None = None,
         arrange_data_fn: ArrangeDataFnLike | None = None,
         prepare_values_fn: Callable[..., dict] | None = None,
+        session_ownership_store: SessionOwnershipStore | None = None,
     ) -> None:
         self.manager = manager
         self.viewer = viewer
@@ -76,3 +78,4 @@ class Handler:
         self.prepare_problem_extras_fn = prepare_problem_extras_fn
         self.arrange_data_fn = arrange_data_fn
         self.prepare_values_fn = prepare_values_fn
+        self.session_ownership_store = session_ownership_store
