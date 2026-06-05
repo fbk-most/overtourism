@@ -16,7 +16,7 @@ def test_problem_routes_return_a_friendly_422_validation_payload(
     response = client.post(
         f"/api/v2/{tenant}/problems",
         json={
-            "problem_description": "Missing required name",
+            "description": "Missing required name",
             "extras": {},
         },
     )
@@ -26,7 +26,7 @@ def test_problem_routes_return_a_friendly_422_validation_payload(
         "detail": "Validation failed",
         "errors": [
             {
-                "field": "body.problem_name",
+                "field": "body.name",
                 "message": "Field required",
                 "type": "missing",
             }
@@ -48,7 +48,7 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 
     update_response = client.put(
         f"/api/v2/{tenant}/problems/missing-problem",
-        json={"version": 1, "problem_name": "Updated"},
+        json={"version": 1, "name": "Updated"},
     )
     assert update_response.status_code == 404
 
@@ -59,8 +59,8 @@ def test_problem_routes_surface_not_found_and_internal_errors(
     create_response = error_client.post(
         f"/api/v2/{tenant}/problems",
         json={
-            "problem_name": "Broken",
-            "problem_description": "Will fail",
+            "name": "Broken",
+            "description": "Will fail",
             "extras": {},
         },
     )

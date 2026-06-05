@@ -31,16 +31,16 @@ problem_router = APIRouter(
 
 
 class PostProblemData(BaseModel):
-    problem_name: str
-    problem_description: str
+    name: str
+    description: str
     objective: str | None = None
     groups: list[str] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
 
     def to_backend(self) -> BackendPostProblemData:
         return BackendPostProblemData(
-            problem_name=self.problem_name,
-            problem_description=self.problem_description,
+            name=self.name,
+            description=self.description,
             extras=_problem_extras(self),
         )
 
@@ -49,8 +49,8 @@ class UpdateProblemData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: int | None = None
-    problem_name: str | None = None
-    problem_description: str | None = None
+    name: str | None = None
+    description: str | None = None
     objective: str | None = None
     groups: list[str] | None = None
     links: list[str] | None = None
@@ -58,8 +58,8 @@ class UpdateProblemData(BaseModel):
     def to_backend(self) -> BackendUpdateProblemData:
         return BackendUpdateProblemData(
             version=self.version,
-            problem_name=self.problem_name,
-            problem_description=self.problem_description,
+            name=self.name,
+            description=self.description,
             extras=_problem_extras(self),
         )
 

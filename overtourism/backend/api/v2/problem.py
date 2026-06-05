@@ -74,12 +74,12 @@ async def create_problem(
         extras = handler.manager.problem_extras_from_dict(problem_payload)
         if handler.prepare_problem_extras_fn is not None:
             extras = handler.prepare_problem_extras_fn(extras, problem_payload)
-        problem_id = slugify(data.problem_name)
+        problem_id = slugify(data.name)
         handler.manager.create_problem(
             problem_id,
             problem_kwargs={
-                "name": data.problem_name,
-                "description": data.problem_description,
+                "name": data.name,
+                "description": data.description,
                 "extras": extras,
                 "tenant": tenant,
             },
@@ -88,7 +88,7 @@ async def create_problem(
         logger.info(f"Problem created: {problem_id}")
         return problem.to_dict()
     except Exception as e:
-        logger.error(f"Error creating problem {data.problem_name}: {e}")
+        logger.error(f"Error creating problem {data.name}: {e}")
         raise
 
 
@@ -144,8 +144,8 @@ async def update_problem(
             )
         handler.manager.update_problem(
             problem_id,
-            name=data.problem_name,
-            description=data.problem_description,
+            name=data.name,
+            description=data.description,
             extras=extras,
         )
         updated_problem = handler.manager.read_problem(problem_id)

@@ -26,8 +26,8 @@ def test_create_problem_returns_slugified_problem_with_version(
     response = client.post(
         f"/api/v2/{tenant}/problems",
         json={
-            "problem_name": "Lake Cleanup",
-            "problem_description": "Reduce visitor pressure",
+            "name": "Lake Cleanup",
+            "description": "Reduce visitor pressure",
             "extras": {"ignored": True},
         },
     )
@@ -59,7 +59,7 @@ def test_update_problem_requires_matching_version_in_entity(
 ) -> None:
     missing_version = client.put(
         f"/api/v2/{tenant}/problems/default",
-        json={"problem_name": "Updated default"},
+        json={"name": "Updated default"},
     )
 
     assert missing_version.status_code == 428
@@ -69,8 +69,8 @@ def test_update_problem_requires_matching_version_in_entity(
         f"/api/v2/{tenant}/problems/default",
         json={
             "version": 1,
-            "problem_name": "Updated default",
-            "problem_description": "Updated description",
+            "name": "Updated default",
+            "description": "Updated description",
         },
     )
 

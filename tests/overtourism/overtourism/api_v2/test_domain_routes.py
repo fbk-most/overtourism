@@ -79,8 +79,8 @@ def test_problem_routes_accept_typed_domain_fields(
     response = client.post(
         f"/api/v2/{tenant}/problems",
         json={
-            "problem_name": "Lake Cleanup",
-            "problem_description": "Reduce visitor pressure",
+            "name": "Lake Cleanup",
+            "description": "Reduce visitor pressure",
             "groups": ["pressure"],
             "objective": "Keep the shoreline usable",
             "links": ["https://example.test/lake"],
@@ -105,8 +105,8 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
     create_response = client.post(
         f"/api/v2/{tenant}/problems",
         json={
-            "problem_name": "Lake Cleanup",
-            "problem_description": "Reduce visitor pressure",
+            "name": "Lake Cleanup",
+            "description": "Reduce visitor pressure",
             "groups": ["pressure"],
             "objective": "Keep the shoreline usable",
         },
@@ -117,8 +117,8 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
         f"/api/v2/{tenant}/problems/lake-cleanup",
         json={
             "version": create_response.json()["version"],
-            "problem_name": "Lake Cleanup Updated",
-            "problem_description": "Still reducing pressure",
+            "name": "Lake Cleanup Updated",
+            "description": "Still reducing pressure",
         },
     )
 
@@ -152,8 +152,8 @@ def test_problem_routes_expose_typed_domain_fields_in_openapi(client) -> None:
     ]
 
     assert set(post_schema["properties"]) >= {
-        "problem_name",
-        "problem_description",
+        "name",
+        "description",
         "objective",
         "groups",
         "links",
@@ -161,8 +161,8 @@ def test_problem_routes_expose_typed_domain_fields_in_openapi(client) -> None:
     assert "extras" not in post_schema["properties"]
     assert set(put_schema["properties"]) >= {
         "version",
-        "problem_name",
-        "problem_description",
+        "name",
+        "description",
         "objective",
         "groups",
         "links",
