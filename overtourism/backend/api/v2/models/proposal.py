@@ -10,7 +10,7 @@ from overtourism.dt_manager.proposal.proposal import ProposalStatus
 
 
 class ProposalData(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     proposal_id: str
     problem_id: str
@@ -25,7 +25,7 @@ class ProposalData(BaseModel):
 
 
 class PostProposalData(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     proposal_id: str | None = None
     name: str | None = None
@@ -36,7 +36,7 @@ class PostProposalData(BaseModel):
 
 
 class UpdateProposalData(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     version: int | None = None
     name: str | None = None

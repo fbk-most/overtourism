@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScenarioData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     problem_id: str
     scenario_id: str
@@ -30,7 +30,7 @@ class PostScenarioData(BaseModel):
 
 
 class SaveScenarioData(BaseModel):
-    model_config = ConfigDict(extra="forbid", exclude_none=True)
+    model_config = ConfigDict(extra="ignore", exclude_none=True)
 
     version: int | None = None
     name: str | None = None
@@ -40,7 +40,7 @@ class SaveScenarioData(BaseModel):
 
 
 class UpdateScenarioData(BaseModel):
-    model_config = ConfigDict(extra="forbid", exclude_none=True)
+    model_config = ConfigDict(extra="ignore", exclude_none=True)
 
     version: int | None = None
     name: str | None = None

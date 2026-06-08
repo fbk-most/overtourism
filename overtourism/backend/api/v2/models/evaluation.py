@@ -13,7 +13,7 @@ from overtourism.dt_manager.evaluation.evaluation import (
 
 
 class EvaluationData(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     evaluation_id: str
     scenario_id: str
@@ -38,7 +38,7 @@ class EvaluationData(BaseModel):
 
 
 class EvaluationOutputData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     problem_id: str
     scenario_id: str
@@ -47,7 +47,7 @@ class EvaluationOutputData(BaseModel):
 
 
 class PostEvaluationData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     scenario_id: str
     ensemble_size: int = 20
@@ -55,7 +55,7 @@ class PostEvaluationData(BaseModel):
 
 
 class UpdateEvaluationData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     version: int | None = None
     ensemble_size: int = 20

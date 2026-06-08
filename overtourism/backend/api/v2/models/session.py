@@ -11,13 +11,13 @@ from overtourism.backend.api.v2.models.scenario import ScenarioData
 
 
 class CreateSessionData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class SessionSummaryData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     problem_id: str
     session_id: str

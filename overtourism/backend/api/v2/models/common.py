@@ -6,6 +6,6 @@ from pydantic import BaseModel, ConfigDict
 
 
 class VersionData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     version: int | None = None

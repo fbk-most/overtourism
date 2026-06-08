@@ -14,7 +14,7 @@ class PostProblemData(BaseModel):
 
 
 class UpdateProblemData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     version: int | None = None
     name: str | None = None
@@ -23,7 +23,7 @@ class UpdateProblemData(BaseModel):
 
 
 class ProblemData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     problem_id: str
     version: int = 0
