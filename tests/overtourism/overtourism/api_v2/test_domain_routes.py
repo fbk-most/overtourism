@@ -81,9 +81,11 @@ def test_problem_routes_accept_typed_domain_fields(
         json={
             "name": "Lake Cleanup",
             "description": "Reduce visitor pressure",
-            "groups": ["pressure"],
-            "objective": "Keep the shoreline usable",
-            "links": ["https://example.test/lake"],
+            "extras": {
+                "groups": ["pressure"],
+                "objective": "Keep the shoreline usable",
+                "links": ["https://example.test/lake"],
+            },
         },
     )
 
@@ -107,8 +109,10 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
         json={
             "name": "Lake Cleanup",
             "description": "Reduce visitor pressure",
-            "groups": ["pressure"],
-            "objective": "Keep the shoreline usable",
+            "extras": {
+                "groups": ["pressure"],
+                "objective": "Keep the shoreline usable",
+            },
         },
     )
     assert create_response.status_code == 200
@@ -154,20 +158,14 @@ def test_problem_routes_expose_typed_domain_fields_in_openapi(client) -> None:
     assert set(post_schema["properties"]) >= {
         "name",
         "description",
-        "objective",
-        "groups",
-        "links",
+        "extras",
     }
-    assert "extras" not in post_schema["properties"]
     assert set(put_schema["properties"]) >= {
         "version",
         "name",
         "description",
-        "objective",
-        "groups",
-        "links",
+        "extras",
     }
-    assert "extras" not in put_schema["properties"]
 
 
 def test_domain_routes_return_500_for_failing_collaborators(

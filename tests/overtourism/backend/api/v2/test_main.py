@@ -48,15 +48,6 @@ def test_create_app_does_not_register_overtourism_extension_routes_by_default(
     assert "/api/v2/{tenant}/widgets" not in paths
 
 
-def test_create_app_can_skip_the_default_problem_router(handler) -> None:
-    app = create_app(handler, include_problem_router=False)
-
-    paths = {route.path for route in app.routes}
-
-    assert "/api/v2/{tenant}/problems" not in paths
-    assert "/api/v2/{tenant}/problems/{problem_id}" not in paths
-
-
 def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
     app = create_app(handler)
 

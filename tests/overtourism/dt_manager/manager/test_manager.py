@@ -1051,4 +1051,3 @@ def test_read_scenario_data_re_evaluates_when_persisted_result_cannot_be_rebuilt
         "ensemble_size": 20,
         "values": {},
     }
-

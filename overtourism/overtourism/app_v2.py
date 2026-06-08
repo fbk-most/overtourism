@@ -10,7 +10,6 @@ from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.handler import Handler
 from overtourism.overtourism.api.v2.data import data_router
-from overtourism.overtourism.api.v2.problem import problem_router
 from overtourism.overtourism.api.v2.problem_extras import prepare_problem_extras
 from overtourism.overtourism.api.v2.widget import widget_router
 from overtourism.overtourism.molveno_runner import arrange_data as _arrange_data
@@ -54,8 +53,7 @@ def build_app() -> FastAPI:
         build_handler(),
         title="Overtourism API",
         description="API for tourism indices in Trentino",
-        include_problem_router=False,
-        extra_routers=[problem_router, data_router, widget_router],
+        extra_routers=[data_router, widget_router],
     )
 
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2 import session as session_api
+from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2.session_ownership import (
     SessionOwnershipStore,
     claim_session_ownership,
@@ -49,38 +49,47 @@ def handler(tmp_path, ownership_store: SessionOwnershipStore) -> Handler:
 def test_resolve_session_owner_prefers_email_then_subject_then_anonymous() -> None:
     tenant = "tenant-alpha"
 
-    assert resolve_session_owner_id(
-        AuthContext(
-            authenticated=True,
-            tenant=tenant,
-            subject="subject-owner",
-            token="token",
-            claims={"email": "owner@example.com", "sub": "subject-owner"},
-        ),
-        tenant,
-    ) == "owner@example.com"
+    assert (
+        resolve_session_owner_id(
+            AuthContext(
+                authenticated=True,
+                tenant=tenant,
+                subject="subject-owner",
+                token="token",
+                claims={"email": "owner@example.com", "sub": "subject-owner"},
+            ),
+            tenant,
+        )
+        == "owner@example.com"
+    )
 
-    assert resolve_session_owner_id(
-        AuthContext(
-            authenticated=True,
-            tenant=tenant,
-            subject="subject-owner",
-            token="token",
-            claims={"sub": "subject-owner"},
-        ),
-        tenant,
-    ) == "subject-owner"
+    assert (
+        resolve_session_owner_id(
+            AuthContext(
+                authenticated=True,
+                tenant=tenant,
+                subject="subject-owner",
+                token="token",
+                claims={"sub": "subject-owner"},
+            ),
+            tenant,
+        )
+        == "subject-owner"
+    )
 
-    assert resolve_session_owner_id(
-        AuthContext(
-            authenticated=False,
-            tenant=tenant,
-            subject=None,
-            token=None,
-            claims={},
-        ),
-        tenant,
-    ) == "anonymous:tenant-alpha"
+    assert (
+        resolve_session_owner_id(
+            AuthContext(
+                authenticated=False,
+                tenant=tenant,
+                subject=None,
+                token=None,
+                claims={},
+            ),
+            tenant,
+        )
+        == "anonymous:tenant-alpha"
+    )
 
 
 def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
@@ -180,7 +189,9 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         )
 
     app.dependency_overrides[get_auth_context] = owner_a_context
-    monkeypatch.setattr(session_api, "uuid4", lambda: SimpleNamespace(hex="session-owned"))
+    monkeypatch.setattr(
+        session_api, "uuid4", lambda: SimpleNamespace(hex="session-owned")
+    )
 
     with TestClient(app) as client:
         create_response = client.post(
@@ -208,13 +219,19 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
             ).status_code
             == 404
         )
-        assert client.get(
-            f"/api/v2/{tenant}/sessions",
-            params={"problem_id": problem_id},
-        ).json() == []
+        assert (
+            client.get(
+                f"/api/v2/{tenant}/sessions",
+                params={"problem_id": problem_id},
+            ).json()
+            == []
+        )
 
         app.dependency_overrides[get_auth_context] = owner_a_context
-        assert client.get(
-            f"/api/v2/{tenant}/sessions/{session_id}",
-            params={"problem_id": problem_id},
-        ).status_code == 200
+        assert (
+            client.get(
+                f"/api/v2/{tenant}/sessions/{session_id}",
+                params={"problem_id": problem_id},
+            ).status_code
+            == 200
+        )

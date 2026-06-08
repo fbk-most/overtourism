@@ -124,8 +124,11 @@ def test_delete_problem_removes_session_ownership_rows(
     delete_response = client.delete(f"/api/v2/{tenant}/problems/{problem_id}")
 
     assert delete_response.status_code == 200
-    assert handler.session_ownership_store.list_session_ids(
-        tenant,
-        problem_id,
-        "anonymous:tenant-alpha",
-    ) == []
+    assert (
+        handler.session_ownership_store.list_session_ids(
+            tenant,
+            problem_id,
+            "anonymous:tenant-alpha",
+        )
+        == []
+    )

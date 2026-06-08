@@ -50,9 +50,10 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
     )
 
     assert response.status_code == 200
-    assert {
-        item["scenario_id"] for item in response.json()
-    } == {"default", related_scenario.scenario_id}
+    assert {item["scenario_id"] for item in response.json()} == {
+        "default",
+        related_scenario.scenario_id,
+    }
 
 
 def test_update_stored_scenario_requires_the_current_version(

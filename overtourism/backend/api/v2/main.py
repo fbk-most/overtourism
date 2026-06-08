@@ -38,7 +38,6 @@ def create_app(
     title: str = "Digital Twin API",
     version: str = APP_VERSION,
     description: str = "Reusable API for digital twin workflows",
-    include_problem_router: bool = True,
     extra_routers: list[APIRouter] | None = None,
 ) -> FastAPI:
     """Create a FastAPI app wired to the given handler."""
@@ -55,8 +54,7 @@ def create_app(
         allow_headers=["*"],
     )
 
-    if include_problem_router:
-        app.include_router(problem_router)
+    app.include_router(problem_router)
     app.include_router(proposal_router)
     app.include_router(session_router)
     app.include_router(scenario_router)
