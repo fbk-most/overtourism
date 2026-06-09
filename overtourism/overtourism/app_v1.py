@@ -15,9 +15,10 @@ def build_handler() -> Handler:
     """Build the overtourism v1 backend handler and its collaborators."""
     return Handler(
         manager=manager,
-        arrange_data_fn=lambda data, params=None: _arrange_data(
+        arrange_data_fn=lambda data, params=None, as_snapshot=False: _arrange_data(
             data,
             api_version="v1",
+            as_snapshot=as_snapshot,
         ),
         viewer=viewer,
         prepare_values_fn=viewer.prepare_values,

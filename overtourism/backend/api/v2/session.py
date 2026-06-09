@@ -649,6 +649,7 @@ async def get_session_data(
     problem_id: str,
     session_id: str,
     evaluation_id: str,
+    as_snapshot: bool = Query(default=True),
     params: list[str] | None = Query(default=None),
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
@@ -668,7 +669,7 @@ async def get_session_data(
             session_id,
             evaluation.scenario_id,
         )
-        result = arrange_data(handler, evaluation.result, params=params)
+        result = arrange_data(handler, evaluation.result, params=params, as_snapshot=as_snapshot)
         return EvaluationOutputData(
             problem_id=scenario.problem_id,
             scenario_id=scenario.scenario_id,

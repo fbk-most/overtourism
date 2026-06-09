@@ -79,6 +79,7 @@ def _translate_constraint_names(data: dict[str, Any]) -> dict[str, Any]:
 def arrange_data(
     data: MolvenoOutput,
     api_version: Literal["v1", "v2"] = "v1",
+    as_snapshot: bool = True,
     fields: list[str] | None = None,
 ) -> dict:
     """Transform a :class:`MolvenoOutput` into the API response format.
@@ -100,7 +101,8 @@ def arrange_data(
     if api_version == "v2":
         if fields is not None:
             return {k: snapshot[k] for k in fields if k in snapshot}
-        return snapshot
+        if as_snapshot:
+            return snapshot
 
     data = snapshot  # type: ignore[assignment]  # reuse variable for v1 dict path
 

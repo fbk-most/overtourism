@@ -192,6 +192,7 @@ async def get_data(
     tenant: str,
     problem_id: str,
     evaluation_id: str,
+    as_snapshot: bool = Query(default=True),
     params: list[str] | None = Query(default=None),
     handler: Handler = Depends(get_handler),
 ) -> EvaluationOutputData:
@@ -199,7 +200,7 @@ async def get_data(
         get_problem_or_404(handler, tenant, problem_id)
         evaluation = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
         scenario = get_scenario_or_404(handler, problem_id, evaluation.scenario_id)
-        result = arrange_data(handler, evaluation.result, params=params)
+        result = arrange_data(handler, evaluation.result, params=params, as_snapshot=as_snapshot)
         return EvaluationOutputData(
             problem_id=scenario.problem_id,
             scenario_id=scenario.scenario_id,

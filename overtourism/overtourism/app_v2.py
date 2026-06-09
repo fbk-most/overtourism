@@ -35,9 +35,10 @@ def build_handler() -> Handler:
             current_extras,
             viewer=viewer,
         ),
-        arrange_data_fn=lambda data, params=None: _arrange_data(
+        arrange_data_fn=lambda data, params=None, as_snapshot=True: _arrange_data(
             data,
             api_version="v2",
+            as_snapshot=as_snapshot,
             fields=params,
         ),
         viewer=viewer,

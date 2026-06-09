@@ -169,11 +169,16 @@ def prepare_values(
 def arrange_data(
     handler: Handler,
     data: typing.Any,
+    as_snapshot: bool = True,
     params: list[str] | None = None,
 ) -> dict:
     """Convert model output to API dict using arrange_data_fn if available."""
     if handler.arrange_data_fn is not None:
-        return handler.arrange_data_fn(data, params)
+        return handler.arrange_data_fn(
+            data,
+            as_snapshot=as_snapshot,
+            params=params,
+        )
     return data
 
 

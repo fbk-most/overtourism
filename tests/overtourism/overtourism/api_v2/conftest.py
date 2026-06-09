@@ -26,6 +26,7 @@ from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 def _normalize_output(
     data: Any,
+    as_snapshot: bool = False,
     params: list[str] | None = None,
 ) -> dict[str, Any]:
     if hasattr(data, "to_dict"):
