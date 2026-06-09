@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 session_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/sessions",
+    tags=["Sessions"],
     dependencies=[Depends(get_auth_context)],
 )
 

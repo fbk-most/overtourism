@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 scenario_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/scenarios",
+    tags=["Scenarios"],
     dependencies=[Depends(get_auth_context)],
 )
 

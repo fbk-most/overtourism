@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 evaluation_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/evaluations",
+    tags=["Evaluations"],
     dependencies=[Depends(get_auth_context)],
 )
 

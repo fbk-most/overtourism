@@ -67,3 +67,52 @@ def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
     assert openapi["paths"]["/api/v2/{tenant}/auth/me"]["get"]["security"] == [
         {"BearerAuth": []}
     ]
+
+
+def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
+    app = create_app(handler)
+
+    with TestClient(app) as client:
+        response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    openapi = response.json()
+
+    assert openapi["tags"] == [
+        {
+            "name": "Problems",
+            "description": "Create and manage optimization problems.",
+        },
+        {
+            "name": "Proposals",
+            "description": "Manage proposals linked to problems.",
+        },
+        {
+            "name": "Sessions",
+            "description": "Create and manage sessions.",
+        },
+        {
+            "name": "Scenarios",
+            "description": "Inspect and update scenarios within a problem.",
+        },
+        {
+            "name": "Evaluations",
+            "description": "Run and inspect scenario evaluations.",
+        },
+        {
+            "name": "Auth",
+            "description": "Authentication and current user context.",
+        },
+    ]
+    assert openapi["paths"]["/api/v2/{tenant}/problems"]["get"]["tags"] == ["Problems"]
+    assert openapi["paths"]["/api/v2/{tenant}/proposals"]["get"]["tags"] == [
+        "Proposals"
+    ]
+    assert openapi["paths"]["/api/v2/{tenant}/sessions"]["post"]["tags"] == ["Sessions"]
+    assert openapi["paths"]["/api/v2/{tenant}/scenarios"]["get"]["tags"] == [
+        "Scenarios"
+    ]
+    assert openapi["paths"]["/api/v2/{tenant}/evaluations"]["post"]["tags"] == [
+        "Evaluations"
+    ]
+    assert openapi["paths"]["/api/v2/{tenant}/auth/me"]["get"]["tags"] == ["Auth"]

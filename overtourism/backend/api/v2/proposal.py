@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 proposal_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/proposals",
+    tags=["Proposals"],
     dependencies=[Depends(get_auth_context)],
 )
 

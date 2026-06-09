@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 problem_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/problems",
+    tags=["Problems"],
     dependencies=[Depends(get_auth_context)],
 )
 

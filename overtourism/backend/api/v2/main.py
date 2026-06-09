@@ -31,6 +31,33 @@ logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+OPENAPI_TAGS = [
+    {
+        "name": "Problems",
+        "description": "Create and manage optimization problems.",
+    },
+    {
+        "name": "Proposals",
+        "description": "Manage proposals linked to problems.",
+    },
+    {
+        "name": "Sessions",
+        "description": "Create and manage sessions.",
+    },
+    {
+        "name": "Scenarios",
+        "description": "Inspect and update scenarios within a problem.",
+    },
+    {
+        "name": "Evaluations",
+        "description": "Run and inspect scenario evaluations.",
+    },
+    {
+        "name": "Auth",
+        "description": "Authentication and current user context.",
+    },
+]
+
 
 def create_app(
     handler: Handler,
@@ -43,7 +70,12 @@ def create_app(
     """Create a FastAPI app wired to the given handler."""
     init_handler(handler)
 
-    app = FastAPI(title=title, version=version, description=description)
+    app = FastAPI(
+        title=title,
+        version=version,
+        description=description,
+        openapi_tags=OPENAPI_TAGS,
+    )
     install_exception_handlers(app)
 
     app.add_middleware(
@@ -56,10 +88,10 @@ def create_app(
 
     app.include_router(problem_router)
     app.include_router(proposal_router)
-    app.include_router(session_router)
     app.include_router(scenario_router)
     app.include_router(evaluation_router)
-    app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX)
+    app.include_router(session_router)
+    app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX, tags=["Auth"])
 
     if extra_routers:
         for router in extra_routers:
