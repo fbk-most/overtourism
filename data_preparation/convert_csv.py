@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 PATH_TO_DATI_TRANSITI = Path(__file__).parent.resolve()
 
 def download_and_convert_csv_to_parquet(input_path, local = True):
-    logging.info(f"Starting the process to convert CSV to Parquet for: {input_path}")
+    logging.info(f"Starting the process of conversion for: {input_path}")
 
     if local : 
         logging.info("Reading CSV file from local path...")
@@ -24,9 +24,9 @@ def download_and_convert_csv_to_parquet(input_path, local = True):
         put_dataframe(df_obj, name=Path(input_path).stem, type="parquet")
     else: 
         logging.info("Saving on platform in parquet format...")
-        log_dataframe(df_obj, Path(input_path).stem, type = 'parquet')
+        log_dataframe(df_obj, Path(input_path).stem)
     logging.info("Process done")
 
 
 if __name__ == "__main__":
-    download_and_convert_csv_to_parquet("dati_transiti/esportazione-001.csv")
+    download_and_convert_csv_to_parquet("dati_transiti/esportazione-001.csv", local = False)
