@@ -5,14 +5,15 @@ from pathlib import Path
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-PATH_TO_DATI_TRANSITI = Path(__file__).parent.resolve()
+PATH_TO_DATA_PREPARATION = Path(__file__).parent.parent.resolve() / 'data_preparation'
+assert PATH_TO_DATA_PREPARATION.exists(), f"Path {PATH_TO_DATA_PREPARATION} does not exist"
 
 def download_and_convert_csv_to_parquet(input_path, local = True):
     logging.info(f"Starting the process of conversion for: {input_path}")
 
     if local : 
         logging.info("Reading CSV file from local path...")
-        obj_df = pd.read_csv(PATH_TO_DATI_TRANSITI / input_path)
+        obj_df = pd.read_csv(PATH_TO_DATA_PREPARATION / input_path)
     else: 
         logging.info("Downloading CSV item from platform...")
         try:
