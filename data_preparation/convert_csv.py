@@ -1,6 +1,6 @@
 
 import pandas as pd
-from utils import get_s3, log_dataframe, put_dataframe
+from utils import get_s3, log_dataframe, put_dataframe, get_dataframe
 from pathlib import Path
 import logging
 
@@ -12,21 +12,22 @@ def download_and_convert_csv_to_parquet(input_path, local = True):
 
     if local : 
         logging.info("Reading CSV file from local path...")
-        df_obj = pd.read_csv(PATH_TO_DATI_TRANSITI / input_path)
+        obj_df = pd.read_csv(PATH_TO_DATI_TRANSITI / input_path)
     else: 
-        logging.info("Downloading item from S3...")
-        obj = get_s3(input_path)
-        logging.info("Reading file into DataFrame...")
-        df_obj = pd.read_csv(obj)
+        logging.info("Downloading CSV item from platform...")
+        try:
+            obj_df = get_dataframe(input_path)
+        except:
+            obj_df = pd.read_csv(get_s3(input_path))
 
     if local:
         logging.info("Saving locally in parquet format...")
-        put_dataframe(df_obj, name=Path(input_path).stem, type="parquet")
+        put_dataframe(obj_df, name=Path(input_path).stem, type="parquet")
     else: 
         logging.info("Saving on platform in parquet format...")
-        log_dataframe(df_obj, Path(input_path).stem)
+        log_dataframe(obj_df, Path(input_path).stem)
     logging.info("Process done")
 
 
 if __name__ == "__main__":
-    download_and_convert_csv_to_parquet("dati_transiti/esportazione-001.csv", local = False)
+    download_and_convert_csv_to_parquet("dati_transiti/dati_transito_veicolare.csv", local = True)
