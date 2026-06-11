@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from overtourism.backend.api.v2 import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -22,6 +23,33 @@ def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) ->
     assert read_response.status_code == 200
     assert read_response.json()["scenario_id"] == "default"
     assert read_response.json()["version"] == 1
+
+
+def test_scenario_routes_expose_index_diffs_in_extras(
+    client,
+    tenant: str,
+    problem_id: str,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        api_utils,
+        "scenario_index_diffs",
+        lambda handler, scenario: {"visits": "+3"},
+    )
+
+    list_response = client.get(
+        f"/api/v2/{tenant}/scenarios",
+        params={"problem_id": problem_id},
+    )
+    read_response = client.get(
+        f"/api/v2/{tenant}/scenarios/default",
+        params={"problem_id": problem_id},
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["extras"]["index_diffs"] == {"visits": "+3"}
+    assert read_response.status_code == 200
+    assert read_response.json()["extras"]["index_diffs"] == {"visits": "+3"}
 
 
 def test_list_stored_scenarios_can_filter_by_related_proposal(
@@ -123,7 +151,10 @@ def test_session_scenario_can_be_created_updated_and_saved(
     )
 
     assert read_response.status_code == 200
-    assert read_response.json()["extras"] == {"stage": "draft"}
+    assert read_response.json()["extras"] == {
+        "stage": "draft",
+        "index_diffs": {},
+    }
 
     update_response = client.put(
         f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
@@ -139,7 +170,10 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert update_response.status_code == 200
     assert update_response.json()["version"] == 2
     assert update_response.json()["name"] == "Draft scenario updated"
-    assert update_response.json()["extras"] == {"stage": "review"}
+    assert update_response.json()["extras"] == {
+        "stage": "review",
+        "index_diffs": {},
+    }
 
     save_response = client.post(
         f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
@@ -161,6 +195,48 @@ def test_session_scenario_can_be_created_updated_and_saved(
         == draft_id
     )
     assert manager.session_manager.list_session_scenarios(problem_id, "session-1") == []
+
+
+def test_session_scenario_routes_expose_index_diffs_in_extras(
+    client,
+    tenant: str,
+    problem_id: str,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        api_utils,
+        "scenario_index_diffs",
+        lambda handler, scenario: {"visits": "+7"},
+    )
+
+    create_response = client.post(
+        f"/api/v2/{tenant}/sessions/session-1/scenarios",
+        params={"problem_id": problem_id},
+        json={
+            "base_scenario_id": "default",
+            "name": "Draft scenario",
+            "values": {"visits": 7},
+            "extras": {"stage": "draft"},
+        },
+    )
+
+    assert create_response.status_code == 200
+    draft_id = create_response.json()["scenario_id"]
+    assert create_response.json()["extras"] == {
+        "stage": "draft",
+        "index_diffs": {"visits": "+7"},
+    }
+
+    read_response = client.get(
+        f"/api/v2/{tenant}/sessions/session-1/scenarios/{draft_id}",
+        params={"problem_id": problem_id},
+    )
+
+    assert read_response.status_code == 200
+    assert read_response.json()["extras"] == {
+        "stage": "draft",
+        "index_diffs": {"visits": "+7"},
+    }
 
 
 def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(

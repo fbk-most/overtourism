@@ -19,6 +19,7 @@ from overtourism.backend.api.v2.utils import (
     get_proposal_or_404,
     get_scenario_or_404,
     prepare_values,
+    scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -64,7 +65,7 @@ async def list_scenarios(
                 for scenario in scenarios
                 if scenario.scenario_id in related_scenario_ids
             ]
-        return [scenario.to_dict() for scenario in scenarios]
+        return [scenario_to_api(handler, scenario) for scenario in scenarios]
     except Exception as e:
         logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
         raise
@@ -88,7 +89,7 @@ async def read_scenario(
     try:
         get_problem_or_404(handler, tenant, problem_id)
         scenario = get_scenario_or_404(handler, problem_id, scenario_id)
-        return scenario.to_dict()
+        return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(
             f"Error reading scenario {scenario_id} for problem {problem_id}: {e}"
@@ -131,7 +132,7 @@ async def update_scenario(
         )
         scenario = handler.manager.read_scenario(problem_id, scenario_id)
         logger.info(f"Scenario updated: {scenario_id} for problem {problem_id}")
-        return scenario.to_dict()
+        return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(
             f"Error updating scenario {scenario_id} for problem {problem_id}: {e}"

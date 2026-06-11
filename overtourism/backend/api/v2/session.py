@@ -43,6 +43,7 @@ from overtourism.backend.api.v2.utils import (
     get_session_or_404,
     get_session_scenario_or_404,
     prepare_values,
+    scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
@@ -170,7 +171,8 @@ async def read_session(
             active_scenario_id=session.active_scenario_id,
             draft_ids=list(session.drafts),
             drafts=[
-                ScenarioData(**draft.to_dict()) for draft in session.drafts.values()
+                ScenarioData(**scenario_to_api(handler, draft))
+                for draft in session.drafts.values()
             ],
             evaluations={
                 scenario_id: EvaluationData.from_domain(evaluation)
@@ -265,7 +267,7 @@ async def create_session_scenario(
         logger.info(
             f"Session draft created: {scenario.scenario_id} for problem {problem_id}"
         )
-        return scenario.to_dict()
+        return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(f"Error creating session scenario for problem {problem_id}: {e}")
         raise
@@ -297,7 +299,7 @@ async def read_session_scenario(
             session_id,
             scenario_id,
         )
-        return scenario.to_dict()
+        return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(
             f"Error reading scenario {scenario_id} for problem {problem_id}: {e}"
@@ -348,7 +350,7 @@ async def update_session_scenario(
             extras=data.extras,
         )
         logger.info(f"Scenario updated: {scenario_id} for problem {problem_id}")
-        return scenario.to_dict()
+        return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(
             f"Error updating scenario {scenario_id} for problem {problem_id}: {e}"
@@ -394,7 +396,7 @@ async def save_scenario(
             proposal_id=data.proposal_id,
         )
         logger.info(f"Scenario saved: {scenario_id} for problem {problem_id}")
-        return saved_scenario.to_dict()
+        return scenario_to_api(handler, saved_scenario)
     except Exception as e:
         logger.error(
             f"Error saving scenario {scenario_id} for problem {problem_id}: {e}"

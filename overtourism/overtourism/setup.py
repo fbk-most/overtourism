@@ -110,6 +110,7 @@ model_evaluator = MolvenoEvaluator(
 extras_config = ExtrasConfig(
     problem_keys=frozenset(("objective", "links", "groups", "editable_indexes")),
     proposal_keys=frozenset(("resources", "context", "impact")),
+    scenario_keys=frozenset(("index_diffs")),
 )
 
 

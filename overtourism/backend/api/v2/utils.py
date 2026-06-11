@@ -182,6 +182,16 @@ def arrange_data(
     return data
 
 
+def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
+    """Convert a scenario entity to the API response shape."""
+    payload = scenario.to_dict()
+    payload["extras"] = {
+        **payload.get("extras", {}),
+        "index_diffs": scenario_index_diffs(handler, scenario),
+    }
+    return payload
+
+
 def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]:
     """Compute the model index differences for a scenario on demand."""
     from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
