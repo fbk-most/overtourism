@@ -29,7 +29,7 @@ from civic_digital_twins.dt_model.simulation.runner import (
 from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
 from scipy import interpolate, ndimage, stats
 
-from overtourism.overtourism.molveno_model import MolvenoModel
+from overtourism.overtourism.molveno.molveno_model import MolvenoModel
 
 # Type alias used by Managers
 ArrangeDataFn = Callable[[Any, list[str] | None], dict]

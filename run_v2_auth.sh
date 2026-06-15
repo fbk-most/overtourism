@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 source "$ROOT_DIR/.venv/bin/activate"
 
-export AUTH_ENABLED="${AUTH_ENABLED:-true}"
+export AUTH_ENABLED="${AUTH_ENABLED:-false}"
 export AUTH_ISSUER="${AUTH_ISSUER:-https://aac.platform.smartcommunitylab.it}"
 export AUTH_JWKS_URL="${AUTH_JWKS_URL:-https://aac.platform.smartcommunitylab.it/jwk}"
 export AUTH_AUDIENCE="${AUTH_AUDIENCE:-c_e550ec7f86174720872ac9c36fbecdcb}"

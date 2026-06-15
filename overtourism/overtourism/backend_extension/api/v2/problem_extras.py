@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from overtourism.overtourism.viewer import WidgetViewerLike
+from overtourism.overtourism.backend_extension.viewer import WidgetViewerLike
 
 
 def prepare_problem_extras(

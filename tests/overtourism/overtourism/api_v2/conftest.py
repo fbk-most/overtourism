@@ -18,9 +18,11 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-from overtourism.overtourism.api.v2.data import data_router
-from overtourism.overtourism.api.v2.problem_extras import prepare_problem_extras
-from overtourism.overtourism.api.v2.widget import widget_router
+from overtourism.overtourism.backend_extension.api.v2.data import data_router
+from overtourism.overtourism.backend_extension.api.v2.problem_extras import (
+    prepare_problem_extras,
+)
+from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 

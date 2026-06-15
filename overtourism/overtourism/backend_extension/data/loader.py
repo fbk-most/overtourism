@@ -9,7 +9,7 @@ import numpy as np
 import orjson
 import pandas as pd
 
-from overtourism.overtourism.data.catalog import (
+from overtourism.overtourism.backend_extension.data.catalog import (
     OVERTOURISM_INDEX_CATALOG,
     IndexCatalog,
     Language,

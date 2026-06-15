@@ -91,7 +91,7 @@ try:
         weekday,
     )
 except ImportError:
-    from molveno_presence_stats import (
+    from overtourism.overtourism.molveno.molveno_presence_stats import (
         excursionist_presences_stats,
         season,
         tourist_presences_stats,

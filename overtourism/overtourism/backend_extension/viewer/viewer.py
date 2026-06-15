@@ -8,7 +8,7 @@ from overtourism.dt_manager.indexes.utils import (
     build_indexes_from_config,
     prepare_values_for_eval,
 )
-from overtourism.overtourism.data import Language, SimIndexCatalog
+from overtourism.overtourism.backend_extension.data import Language, SimIndexCatalog
 
 
 def build_indexes_from_catalog(

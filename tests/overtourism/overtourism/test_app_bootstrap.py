@@ -6,6 +6,8 @@ from importlib import import_module
 
 import pytest
 
+from overtourism.backend.api.shared.dependencies import get_handler
+
 
 @pytest.mark.parametrize(
     ("module_name", "expected_paths", "expected_title"),
@@ -39,6 +41,7 @@ def test_domain_app_builders_wire_overtourism_collaborators(
     assert handler.data_loader is not None
     assert handler.prepare_values_fn is not None
     assert callable(handler.arrange_data_fn)
+    assert handler.manager.base_problem_config.tenant == "molveno"
     assert (
         handler.data_loader.get_categories(language="en")["capacity"]
         == "Capacity Indices"
@@ -47,3 +50,16 @@ def test_domain_app_builders_wire_overtourism_collaborators(
     for expected_path in expected_paths:
         assert expected_path in paths
     assert app.title == expected_title
+
+
+def test_app_v2_bootstrap_registers_the_molveno_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = import_module("overtourism.overtourism.app_v2")
+
+    handler = module.build_handler()
+    monkeypatch.setattr(module, "build_handler", lambda: handler)
+    app = module.build_app()
+
+    assert get_handler("molveno") is handler
+    assert app.title == "Overtourism API"

@@ -6,15 +6,15 @@ from fastapi import FastAPI
 
 from overtourism.backend.api.v1.main import create_app
 from overtourism.backend.handler import Handler
-from overtourism.overtourism.api.v1.data import data_router
-from overtourism.overtourism.molveno_runner import arrange_data as _arrange_data
-from overtourism.overtourism.setup import data_loader, manager, viewer
+from overtourism.overtourism.backend_extension.api.v1.data import data_router
+from overtourism.overtourism.molveno.molveno_runner import arrange_data as _arrange_data
+from overtourism.overtourism.molveno.setup import data_loader, manager_molveno, viewer
 
 
 def build_handler() -> Handler:
     """Build the overtourism v1 backend handler and its collaborators."""
     return Handler(
-        manager=manager,
+        manager=manager_molveno,
         arrange_data_fn=lambda data, params=None, as_snapshot=False: _arrange_data(
             data,
             api_version="v1",

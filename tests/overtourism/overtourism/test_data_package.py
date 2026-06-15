@@ -7,7 +7,7 @@ from pathlib import Path
 import orjson
 import pandas as pd
 
-from overtourism.overtourism.data import OvertourismIndexesLoader
+from overtourism.overtourism.backend_extension.data import OvertourismIndexesLoader
 
 
 def test_loader_reads_catalog_and_assets_from_local_data_directory(
