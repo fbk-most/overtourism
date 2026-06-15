@@ -4,11 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from overtourism.dt_manager.utils.exception import (
-    EvaluationDoesNotExist,
-    ProposalDoesNotExist,
-    ScenarioDoesNotExist,
-)
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 
 
 def test_problem_round_trip_and_delete_problem(
@@ -19,63 +15,51 @@ def test_problem_round_trip_and_delete_problem(
     proposal_payload,
     evaluation_payload,
 ) -> None:
-    problem_id = problem_payload["problem_id"]
-    other_problem_id = other_problem_payload["problem_id"]
+    problem = dict(problem_payload, created="2026-05-15T08:10:00Z")
+    other_problem = dict(other_problem_payload, created="2026-05-15T08:20:00Z")
 
-    sql_store.save_problem(problem_id, problem_payload)
-    sql_store.save_scenario(
-        problem_id,
-        scenario_payload["scenario_id"],
-        scenario_payload,
-    )
-    sql_store.save_proposal(
-        problem_id,
-        proposal_payload["proposal_id"],
-        proposal_payload,
-    )
+    sql_store.save_problem(problem)
+    sql_store.save_problem(other_problem)
+    sql_store.save_scenario(scenario_payload)
+    sql_store.save_proposal(proposal_payload)
     sql_store.save_relationships(
-        problem_id,
         [
             {
                 "proposal_id": proposal_payload["proposal_id"],
                 "scenario_id": scenario_payload["scenario_id"],
             }
-        ],
+        ]
     )
-    sql_store.save_evaluation(
-        problem_id,
-        evaluation_payload["evaluation_id"],
-        evaluation_payload,
-    )
-    sql_store.save_problem(other_problem_id, other_problem_payload)
+    sql_store.save_evaluation(evaluation_payload)
 
     assert [item["problem_id"] for item in sql_store.load_problems()] == [
-        problem_id,
-        other_problem_id,
+        other_problem["problem_id"],
+        problem["problem_id"],
     ]
-    assert sql_store.load_problem(problem_id) == problem_payload
-    assert sql_store.load_problem(other_problem_id) == other_problem_payload
-    assert sql_store.load_scenarios(problem_id) == [scenario_payload]
-    assert sql_store.load_proposals(problem_id) == [proposal_payload]
-    assert sql_store.load_relationships(problem_id) == [
+    assert sql_store.load_problem(problem["problem_id"]) == problem
+    assert sql_store.load_problem(other_problem["problem_id"]) == other_problem
+    assert sql_store.load_scenarios() == [scenario_payload]
+    assert sql_store.load_proposals() == [proposal_payload]
+    assert sql_store.load_relationships() == [
         {
             "proposal_id": proposal_payload["proposal_id"],
             "scenario_id": scenario_payload["scenario_id"],
         }
     ]
-    assert sql_store.load_evaluations(problem_id) == [evaluation_payload]
+    assert sql_store.load_evaluations() == [evaluation_payload]
 
-    sql_store.delete_problem(problem_id)
+    sql_store.delete_problem(problem["problem_id"])
 
     assert [item["problem_id"] for item in sql_store.load_problems()] == [
-        other_problem_id,
+        other_problem["problem_id"],
     ]
-    assert sql_store.load_scenarios(problem_id) == []
-    assert sql_store.load_proposals(problem_id) == []
-    assert sql_store.load_evaluations(problem_id) == []
+    assert sql_store.load_scenarios() == [scenario_payload]
+    assert sql_store.load_proposals() == []
+    assert sql_store.load_relationships() == []
+    assert sql_store.load_evaluations() == [evaluation_payload]
 
 
-def test_entity_round_trip_and_sorted_listings(
+def test_entity_round_trip_sorted_listings_and_relationship_filters(
     sql_store,
     problem_payload,
     scenario_payload,
@@ -85,222 +69,123 @@ def test_entity_round_trip_and_sorted_listings(
     evaluation_payload,
     other_evaluation_payload,
 ) -> None:
-    problem_id = problem_payload["problem_id"]
-
-    sql_store.save_problem(problem_id, problem_payload)
-    sql_store.save_scenario(
-        problem_id,
-        other_scenario_payload["scenario_id"],
-        other_scenario_payload,
-    )
-    sql_store.save_scenario(
-        problem_id,
-        scenario_payload["scenario_id"],
-        scenario_payload,
+    scenario = dict(scenario_payload, created="2026-05-15T08:10:00Z")
+    other_scenario = dict(other_scenario_payload, created="2026-05-15T08:20:00Z")
+    proposal = dict(proposal_payload, created="2026-05-15T08:10:00Z")
+    other_proposal = dict(other_proposal_payload, created="2026-05-15T08:20:00Z")
+    evaluation = dict(evaluation_payload, started="2026-05-15T08:10:00Z")
+    other_evaluation = dict(
+        other_evaluation_payload,
+        started="2026-05-15T08:20:00Z",
     )
 
-    sql_store.save_proposal(
-        problem_id,
-        other_proposal_payload["proposal_id"],
-        other_proposal_payload,
-    )
-    sql_store.save_proposal(
-        problem_id,
-        proposal_payload["proposal_id"],
-        proposal_payload,
-    )
+    sql_store.save_problem(problem_payload)
+    sql_store.save_scenario(other_scenario)
+    sql_store.save_scenario(scenario)
+    sql_store.save_proposal(other_proposal)
+    sql_store.save_proposal(proposal)
     sql_store.save_relationships(
-        problem_id,
         [
             {
-                "proposal_id": other_proposal_payload["proposal_id"],
-                "scenario_id": other_scenario_payload["scenario_id"],
+                "proposal_id": other_proposal["proposal_id"],
+                "scenario_id": other_scenario["scenario_id"],
             },
             {
-                "proposal_id": proposal_payload["proposal_id"],
-                "scenario_id": scenario_payload["scenario_id"],
+                "proposal_id": proposal["proposal_id"],
+                "scenario_id": scenario["scenario_id"],
             },
-        ],
+        ]
     )
+    sql_store.save_evaluation(other_evaluation)
+    sql_store.save_evaluation(evaluation)
 
-    sql_store.save_evaluation(
-        problem_id,
-        other_evaluation_payload["evaluation_id"],
-        other_evaluation_payload,
-    )
-    sql_store.save_evaluation(
-        problem_id,
-        evaluation_payload["evaluation_id"],
-        evaluation_payload,
-    )
-
-    assert [item["scenario_id"] for item in sql_store.load_scenarios(problem_id)] == [
-        scenario_payload["scenario_id"],
-        other_scenario_payload["scenario_id"],
+    assert [item["scenario_id"] for item in sql_store.load_scenarios()] == [
+        other_scenario["scenario_id"],
+        scenario["scenario_id"],
     ]
-    assert (
-        sql_store.load_scenario(problem_id, scenario_payload["scenario_id"])
-        == scenario_payload
-    )
-
-    assert [item["proposal_id"] for item in sql_store.load_proposals(problem_id)] == [
-        proposal_payload["proposal_id"],
-        other_proposal_payload["proposal_id"],
-    ]
-    assert (
-        sql_store.load_proposal(problem_id, proposal_payload["proposal_id"])
-        == proposal_payload
-    )
-    assert sql_store.load_relationships(problem_id) == [
-        {
-            "proposal_id": proposal_payload["proposal_id"],
-            "scenario_id": scenario_payload["scenario_id"],
-        },
-        {
-            "proposal_id": other_proposal_payload["proposal_id"],
-            "scenario_id": other_scenario_payload["scenario_id"],
-        },
-    ]
-
+    assert sql_store.load_scenario(scenario["scenario_id"]) == scenario
     assert [
-        item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)
+        item["scenario_id"]
+        for item in sql_store.load_scenarios(proposal_id=proposal["proposal_id"])
     ] == [
-        evaluation_payload["evaluation_id"],
-        other_evaluation_payload["evaluation_id"],
+        scenario["scenario_id"],
     ]
-    assert (
-        sql_store.load_evaluation(problem_id, evaluation_payload["evaluation_id"])
-        == evaluation_payload
+
+    assert [item["proposal_id"] for item in sql_store.load_proposals()] == [
+        other_proposal["proposal_id"],
+        proposal["proposal_id"],
+    ]
+    assert sql_store.load_proposal(proposal["proposal_id"]) == proposal
+    assert [
+        item["proposal_id"]
+        for item in sql_store.load_proposals(scenario_id=scenario["scenario_id"])
+    ] == [
+        proposal["proposal_id"],
+    ]
+
+    assert sorted(
+        (item["proposal_id"], item["scenario_id"])
+        for item in sql_store.load_relationships()
+    ) == sorted(
+        [
+            (other_proposal["proposal_id"], other_scenario["scenario_id"]),
+            (proposal["proposal_id"], scenario["scenario_id"]),
+        ]
     )
 
-    sql_store.delete_evaluation(problem_id, other_evaluation_payload["evaluation_id"])
-    sql_store.delete_scenario(problem_id, other_scenario_payload["scenario_id"])
-    sql_store.delete_proposal(problem_id, other_proposal_payload["proposal_id"])
-
-    assert [item["scenario_id"] for item in sql_store.load_scenarios(problem_id)] == [
-        scenario_payload["scenario_id"],
+    assert [item["evaluation_id"] for item in sql_store.load_evaluations()] == [
+        other_evaluation["evaluation_id"],
+        evaluation["evaluation_id"],
     ]
-    assert [item["proposal_id"] for item in sql_store.load_proposals(problem_id)] == [
-        proposal_payload["proposal_id"],
-    ]
-    assert sql_store.load_relationships(problem_id) == [
-        {
-            "proposal_id": proposal_payload["proposal_id"],
-            "scenario_id": scenario_payload["scenario_id"],
-        },
-    ]
+    assert sql_store.load_evaluation(evaluation["evaluation_id"]) == evaluation
     assert [
-        item["evaluation_id"] for item in sql_store.load_evaluations(problem_id)
+        item["evaluation_id"]
+        for item in sql_store.load_evaluations(scenario_id=scenario["scenario_id"])
     ] == [
-        evaluation_payload["evaluation_id"],
+        evaluation["evaluation_id"],
     ]
 
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.load_scenario(problem_id, other_scenario_payload["scenario_id"])
-    with pytest.raises(EvaluationDoesNotExist):
-        sql_store.load_evaluation(problem_id, other_evaluation_payload["evaluation_id"])
+    sql_store.delete_evaluation(other_evaluation["evaluation_id"])
+    sql_store.delete_scenario(other_scenario["scenario_id"])
+    sql_store.delete_proposal(other_proposal["proposal_id"])
 
+    assert [item["scenario_id"] for item in sql_store.load_scenarios()] == [
+        scenario["scenario_id"],
+    ]
+    assert [item["proposal_id"] for item in sql_store.load_proposals()] == [
+        proposal["proposal_id"],
+    ]
+    assert sql_store.load_relationships() == [
+        {
+            "proposal_id": proposal["proposal_id"],
+            "scenario_id": scenario["scenario_id"],
+        }
+    ]
+    assert [item["evaluation_id"] for item in sql_store.load_evaluations()] == [
+        evaluation["evaluation_id"],
+    ]
 
-def test_identifier_mismatch_raises_value_error(
-    sql_store,
-    problem_payload,
-    scenario_payload,
-    proposal_payload,
-    evaluation_payload,
-) -> None:
-    problem_id = problem_payload["problem_id"]
-
-    with pytest.raises(
-        ValueError,
-        match="Scenario identifiers do not match the provided arguments",
-    ):
-        sql_store.save_scenario(problem_id, "scenario-wrong", scenario_payload)
-
-    with pytest.raises(
-        ValueError,
-        match="Proposal identifiers do not match the provided arguments",
-    ):
-        sql_store.save_proposal(problem_id, "proposal-wrong", proposal_payload)
-
-    with pytest.raises(
-        ValueError,
-        match="Evaluation identifiers do not match the provided arguments",
-    ):
-        sql_store.save_evaluation(problem_id, "evaluation-wrong", evaluation_payload)
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_scenario(other_scenario["scenario_id"])
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_proposal(other_proposal["proposal_id"])
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_evaluation(other_evaluation["evaluation_id"])
 
 
 def test_missing_entities_raise(sql_store) -> None:
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(EntityDoesNotExist):
         sql_store.load_problem("missing-problem")
-    with pytest.raises(FileNotFoundError):
-        sql_store.load_relationships("missing-problem")
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_scenario("missing-scenario")
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_proposal("missing-proposal")
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_evaluation("missing-evaluation")
 
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.load_scenario("missing-problem", "missing-scenario")
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.delete_scenario("missing-problem", "missing-scenario")
-    with pytest.raises(ProposalDoesNotExist):
-        sql_store.load_proposal("missing-problem", "missing-proposal")
-    with pytest.raises(ProposalDoesNotExist):
-        sql_store.delete_proposal("missing-problem", "missing-proposal")
-    with pytest.raises(EvaluationDoesNotExist):
-        sql_store.load_evaluation("missing-problem", "missing-evaluation")
-    with pytest.raises(EvaluationDoesNotExist):
-        sql_store.delete_evaluation("missing-problem", "missing-evaluation")
+    sql_store.delete_problem("missing-problem")
+    sql_store.delete_scenario("missing-scenario")
+    sql_store.delete_proposal("missing-proposal")
+    sql_store.delete_evaluation("missing-evaluation")
 
-
-def test_entity_reads_and_deletes_are_scoped_to_the_problem(
-    sql_store,
-    problem_payload,
-    other_problem_payload,
-    scenario_payload,
-    proposal_payload,
-    evaluation_payload,
-) -> None:
-    problem_id = problem_payload["problem_id"]
-    other_problem_id = other_problem_payload["problem_id"]
-
-    sql_store.save_problem(problem_id, problem_payload)
-    sql_store.save_problem(other_problem_id, other_problem_payload)
-    sql_store.save_scenario(
-        problem_id, scenario_payload["scenario_id"], scenario_payload
-    )
-    sql_store.save_proposal(
-        problem_id, proposal_payload["proposal_id"], proposal_payload
-    )
-    sql_store.save_evaluation(
-        problem_id,
-        evaluation_payload["evaluation_id"],
-        evaluation_payload,
-    )
-
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.load_scenario(other_problem_id, scenario_payload["scenario_id"])
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.delete_scenario(other_problem_id, scenario_payload["scenario_id"])
-
-    with pytest.raises(ProposalDoesNotExist):
-        sql_store.load_proposal(other_problem_id, proposal_payload["proposal_id"])
-    with pytest.raises(ProposalDoesNotExist):
-        sql_store.delete_proposal(other_problem_id, proposal_payload["proposal_id"])
-
-    with pytest.raises(EvaluationDoesNotExist):
-        sql_store.load_evaluation(other_problem_id, evaluation_payload["evaluation_id"])
-    with pytest.raises(EvaluationDoesNotExist):
-        sql_store.delete_evaluation(
-            other_problem_id,
-            evaluation_payload["evaluation_id"],
-        )
-
-    assert (
-        sql_store.load_scenario(problem_id, scenario_payload["scenario_id"])
-        == scenario_payload
-    )
-    assert (
-        sql_store.load_proposal(problem_id, proposal_payload["proposal_id"])
-        == proposal_payload
-    )
-    assert (
-        sql_store.load_evaluation(problem_id, evaluation_payload["evaluation_id"])
-        == evaluation_payload
-    )
+    assert sql_store.load_relationships() == []

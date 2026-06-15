@@ -5,26 +5,17 @@ from __future__ import annotations
 from overtourism.dt_manager.proposal.proposal import Proposal, ProposalStatus
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import (
+    EntityDoesNotExist,
     ProposalAlreadyExists,
-    ProposalDoesNotExist,
 )
 from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class ProposalManager:
-    """Manage proposal entities for a single problem.
+    """Manage proposal entities for a single problem."""
 
-    Parameters
-    ----------
-    problem_id : str
-        Identifier of the parent problem.
-    store : Store
-        Persistence backend used for proposal data.
-    """
-
-    def __init__(self, problem_id: str, store: Store) -> None:
+    def __init__(self, store: Store) -> None:
         """Create a proposal manager bound to a problem."""
-        self.problem_id = problem_id
         self.store = store
 
     # ───────────────────────────────────────────────────────────
@@ -34,33 +25,16 @@ class ProposalManager:
     def create_proposal(
         self,
         proposal_id: str,
+        problem_id: str,
         name: str | None = None,
         description: str | None = None,
         status: ProposalStatus | str | None = None,
         extras: dict | None = None,
     ) -> Proposal:
-        """Create and persist a new proposal.
-
-        Parameters
-        ----------
-        proposal_id : str
-            Identifier of the proposal to create.
-        name : str | None, optional
-            Optional proposal name.
-        description : str | None, optional
-            Optional proposal description.
-        status : str | None, optional
-            Optional proposal status.
-        extras : dict | None, optional
-            Optional metadata extras.
-        Returns
-        -------
-        Proposal
-            Proposal created for the problem.
-        """
+        """Create and persist a new proposal."""
         try:
-            self.store.load_proposal(self.problem_id, proposal_id)
-        except ProposalDoesNotExist:
+            self.store.load_proposal(proposal_id)
+        except EntityDoesNotExist:
             pass
         else:
             raise ProposalAlreadyExists(
@@ -69,37 +43,28 @@ class ProposalManager:
 
         proposal = Proposal.create_default(
             proposal_id,
-            problem_id=self.problem_id,
+            problem_id=problem_id,
             name=name,
             description=description,
             status=status,
             extras=extras,
         )
-        self.store.save_proposal(self.problem_id, proposal_id, proposal.to_dict())
+        self.store.save_proposal(proposal.to_dict())
         return proposal
 
     def read_proposal(self, proposal_id: str) -> Proposal:
-        """Return a persisted proposal.
+        """Return a persisted proposal."""
+        return Proposal.from_dict(self.store.load_proposal(proposal_id))
 
-        Parameters
-        ----------
-        proposal_id : str
-            Identifier of the proposal to retrieve.
-
-        Returns
-        -------
-        Proposal
-            Persisted proposal instance.
-        """
-        return Proposal.from_dict(
-            self.store.load_proposal(self.problem_id, proposal_id)
-        )
-
-    def list_proposals(self) -> list[Proposal]:
+    def list_proposals(
+        self,
+        problem_id: str | None = None,
+        scenario_id: str | None = None,
+    ) -> list[Proposal]:
         """Return all persisted proposals for the problem."""
         return [
             Proposal.from_dict(proposal_data)
-            for proposal_data in self.store.load_proposals(self.problem_id)
+            for proposal_data in self.store.load_proposals(problem_id, scenario_id)
         ]
 
     def update_proposal(
@@ -132,9 +97,9 @@ class ProposalManager:
         if updated:
             proposal.version += 1
             proposal.updated = get_timestamp()
-            self.store.save_proposal(self.problem_id, proposal_id, proposal.to_dict())
+            self.store.save_proposal(proposal.to_dict())
         return proposal
 
     def delete_proposal(self, proposal_id: str) -> None:
         """Delete a persisted proposal."""
-        self.store.delete_proposal(self.problem_id, proposal_id)
+        self.store.delete_proposal(proposal_id)

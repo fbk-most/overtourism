@@ -27,9 +27,9 @@ class SQLBase(DeclarativeBase):
 class ProblemORM(SQLBase):
     __tablename__ = "problems"
 
+    tenant: Mapped[str | None] = mapped_column(Text)
     problem_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    tenant: Mapped[str | None] = mapped_column(Text)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     created: Mapped[str | None] = mapped_column(String)
@@ -44,28 +44,13 @@ class ProblemORM(SQLBase):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    scenarios: Mapped[list[ScenarioORM]] = relationship(
-        back_populates="problem",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    evaluations: Mapped[list[EvaluationORM]] = relationship(
-        back_populates="problem",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    relationships: Mapped[list[RelationshipORM]] = relationship(
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
 
 
 class ProposalORM(SQLBase):
     __tablename__ = "proposals"
 
     problem_id: Mapped[str] = mapped_column(
-        ForeignKey("problems.problem_id", ondelete="CASCADE"),
-        primary_key=True,
+        ForeignKey("problems.problem_id", ondelete="CASCADE")
     )
     proposal_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -81,15 +66,17 @@ class ProposalORM(SQLBase):
     )
     problem: Mapped[ProblemORM] = relationship(back_populates="proposals")
 
+    relationships: Mapped[list[RelationshipORM]] = relationship(
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 
 class ScenarioORM(SQLBase):
     __tablename__ = "scenarios"
 
-    problem_id: Mapped[str] = mapped_column(
-        ForeignKey("problems.problem_id", ondelete="CASCADE"),
-        primary_key=True,
-    )
     scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant: Mapped[str] = mapped_column(Text)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
@@ -105,30 +92,21 @@ class ScenarioORM(SQLBase):
         nullable=False,
         default=list,
     )
-    problem: Mapped[ProblemORM] = relationship(back_populates="scenarios")
+
+    relationships: Mapped[list[RelationshipORM]] = relationship(
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class RelationshipORM(SQLBase):
     __tablename__ = "proposal_scenario_relationship"
 
-    problem_id: Mapped[str] = mapped_column(
-        ForeignKey("problems.problem_id", ondelete="CASCADE"),
-        primary_key=True,
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("proposals.proposal_id", ondelete="CASCADE"), primary_key=True
     )
-    proposal_id: Mapped[str] = mapped_column(String, primary_key=True)
-    scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
-
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["problem_id", "proposal_id"],
-            ["proposals.problem_id", "proposals.proposal_id"],
-            ondelete="CASCADE",
-        ),
-        ForeignKeyConstraint(
-            ["problem_id", "scenario_id"],
-            ["scenarios.problem_id", "scenarios.scenario_id"],
-            ondelete="CASCADE",
-        ),
+    scenario_id: Mapped[str] = mapped_column(
+        ForeignKey("scenarios.scenario_id", ondelete="CASCADE"), primary_key=True
     )
 
 
@@ -137,10 +115,6 @@ class EvaluationORM(SQLBase):
 
     evaluation_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    problem_id: Mapped[str] = mapped_column(
-        ForeignKey("problems.problem_id", ondelete="CASCADE"),
-        nullable=False,
-    )
     scenario_id: Mapped[str] = mapped_column(String, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
     state: Mapped[str] = mapped_column(String, nullable=False)
@@ -150,12 +124,11 @@ class EvaluationORM(SQLBase):
         MutableDict.as_mutable(JSON),
         nullable=True,
     )
-    problem: Mapped[ProblemORM] = relationship(back_populates="evaluations")
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ["problem_id", "scenario_id"],
-            ["scenarios.problem_id", "scenarios.scenario_id"],
+            ["scenario_id"],
+            ["scenarios.scenario_id"],
             ondelete="CASCADE",
         ),
     )
@@ -203,13 +176,11 @@ def proposal_from_orm(proposal: ProposalORM) -> dict[str, Any]:
     return orm_to_dict(proposal)
 
 
-def scenario_to_orm(
-    scenario: dict[str, Any], problem_id: str | None = None
-) -> ScenarioORM:
+def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
     index_values = scenario.get("index_values", [])
     return ScenarioORM(
-        problem_id=problem_id or scenario.get("problem_id", ""),
         scenario_id=scenario["scenario_id"],
+        tenant=scenario["tenant"],
         version=scenario.get("version", 0),
         name=scenario.get("name"),
         description=scenario.get("description"),
@@ -227,9 +198,8 @@ def scenario_from_orm(scenario: ScenarioORM) -> dict[str, Any]:
     return orm_to_dict(scenario)
 
 
-def relationship_to_orm(payload: dict, problem_id: str) -> RelationshipORM:
+def relationship_to_orm(payload: dict) -> RelationshipORM:
     return RelationshipORM(
-        problem_id=problem_id,
         proposal_id=payload[ProblemNestedKey.PROPOSAL_ID],
         scenario_id=payload[ProblemNestedKey.SCENARIO_ID],
     )
@@ -242,9 +212,7 @@ def relationship_from_orm(relationship: RelationshipORM) -> dict[str, str]:
     }
 
 
-def evaluation_to_orm(
-    evaluation: dict[str, Any], problem_id: str | None = None
-) -> EvaluationORM:
+def evaluation_to_orm(evaluation: dict[str, Any]) -> EvaluationORM:
     result = evaluation.get("result")
     if hasattr(result, "to_dict"):
         result = result.to_dict()
@@ -258,9 +226,6 @@ def evaluation_to_orm(
     return EvaluationORM(
         evaluation_id=evaluation["evaluation_id"],
         version=evaluation.get("version", 0),
-        problem_id=problem_id
-        or evaluation.get("problem_id")
-        or evaluation["scenario_id"].split("_")[0],
         scenario_id=evaluation["scenario_id"],
         type=evaluation["type"],
         state=state,

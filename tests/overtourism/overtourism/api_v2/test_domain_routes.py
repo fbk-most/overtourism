@@ -116,9 +116,10 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
         },
     )
     assert create_response.status_code == 200
+    problem_id = create_response.json()["problem_id"]
 
     update_response = client.put(
-        f"/api/v2/{tenant}/problems/lake-cleanup",
+        f"/api/v2/{tenant}/problems/{problem_id}",
         json={
             "version": create_response.json()["version"],
             "name": "Lake Cleanup Updated",

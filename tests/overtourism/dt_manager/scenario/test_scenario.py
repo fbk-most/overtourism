@@ -12,11 +12,11 @@ FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 def test_create_default_uses_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(scenario_module, "get_timestamp", lambda: FIXED_TIMESTAMP)
 
-    scenario = Scenario.create_default("scenario-alpha")
+    scenario = Scenario.create_default("scenario-alpha", "tenant-alpha")
 
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
-        "problem_id": "",
+        "tenant": "tenant-alpha",
         "version": 1,
         "name": "scenario-alpha",
         "description": "scenario-alpha scenario",
@@ -30,7 +30,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 def test_from_dict_round_trip_with_nested_index_values() -> None:
     payload = {
         "scenario_id": "scenario-alpha",
-        "problem_id": "problem-alpha",
+        "tenant": "tenant-alpha",
         "version": 1,
         "name": "Scenario Alpha",
         "description": "Primary scenario",
@@ -59,7 +59,7 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
     scenario = Scenario.from_dict(
         {
             "scenario_id": "scenario-beta",
-            "problem_id": "problem-alpha",
+            "tenant": "tenant-beta",
             "version": 1,
             "name": "Scenario Beta",
             "description": "Secondary scenario",
@@ -68,6 +68,7 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
         }
     )
 
+    assert scenario.tenant == "tenant-beta"
     assert scenario.created == FIXED_TIMESTAMP
     assert scenario.updated == FIXED_TIMESTAMP
     assert scenario.index_values == []

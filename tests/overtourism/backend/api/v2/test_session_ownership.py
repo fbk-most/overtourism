@@ -8,7 +8,6 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v2 import session as session_api
 from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2.session_ownership import (
     SessionOwnershipStore,
@@ -95,12 +94,10 @@ def test_resolve_session_owner_prefers_email_then_subject_then_anonymous() -> No
 def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
     handler: Handler,
 ) -> None:
-    problem_id = handler.manager.base_problem_config.problem_id
     tenant = handler.manager.base_problem_config.tenant
 
     handler.session_ownership_store.claim_session(
         tenant,
-        problem_id,
         "session-1",
         "owner@example.com",
     )
@@ -108,26 +105,22 @@ def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
     assert (
         handler.session_ownership_store.read_session_owner(
             tenant,
-            problem_id,
             "session-1",
         )
         == "owner@example.com"
     )
     assert handler.session_ownership_store.list_session_ids(
         tenant,
-        problem_id,
         "owner@example.com",
     ) == ["session-1"]
 
     handler.session_ownership_store.delete_session(
         tenant,
-        problem_id,
         "session-1",
     )
     assert (
         handler.session_ownership_store.read_session_owner(
             tenant,
-            problem_id,
             "session-1",
         )
         is None
@@ -136,11 +129,9 @@ def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
 
 def test_claim_session_ownership_rejects_cross_user_claims(handler: Handler) -> None:
     tenant = handler.manager.base_problem_config.tenant
-    problem_id = handler.manager.base_problem_config.problem_id
 
     handler.session_ownership_store.claim_session(
         tenant,
-        problem_id,
         "session-2",
         "owner@example.com",
     )
@@ -149,7 +140,6 @@ def test_claim_session_ownership_rejects_cross_user_claims(handler: Handler) -> 
         claim_session_ownership(
             handler,
             tenant,
-            problem_id,
             "session-2",
             AuthContext(
                 authenticated=True,
@@ -167,7 +157,6 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tenant = handler.manager.base_problem_config.tenant
-    problem_id = handler.manager.base_problem_config.problem_id
     app = create_app(handler)
 
     def owner_a_context() -> AuthContext:
@@ -190,13 +179,14 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
 
     app.dependency_overrides[get_auth_context] = owner_a_context
     monkeypatch.setattr(
-        session_api, "uuid4", lambda: SimpleNamespace(hex="session-owned")
+        "overtourism.dt_manager.session.manager.uuid4",
+        lambda: SimpleNamespace(hex="session-owned"),
     )
 
     with TestClient(app) as client:
         create_response = client.post(
             f"/api/v2/{tenant}/sessions",
-            params={"problem_id": problem_id},
+            params={"problem_id": handler.manager.base_problem_config.problem_id},
             json={"metadata": {}},
         )
         assert create_response.status_code == 200
@@ -205,7 +195,6 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         assert (
             handler.session_ownership_store.read_session_owner(
                 tenant,
-                problem_id,
                 session_id,
             )
             == "owner-a@example.com"
@@ -215,14 +204,14 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions/{session_id}",
-                params={"problem_id": problem_id},
+                params={"problem_id": handler.manager.base_problem_config.problem_id},
             ).status_code
             == 404
         )
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions",
-                params={"problem_id": problem_id},
+                params={"problem_id": handler.manager.base_problem_config.problem_id},
             ).json()
             == []
         )
@@ -231,7 +220,7 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions/{session_id}",
-                params={"problem_id": problem_id},
+                params={"problem_id": handler.manager.base_problem_config.problem_id},
             ).status_code
             == 200
         )

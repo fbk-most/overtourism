@@ -66,8 +66,8 @@ class Proposal(Dictable):
     def create_default(
         cls,
         proposal_id: str,
+        problem_id: str,
         *,
-        problem_id: str = "",
         version: int = 1,
         name: str | None = None,
         description: str | None = None,
@@ -96,7 +96,7 @@ class Proposal(Dictable):
         status = data.get("status")
         return cls(
             proposal_id=data["proposal_id"],
-            problem_id=data.get("problem_id", ""),
+            problem_id=data["problem_id"],
             version=data.get("version", 0),
             name=data.get("name"),
             description=data.get("description"),

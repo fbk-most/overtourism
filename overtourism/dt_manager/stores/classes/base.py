@@ -6,310 +6,102 @@ from abc import ABC, abstractmethod
 
 
 class Store(ABC):
-    """Abstract base for problem, scenario, and proposal persistence.
-
-    Implementations are responsible for storing the serialized problem
-    document and its nested scenarios and proposals.
-    """
+    """Abstract base for problem, scenario, and proposal persistence."""
 
     # ───────────────────────────────────────────────────────────
     # Problems
     # ───────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_problem(self, problem_id: str, problem_data: dict) -> None:
-        """Persist a problem document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to save.
-        problem_data : dict
-            Serialized problem payload.
-        """
-        ...
+    def save_problem(self, problem_data: dict) -> None:
+        """Persist a problem document."""
 
     @abstractmethod
     def load_problem(self, problem_id: str) -> dict:
-        """Load a problem document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to load.
-
-        Returns
-        -------
-        dict
-            Loaded problem payload.
-        """
-        ...
+        """Load a problem document."""
 
     @abstractmethod
-    def load_problems(self) -> list[dict]:
-        """Load all problems.
-
-        Returns
-        -------
-        list[dict]
-            Loaded problem payloads.
-        """
-        ...
+    def load_problems(self, tenant: str | None = None) -> list[dict]:
+        """Load all problems."""
 
     @abstractmethod
     def delete_problem(self, problem_id: str) -> None:
-        """Delete a problem document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the problem to delete.
-        """
-        ...
-
-    # ───────────────────────────────────────────────────────────
-    # Scenarios
-    # ───────────────────────────────────────────────────────────
-
-    @abstractmethod
-    def save_scenario(
-        self,
-        problem_id: str,
-        scenario_id: str,
-        scenario_data: dict,
-    ) -> None:
-        """Persist a scenario document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        scenario_id : str
-            Identifier of the scenario to save.
-        scenario_data : dict
-            Serialized scenario payload.
-        """
-        ...
-
-    @abstractmethod
-    def load_scenario(self, problem_id: str, scenario_id: str) -> dict:
-        """Load a single scenario.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        scenario_id : str
-            Identifier of the scenario to load.
-
-        Returns
-        -------
-        dict
-            Loaded scenario payload.
-        """
-        ...
-
-    @abstractmethod
-    def load_scenarios(self, problem_id: str) -> list[dict]:
-        """Load all scenarios for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict]
-            Loaded scenario payloads.
-        """
-        ...
-
-    @abstractmethod
-    def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
-        """Delete a scenario document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        scenario_id : str
-            Identifier of the scenario to delete.
-        """
-        ...
+        """Delete a problem document."""
 
     # ───────────────────────────────────────────────────────────
     # Proposals
     # ───────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_proposal(
-        self, problem_id: str, proposal_id: str, proposal_data: dict
-    ) -> None:
-        """Persist a proposal document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        proposal_id : str
-            Identifier of the proposal to save.
-        proposal_data : dict
-            Serialized proposal payload.
-        """
-        ...
+    def save_proposal(self, proposal_data: dict) -> None:
+        """Persist a proposal document."""
 
     @abstractmethod
-    def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
-        """Load a single proposal.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        proposal_id : str
-            Identifier of the proposal to load.
-
-        Returns
-        -------
-        dict
-            Loaded proposal payload.
-        """
-        ...
+    def load_proposal(self, proposal_id: str) -> dict:
+        """Load a single proposal."""
 
     @abstractmethod
-    def load_proposals(self, problem_id: str) -> list[dict]:
-        """Load all proposals for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict]
-            Loaded proposal payloads.
-        """
-        ...
+    def load_proposals(
+        self,
+        problem_id: str | None = None,
+        scenario_id: str | None = None,
+    ) -> list[dict]:
+        """Load all proposals for a problem."""
 
     @abstractmethod
-    def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
-        """Delete a proposal document.
+    def delete_proposal(self, proposal_id: str) -> None:
+        """Delete a proposal document."""
 
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        proposal_id : str
-            Identifier of the proposal to delete.
-        """
-        ...
+    # ───────────────────────────────────────────────────────────
+    # Scenarios
+    # ───────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def save_scenario(self, scenario_data: dict) -> None:
+        """Persist a scenario document."""
+
+    @abstractmethod
+    def load_scenario(self, scenario_id: str) -> dict:
+        """Load a single scenario."""
+
+    @abstractmethod
+    def load_scenarios(
+        self, tenant: str | None = None, proposal_id: str | None = None
+    ) -> list[dict]:
+        """Load all scenarios for a tenant."""
+
+    @abstractmethod
+    def delete_scenario(self, scenario_id: str) -> None:
+        """Delete a scenario document."""
 
     # ───────────────────────────────────────────────────────────
     # Relationships
     # ───────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_relationships(
-        self,
-        problem_id: str,
-        relationships: list[dict[str, str]],
-    ) -> None:
-        """Persist proposal-scenario relationships for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        relationships : list[dict[str, str]]
-            Relationship payloads to persist.
-        """
-        ...
+    def save_relationships(self, relationships: list[dict[str, str]]) -> None:
+        """Persist proposal-scenario relationships."""
 
     @abstractmethod
-    def load_relationships(self, problem_id: str) -> list[dict[str, str]]:
-        """Load all proposal-scenario relationships for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict[str, str]]
-            Loaded relationship payloads.
-        """
-        ...
+    def load_relationships(self) -> list[dict[str, str]]:
+        """Load all proposal-scenario relationships."""
 
     # ───────────────────────────────────────────────────────────
     # Evaluations
     # ───────────────────────────────────────────────────────────
 
     @abstractmethod
-    def save_evaluation(
-        self,
-        problem_id: str,
-        evaluation_id: str,
-        evaluation_data: dict,
-    ) -> None:
-        """Persist an evaluation document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        evaluation_id : str
-            Identifier of the evaluation to save.
-        evaluation_data : dict
-            Serialized evaluation payload.
-        """
-        ...
+    def save_evaluation(self, evaluation_data: dict) -> None:
+        """Persist an evaluation document."""
 
     @abstractmethod
-    def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
-        """Load a single evaluation.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        evaluation_id : str
-            Identifier of the evaluation to load.
-
-        Returns
-        -------
-        dict
-            Loaded evaluation payload.
-        """
-        ...
+    def load_evaluation(self, evaluation_id: str) -> dict:
+        """Load a single evaluation."""
 
     @abstractmethod
-    def load_evaluations(self, problem_id: str) -> list[dict]:
-        """Load all evaluations for a problem.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-
-        Returns
-        -------
-        list[dict]
-            Loaded evaluation payloads.
-        """
-        ...
+    def load_evaluations(self, scenario_id: str | None = None) -> list[dict]:
+        """Load all evaluations for a scenario."""
 
     @abstractmethod
-    def delete_evaluation(self, problem_id: str, evaluation_id: str) -> None:
-        """Delete an evaluation document.
-
-        Parameters
-        ----------
-        problem_id : str
-            Identifier of the parent problem.
-        evaluation_id : str
-            Identifier of the evaluation to delete.
-        """
-        ...
+    def delete_evaluation(self, evaluation_id: str) -> None:
+        """Delete an evaluation document."""

@@ -14,8 +14,8 @@ from overtourism.dt_manager.evaluation.evaluation import (
 from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import (
+    EntityDoesNotExist,
     EvaluationAlreadyExists,
-    EvaluationDoesNotExist,
 )
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -31,13 +31,11 @@ class EvaluationManager:
     def __init__(
         self,
         store: Store,
-        problem_id: str,
         executor: Executor,
     ) -> None:
         """Create an evaluation manager bound to an executor."""
         self.executor = executor
         self.store = store
-        self.problem_id = problem_id
 
     # ───────────────────────────────────────────────────────────
     # CRUD
@@ -53,8 +51,8 @@ class EvaluationManager:
     ) -> Evaluation:
         """Create and persist a new running evaluation."""
         try:
-            self.store.load_evaluation(self.problem_id, evaluation_id)
-        except EvaluationDoesNotExist:
+            self.store.load_evaluation(evaluation_id)
+        except EntityDoesNotExist:
             pass
         else:
             raise EvaluationAlreadyExists(
@@ -67,63 +65,47 @@ class EvaluationManager:
             type=type,
             started=started,
         )
-        self.save_evaluation(evaluation)
+        self.store.save_evaluation(evaluation.to_dict())
         return evaluation
 
     def read_evaluation(self, evaluation_id: str) -> Evaluation:
         """Return a persisted evaluation."""
-        return self._build_evaluation(
-            self.store.load_evaluation(self.problem_id, evaluation_id)
-        )
+        return self._build_evaluation(self.store.load_evaluation(evaluation_id))
 
     def list_evaluations(self, scenario_id: str | None = None) -> list[Evaluation]:
         """Return persisted evaluations, optionally filtered by scenario."""
-        evaluations = [
-            self._build_evaluation(evaluation)
-            for evaluation in self.store.load_evaluations(self.problem_id)
-        ]
-        if scenario_id is None:
-            return evaluations
         return [
-            evaluation
-            for evaluation in evaluations
-            if evaluation.scenario_id == scenario_id
+            self._build_evaluation(evaluation)
+            for evaluation in self.store.load_evaluations(scenario_id)
         ]
 
     def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
         """Return the most recently registered persisted evaluation."""
-        evaluations = [
-            evaluation
-            for evaluation in self.store.load_evaluations(self.problem_id)
-            if evaluation["scenario_id"] == scenario_id
-        ]
+        evaluations = self.list_evaluations(scenario_id)
         if evaluations:
             latest = max(
                 evaluations,
                 key=lambda evaluation: (
-                    evaluation.get("started") or "",
-                    evaluation["evaluation_id"],
+                    evaluation.started or "",
+                    evaluation.evaluation_id,
                 ),
             )
-            return self._build_evaluation(latest)
-        raise EvaluationDoesNotExist(
+            return latest
+        raise EntityDoesNotExist(
             f"Evaluation for scenario {scenario_id} does not exist"
         )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
         """Delete a persisted evaluation."""
         self.read_evaluation(evaluation_id)
-        self.store.delete_evaluation(self.problem_id, evaluation_id)
+        self.store.delete_evaluation(evaluation_id)
 
     def delete_evaluations_for_scenario(self, scenario_id: str) -> None:
         """Remove all persisted evaluations for a scenario."""
         for evaluation in self.list_evaluations(scenario_id):
             try:
-                self.store.delete_evaluation(
-                    self.problem_id,
-                    evaluation.evaluation_id,
-                )
-            except EvaluationDoesNotExist:
+                self.store.delete_evaluation(evaluation.evaluation_id)
+            except EntityDoesNotExist:
                 pass
 
     # ───────────────────────────────────────────────────────────
@@ -131,11 +113,7 @@ class EvaluationManager:
     # ───────────────────────────────────────────────────────────
 
     def save_evaluation(self, evaluation: Evaluation) -> None:
-        self.store.save_evaluation(
-            self.problem_id,
-            evaluation.evaluation_id,
-            evaluation.to_dict(),
-        )
+        self.store.save_evaluation(evaluation.to_dict())
 
     def build_running_evaluation(
         self,
@@ -186,24 +164,6 @@ class EvaluationManager:
     ) -> Evaluation:
         """Re-execute a persisted evaluation in place."""
         evaluation = self.read_evaluation(evaluation_id)
-        return self.rerun_evaluation_object(
-            evaluation,
-            scenario,
-            evaluation_config=evaluation_config,
-            persist=True,
-            **kwargs,
-        )
-
-    def rerun_evaluation_object(
-        self,
-        evaluation: Evaluation,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        persist: bool = False,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Re-execute an existing evaluation object with a fresh running state."""
         restarted = Evaluation.create_default(
             evaluation.evaluation_id,
             scenario_id=evaluation.scenario_id,
@@ -214,7 +174,7 @@ class EvaluationManager:
             restarted,
             scenario,
             evaluation_config=evaluation_config,
-            persist=persist,
+            persist=True,
             **kwargs,
         )
 
@@ -270,7 +230,7 @@ class EvaluationManager:
         evaluation.version += 1
 
         if persist:
-            self.save_evaluation(evaluation)
+            self.store.save_evaluation(evaluation.to_dict())
 
         return evaluation
 

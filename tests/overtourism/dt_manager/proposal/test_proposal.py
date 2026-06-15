@@ -11,11 +11,11 @@ FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 def test_create_default_uses_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(proposal_module, "get_timestamp", lambda: FIXED_TIMESTAMP)
 
-    proposal = Proposal.create_default("proposal-alpha")
+    proposal = Proposal.create_default("proposal-alpha", "problem-alpha")
 
     assert proposal.to_dict() == {
         "proposal_id": "proposal-alpha",
-        "problem_id": "",
+        "problem_id": "problem-alpha",
         "version": 1,
         "name": "proposal-alpha",
         "description": "",

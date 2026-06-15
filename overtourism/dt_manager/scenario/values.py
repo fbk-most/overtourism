@@ -14,47 +14,23 @@ from overtourism.dt_manager.utils.utils import get_timestamp
 
 def scenario_values(
     scenario_id: str,
+    tenant: str,
     values: dict,
     name: str | None = None,
     description: str | None = None,
     created: str | None = None,
     updated: str | None = None,
     extras: dict | None = None,
-    problem_id: str = "",
     version: int = 1,
 ) -> Scenario:
-    """Build a storage-ready scenario from evaluator values.
-
-    Parameters
-    ----------
-    scenario_id : str
-        Identifier of the scenario to create.
-    values : dict
-        Model values used to construct index entries.
-    name : str | None, optional
-        Scenario name.
-    description : str | None, optional
-        Scenario description.
-    created : str | None, optional
-        Creation timestamp.
-    updated : str | None, optional
-        Update timestamp.
-    extras : dict | None, optional
-        Extra scenario fields.
-    problem_id : str, optional
-        Parent problem identifier.
-    Returns
-    -------
-    Scenario
-        Scenario instance ready for storage.
-    """
+    """Build a storage-ready scenario from evaluator values."""
     now = get_timestamp()
     created = now if created is None else created
     updated = created if updated is None else updated
     indexes = _prepare_indexes(values)
     return Scenario(
         scenario_id=scenario_id,
-        problem_id=problem_id,
+        tenant=tenant,
         version=version,
         name=name,
         description=description,

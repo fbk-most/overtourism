@@ -13,7 +13,6 @@ from overtourism.overtourism.data.catalog import (
     SimIndexEntry,
 )
 from overtourism.overtourism.data.loader import OvertourismIndexesLoader
-from overtourism.overtourism.data.paths import get_index_data_path
 
 __all__ = [
     "CategoryDefinition",
@@ -27,5 +26,4 @@ __all__ = [
     "OvertourismIndexesLoader",
     "SimIndexCatalog",
     "SimIndexEntry",
-    "get_index_data_path",
 ]

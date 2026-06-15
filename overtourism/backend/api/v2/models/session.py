@@ -19,7 +19,6 @@ class CreateSessionData(BaseModel):
 class SessionSummaryData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    problem_id: str
     session_id: str
     created: str
     updated: str

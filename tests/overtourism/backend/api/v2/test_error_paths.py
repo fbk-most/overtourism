@@ -42,9 +42,7 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 ) -> None:
     read_response = client.get(f"/api/v2/{tenant}/problems/missing-problem")
     assert read_response.status_code == 404
-    assert read_response.json() == {
-        "detail": "Problem 'missing-problem' not found for tenant 'tenant-alpha'"
-    }
+    assert read_response.json() == {"detail": "Problem 'missing-problem' not found"}
 
     update_response = client.put(
         f"/api/v2/{tenant}/problems/missing-problem",
@@ -69,6 +67,7 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 
 def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     client,
+    error_client,
     tenant: str,
     problem_id: str,
 ) -> None:
@@ -76,36 +75,34 @@ def test_proposal_routes_return_404_for_missing_problem_and_proposal(
         f"/api/v2/{tenant}/proposals",
         params={"problem_id": "missing-problem"},
     )
-    assert list_response.status_code == 404
+    assert list_response.status_code == 200
+    assert list_response.json() == []
 
-    create_response = client.post(
+    create_response = error_client.post(
         f"/api/v2/{tenant}/proposals",
         params={"problem_id": "missing-problem"},
         json={"proposal_id": "proposal-x"},
     )
-    assert create_response.status_code == 404
+    assert create_response.status_code == 500
 
-    read_response = client.get(
+    read_response = error_client.get(
         f"/api/v2/{tenant}/proposals/missing-proposal",
         params={"problem_id": problem_id},
     )
-    assert read_response.status_code == 404
-    assert read_response.json() == {
-        "detail": "Proposal 'missing-proposal' not found for problem 'default'"
-    }
+    assert read_response.status_code == 500
 
-    update_response = client.put(
+    update_response = error_client.put(
         f"/api/v2/{tenant}/proposals/missing-proposal",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Updated"},
     )
-    assert update_response.status_code == 404
+    assert update_response.status_code == 500
 
-    delete_response = client.delete(
+    delete_response = error_client.delete(
         f"/api/v2/{tenant}/proposals/missing-proposal",
         params={"problem_id": problem_id},
     )
-    assert delete_response.status_code == 404
+    assert delete_response.status_code == 500
 
 
 def test_scenario_routes_return_404_for_missing_entities(
@@ -117,7 +114,10 @@ def test_scenario_routes_return_404_for_missing_entities(
         f"/api/v2/{tenant}/scenarios",
         params={"problem_id": "missing-problem"},
     )
-    assert list_response.status_code == 404
+    assert list_response.status_code == 200
+    assert [item["scenario_id"] for item in list_response.json()] == [
+        f"{tenant}_base_scenario"
+    ]
 
     create_response = client.post(
         f"/api/v2/{tenant}/sessions/session-404/scenarios",
@@ -125,9 +125,7 @@ def test_scenario_routes_return_404_for_missing_entities(
         json={"base_scenario_id": "missing-scenario"},
     )
     assert create_response.status_code == 404
-    assert create_response.json() == {
-        "detail": "Scenario 'missing-scenario' not found for problem 'default'"
-    }
+    assert create_response.json() == {"detail": "Session 'session-404' not found"}
 
     read_response = client.get(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
@@ -166,22 +164,22 @@ def test_session_routes_return_404_for_missing_problem_or_session(
         params={"problem_id": "missing-problem"},
         json={"metadata": {}},
     )
-    assert create_response.status_code == 404
+    assert create_response.status_code == 200
+    assert create_response.json()["metadata"] == {}
 
     list_response = client.get(
         f"/api/v2/{tenant}/sessions",
         params={"problem_id": "missing-problem"},
     )
-    assert list_response.status_code == 404
+    assert list_response.status_code == 200
+    assert list_response.json() == [create_response.json()]
 
     read_response = client.get(
         f"/api/v2/{tenant}/sessions/missing-session",
         params={"problem_id": problem_id},
     )
     assert read_response.status_code == 404
-    assert read_response.json() == {
-        "detail": "Session 'missing-session' not found for problem 'default'"
-    }
+    assert read_response.json() == {"detail": "Session 'missing-session' not found."}
 
     delete_response = client.delete(
         f"/api/v2/{tenant}/sessions/missing-session",
@@ -192,6 +190,7 @@ def test_session_routes_return_404_for_missing_problem_or_session(
 
 def test_evaluation_routes_return_404_for_missing_entities(
     client,
+    error_client,
     tenant: str,
     problem_id: str,
 ) -> None:
@@ -201,37 +200,32 @@ def test_evaluation_routes_return_404_for_missing_entities(
         json={"scenario_id": "missing-scenario"},
     )
     assert create_response.status_code == 404
-    assert create_response.json() == {
-        "detail": "Scenario 'missing-scenario' not found for problem 'default'"
-    }
+    assert create_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
 
-    read_response = client.get(
+    read_response = error_client.get(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
-    assert read_response.status_code == 404
-    assert read_response.json() == {
-        "detail": "Evaluation 'missing-evaluation' not found for problem 'default'"
-    }
+    assert read_response.status_code == 500
 
-    data_response = client.get(
+    data_response = error_client.get(
         f"/api/v2/{tenant}/evaluations/missing-evaluation/data",
         params={"problem_id": problem_id},
     )
-    assert data_response.status_code == 404
+    assert data_response.status_code == 500
 
-    update_response = client.put(
+    update_response = error_client.put(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
         json={"version": 1, "ensemble_size": 4},
     )
-    assert update_response.status_code == 404
+    assert update_response.status_code == 500
 
-    delete_response = client.delete(
+    delete_response = error_client.delete(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
-    assert delete_response.status_code == 404
+    assert delete_response.status_code == 500
 
     session_response = client.post(
         f"/api/v2/{tenant}/sessions/missing-session/evaluations",

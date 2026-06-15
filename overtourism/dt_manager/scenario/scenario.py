@@ -11,35 +11,10 @@ from overtourism.dt_manager.utils.utils import get_timestamp
 
 @dataclass
 class Scenario(Dictable):
-    """Domain entity for a scenario.
-
-    The model is always the base model owned by the ScenarioManager.
-    Scenario stores overridden values.
-
-    Parameters
-    ----------
-    scenario_id : str
-        Scenario identifier.
-    problem_id : str
-        Parent problem identifier.
-    version : int
-        Optimistic concurrency version for the scenario.
-    name : str | None
-        Scenario name.
-    description : str | None
-        Scenario description.
-    created : str | None
-        Creation timestamp.
-    updated : str | None
-        Update timestamp.
-    extras : dict
-        Scenario-specific extra fields.
-    index_values : list[IndexEntry], optional
-        Stored model index values.
-    """
+    """Domain entity for a scenario."""
 
     scenario_id: str
-    problem_id: str
+    tenant: str
     version: int = 0
     name: str | None = None
     description: str | None = None
@@ -52,8 +27,8 @@ class Scenario(Dictable):
     def create_default(
         cls,
         scenario_id: str,
+        tenant: str,
         *,
-        problem_id: str = "",
         version: int = 1,
         name: str | None = None,
         description: str | None = None,
@@ -66,7 +41,7 @@ class Scenario(Dictable):
         now = get_timestamp()
         return cls(
             scenario_id=scenario_id,
-            problem_id=problem_id,
+            tenant=tenant,
             version=version,
             name=scenario_id if name is None else name,
             description=f"{scenario_id} scenario"
@@ -85,7 +60,7 @@ class Scenario(Dictable):
         updated = scenario_dict.get("updated") or created
         return cls(
             scenario_id=scenario_dict["scenario_id"],
-            problem_id=scenario_dict.get("problem_id", ""),
+            tenant=scenario_dict["tenant"],
             version=scenario_dict.get("version", 0),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),

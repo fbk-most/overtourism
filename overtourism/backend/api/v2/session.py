@@ -3,24 +3,20 @@
 from __future__ import annotations
 
 import logging
-from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.common import VersionData
 from overtourism.backend.api.v2.models.evaluation import (
     EvaluationData,
     EvaluationOutputData,
     PostEvaluationData,
-    UpdateEvaluationData,
 )
 from overtourism.backend.api.v2.models.scenario import (
     PostScenarioData,
     SaveScenarioData,
     ScenarioData,
-    UpdateScenarioData,
 )
 from overtourism.backend.api.v2.models.session import (
     CreateSessionData,
@@ -36,10 +32,9 @@ from overtourism.backend.api.v2.session_ownership import (
 )
 from overtourism.backend.api.v2.utils import (
     arrange_data,
-    check_version,
-    get_problem_or_404,
     get_scenario_or_404,
     get_session_evaluation_by_id_or_404,
+    get_session_evaluation_or_404,
     get_session_or_404,
     get_session_scenario_or_404,
     prepare_values,
@@ -48,7 +43,6 @@ from overtourism.backend.api.v2.utils import (
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
-from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +51,10 @@ session_router = APIRouter(
     tags=["Sessions"],
     dependencies=[Depends(get_auth_context)],
 )
+
+# ───────────────────────────────────────────────────────────
+# Sessions
+# ───────────────────────────────────────────────────────────
 
 
 @session_router.post(
@@ -70,39 +68,29 @@ session_router = APIRouter(
 )
 async def create_session(
     tenant: str,
-    problem_id: str,
     data: CreateSessionData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> SessionSummaryData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        session = handler.manager.session_manager.create_session(
-            problem_id,
-            uuid4().hex,
-            metadata=data.metadata,
-        )
+        session = handler.manager.create_session(metadata=data.metadata)
         try:
-            claim_session_ownership(
-                handler, tenant, problem_id, session.session_id, context
-            )
+            claim_session_ownership(handler, tenant, session.session_id, context)
         except Exception:
-            handler.manager.session_manager.delete_session(
-                problem_id, session.session_id
-            )
+            handler.manager.delete_session(session.session_id)
             raise
-        logger.info(f"Session created: {session.session_id} for problem {problem_id}")
+        logger.info(f"Session created: {session.session_id}")
         return SessionSummaryData(
-            problem_id=session.problem_id,
             session_id=session.session_id,
             created=session.created,
             updated=session.updated,
             metadata=dict(session.metadata),
             active_scenario_id=session.active_scenario_id,
-            draft_ids=list(session.drafts),
+            draft_ids=list(session.scenarios),
         )
     except Exception as e:
-        logger.error(f"Error creating session for problem {problem_id}: {e}")
+        logger.error(f"Error creating session: {e}")
         raise
 
 
@@ -117,28 +105,26 @@ async def create_session(
 )
 async def list_sessions(
     tenant: str,
-    problem_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> list[SessionSummaryData]:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        session_ids = set(list_owned_session_ids(handler, tenant, problem_id, context))
+        session_ids = set(list_owned_session_ids(handler, tenant, context))
         return [
             SessionSummaryData(
-                problem_id=session.problem_id,
                 session_id=session.session_id,
                 created=session.created,
                 updated=session.updated,
                 metadata=dict(session.metadata),
                 active_scenario_id=session.active_scenario_id,
-                draft_ids=list(session.drafts),
+                draft_ids=list(session.scenarios),
             )
-            for session in handler.manager.session_manager.list_sessions(problem_id)
+            for session in handler.manager.list_sessions()
             if session.session_id in session_ids
         ]
     except Exception as e:
-        logger.error(f"Error listing sessions for problem {problem_id}: {e}")
+        logger.error(f"Error listing sessions: {e}")
         raise
 
 
@@ -153,26 +139,24 @@ async def list_sessions(
 )
 async def read_session(
     tenant: str,
-    problem_id: str,
     session_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> SessionData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        session = get_session_or_404(handler, problem_id, session_id)
+        require_session_ownership(handler, tenant, session_id, context)
+        session = get_session_or_404(handler, session_id)
         return SessionData(
-            problem_id=session.problem_id,
             session_id=session.session_id,
             created=session.created,
             updated=session.updated,
             metadata=dict(session.metadata),
             active_scenario_id=session.active_scenario_id,
-            draft_ids=list(session.drafts),
-            drafts=[
+            draft_ids=list(session.scenarios),
+            scenarios=[
                 ScenarioData(**scenario_to_api(handler, draft))
-                for draft in session.drafts.values()
+                for draft in session.scenarios.values()
             ],
             evaluations={
                 scenario_id: EvaluationData.from_domain(evaluation)
@@ -180,9 +164,7 @@ async def read_session(
             },
         )
     except Exception as e:
-        logger.error(
-            f"Error reading session {session_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error reading session {session_id}: {e}")
         raise
 
 
@@ -196,24 +178,26 @@ async def read_session(
 )
 async def delete_session(
     tenant: str,
-    problem_id: str,
     session_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> dict:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        get_session_or_404(handler, problem_id, session_id)
-        handler.manager.session_manager.delete_session(problem_id, session_id)
-        delete_session_ownership(handler, tenant, problem_id, session_id)
-        logger.info(f"Session deleted: {session_id} for problem {problem_id}")
+        require_session_ownership(handler, tenant, session_id, context)
+        get_session_or_404(handler, session_id)
+        handler.manager.delete_session(session_id)
+        delete_session_ownership(handler, tenant, session_id)
+        logger.info(f"Session deleted: {session_id}")
         return {"message": "Session deleted successfully"}
     except Exception as e:
-        logger.error(
-            f"Error deleting session {session_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error deleting session {session_id}: {e}")
         raise
+
+
+# ───────────────────────────────────────────────────────────
+# Session scenarios
+# ───────────────────────────────────────────────────────────
 
 
 @session_router.post(
@@ -227,49 +211,36 @@ async def delete_session(
 )
 async def create_session_scenario(
     tenant: str,
-    problem_id: str,
     session_id: str,
     data: PostScenarioData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        get_scenario_or_404(handler, problem_id, data.base_scenario_id)
+        get_session_or_404(handler, session_id)
+        get_scenario_or_404(handler, data.base_scenario_id)
         can_claim_session_ownership(
             handler,
             tenant,
-            problem_id,
             session_id,
             context,
         )
-        session_existed = handler.manager.session_manager.has_session(
-            problem_id,
-            session_id,
-        )
-        scenario = handler.manager.session_manager.create_session_scenario(
-            problem_id,
+        values = prepare_values(handler, data.values)
+        scenario = handler.manager.create_session_scenario(
             session_id,
             data.base_scenario_id,
-            values=(
-                None if data.values is None else prepare_values(handler, data.values)
-            ),
-            name=data.name,
-            description=data.description,
-            extras=data.extras,
+            values=values,
         )
         try:
-            claim_session_ownership(handler, tenant, problem_id, session_id, context)
+            claim_session_ownership(handler, tenant, session_id, context)
         except Exception:
-            if not session_existed:
-                handler.manager.session_manager.delete_session(problem_id, session_id)
+            handler.manager.delete_session(session_id)
             raise
-        logger.info(
-            f"Session draft created: {scenario.scenario_id} for problem {problem_id}"
-        )
+        logger.info(f"Session draft created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:
-        logger.error(f"Error creating session scenario for problem {problem_id}: {e}")
+        logger.error(f"Error creating session scenario: {e}")
         raise
 
 
@@ -284,77 +255,22 @@ async def create_session_scenario(
 )
 async def read_session_scenario(
     tenant: str,
-    problem_id: str,
     session_id: str,
     scenario_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
+        require_session_ownership(handler, tenant, session_id, context)
         scenario = get_session_scenario_or_404(
             handler,
-            problem_id,
             session_id,
             scenario_id,
         )
         return scenario_to_api(handler, scenario)
     except Exception as e:
-        logger.error(
-            f"Error reading scenario {scenario_id} for problem {problem_id}: {e}"
-        )
-        raise
-
-
-@session_router.put(
-    "/{session_id}/scenarios/{scenario_id}",
-    response_model=ScenarioData,
-    responses={
-        500: {"description": "Scenario manager error"},
-        404: {"description": "Scenario does not exist"},
-        200: {"description": "Scenario updated"},
-    },
-)
-async def update_session_scenario(
-    tenant: str,
-    problem_id: str,
-    session_id: str,
-    scenario_id: str,
-    data: UpdateScenarioData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
-) -> ScenarioData:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        current_scenario = get_session_scenario_or_404(
-            handler,
-            problem_id,
-            session_id,
-            scenario_id,
-        )
-        check_version(current_scenario.version, data.version)
-        updated_values = (
-            values_as_scipy(current_scenario)
-            if data.values is None
-            else prepare_values(handler, data.values)
-        )
-        scenario = handler.manager.session_manager.update_session_scenario(
-            problem_id,
-            session_id,
-            scenario_id,
-            values=updated_values,
-            name=data.name,
-            description=data.description,
-            extras=data.extras,
-        )
-        logger.info(f"Scenario updated: {scenario_id} for problem {problem_id}")
-        return scenario_to_api(handler, scenario)
-    except Exception as e:
-        logger.error(
-            f"Error updating scenario {scenario_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error reading scenario {scenario_id}: {e}")
         raise
 
 
@@ -369,80 +285,35 @@ async def update_session_scenario(
 )
 async def save_scenario(
     tenant: str,
-    problem_id: str,
     session_id: str,
     scenario_id: str,
     data: SaveScenarioData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        current_scenario = get_session_scenario_or_404(
+        require_session_ownership(handler, tenant, session_id, context)
+        get_session_scenario_or_404(
             handler,
-            problem_id,
             session_id,
             scenario_id,
         )
-        check_version(current_scenario.version, data.version)
-        saved_scenario = handler.manager.session_manager.save_session_scenario(
-            problem_id,
+        saved_scenario = handler.manager.save_session_scenario(
             session_id,
-            scenario_id=scenario_id,
-            name=data.name,
-            description=data.description,
-            extras=data.extras,
-            proposal_id=data.proposal_id,
+            scenario_id,
+            **data.model_dump(exclude={"version"}),
         )
-        logger.info(f"Scenario saved: {scenario_id} for problem {problem_id}")
+        logger.info(f"Scenario saved: {scenario_id}")
         return scenario_to_api(handler, saved_scenario)
     except Exception as e:
-        logger.error(
-            f"Error saving scenario {scenario_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error saving scenario {scenario_id}: {e}")
         raise
 
 
-@session_router.delete(
-    "/{session_id}/scenarios/{scenario_id}",
-    responses={
-        500: {"description": "Scenario manager error"},
-        404: {"description": "Scenario does not exist"},
-        200: {"description": "Scenario deleted"},
-    },
-)
-async def delete_session_scenario(
-    tenant: str,
-    problem_id: str,
-    session_id: str,
-    scenario_id: str,
-    data: VersionData | None = None,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
-) -> dict:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        scenario = get_session_scenario_or_404(
-            handler,
-            problem_id,
-            session_id,
-            scenario_id,
-        )
-        check_version(scenario.version, None if data is None else data.version)
-        handler.manager.session_manager.delete_session_scenario(
-            problem_id,
-            session_id,
-            scenario_id,
-        )
-        logger.info(f"Session scenario deleted: {scenario_id} for problem {problem_id}")
-        return {"message": "Session scenario deleted successfully"}
-    except Exception as e:
-        logger.error(
-            f"Error deleting scenario {scenario_id} for problem {problem_id}: {e}"
-        )
-        raise
+# ───────────────────────────────────────────────────────────
+# Session evaluations
+# ───────────────────────────────────────────────────────────
 
 
 @session_router.post(
@@ -456,64 +327,29 @@ async def delete_session_scenario(
 )
 async def create_session_evaluation(
     tenant: str,
-    problem_id: str,
     session_id: str,
     data: PostEvaluationData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
+        require_session_ownership(handler, tenant, session_id, context)
         get_session_scenario_or_404(
             handler,
-            problem_id,
             session_id,
             data.scenario_id,
         )
-        evaluation = handler.manager.session_manager.create_session_evaluation(
-            problem_id,
+        evaluation = handler.manager.create_session_evaluation(
             session_id,
             data.scenario_id,
             ensemble_size=data.ensemble_size,
             **data.kwargs,
         )
-        logger.info(f"Evaluation created for problem {problem_id}")
+        logger.info("Evaluation created")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
-        logger.error(f"Error creating evaluation for problem {problem_id}: {e}")
-        raise
-
-
-@session_router.get(
-    "/{session_id}/evaluations",
-    response_model=list[EvaluationData],
-    responses={
-        500: {"description": "Evaluation manager error"},
-        404: {"description": "Problem or session does not exist"},
-        200: {"description": "Evaluation list"},
-    },
-)
-async def list_session_evaluations(
-    tenant: str,
-    problem_id: str,
-    session_id: str,
-    scenario_id: str | None = None,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
-) -> list[EvaluationData]:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        get_session_or_404(handler, problem_id, session_id)
-        evaluations = handler.manager.session_manager.list_session_evaluations(
-            problem_id,
-            session_id,
-            scenario_id,
-        )
-        return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
-    except Exception as e:
-        logger.error(f"Error listing evaluations for problem {problem_id}: {e}")
+        logger.error(f"Error creating evaluation: {e}")
         raise
 
 
@@ -528,111 +364,37 @@ async def list_session_evaluations(
 )
 async def read_session_evaluation(
     tenant: str,
-    problem_id: str,
     session_id: str,
-    evaluation_id: str,
+    scenario_id: str | None = None,
+    evaluation_id: str | None = None,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        evaluation = get_session_evaluation_by_id_or_404(
-            handler,
-            problem_id,
-            session_id,
-            evaluation_id,
-        )
+        require_session_ownership(handler, tenant, session_id, context)
+
+        if scenario_id is not None:
+            evaluation = get_session_evaluation_or_404(
+                handler,
+                session_id,
+                scenario_id,
+            )
+        elif evaluation_id is not None:
+            evaluation = get_session_evaluation_by_id_or_404(
+                handler,
+                session_id,
+                evaluation_id,
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Either scenario_id or evaluation_id must be provided",
+            )
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(
-            f"Error reading evaluation {evaluation_id} in problem {problem_id}: {e}"
-        )
-        raise
-
-
-@session_router.put(
-    "/{session_id}/evaluations/{evaluation_id}",
-    response_model=EvaluationData,
-    responses={
-        500: {"description": "Evaluation manager error"},
-        404: {"description": "Evaluation does not exist"},
-        200: {"description": "Evaluation updated"},
-    },
-)
-async def update_session_evaluation(
-    tenant: str,
-    problem_id: str,
-    session_id: str,
-    evaluation_id: str,
-    data: UpdateEvaluationData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
-) -> EvaluationData:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        current = get_session_evaluation_by_id_or_404(
-            handler,
-            problem_id,
-            session_id,
-            evaluation_id,
-        )
-        check_version(current.version, data.version)
-        evaluation = handler.manager.session_manager.update_session_evaluation(
-            problem_id,
-            session_id,
-            evaluation_id,
-            ensemble_size=data.ensemble_size,
-            **data.kwargs,
-        )
-        logger.info(f"Evaluation updated: {evaluation_id} for problem {problem_id}")
-        return EvaluationData.from_domain(evaluation)
-    except Exception as e:
-        logger.error(
-            f"Error updating evaluation {evaluation_id} in problem {problem_id}: {e}"
-        )
-        raise
-
-
-@session_router.delete(
-    "/{session_id}/evaluations/{evaluation_id}",
-    responses={
-        500: {"description": "Evaluation manager error"},
-        404: {"description": "Evaluation does not exist"},
-        200: {"description": "Evaluation deleted"},
-    },
-)
-async def delete_session_evaluation(
-    tenant: str,
-    problem_id: str,
-    session_id: str,
-    evaluation_id: str,
-    data: VersionData | None = None,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
-) -> dict[str, str]:
-    try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
-        evaluation = get_session_evaluation_by_id_or_404(
-            handler,
-            problem_id,
-            session_id,
-            evaluation_id,
-        )
-        check_version(evaluation.version, None if data is None else data.version)
-        handler.manager.session_manager.delete_session_evaluation(
-            problem_id,
-            session_id,
-            evaluation_id,
-        )
-        message = "Session evaluation deleted successfully"
-        logger.info(f"Evaluation deleted: {evaluation_id} for problem {problem_id}")
-        return {"message": message}
-    except Exception as e:
-        logger.error(
-            f"Error deleting evaluation {evaluation_id} in problem {problem_id}: {e}"
+            f"Error reading evaluation {scenario_id or evaluation_id} in problem {problem_id}: {e}"
         )
         raise
 
@@ -649,44 +411,34 @@ async def delete_session_evaluation(
 )
 async def get_session_data(
     tenant: str,
-    problem_id: str,
     session_id: str,
     evaluation_id: str,
     as_snapshot: bool = Query(default=True),
     params: list[str] | None = Query(default=None),
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationOutputData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        require_session_ownership(handler, tenant, problem_id, session_id, context)
+        require_session_ownership(handler, tenant, session_id, context)
         evaluation = get_session_evaluation_by_id_or_404(
             handler,
-            problem_id,
             session_id,
             evaluation_id,
         )
-        scenario = get_session_scenario_or_404(
+        result = arrange_data(
             handler,
-            problem_id,
-            session_id,
-            evaluation.scenario_id,
+            evaluation.result,
+            params=params,
+            as_snapshot=as_snapshot,
         )
-        result = arrange_data(handler, evaluation.result, params=params, as_snapshot=as_snapshot)
         return EvaluationOutputData(
-            problem_id=scenario.problem_id,
-            scenario_id=scenario.scenario_id,
+            scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,
-            data=(
-                {}
-                if result is None
-                else result.to_snapshot()
-                if hasattr(result, "to_snapshot")
-                else result
-            ),
+            data=result,
         )
     except Exception as e:
         logger.error(
-            f"Error getting evaluation data for evaluation {evaluation_id} in problem {problem_id}: {e}"
+            f"Error getting evaluation data for evaluation {evaluation_id}: {e}"
         )
         raise

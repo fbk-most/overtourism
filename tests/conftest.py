@@ -18,6 +18,7 @@ from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 
 TIMESTAMP = "2025-01-01T00:00:00Z"
+TENANT = "tenant-alpha"
 
 
 def _make_problem_payload(
@@ -25,6 +26,7 @@ def _make_problem_payload(
 ) -> dict[str, Any]:
     return Problem.create_default(
         problem_id,
+        TENANT,
         name=name,
         description=description,
         created=TIMESTAMP,
@@ -36,14 +38,14 @@ def _make_problem_payload(
 def _make_scenario_payload(
     scenario_id: str,
     *,
-    problem_id: str,
+    tenant: str,
     index_name: str,
     index_value: dict[str, Any] | float,
     index_type: str,
 ) -> dict[str, Any]:
     return Scenario.create_default(
         scenario_id,
-        problem_id=problem_id,
+        tenant,
         name=f"{scenario_id} name",
         description=f"{scenario_id} description",
         created=TIMESTAMP,
@@ -80,12 +82,11 @@ def _make_proposal_payload(
 def _make_evaluation_payload(
     evaluation_id: str,
     *,
-    problem_id: str,
     scenario_id: str,
     state: EvaluationState,
     result: dict[str, Any],
 ) -> dict[str, Any]:
-    payload = Evaluation.create_default(
+    return Evaluation.create_default(
         evaluation_id,
         scenario_id=scenario_id,
         type=DEFAULT_EVALUATION_TYPE,
@@ -94,8 +95,6 @@ def _make_evaluation_payload(
         finished=TIMESTAMP,
         result=result,
     ).to_dict()
-    payload["problem_id"] = problem_id
-    return payload
 
 
 @pytest.fixture
@@ -120,7 +119,7 @@ def other_problem_payload() -> dict[str, Any]:
 def scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_scenario_payload(
         "scenario-alpha",
-        problem_id=problem_payload["problem_id"],
+        tenant=problem_payload["tenant"],
         index_name="visits",
         index_value={"mean": 12.5},
         index_type=IndexType.CONSTANT.value,
@@ -131,7 +130,7 @@ def scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
 def other_scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_scenario_payload(
         "scenario-beta",
-        problem_id=problem_payload["problem_id"],
+        tenant=problem_payload["tenant"],
         index_name="crowding",
         index_value=3.0,
         index_type=IndexType.UNIFORM.value,
@@ -160,7 +159,6 @@ def other_proposal_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
 def evaluation_payload(scenario_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_evaluation_payload(
         "evaluation-alpha",
-        problem_id=scenario_payload["problem_id"],
         scenario_id=scenario_payload["scenario_id"],
         state=EvaluationState.COMPLETED,
         result={"score": 0.91, "notes": ["ok"]},
@@ -171,7 +169,6 @@ def evaluation_payload(scenario_payload: dict[str, Any]) -> dict[str, Any]:
 def other_evaluation_payload(other_scenario_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_evaluation_payload(
         "evaluation-beta",
-        problem_id=other_scenario_payload["problem_id"],
         scenario_id=other_scenario_payload["scenario_id"],
         state=EvaluationState.FAILED,
         result={"score": 0.12, "notes": ["retry"]},

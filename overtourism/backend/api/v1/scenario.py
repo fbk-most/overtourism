@@ -106,8 +106,8 @@ def _read_matching_session_state(
 )
 async def get_data(
     tenant: str,
-    problem_id: str,
     scenario_id: str,
+    problem_id: str | None = None,
     session_id: str | None = None,
     language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),
@@ -115,7 +115,10 @@ async def get_data(
     """Read the evaluated outputs for a scenario."""
     try:
         manager = handler.manager
-        problem = get_problem_or_404(handler, tenant, problem_id)
+        resolved_problem_id = (
+            manager.base_problem_config.problem_id if problem_id is None else problem_id
+        )
+        problem = get_problem_or_404(handler, tenant, resolved_problem_id)
 
         # If a session exists, return its already-evaluated scenario copy.
         session_scenario = None
@@ -123,7 +126,7 @@ async def get_data(
         if session_id is not None:
             session_scenario, session_evaluation = _read_matching_session_state(
                 handler,
-                problem_id,
+                resolved_problem_id,
                 session_id,
                 scenario_id,
             )
@@ -138,7 +141,7 @@ async def get_data(
                 **values_as_scipy(session_scenario),
             }
             return OutputData(
-                problem_id=problem_id,
+                problem_id=resolved_problem_id,
                 scenario_id=scenario_id,
                 data=out_data,
                 index_diffs=scenario_index_diffs(handler, session_scenario),
@@ -149,15 +152,15 @@ async def get_data(
         # No active session — return the stored scenario.
         out_data = arrange_data(
             handler,
-            manager.read_scenario_data(problem_id, scenario_id),  # .to_dict()
+            manager.read_scenario_data(resolved_problem_id, scenario_id),  # .to_dict()
         )
-        scenario = manager.read_scenario(problem_id, scenario_id)
+        scenario = manager.read_scenario(resolved_problem_id, scenario_id)
         values = {
             **model_values(handler),
             **values_as_scipy(scenario),
         }
         return OutputData(
-            problem_id=problem_id,
+            problem_id=resolved_problem_id,
             scenario_id=scenario_id,
             data=out_data,
             index_diffs=scenario_index_diffs(handler, scenario),
@@ -182,9 +185,9 @@ async def get_data(
 )
 async def update_data(
     tenant: str,
-    problem_id: str,
     scenario_id: str,
     data: InputEvaluationData,
+    problem_id: str | None = None,
     session_id: str | None = None,
     language: Literal["it", "en"] = "it",
     handler: Handler = Depends(get_handler),

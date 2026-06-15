@@ -40,7 +40,6 @@ class EvaluationData(BaseModel):
 class EvaluationOutputData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    problem_id: str
     scenario_id: str
     evaluation_id: str
     data: dict[str, Any] = Field(default_factory=dict)

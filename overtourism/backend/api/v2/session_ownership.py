@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -9,6 +10,9 @@ from sqlalchemy import Index, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from overtourism.backend.auth.models import AuthContext
+
+if typing.TYPE_CHECKING:
+    from overtourism.backend.handler import Handler
 
 
 class SessionOwnershipConflict(RuntimeError):
@@ -21,12 +25,9 @@ class SessionOwnershipBase(DeclarativeBase):
 
 class SessionOwnershipRecord(SessionOwnershipBase):
     __tablename__ = "session_ownership"
-    __table_args__ = (
-        Index("idx_session_ownership_owner", "tenant", "problem_id", "owner_id"),
-    )
+    __table_args__ = (Index("idx_session_ownership_owner", "tenant", "owner_id"),)
 
     tenant: Mapped[str] = mapped_column(String, primary_key=True)
-    problem_id: Mapped[str] = mapped_column(String, primary_key=True)
     session_id: Mapped[str] = mapped_column(String, primary_key=True)
     owner_id: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -53,8 +54,8 @@ def resolve_session_owner_id(context: AuthContext, tenant: str) -> str:
     )
 
 
-def _session_not_found_detail(problem_id: str, session_id: str) -> str:
-    return f"Session '{session_id}' not found for problem '{problem_id}'"
+def _session_not_found_detail(session_id: str) -> str:
+    return f"Session '{session_id}' not found."
 
 
 class SessionOwnershipStore:
@@ -79,18 +80,16 @@ class SessionOwnershipStore:
         self,
         db_session: Session,
         tenant: str,
-        problem_id: str,
         session_id: str,
     ) -> SessionOwnershipRecord | None:
         return db_session.get(
             SessionOwnershipRecord,
-            (tenant, problem_id, session_id),
+            (tenant, session_id),
         )
 
     def claim_session(
         self,
         tenant: str,
-        problem_id: str,
         session_id: str,
         owner_id: str,
     ) -> None:
@@ -99,18 +98,17 @@ class SessionOwnershipStore:
             raise ValueError("owner_id must not be empty")
 
         with self.session_factory.begin() as db_session:
-            record = self._get_record(db_session, tenant, problem_id, session_id)
+            record = self._get_record(db_session, tenant, session_id)
             if record is not None:
                 if record.owner_id != normalized_owner_id:
                     raise SessionOwnershipConflict(
-                        _session_not_found_detail(problem_id, session_id)
+                        _session_not_found_detail(session_id)
                     )
                 return
 
             db_session.add(
                 SessionOwnershipRecord(
                     tenant=tenant,
-                    problem_id=problem_id,
                     session_id=session_id,
                     owner_id=normalized_owner_id,
                 )
@@ -119,11 +117,10 @@ class SessionOwnershipStore:
     def read_session_owner(
         self,
         tenant: str,
-        problem_id: str,
         session_id: str,
     ) -> str | None:
         with self.session_factory() as db_session:
-            record = self._get_record(db_session, tenant, problem_id, session_id)
+            record = self._get_record(db_session, tenant, session_id)
             if record is None:
                 return None
             return record.owner_id
@@ -131,14 +128,12 @@ class SessionOwnershipStore:
     def list_session_ids(
         self,
         tenant: str,
-        problem_id: str,
         owner_id: str,
     ) -> list[str]:
         with self.session_factory() as db_session:
             statement = (
                 select(SessionOwnershipRecord.session_id)
                 .where(SessionOwnershipRecord.tenant == tenant)
-                .where(SessionOwnershipRecord.problem_id == problem_id)
                 .where(SessionOwnershipRecord.owner_id == owner_id)
                 .order_by(SessionOwnershipRecord.session_id)
             )
@@ -147,115 +142,81 @@ class SessionOwnershipStore:
     def delete_session(
         self,
         tenant: str,
-        problem_id: str,
         session_id: str,
     ) -> None:
         with self.session_factory.begin() as db_session:
-            record = self._get_record(db_session, tenant, problem_id, session_id)
+            record = self._get_record(db_session, tenant, session_id)
             if record is not None:
-                db_session.delete(record)
-
-    def delete_problem(self, tenant: str, problem_id: str) -> None:
-        with self.session_factory.begin() as db_session:
-            statement = (
-                select(SessionOwnershipRecord)
-                .where(SessionOwnershipRecord.tenant == tenant)
-                .where(SessionOwnershipRecord.problem_id == problem_id)
-            )
-            for record in db_session.scalars(statement):
                 db_session.delete(record)
 
 
 def require_session_ownership(
-    handler,
+    handler: Handler,
     tenant: str,
-    problem_id: str,
     session_id: str,
     context: AuthContext,
 ) -> str:
     owner_id = resolve_session_owner_id(context, tenant)
-    store = getattr(handler, "session_ownership_store", None)
-    if store is None:
-        raise RuntimeError("Session ownership store not initialized")
-
-    current_owner_id = store.read_session_owner(tenant, problem_id, session_id)
+    current_owner_id = _get_sos(handler).read_session_owner(tenant, session_id)
     if current_owner_id != owner_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_session_not_found_detail(problem_id, session_id),
+            detail=_session_not_found_detail(session_id),
         )
     return owner_id
 
 
 def can_claim_session_ownership(
-    handler,
+    handler: Handler,
     tenant: str,
-    problem_id: str,
     session_id: str,
     context: AuthContext,
 ) -> str:
     owner_id = resolve_session_owner_id(context, tenant)
-    store = getattr(handler, "session_ownership_store", None)
-    if store is None:
-        raise RuntimeError("Session ownership store not initialized")
-
-    current_owner_id = store.read_session_owner(tenant, problem_id, session_id)
+    current_owner_id = _get_sos(handler).read_session_owner(tenant, session_id)
     if current_owner_id is not None and current_owner_id != owner_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_session_not_found_detail(problem_id, session_id),
+            detail=_session_not_found_detail(session_id),
         )
     return owner_id
 
 
 def claim_session_ownership(
-    handler,
+    handler: Handler,
     tenant: str,
-    problem_id: str,
     session_id: str,
     context: AuthContext,
 ) -> None:
     owner_id = resolve_session_owner_id(context, tenant)
-    store = getattr(handler, "session_ownership_store", None)
-    if store is None:
-        raise RuntimeError("Session ownership store not initialized")
-
     try:
-        store.claim_session(tenant, problem_id, session_id, owner_id)
+        _get_sos(handler).claim_session(tenant, session_id, owner_id)
     except SessionOwnershipConflict as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=_session_not_found_detail(problem_id, session_id),
+            detail=_session_not_found_detail(session_id),
         ) from exc
 
 
 def list_owned_session_ids(
-    handler,
+    handler: Handler,
     tenant: str,
-    problem_id: str,
     context: AuthContext,
 ) -> list[str]:
     owner_id = resolve_session_owner_id(context, tenant)
-    store = getattr(handler, "session_ownership_store", None)
-    if store is None:
-        raise RuntimeError("Session ownership store not initialized")
-    return store.list_session_ids(tenant, problem_id, owner_id)
+    return _get_sos(handler).list_session_ids(tenant, owner_id)
 
 
 def delete_session_ownership(
-    handler,
+    handler: Handler,
     tenant: str,
-    problem_id: str,
     session_id: str,
 ) -> None:
-    store = getattr(handler, "session_ownership_store", None)
-    if store is None:
-        raise RuntimeError("Session ownership store not initialized")
-    store.delete_session(tenant, problem_id, session_id)
+    _get_sos(handler).delete_session(tenant, session_id)
 
 
-def delete_problem_ownership(handler, tenant: str, problem_id: str) -> None:
-    store = getattr(handler, "session_ownership_store", None)
+def _get_sos(handler: Handler) -> SessionOwnershipStore:
+    store = handler.session_ownership_store
     if store is None:
         raise RuntimeError("Session ownership store not initialized")
-    store.delete_problem(tenant, problem_id)
+    return store

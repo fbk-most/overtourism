@@ -8,11 +8,7 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
-from overtourism.overtourism.data import (
-    MOLVENO_SIM_INDEXES,
-    OvertourismIndexesLoader,
-    get_index_data_path,
-)
+from overtourism.overtourism.data import MOLVENO_SIM_INDEXES, OvertourismIndexesLoader
 from overtourism.overtourism.molveno_model import (
     CV_season,
     CV_weather,
@@ -120,7 +116,6 @@ base_problem_config = BaseConfig(
         editable_indexes=list(INDEX_NAME_MAP.keys()),
         groups=["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
     ),
-    scenario_id="model_0",
 )
 
 
@@ -128,6 +123,7 @@ base_problem_config = BaseConfig(
 # Store
 # ──────────────────────────────────────────────
 data_dir = Path(__file__).parent / "database"
+index_data_path = data_dir / "index_data"
 store_conf = StoreConfig(
     "sql",
     {"url": f"sqlite:///{data_dir / 'overtourism.sqlite'}"},
@@ -146,4 +142,4 @@ manager = Manager(
 
 
 viewer = ModelViewer(MOLVENO_SIM_INDEXES)
-data_loader = OvertourismIndexesLoader(get_index_data_path())
+data_loader = OvertourismIndexesLoader(index_data_path)

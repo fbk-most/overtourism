@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 
+class StoreException(Exception):
+    """Base exception for store-related errors."""
+
+
+class EntityDoesNotExist(StoreException):
+    """Raised when an entity cannot be found in the store."""
+
+
 class ScenarioManagerException(Exception):
     """Base exception for scenario, proposal, and configuration errors."""
 

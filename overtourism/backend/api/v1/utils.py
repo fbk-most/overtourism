@@ -138,7 +138,7 @@ def build_related_scenarios(
         scenario.scenario_id: scenario
         for scenario in handler.manager.list_scenarios(problem_id)
     }
-    related_sids = handler.manager.problem_manager.get_related_scenario_ids(
+    related_sids = handler.manager.relationship_manager.get_related_scenario_ids(
         problem_id, proposal_id
     )
     related = []

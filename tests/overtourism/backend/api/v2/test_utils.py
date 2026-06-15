@@ -8,7 +8,6 @@ from types import ModuleType
 import pytest
 from fastapi import HTTPException
 
-from overtourism.backend.api.shared.exceptions import ProblemNotFound
 from overtourism.backend.api.v2.utils import (
     arrange_data,
     check_version,
@@ -28,6 +27,7 @@ from overtourism.backend.api.v2.utils import (
 )
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 
 
 class SnapshotResult:
@@ -72,13 +72,14 @@ def test_not_found_helpers_translate_backend_errors_to_http_exceptions(
     tenant: str,
     problem_id: str,
 ) -> None:
-    assert get_problem_or_404(handler, tenant, problem_id).problem_id == problem_id
+    assert get_problem_or_404(handler, problem_id).problem_id == problem_id
 
     manager.read_problem = lambda problem_id: (_ for _ in ()).throw(
-        FileNotFoundError(problem_id)
+        EntityDoesNotExist(problem_id)
     )
-    with pytest.raises(ProblemNotFound):
-        get_problem_or_404(handler, tenant, "missing-problem")
+    with pytest.raises(HTTPException) as exc_info:
+        get_problem_or_404(handler, "missing-problem")
+    assert exc_info.value.status_code == 404
 
 
 def test_session_and_entity_helpers_return_domain_objects_or_404(
@@ -88,60 +89,55 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
     problem_id: str,
     proposal_id: str,
 ) -> None:
-    assert get_problem_or_404(handler, tenant, problem_id).problem_id == problem_id
+    base_scenario_id = f"{tenant}_base_scenario"
 
-    manager.read_problem = lambda problem_id: manager.problem_manager.read_problem(
-        problem_id
-    )
-    with pytest.raises(ProblemNotFound):
-        get_problem_or_404(handler, "wrong-tenant", problem_id)
+    assert get_problem_or_404(handler, problem_id).problem_id == problem_id
 
-    assert get_scenario_or_404(handler, problem_id, "default").scenario_id == "default"
-    assert (
-        get_proposal_or_404(handler, problem_id, proposal_id).proposal_id == proposal_id
+    manager.read_problem = lambda problem_id: (_ for _ in ()).throw(
+        EntityDoesNotExist(problem_id)
     )
+    with pytest.raises(HTTPException) as exc_info:
+        get_problem_or_404(handler, problem_id)
+    assert exc_info.value.status_code == 404
+
     assert (
-        get_evaluation_or_404(handler, problem_id, "default").scenario_id == "default"
+        get_scenario_or_404(handler, base_scenario_id).scenario_id == base_scenario_id
+    )
+    assert get_proposal_or_404(handler, proposal_id).proposal_id == proposal_id
+    manager.evaluate_scenario(base_scenario_id)
+    assert (
+        get_evaluation_or_404(handler, base_scenario_id).scenario_id == base_scenario_id
     )
 
     with pytest.raises(HTTPException) as scenario_exc:
-        get_scenario_or_404(handler, problem_id, "missing-scenario")
+        get_scenario_or_404(handler, "missing-scenario")
     assert scenario_exc.value.status_code == 404
 
-    with pytest.raises(HTTPException) as proposal_exc:
-        get_proposal_or_404(handler, problem_id, "missing-proposal")
-    assert proposal_exc.value.status_code == 404
+    with pytest.raises(EntityDoesNotExist):
+        get_proposal_or_404(handler, "missing-proposal")
 
-    with pytest.raises(HTTPException) as evaluation_exc:
-        get_evaluation_or_404(handler, problem_id, "missing-scenario")
-    assert evaluation_exc.value.status_code == 404
+    with pytest.raises(EntityDoesNotExist):
+        get_evaluation_or_404(handler, "missing-scenario")
 
-    manager.session_manager.create_session(
-        problem_id, "session-utils", metadata={"source": "ui"}
-    )
-    draft = manager.session_manager.create_session_scenario(
-        problem_id,
-        "session-utils",
-        "default",
+    session = manager.session_manager.create_session(metadata={"source": "ui"})
+    draft = manager.create_session_scenario(
+        session.session_id,
+        base_scenario_id,
         values={"visits": 8},
-        name="Draft",
     )
-    evaluation = manager.session_manager.create_session_evaluation(
-        problem_id,
-        "session-utils",
+    evaluation = manager.create_session_evaluation(
+        session.session_id,
         draft.scenario_id,
         ensemble_size=4,
     )
 
     assert (
-        get_session_or_404(handler, problem_id, "session-utils").session_id
-        == "session-utils"
+        get_session_or_404(handler, session.session_id).session_id == session.session_id
     )
     assert (
         get_session_scenario_or_404(
             handler,
-            problem_id,
-            "session-utils",
+            session.session_id,
             draft.scenario_id,
         ).scenario_id
         == draft.scenario_id
@@ -149,22 +145,20 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
     assert (
         get_session_evaluation_or_404(
             handler,
-            problem_id,
-            "session-utils",
+            session.session_id,
             draft.scenario_id,
         ).evaluation_id
         == evaluation.evaluation_id
     )
 
     with pytest.raises(HTTPException) as session_exc:
-        get_session_or_404(handler, problem_id, "missing-session")
+        get_session_or_404(handler, "missing-session")
     assert session_exc.value.status_code == 404
 
     with pytest.raises(HTTPException) as draft_exc:
         get_session_scenario_or_404(
             handler,
-            problem_id,
-            "session-utils",
+            session.session_id,
             "missing-scenario",
         )
     assert draft_exc.value.status_code == 404
@@ -172,8 +166,7 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
     with pytest.raises(HTTPException) as eval_exc:
         get_session_evaluation_or_404(
             handler,
-            problem_id,
-            "session-utils",
+            session.session_id,
             "missing-scenario",
         )
     assert eval_exc.value.status_code == 404
@@ -228,21 +221,24 @@ def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
         fake_module,
     )
 
-    manager.update_scenario(problem_id, "default", values={"visits": 9})
-    scenario = manager.read_scenario(problem_id, "default")
+    scenario = manager.read_scenario(
+        f"{handler.manager.base_problem_config.tenant}_base_scenario"
+    )
+    manager.update_scenario(scenario.scenario_id, values={"visits": 9})
+    scenario = manager.read_scenario(scenario.scenario_id)
 
     monkeypatch.setattr(
-        handler.manager.model_evaluator,
+        handler.manager.scenario_manager.model_evaluator,
         "_values_to_overrides",
         lambda model, values: {"visits": values["visits"]},
     )
     monkeypatch.setattr(
-        handler.manager.model_evaluator,
+        handler.manager.scenario_manager.model_evaluator,
         "get_index_diffs",
         lambda cdt_scenario: {"visits": f"+{cdt_scenario.overrides['visits']}"},
     )
     monkeypatch.setattr(
-        handler.manager.model_evaluator,
+        handler.manager.scenario_manager.model_evaluator,
         "get_model_values",
         lambda cdt_scenario: {"model": cdt_scenario.model.name},
     )

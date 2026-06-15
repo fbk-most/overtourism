@@ -33,8 +33,8 @@ class Problem(Dictable):
     """
 
     problem_id: str
+    tenant: str
     version: int = 0
-    tenant: str = "default"
     name: str | None = None
     description: str | None = None
     created: str | None = None
@@ -45,9 +45,9 @@ class Problem(Dictable):
     def create_default(
         cls,
         problem_id: str,
+        tenant: str,
         *,
         version: int = 1,
-        tenant: str = "default",
         name: str | None = None,
         description: str | None = None,
         created: str | None = None,
@@ -58,8 +58,8 @@ class Problem(Dictable):
         now = get_timestamp()
         return cls(
             problem_id=problem_id,
-            version=version,
             tenant=tenant,
+            version=version,
             name=problem_id if name is None else name,
             description=f"{problem_id} problem" if description is None else description,
             created=now if created is None else created,
@@ -72,8 +72,8 @@ class Problem(Dictable):
         """Build a problem from a flat problem payload dictionary."""
         return cls(
             problem_id=data["problem_id"],
+            tenant=data["tenant"],
             version=data.get("version", 0),
-            tenant=data.get("tenant", "default"),
             name=data.get("name"),
             description=data.get("description"),
             created=data.get("created"),

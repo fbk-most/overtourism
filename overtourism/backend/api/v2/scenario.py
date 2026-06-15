@@ -8,15 +8,12 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.common import VersionData
 from overtourism.backend.api.v2.models.scenario import (
     ScenarioData,
     UpdateScenarioData,
 )
 from overtourism.backend.api.v2.utils import (
     check_version,
-    get_problem_or_404,
-    get_proposal_or_404,
     get_scenario_or_404,
     prepare_values,
     scenario_to_api,
@@ -45,29 +42,15 @@ scenario_router = APIRouter(
 )
 async def list_scenarios(
     tenant: str,
-    problem_id: str,
     proposal_id: str | None = None,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> list[ScenarioData]:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        scenarios = handler.manager.list_scenarios(problem_id)
-        if proposal_id is not None:
-            get_proposal_or_404(handler, problem_id, proposal_id)
-            related_scenario_ids = set(
-                handler.manager.problem_manager.get_related_scenario_ids(
-                    problem_id,
-                    proposal_id,
-                )
-            )
-            scenarios = [
-                scenario
-                for scenario in scenarios
-                if scenario.scenario_id in related_scenario_ids
-            ]
+        scenarios = handler.manager.list_scenarios(tenant, proposal_id)
         return [scenario_to_api(handler, scenario) for scenario in scenarios]
     except Exception as e:
-        logger.error(f"Error listing scenarios for problem {problem_id}: {e}")
+        logger.error(f"Error listing scenarios: {e}")
         raise
 
 
@@ -82,18 +65,15 @@ async def list_scenarios(
 )
 async def read_scenario(
     tenant: str,
-    problem_id: str,
     scenario_id: str,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        scenario = get_scenario_or_404(handler, problem_id, scenario_id)
+        scenario = get_scenario_or_404(handler, scenario_id)
         return scenario_to_api(handler, scenario)
     except Exception as e:
-        logger.error(
-            f"Error reading scenario {scenario_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error reading scenario {scenario_id}: {e}")
         raise
 
 
@@ -108,14 +88,13 @@ async def read_scenario(
 )
 async def update_scenario(
     tenant: str,
-    problem_id: str,
     scenario_id: str,
     data: UpdateScenarioData,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        current_scenario = get_scenario_or_404(handler, problem_id, scenario_id)
+        current_scenario = get_scenario_or_404(handler, scenario_id)
         check_version(current_scenario.version, data.version)
         updated_values = (
             values_as_scipy(current_scenario)
@@ -123,20 +102,17 @@ async def update_scenario(
             else prepare_values(handler, data.values)
         )
         handler.manager.update_scenario(
-            problem_id,
             scenario_id,
             values=updated_values,
             name=data.name,
             description=data.description,
             extras=data.extras,
         )
-        scenario = handler.manager.read_scenario(problem_id, scenario_id)
-        logger.info(f"Scenario updated: {scenario_id} for problem {problem_id}")
+        scenario = handler.manager.read_scenario(scenario_id)
+        logger.info(f"Scenario updated: {scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:
-        logger.error(
-            f"Error updating scenario {scenario_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error updating scenario {scenario_id}: {e}")
         raise
 
 
@@ -150,20 +126,15 @@ async def update_scenario(
 )
 async def delete_scenario(
     tenant: str,
-    problem_id: str,
     scenario_id: str,
-    data: VersionData | None = None,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> dict:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        scenario = get_scenario_or_404(handler, problem_id, scenario_id)
-        check_version(scenario.version, None if data is None else data.version)
-        handler.manager.delete_scenario(problem_id, scenario_id)
-        logger.info(f"Scenario deleted: {scenario_id} for problem {problem_id}")
+        get_scenario_or_404(handler, scenario_id)
+        handler.manager.delete_scenario(scenario_id)
+        logger.info(f"Scenario deleted: {scenario_id}")
         return {"message": "Scenario deleted successfully"}
     except Exception as e:
-        logger.error(
-            f"Error deleting scenario {scenario_id} for problem {problem_id}: {e}"
-        )
+        logger.error(f"Error deleting scenario {scenario_id}: {e}")
         raise

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Protocol, TypeVar
 
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
@@ -25,19 +24,7 @@ from overtourism.dt_manager.stores.classes.sql.orm import (
     scenario_to_orm,
 )
 from overtourism.dt_manager.stores.classes.sql.schema import build_sql_schema
-from overtourism.dt_manager.stores.enums import ProblemNestedKey
-from overtourism.dt_manager.utils.exception import (
-    EvaluationDoesNotExist,
-    ProposalDoesNotExist,
-    ScenarioDoesNotExist,
-)
-
-
-class _ScopedEntityRow(Protocol):
-    problem_id: str
-
-
-ScopedEntityRowT = TypeVar("ScopedEntityRowT", bound=_ScopedEntityRow)
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 
 
 class SQLStore(Store):
@@ -87,26 +74,24 @@ class SQLStore(Store):
     # Problems
     # ───────────────────────────────────────────────────────────
 
-    def save_problem(self, problem_id: str, problem_data: dict) -> None:
+    def save_problem(self, problem_data: dict) -> None:
         with self.session_factory.begin() as session:
-            problem_payload = {
-                **problem_data,
-                ProblemNestedKey.PROBLEM_ID: problem_id,
-            }
-            session.merge(problem_to_orm(problem_payload))
+            session.merge(problem_to_orm(problem_data))
 
     def load_problem(self, problem_id: str) -> dict:
         with self.session_factory() as session:
             problem = session.get(self.schema.problems, problem_id)
             if problem is None:
-                raise FileNotFoundError(problem_id)
+                raise EntityDoesNotExist(f"Problem '{problem_id}' not found")
             return problem_from_orm(problem)
 
-    def load_problems(self) -> list[dict]:
+    def load_problems(self, tenant: str | None = None) -> list[dict]:
         with self.session_factory() as session:
-            rows = session.scalars(
-                select(self.schema.problems).order_by(self.schema.problems.problem_id)
-            ).all()
+            query = select(self.schema.problems)
+            if tenant is not None:
+                query = query.where(self.schema.problems.tenant == tenant)
+            query = query.order_by(self.schema.problems.created.desc())
+            rows = session.scalars(query).all()
             return [problem_from_orm(row) for row in rows]
 
     def delete_problem(self, problem_id: str) -> None:
@@ -116,156 +101,90 @@ class SQLStore(Store):
                 session.delete(problem)
 
     # ───────────────────────────────────────────────────────────
-    # Scenarios
-    # ───────────────────────────────────────────────────────────
-
-    def save_scenario(
-        self,
-        problem_id: str,
-        scenario_id: str,
-        scenario_data: dict,
-    ) -> None:
-        with self.session_factory.begin() as session:
-            self._merge_scoped_entity(
-                session,
-                entity_name="Scenario",
-                problem_id=problem_id,
-                entity_id=scenario_id,
-                payload=scenario_data,
-                payload_id_key="scenario_id",
-                entity_row=scenario_to_orm(scenario_data, problem_id),
-            )
-
-    def load_scenarios(self, problem_id: str) -> list[dict]:
-        with self.session_factory() as session:
-            rows = session.scalars(
-                select(self.schema.scenarios)
-                .where(self.schema.scenarios.problem_id == problem_id)
-                .order_by(self.schema.scenarios.scenario_id)
-            ).all()
-            return [scenario_from_orm(row) for row in rows]
-
-    def load_scenario(self, problem_id: str, scenario_id: str) -> dict:
-        with self.session_factory() as session:
-            row = self._load_scoped_row_or_raise(
-                session,
-                self.schema.scenarios,
-                (problem_id, scenario_id),
-                entity_name="Scenario",
-                entity_id=scenario_id,
-                problem_id=problem_id,
-                exception_type=ScenarioDoesNotExist,
-            )
-            return scenario_from_orm(row)
-
-    def delete_scenario(self, problem_id: str, scenario_id: str) -> None:
-        with self.session_factory.begin() as session:
-            row = self._load_scoped_row_or_raise(
-                session,
-                self.schema.scenarios,
-                (problem_id, scenario_id),
-                entity_name="Scenario",
-                entity_id=scenario_id,
-                problem_id=problem_id,
-                exception_type=ScenarioDoesNotExist,
-            )
-            session.delete(row)
-
-    # ───────────────────────────────────────────────────────────
     # Proposals
     # ───────────────────────────────────────────────────────────
 
     def save_proposal(
         self,
-        problem_id: str,
-        proposal_id: str,
         proposal_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            self._merge_scoped_entity(
-                session,
-                entity_name="Proposal",
-                problem_id=problem_id,
-                entity_id=proposal_id,
-                payload=proposal_data,
-                payload_id_key="proposal_id",
-                entity_row=proposal_to_orm(proposal_data),
-            )
+            session.merge(proposal_to_orm(proposal_data))
 
-    def load_proposals(self, problem_id: str) -> list[dict]:
+    def load_proposals(
+        self,
+        problem_id: str | None = None,
+        scenario_id: str | None = None,
+    ) -> list[dict]:
         with self.session_factory() as session:
-            rows = session.scalars(
-                select(self.schema.proposals)
-                .where(self.schema.proposals.problem_id == problem_id)
-                .order_by(self.schema.proposals.proposal_id)
-            ).all()
+            query = select(self.schema.proposals)
+            if problem_id is not None:
+                query = query.where(self.schema.proposals.problem_id == problem_id)
+            if scenario_id is not None:
+                query_proposal_ids = select(
+                    self.schema.relationships.proposal_id
+                ).where(self.schema.relationships.scenario_id == scenario_id)
+                query = query.where(
+                    self.schema.proposals.proposal_id.in_(query_proposal_ids)
+                )
+            query = query.order_by(self.schema.proposals.created.desc())
+            rows = session.scalars(query).all()
             return [proposal_from_orm(row) for row in rows]
 
-    def load_proposal(self, problem_id: str, proposal_id: str) -> dict:
+    def load_proposal(self, proposal_id: str) -> dict:
         with self.session_factory() as session:
-            row = self._load_scoped_row_or_raise(
-                session,
-                self.schema.proposals,
-                (problem_id, proposal_id),
-                entity_name="Proposal",
-                entity_id=proposal_id,
-                problem_id=problem_id,
-                exception_type=ProposalDoesNotExist,
-            )
-            return proposal_from_orm(row)
+            proposal = session.get(self.schema.proposals, proposal_id)
+            if proposal is None:
+                raise EntityDoesNotExist(f"Proposal '{proposal_id}' not found")
+            return proposal_from_orm(proposal)
 
-    def delete_proposal(self, problem_id: str, proposal_id: str) -> None:
+    def delete_proposal(self, proposal_id: str) -> None:
         with self.session_factory.begin() as session:
-            proposal = self._load_scoped_row_or_raise(
-                session,
-                self.schema.proposals,
-                (problem_id, proposal_id),
-                entity_name="Proposal",
-                entity_id=proposal_id,
-                problem_id=problem_id,
-                exception_type=ProposalDoesNotExist,
-            )
-            session.delete(proposal)
+            proposal = session.get(self.schema.proposals, proposal_id)
+            if proposal is not None:
+                session.delete(proposal)
 
     # ───────────────────────────────────────────────────────────
-    # Relationships
+    # Scenarios
     # ───────────────────────────────────────────────────────────
 
-    def save_relationships(
+    def save_scenario(
         self,
-        problem_id: str,
-        relationships: list[dict[str, str]],
+        scenario_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            if session.get(self.schema.problems, problem_id) is None:
-                raise FileNotFoundError(problem_id)
+            session.merge(scenario_to_orm(scenario_data))
 
-            existing_rows = session.scalars(
-                select(self.schema.relationships).where(
-                    self.schema.relationships.problem_id == problem_id
-                )
-            ).all()
-            for row in existing_rows:
-                session.delete(row)
-            session.flush()
-
-            for payload in relationships:
-                session.add(relationship_to_orm(payload, problem_id))
-
-    def load_relationships(self, problem_id: str) -> list[dict[str, str]]:
+    def load_scenarios(
+        self, tenant: str | None = None, proposal_id: str | None = None
+    ) -> list[dict]:
         with self.session_factory() as session:
-            if session.get(self.schema.problems, problem_id) is None:
-                raise FileNotFoundError(problem_id)
-
-            rows = session.scalars(
-                select(self.schema.relationships)
-                .where(self.schema.relationships.problem_id == problem_id)
-                .order_by(
-                    self.schema.relationships.proposal_id,
-                    self.schema.relationships.scenario_id,
+            query = select(self.schema.scenarios)
+            if tenant is not None:
+                query = query.where(self.schema.scenarios.tenant == tenant)
+            if proposal_id is not None:
+                query_scenario_ids = select(
+                    self.schema.relationships.scenario_id
+                ).where(self.schema.relationships.proposal_id == proposal_id)
+                query = query.where(
+                    self.schema.scenarios.scenario_id.in_(query_scenario_ids)
                 )
-            ).all()
-            return [relationship_from_orm(row) for row in rows]
+            query = query.order_by(self.schema.scenarios.created.desc())
+            rows = session.scalars(query).all()
+            return [scenario_from_orm(row) for row in rows]
+
+    def load_scenario(self, scenario_id: str) -> dict:
+        with self.session_factory() as session:
+            scenario = session.get(self.schema.scenarios, scenario_id)
+            if scenario is None:
+                raise EntityDoesNotExist(f"Scenario '{scenario_id}' not found")
+            return scenario_from_orm(scenario)
+
+    def delete_scenario(self, scenario_id: str) -> None:
+        with self.session_factory.begin() as session:
+            scenario = session.get(self.schema.scenarios, scenario_id)
+            if scenario is not None:
+                session.delete(scenario)
 
     # ───────────────────────────────────────────────────────────
     # Evaluations
@@ -273,89 +192,45 @@ class SQLStore(Store):
 
     def save_evaluation(
         self,
-        problem_id: str,
-        evaluation_id: str,
         evaluation_data: dict,
     ) -> None:
         with self.session_factory.begin() as session:
-            self._merge_scoped_entity(
-                session,
-                entity_name="Evaluation",
-                problem_id=problem_id,
-                entity_id=evaluation_id,
-                payload=evaluation_data,
-                payload_id_key="evaluation_id",
-                entity_row=evaluation_to_orm(evaluation_data, problem_id),
-            )
+            session.merge(evaluation_to_orm(evaluation_data))
 
-    def load_evaluations(self, problem_id: str) -> list[dict]:
+    def load_evaluations(self, scenario_id: str | None = None) -> list[dict]:
         with self.session_factory() as session:
+            query = select(self.schema.evaluations)
+            if scenario_id is not None:
+                query = query.where(self.schema.evaluations.scenario_id == scenario_id)
             rows = session.scalars(
-                select(self.schema.evaluations)
-                .where(self.schema.evaluations.problem_id == problem_id)
-                .order_by(self.schema.evaluations.evaluation_id)
+                query.order_by(self.schema.evaluations.started.desc())
             ).all()
             return [evaluation_from_orm(row) for row in rows]
 
-    def load_evaluation(self, problem_id: str, evaluation_id: str) -> dict:
+    def load_evaluation(self, evaluation_id: str) -> dict:
         with self.session_factory() as session:
-            row = self._load_scoped_row_or_raise(
-                session,
-                self.schema.evaluations,
-                evaluation_id,
-                entity_name="Evaluation",
-                entity_id=evaluation_id,
-                problem_id=problem_id,
-                exception_type=EvaluationDoesNotExist,
-            )
-            return evaluation_from_orm(row)
+            evaluation = session.get(self.schema.evaluations, evaluation_id)
+            if evaluation is None:
+                raise EntityDoesNotExist(f"Evaluation '{evaluation_id}' not found")
+            return evaluation_from_orm(evaluation)
 
-    def delete_evaluation(self, problem_id: str, evaluation_id: str) -> None:
+    def delete_evaluation(self, evaluation_id: str) -> None:
         with self.session_factory.begin() as session:
-            evaluation = self._load_scoped_row_or_raise(
-                session,
-                self.schema.evaluations,
-                evaluation_id,
-                entity_name="Evaluation",
-                entity_id=evaluation_id,
-                problem_id=problem_id,
-                exception_type=EvaluationDoesNotExist,
-            )
-            session.delete(evaluation)
+            evaluation = session.get(self.schema.evaluations, evaluation_id)
+            if evaluation is not None:
+                session.delete(evaluation)
 
     # ───────────────────────────────────────────────────────────
-    # Internal
+    # Relationships
     # ───────────────────────────────────────────────────────────
 
-    def _merge_scoped_entity(
-        self,
-        session: Session,
-        *,
-        entity_name: str,
-        problem_id: str,
-        entity_id: str,
-        payload: Mapping[str, object],
-        payload_id_key: str,
-        entity_row: _ScopedEntityRow,
-    ) -> None:
-        if payload[payload_id_key] != entity_id or entity_row.problem_id != problem_id:
-            raise ValueError(
-                f"{entity_name} identifiers do not match the provided arguments"
-            )
-        session.merge(entity_row)
+    def save_relationships(self, relationships: list[dict[str, str]]) -> None:
+        with self.session_factory.begin() as session:
+            for relationship_data in relationships:
+                session.merge(relationship_to_orm(relationship_data))
 
-    def _load_scoped_row_or_raise(
-        self,
-        session: Session,
-        orm_model: type[ScopedEntityRowT],
-        primary_key: object,
-        *,
-        entity_name: str,
-        entity_id: str,
-        problem_id: str,
-        exception_type: type[Exception],
-    ) -> ScopedEntityRowT:
-        row = session.get(orm_model, primary_key)
-        if row is None or row.problem_id != problem_id:
-            raise exception_type(f"{entity_name} with ID {entity_id} does not exist")
-        return row
+    def load_relationships(self) -> list[dict[str, str]]:
+        with self.session_factory() as session:
+            query = select(self.schema.relationships)
+            rows = session.scalars(query).all()
+            return [relationship_from_orm(row) for row in rows]

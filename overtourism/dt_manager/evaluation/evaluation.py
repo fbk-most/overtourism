@@ -35,7 +35,7 @@ class Evaluation(Dictable):
 
     evaluation_id: str
     scenario_id: str
-    type: str
+    type: str = DEFAULT_EVALUATION_TYPE
     version: int = 0
     state: EvaluationState = EvaluationState.RUNNING
     started: str | None = None
@@ -46,9 +46,9 @@ class Evaluation(Dictable):
     def create_default(
         cls,
         evaluation_id: str,
-        *,
         scenario_id: str,
-        type: str,
+        *,
+        type: str = DEFAULT_EVALUATION_TYPE,
         version: int = 1,
         state: EvaluationState = EvaluationState.RUNNING,
         started: str | None = None,
@@ -76,7 +76,7 @@ class Evaluation(Dictable):
         return cls(
             evaluation_id=evaluation_dict["evaluation_id"],
             scenario_id=evaluation_dict["scenario_id"],
-            type=evaluation_dict["type"],
+            type=evaluation_dict.get("type", DEFAULT_EVALUATION_TYPE),
             version=evaluation_dict.get("version", 0),
             state=state,
             started=evaluation_dict.get("started"),

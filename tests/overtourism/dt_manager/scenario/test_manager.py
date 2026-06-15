@@ -9,8 +9,8 @@ from overtourism.dt_manager.scenario import manager as scenario_manager_module
 from overtourism.dt_manager.scenario import values as scenario_values_module
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.utils.exception import (
+    EntityDoesNotExist,
     ScenarioAlreadyExists,
-    ScenarioDoesNotExist,
 )
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
@@ -25,9 +25,9 @@ def test_create_update_save_load_and_delete_scenario(
     problem_payload,
     monkeypatch,
 ) -> None:
-    problem_id = problem_payload["problem_id"]
-    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
-    sql_store.save_problem(problem_id, problem_payload)
+    tenant = problem_payload["tenant"]
+    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(
         scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP
@@ -38,13 +38,14 @@ def test_create_update_save_load_and_delete_scenario(
 
     scenario = manager.create_scenario(
         "scenario-alpha",
+        tenant,
         values={"visits": 7, "ignored": "skip"},
         name="Scenario Alpha",
         description="Primary scenario",
         extras={"kind": "scenario"},
     )
 
-    assert scenario.problem_id == problem_id
+    assert scenario.tenant == tenant
     assert scenario.created == CREATED_TIMESTAMP
     assert scenario.updated == CREATED_TIMESTAMP
     assert scenario.index_values == [
@@ -54,13 +55,14 @@ def test_create_update_save_load_and_delete_scenario(
             index_type=IndexType.CONSTANT.value,
         )
     ]
-    assert sql_store.load_scenario(problem_id, "scenario-alpha") == scenario.to_dict()
+    persisted = sql_store.load_scenario("scenario-alpha")
+    assert persisted == scenario.to_dict()
     assert manager.read_scenario("scenario-alpha").to_dict() == scenario.to_dict()
 
     with pytest.raises(ScenarioAlreadyExists):
-        manager.create_scenario("scenario-alpha")
+        manager.create_scenario("scenario-alpha", tenant)
 
-    manager.update_scenario("scenario-alpha", {"visits": 11})
+    manager.update_scenario("scenario-alpha", values={"visits": 11})
     updated = manager.read_scenario("scenario-alpha")
 
     assert updated.updated == UPDATED_TIMESTAMP
@@ -75,9 +77,9 @@ def test_create_update_save_load_and_delete_scenario(
         )
     ]
 
-    assert sql_store.load_scenario(problem_id, "scenario-alpha") == updated.to_dict()
+    assert sql_store.load_scenario("scenario-alpha") == updated.to_dict()
 
-    loaded = manager.list_scenarios()
+    loaded = manager.list_scenarios(tenant=tenant)
     assert [item.scenario_id for item in loaded] == ["scenario-alpha"]
     assert loaded[0].index_values[0].to_dict() == {
         "index_name": "visits",
@@ -87,12 +89,12 @@ def test_create_update_save_load_and_delete_scenario(
     assert loaded[0].to_dict() == updated.to_dict()
 
     manager.delete_scenario("scenario-alpha")
-    assert sql_store.load_scenarios(problem_id) == []
+    assert sql_store.load_scenarios() == []
 
-    with pytest.raises(ScenarioDoesNotExist):
+    with pytest.raises(EntityDoesNotExist):
         manager.read_scenario("scenario-alpha")
-    with pytest.raises(ScenarioDoesNotExist):
-        sql_store.load_scenario(problem_id, "scenario-alpha")
+    with pytest.raises(EntityDoesNotExist):
+        sql_store.load_scenario("scenario-alpha")
 
 
 def test_scenario_manager_exposes_only_stateless_scenario_operations(
@@ -101,8 +103,7 @@ def test_scenario_manager_exposes_only_stateless_scenario_operations(
     fake_model_evaluator,
     problem_payload,
 ) -> None:
-    problem_id = problem_payload["problem_id"]
-    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
+    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
 
     assert not hasattr(manager, "create_session_scenario")
     assert not hasattr(manager, "update_session_scenario")
@@ -120,15 +121,16 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     problem_payload,
     monkeypatch,
 ) -> None:
-    problem_id = problem_payload["problem_id"]
-    manager = ScenarioManager(problem_id, fake_model, fake_model_evaluator, sql_store)
-    sql_store.save_problem(problem_id, problem_payload)
+    tenant = problem_payload["tenant"]
+    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(
         scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP
     )
     base_scenario = manager.create_scenario(
         "scenario-alpha",
+        tenant,
         values={"visits": 5},
         name="Scenario Alpha",
         description="Primary scenario",
@@ -137,14 +139,13 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     monkeypatch.setattr(
         scenario_manager_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
-    session_scenario = manager.build_session_scenario(
-        "session-1",
+    session_scenario = manager.detach_scenario(
         "scenario-alpha",
         {"visits": 9},
     )
 
-    assert session_scenario.problem_id == problem_id
-    assert session_scenario.scenario_id.startswith("scenario-alpha_session-1_")
+    assert session_scenario.tenant == tenant
+    assert session_scenario.scenario_id != base_scenario.scenario_id
     assert session_scenario.name == base_scenario.name
     assert session_scenario.description == base_scenario.description
     assert session_scenario.created == SESSION_TIMESTAMP
@@ -160,13 +161,13 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     monkeypatch.setattr(
         scenario_manager_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
     )
-    updated_session_scenario = manager.update_scenario_object(
+    updated_session_scenario = manager.update_detached_scenario(
         session_scenario,
         values={"visits": 12},
     )
     assert updated_session_scenario.scenario_id == session_scenario.scenario_id
     assert updated_session_scenario.updated == UPDATED_TIMESTAMP
-    assert updated_session_scenario.version == session_scenario.version + 1
+    assert updated_session_scenario.version == session_scenario.version
     assert updated_session_scenario.index_values == [
         IndexEntry(
             index_name="visits",
@@ -174,9 +175,3 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
             index_type=IndexType.CONSTANT.value,
         )
     ]
-
-    saved_session_scenario = manager.save_scenario_object(updated_session_scenario)
-    assert saved_session_scenario.to_dict() == updated_session_scenario.to_dict()
-    assert manager.read_scenario(session_scenario.scenario_id).to_dict() == (
-        updated_session_scenario.to_dict()
-    )

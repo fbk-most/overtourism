@@ -19,7 +19,7 @@ from overtourism.backend.api.v2.utils import (
     arrange_data,
     check_version,
     get_evaluation_by_id_or_404,
-    get_problem_or_404,
+    get_evaluation_or_404,
     get_scenario_or_404,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -45,23 +45,21 @@ evaluation_router = APIRouter(
 )
 async def create_evaluation(
     tenant: str,
-    problem_id: str,
     data: PostEvaluationData,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        get_scenario_or_404(handler, problem_id, data.scenario_id)
+        get_scenario_or_404(handler, data.scenario_id)
         evaluation = handler.manager.evaluate_scenario(
-            problem_id,
             data.scenario_id,
             ensemble_size=data.ensemble_size,
             **data.kwargs,
         )
-        logger.info(f"Evaluation created for problem {problem_id}")
+        logger.info(f"Evaluation created for scenario {data.scenario_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
-        logger.error(f"Error creating evaluation for problem {problem_id}: {e}")
+        logger.error(f"Error creating evaluation for scenario {data.scenario_id}: {e}")
         raise
 
 
@@ -76,16 +74,15 @@ async def create_evaluation(
 )
 async def list_evaluations(
     tenant: str,
-    problem_id: str,
     scenario_id: str | None = None,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> list[EvaluationData]:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        evaluations = handler.manager.list_evaluations(problem_id, scenario_id)
+        evaluations = handler.manager.list_evaluations(scenario_id)
         return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
     except Exception as e:
-        logger.error(f"Error listing evaluations for problem {problem_id}: {e}")
+        logger.error(f"Error listing evaluations: {e}")
         raise
 
 
@@ -100,18 +97,15 @@ async def list_evaluations(
 )
 async def read_evaluation(
     tenant: str,
-    problem_id: str,
     evaluation_id: str,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        evaluation = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
+        evaluation = get_evaluation_or_404(handler, evaluation_id)
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
-        logger.error(
-            f"Error reading evaluation {evaluation_id} in problem {problem_id}: {e}"
-        )
+        logger.error(f"Error reading evaluation {evaluation_id}: {e}")
         raise
 
 
@@ -126,27 +120,23 @@ async def read_evaluation(
 )
 async def update_evaluation(
     tenant: str,
-    problem_id: str,
     evaluation_id: str,
     data: UpdateEvaluationData,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        current = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
+        current = get_evaluation_or_404(handler, evaluation_id)
         check_version(current.version, data.version)
         evaluation = handler.manager.update_evaluation(
-            problem_id,
             evaluation_id,
             ensemble_size=data.ensemble_size,
             **data.kwargs,
         )
-        logger.info(f"Evaluation updated: {evaluation_id} for problem {problem_id}")
+        logger.info(f"Evaluation updated: {evaluation_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
-        logger.error(
-            f"Error updating evaluation {evaluation_id} in problem {problem_id}: {e}"
-        )
+        logger.error(f"Error updating evaluation {evaluation_id}: {e}")
         raise
 
 
@@ -160,22 +150,19 @@ async def update_evaluation(
 )
 async def delete_evaluation(
     tenant: str,
-    problem_id: str,
     evaluation_id: str,
     data: VersionData | None = None,
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> dict[str, str]:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        evaluation = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
+        evaluation = get_evaluation_or_404(handler, evaluation_id)
         check_version(evaluation.version, None if data is None else data.version)
-        handler.manager.delete_evaluation(problem_id, evaluation_id)
-        logger.info(f"Evaluation deleted: {evaluation_id} for problem {problem_id}")
+        handler.manager.delete_evaluation(evaluation_id)
+        logger.info(f"Evaluation deleted: {evaluation_id}")
         return {"message": "Evaluation deleted successfully"}
     except Exception as e:
-        logger.error(
-            f"Error deleting evaluation {evaluation_id} in problem {problem_id}: {e}"
-        )
+        logger.error(f"Error deleting evaluation {evaluation_id}: {e}")
         raise
 
 
@@ -191,31 +178,27 @@ async def delete_evaluation(
 )
 async def get_data(
     tenant: str,
-    problem_id: str,
     evaluation_id: str,
     as_snapshot: bool = Query(default=True),
     params: list[str] | None = Query(default=None),
     handler: Handler = Depends(get_handler),
+    problem_id: str | None = None,
 ) -> EvaluationOutputData:
     try:
-        get_problem_or_404(handler, tenant, problem_id)
-        evaluation = get_evaluation_by_id_or_404(handler, problem_id, evaluation_id)
-        scenario = get_scenario_or_404(handler, problem_id, evaluation.scenario_id)
-        result = arrange_data(handler, evaluation.result, params=params, as_snapshot=as_snapshot)
+        evaluation = get_evaluation_by_id_or_404(handler, evaluation_id)
+        result = arrange_data(
+            handler,
+            evaluation.result,
+            params=params,
+            as_snapshot=as_snapshot,
+        )
         return EvaluationOutputData(
-            problem_id=scenario.problem_id,
-            scenario_id=scenario.scenario_id,
+            scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,
-            data=(
-                {}
-                if result is None
-                else result.to_snapshot()
-                if hasattr(result, "to_snapshot")
-                else result
-            ),
+            data=result,
         )
     except Exception as e:
         logger.error(
-            f"Error getting evaluation data for evaluation {evaluation_id} in problem {problem_id}: {e}"
+            f"Error getting evaluation data for evaluation {evaluation_id}: {e}"
         )
         raise

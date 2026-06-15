@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class ScenarioData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    problem_id: str
     scenario_id: str
     version: int = 0
     name: str | None = None

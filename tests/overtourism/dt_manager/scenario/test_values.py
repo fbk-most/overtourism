@@ -21,6 +21,7 @@ def test_scenario_values_serializes_constants_and_distributions(monkeypatch) -> 
 
     scenario = scenario_values(
         "scenario-alpha",
+        "tenant-alpha",
         {
             "visits": np.int64(7),
             "uniform": frozen_uniform,
@@ -32,14 +33,13 @@ def test_scenario_values_serializes_constants_and_distributions(monkeypatch) -> 
         name="Scenario Alpha",
         description="Primary scenario",
         extras={"kind": "scenario"},
-        problem_id="problem-alpha",
     )
 
     assert scenario.created == FIXED_TIMESTAMP
     assert scenario.updated == FIXED_TIMESTAMP
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
-        "problem_id": "problem-alpha",
+        "tenant": "tenant-alpha",
         "version": 1,
         "name": "Scenario Alpha",
         "description": "Primary scenario",
@@ -74,13 +74,13 @@ def test_scenario_values_serializes_constants_and_distributions(monkeypatch) -> 
 def test_values_as_scipy_round_trip() -> None:
     scenario = scenario_values(
         "scenario-alpha",
+        "tenant-alpha",
         {
             "visits": np.int64(7),
             "uniform": stats.uniform(loc=1.5, scale=2.0),
             "lognorm": stats.lognorm(s=0.5, loc=0.0, scale=1.0),
             "triang": stats.triang(c=0.25, loc=2.0, scale=4.0),
         },
-        problem_id="problem-alpha",
     )
 
     reconstructed = values_as_scipy(scenario)

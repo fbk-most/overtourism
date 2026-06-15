@@ -27,7 +27,6 @@ class ProposalData(BaseModel):
 class PostProposalData(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
-    proposal_id: str | None = None
     name: str | None = None
     description: str | None = None
     status: ProposalStatus | None = None

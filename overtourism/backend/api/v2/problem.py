@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends
-from slugify import slugify
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
@@ -14,7 +13,6 @@ from overtourism.backend.api.v2.models.problem import (
     ProblemData,
     UpdateProblemData,
 )
-from overtourism.backend.api.v2.session_ownership import delete_problem_ownership
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_problem_or_404,
@@ -75,18 +73,13 @@ async def create_problem(
         extras = handler.manager.problem_extras_from_dict(problem_payload)
         if handler.prepare_problem_extras_fn is not None:
             extras = handler.prepare_problem_extras_fn(extras, problem_payload)
-        problem_id = slugify(data.name)
-        handler.manager.create_problem(
-            problem_id,
-            problem_kwargs={
-                "name": data.name,
-                "description": data.description,
-                "extras": extras,
-                "tenant": tenant,
-            },
+        problem = handler.manager.create_problem(
+            name=data.name,
+            description=data.description,
+            extras=extras,
+            tenant=tenant,
         )
-        problem = handler.manager.read_problem(problem_id)
-        logger.info(f"Problem created: {problem_id}")
+        logger.info(f"Problem created: {data.name}")
         return problem.to_dict()
     except Exception as e:
         logger.error(f"Error creating problem {data.name}: {e}")
@@ -109,7 +102,7 @@ async def read_problem(
 ) -> ProblemData:
     """Read a problem."""
     try:
-        problem = get_problem_or_404(handler, tenant, problem_id)
+        problem = get_problem_or_404(handler, problem_id)
         return problem.to_dict()
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
@@ -133,7 +126,7 @@ async def update_problem(
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
-        problem = get_problem_or_404(handler, tenant, problem_id)
+        problem = get_problem_or_404(handler, problem_id)
         check_version(problem.version, data.version)
         problem_payload = data.model_dump(exclude_unset=True, exclude={"version"})
         extras = handler.manager.problem_extras_from_dict(problem_payload)
@@ -143,13 +136,12 @@ async def update_problem(
                 problem_payload,
                 problem.extras,
             )
-        handler.manager.update_problem(
+        updated_problem = handler.manager.update_problem(
             problem_id,
             name=data.name,
             description=data.description,
             extras=extras,
         )
-        updated_problem = handler.manager.read_problem(problem_id)
         logger.info(f"Problem updated: {problem_id}")
         return updated_problem.to_dict()
     except Exception as e:
@@ -172,9 +164,8 @@ async def delete_problem(
 ) -> None:
     """Delete a problem from the store."""
     try:
-        get_problem_or_404(handler, tenant, problem_id)
+        get_problem_or_404(handler, problem_id)
         handler.manager.delete_problem(problem_id)
-        delete_problem_ownership(handler, tenant, problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")
