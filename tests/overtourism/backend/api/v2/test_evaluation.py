@@ -37,7 +37,6 @@ def _create_owned_session_and_draft(
 
 def test_create_and_read_stored_evaluation(
     client,
-    error_client,
     tenant: str,
     problem_id: str,
 ) -> None:
@@ -63,12 +62,16 @@ def test_create_and_read_stored_evaluation(
     assert list_response.status_code == 200
     assert evaluation_id in [item["evaluation_id"] for item in list_response.json()]
 
-    read_response = error_client.get(
+    read_response = client.get(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
     )
 
-    assert read_response.status_code == 500
+    assert read_response.status_code == 200
+    assert read_response.json()["evaluation_id"] == evaluation_id
+    assert read_response.json()["scenario_id"] == base_scenario_id
+    assert read_response.json()["version"] == 2
+    assert "result" not in read_response.json()
 
 
 def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
@@ -91,31 +94,34 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
         json={"ensemble_size": 5},
     )
 
-    assert missing_version.status_code == 500
+    assert missing_version.status_code == 428
 
-    update_response = error_client.put(
+    update_response = client.put(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 2, "ensemble_size": 5},
     )
 
-    assert update_response.status_code == 500
+    assert update_response.status_code == 200
+    assert update_response.json()["evaluation_id"] == evaluation_id
+    assert update_response.json()["version"] == 3
 
     delete_missing_version = error_client.delete(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
     )
 
-    assert delete_missing_version.status_code == 500
+    assert delete_missing_version.status_code == 428
 
-    delete_response = error_client.request(
+    delete_response = client.request(
         "DELETE",
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
         json={"version": 3},
     )
 
-    assert delete_response.status_code == 500
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"message": "Evaluation deleted successfully"}
     assert (
         error_client.get(
             f"/api/v2/{tenant}/evaluations/{evaluation_id}",

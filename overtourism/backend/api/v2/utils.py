@@ -76,21 +76,6 @@ def get_proposal_or_404(handler: Handler, proposal_id: str):
 
 def get_evaluation_or_404(
     handler: Handler,
-    scenario_id: str,
-) -> Evaluation:
-    """Return the latest stored evaluation or raise a not-found error."""
-    detail = f"Evaluation for scenario '{scenario_id}' not found"
-    try:
-        return handler.manager.read_latest_evaluation(scenario_id)
-    except EvaluationDoesNotExist as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=detail,
-        ) from exc
-
-
-def get_evaluation_by_id_or_404(
-    handler: Handler,
     evaluation_id: str,
 ) -> Evaluation:
     """Return a stored evaluation by ID or raise a not-found error."""

@@ -18,7 +18,6 @@ from overtourism.backend.api.v2.models.evaluation import (
 from overtourism.backend.api.v2.utils import (
     arrange_data,
     check_version,
-    get_evaluation_by_id_or_404,
     get_evaluation_or_404,
     get_scenario_or_404,
 )
@@ -39,7 +38,7 @@ evaluation_router = APIRouter(
     response_model=EvaluationData,
     responses={
         500: {"description": "Evaluation manager error"},
-        404: {"description": "Problem or scenario does not exist"},
+        404: {"description": "Evaluation does not exist"},
         200: {"description": "Evaluation created"},
     },
 )
@@ -68,7 +67,7 @@ async def create_evaluation(
     response_model=list[EvaluationData],
     responses={
         500: {"description": "Evaluation manager error"},
-        404: {"description": "Problem or session does not exist"},
+        404: {"description": "Evaluation does not exist"},
         200: {"description": "Evaluation list"},
     },
 )
@@ -185,7 +184,7 @@ async def get_data(
     problem_id: str | None = None,
 ) -> EvaluationOutputData:
     try:
-        evaluation = get_evaluation_by_id_or_404(handler, evaluation_id)
+        evaluation = get_evaluation_or_404(handler, evaluation_id)
         result = arrange_data(
             handler,
             evaluation.result,

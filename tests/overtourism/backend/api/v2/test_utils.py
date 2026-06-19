@@ -104,9 +104,10 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_scenario_or_404(handler, base_scenario_id).scenario_id == base_scenario_id
     )
     assert get_proposal_or_404(handler, proposal_id).proposal_id == proposal_id
-    manager.evaluate_scenario(base_scenario_id)
+    evaluation = manager.evaluate_scenario(base_scenario_id)
     assert (
-        get_evaluation_or_404(handler, base_scenario_id).scenario_id == base_scenario_id
+        get_evaluation_or_404(handler, evaluation.evaluation_id).scenario_id
+        == base_scenario_id
     )
 
     with pytest.raises(HTTPException) as scenario_exc:
