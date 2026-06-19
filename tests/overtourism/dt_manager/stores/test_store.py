@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import inspect
 
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 
@@ -189,3 +190,30 @@ def test_missing_entities_raise(sql_store) -> None:
     sql_store.delete_evaluation("missing-evaluation")
 
     assert sql_store.load_relationships() == []
+
+
+def test_sqlite_schema_defines_indexes_for_common_read_paths(sql_store) -> None:
+    inspector = inspect(sql_store.engine)
+
+    index_columns = {
+        index["name"]: tuple(index["column_names"])
+        for table_name in [
+            "problems",
+            "proposals",
+            "scenarios",
+            "proposal_scenario_relationship",
+            "evaluations",
+        ]
+        for index in inspector.get_indexes(table_name)
+    }
+
+    assert index_columns["ix_problems_tenant_created"] == ("tenant", "created")
+    assert index_columns["ix_proposals_problem_id_created"] == ("problem_id", "created")
+    assert index_columns["ix_scenarios_tenant_created"] == ("tenant", "created")
+    assert index_columns["ix_proposal_scenario_relationship_scenario_id"] == (
+        "scenario_id",
+    )
+    assert index_columns["ix_evaluations_scenario_id_started"] == (
+        "scenario_id",
+        "started",
+    )

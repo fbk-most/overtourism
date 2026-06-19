@@ -8,6 +8,7 @@ from sqlalchemy import (
     JSON,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Text,
@@ -26,6 +27,7 @@ class SQLBase(DeclarativeBase):
 
 class ProblemORM(SQLBase):
     __tablename__ = "problems"
+    __table_args__ = (Index("ix_problems_tenant_created", "tenant", "created"),)
 
     tenant: Mapped[str | None] = mapped_column(Text)
     problem_id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -48,6 +50,9 @@ class ProblemORM(SQLBase):
 
 class ProposalORM(SQLBase):
     __tablename__ = "proposals"
+    __table_args__ = (
+        Index("ix_proposals_problem_id_created", "problem_id", "created"),
+    )
 
     problem_id: Mapped[str] = mapped_column(
         ForeignKey("problems.problem_id", ondelete="CASCADE")
@@ -74,6 +79,7 @@ class ProposalORM(SQLBase):
 
 class ScenarioORM(SQLBase):
     __tablename__ = "scenarios"
+    __table_args__ = (Index("ix_scenarios_tenant_created", "tenant", "created"),)
 
     scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
     tenant: Mapped[str] = mapped_column(Text)
@@ -101,6 +107,12 @@ class ScenarioORM(SQLBase):
 
 class RelationshipORM(SQLBase):
     __tablename__ = "proposal_scenario_relationship"
+    __table_args__ = (
+        Index(
+            "ix_proposal_scenario_relationship_scenario_id",
+            "scenario_id",
+        ),
+    )
 
     proposal_id: Mapped[str] = mapped_column(
         ForeignKey("proposals.proposal_id", ondelete="CASCADE"), primary_key=True
@@ -112,6 +124,14 @@ class RelationshipORM(SQLBase):
 
 class EvaluationORM(SQLBase):
     __tablename__ = "evaluations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["scenario_id"],
+            ["scenarios.scenario_id"],
+            ondelete="CASCADE",
+        ),
+        Index("ix_evaluations_scenario_id_started", "scenario_id", "started"),
+    )
 
     evaluation_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -123,14 +143,6 @@ class EvaluationORM(SQLBase):
     result: Mapped[dict[str, Any] | None] = mapped_column(
         MutableDict.as_mutable(JSON),
         nullable=True,
-    )
-
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["scenario_id"],
-            ["scenarios.scenario_id"],
-            ondelete="CASCADE",
-        ),
     )
 
 

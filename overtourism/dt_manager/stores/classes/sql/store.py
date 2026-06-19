@@ -90,7 +90,10 @@ class SQLStore(Store):
             query = select(self.schema.problems)
             if tenant is not None:
                 query = query.where(self.schema.problems.tenant == tenant)
-            query = query.order_by(self.schema.problems.created.desc())
+            query = query.order_by(
+                self.schema.problems.created.desc(),
+                self.schema.problems.problem_id.asc(),
+            )
             rows = session.scalars(query).all()
             return [problem_from_orm(row) for row in rows]
 
@@ -127,7 +130,10 @@ class SQLStore(Store):
                 query = query.where(
                     self.schema.proposals.proposal_id.in_(query_proposal_ids)
                 )
-            query = query.order_by(self.schema.proposals.created.desc())
+            query = query.order_by(
+                self.schema.proposals.created.desc(),
+                self.schema.proposals.proposal_id.asc(),
+            )
             rows = session.scalars(query).all()
             return [proposal_from_orm(row) for row in rows]
 
@@ -169,7 +175,10 @@ class SQLStore(Store):
                 query = query.where(
                     self.schema.scenarios.scenario_id.in_(query_scenario_ids)
                 )
-            query = query.order_by(self.schema.scenarios.created.desc())
+            query = query.order_by(
+                self.schema.scenarios.created.desc(),
+                self.schema.scenarios.scenario_id.asc(),
+            )
             rows = session.scalars(query).all()
             return [scenario_from_orm(row) for row in rows]
 
@@ -203,7 +212,10 @@ class SQLStore(Store):
             if scenario_id is not None:
                 query = query.where(self.schema.evaluations.scenario_id == scenario_id)
             rows = session.scalars(
-                query.order_by(self.schema.evaluations.started.desc())
+                query.order_by(
+                    self.schema.evaluations.started.desc(),
+                    self.schema.evaluations.evaluation_id.asc(),
+                )
             ).all()
             return [evaluation_from_orm(row) for row in rows]
 
