@@ -597,10 +597,7 @@ class MolvenoModel(Model):
 
         # Parking parameters
         i_u_tourists_parking = Index("tourist parking usage factor", 0.02)
-        i_u_excursionists_parking = Index(
-            "excursionist parking usage factor",
-            graph.piecewise((0.55, cv_weather == "bad"), (0.80, True)),
-        )
+        i_u_excursionists_parking = Index("excursionist parking usage factor", 0.80)
         i_xa_tourists_per_vehicle = Index("tourists per vehicle allocation factor", 2.5)
         i_xa_excursionists_per_vehicle = Index(
             "excursionists per vehicle allocation factor", 2.5
