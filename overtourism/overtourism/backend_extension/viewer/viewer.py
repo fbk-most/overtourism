@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from numbers import Real
+
 from overtourism.dt_manager.indexes.index import IndexType
 from overtourism.dt_manager.indexes.utils import (
     VizIndex,
@@ -67,7 +69,7 @@ class ModelViewer:
                 widgets[group_id] = []
             if idx.index_id in vals:
                 if idx.index_type == IndexType.CONSTANT.value:
-                    idx.v = vals[idx.index_id]
+                    idx.v = _display_value(idx, vals[idx.index_id])
                 else:
                     raw = vals[idx.index_id]
                     value = raw.kwds if hasattr(raw, "kwds") else raw
@@ -78,4 +80,28 @@ class ModelViewer:
 
     def prepare_values(self, values: dict) -> dict:
         indexes = build_indexes_from_catalog(self._catalog)
-        return prepare_values_for_eval(values, indexes)
+        prepared_values = prepare_values_for_eval(values, indexes)
+        index_by_id = {index.index_id: index for index in indexes}
+        for key, value in prepared_values.items():
+            idx = index_by_id.get(key)
+            if idx is not None:
+                prepared_values[key] = _model_value(idx, value)
+        return prepared_values
+
+
+def _is_real_number(value: object) -> bool:
+    return isinstance(value, Real) and not isinstance(value, bool)
+
+
+def _display_value(idx: VizIndex, value: object) -> object:
+    if idx.index_category == "%" and _is_real_number(value):
+        numeric_value = float(value)
+        return numeric_value * 100.0 if abs(numeric_value) <= 1.0 else numeric_value
+    return value
+
+
+def _model_value(idx: VizIndex, value: object) -> object:
+    if idx.index_category == "%" and _is_real_number(value):
+        numeric_value = float(value)
+        return numeric_value / 100.0 if abs(numeric_value) > 1.0 else numeric_value
+    return value
