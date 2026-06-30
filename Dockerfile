@@ -10,14 +10,6 @@ WORKDIR /app
 RUN uv sync --locked
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV AUTH_ENABLED=true
-ENV AUTH_ISSUER=https://aac.platform.smartcommunitylab.it
-ENV AUTH_JWKS_URL=https://aac.platform.smartcommunitylab.it/jwk
-ENV AUTH_AUDIENCE=c_e550ec7f86174720872ac9c36fbecdcb
-# ENV AUTH_TENANT_CLAIM=tenant_id
-ENV AUTH_ALGORITHMS=RS256
-ENV AUTH_LEEWAY_SECONDS=30
-
 
 RUN useradd -m -u 8877 nonroot
 RUN chown -R 8877:8877 /app
