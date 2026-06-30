@@ -34,7 +34,7 @@ backend-container-build:
     - dev
     - prod
     - main
-    - demo
+    - demo-luglio
 
 container_scanning:
   stage: test
@@ -53,7 +53,7 @@ deploy-prod:
   stage: deploy
   image:
     name: smartcommunitylab/k8s-ansible-clusterctl:1.33.3-1.10.3
-    entrypoint: ['']
+    entrypoint: [""]
   environment:
     name: dslab
   script:
@@ -61,4 +61,4 @@ deploy-prod:
     - kubectl -n overtourism set image deployments/overtourism-backend overtourism-backend=$CONTAINER_IMAGE --record=true
     - kubectl -n overtourism rollout status deployment overtourism-backend
   only:
-    - demo
+    - demo-luglio
