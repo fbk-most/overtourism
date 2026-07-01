@@ -11,7 +11,7 @@ RUN uv sync
 ENV PATH="/app/.venv/bin:$PATH"
 
 RUN useradd -m -u 8877 nonroot
-RUN chown -R 8877:8877 /app
+RUN mkdir -p /app/overtourism/overtourism/database && chown -R 8877:8877 /app
 USER 8877
 
 # Run the FastAPI application by default
