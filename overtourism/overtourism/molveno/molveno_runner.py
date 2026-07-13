@@ -200,10 +200,18 @@ class Sampler:
 # ──────────────────────────────────────────────
 
 
-def _get_diff_str(idx: Index, old_val: Any, new_val: Any) -> str | None:
+def _get_diff_str(
+    idx: Index,
+    old_val: Any,
+    new_val: Any,
+    *,
+    percentage_scale: bool = False,
+) -> str | None:
     """Return a human-readable diff string, or None when unchanged."""
 
     def tostr(v: Any) -> str:
+        if percentage_scale and isinstance(v, (int, float)):
+            v = v * 100.0
         if isinstance(v, (int, float)) and v == int(v):
             return str(int(v))
         return str(v)
@@ -672,6 +680,7 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
         grid: Grid,
         sampler: Sampler,
         index_name_map: dict[str, str] | None = None,
+        percentage_widget_ids: set[str] | None = None,
     ) -> None:
         super().__init__(model)
         self._t_max = grid.x_max
@@ -681,6 +690,7 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
         self._target_presence_samples = sampler.target_presence_samples
         self.situations = situations
         self.index_name_map = index_name_map or {}
+        self._percentage_widget_ids = frozenset(percentage_widget_ids or ())
         self._reverse_map = {v: k for k, v in self.index_name_map.items()}
 
     # ------------------------------------------------------------------
@@ -840,7 +850,12 @@ class MolvenoEvaluator(ModelEvaluator[MolvenoModel, MolvenoOutput]):
                 old_val = idx.value
             else:
                 continue
-            diff_str = _get_diff_str(idx, old_val, new_val)
+            diff_str = _get_diff_str(
+                idx,
+                old_val,
+                new_val,
+                percentage_scale=name in self._percentage_widget_ids,
+            )
             if diff_str is not None:
                 diffs[name] = diff_str
         return diffs

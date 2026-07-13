@@ -77,7 +77,7 @@ class ScenarioManager:
         now_timestamp = get_timestamp()
         return scenario_values(
             scenario_id=uuid4().hex,
-            values=values_as_scipy(origin) if values is None else values,
+            values=_merge_values(values_as_scipy(origin), values),
             name=origin.name,
             description=origin.description,
             created=now_timestamp,
@@ -117,7 +117,7 @@ class ScenarioManager:
         old_scenario = self.read_scenario(scenario_id)
         scenario = scenario_values(
             scenario_id,
-            values=values_as_scipy(old_scenario) if values is None else values,
+            values=_merge_values(values_as_scipy(old_scenario), values),
             name=name if name is not None else old_scenario.name,
             description=description
             if description is not None
@@ -142,7 +142,7 @@ class ScenarioManager:
         """Update a detached scenario with new values."""
         return scenario_values(
             old_scenario.scenario_id,
-            values=values_as_scipy(old_scenario) if values is None else values,
+            values=_merge_values(values_as_scipy(old_scenario), values),
             name=name if name is not None else old_scenario.name,
             description=description
             if description is not None
@@ -156,3 +156,9 @@ class ScenarioManager:
     def delete_scenario(self, scenario_id: str) -> None:
         """Delete a persisted scenario."""
         self.store.delete_scenario(scenario_id)
+
+
+def _merge_values(current_values: dict, new_values: dict | None) -> dict:
+    if new_values is None:
+        return current_values
+    return {**current_values, **new_values}

@@ -97,6 +97,43 @@ def test_create_update_save_load_and_delete_scenario(
         sql_store.load_scenario("scenario-alpha")
 
 
+def test_update_scenario_preserves_existing_values_when_overriding_subset(
+    sql_store,
+    fake_model,
+    fake_model_evaluator,
+    problem_payload,
+    monkeypatch,
+) -> None:
+    tenant = problem_payload["tenant"]
+    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_payload)
+
+    monkeypatch.setattr(
+        scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP
+    )
+    monkeypatch.setattr(
+        scenario_manager_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
+    )
+
+    manager.create_scenario(
+        "scenario-alpha",
+        tenant,
+        values={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
+    )
+
+    manager.update_scenario(
+        "scenario-alpha",
+        values={"tourists_parking_percentage": 0.61},
+    )
+    updated = manager.read_scenario("scenario-alpha")
+
+    assert updated.updated == UPDATED_TIMESTAMP
+    assert {item.index_name: item.index_value for item in updated.index_values} == {
+        "tourists_parking_percentage": 0.61,
+        "tourists_per_vehicle": 2.5,
+    }
+
+
 def test_scenario_manager_exposes_only_stateless_scenario_operations(
     sql_store,
     fake_model,
@@ -175,3 +212,39 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
             index_type=IndexType.CONSTANT.value,
         )
     ]
+
+
+def test_detach_scenario_preserves_existing_values_when_overriding_subset(
+    sql_store,
+    fake_model,
+    fake_model_evaluator,
+    problem_payload,
+    monkeypatch,
+) -> None:
+    tenant = problem_payload["tenant"]
+    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    sql_store.save_problem(problem_payload)
+
+    monkeypatch.setattr(
+        scenario_values_module, "get_timestamp", lambda: CREATED_TIMESTAMP
+    )
+    manager.create_scenario(
+        "scenario-alpha",
+        tenant,
+        values={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
+    )
+
+    monkeypatch.setattr(
+        scenario_manager_module, "get_timestamp", lambda: SESSION_TIMESTAMP
+    )
+    draft = manager.detach_scenario(
+        "scenario-alpha",
+        values={"tourists_parking_percentage": 0.61},
+    )
+
+    assert draft.created == SESSION_TIMESTAMP
+    assert draft.updated == SESSION_TIMESTAMP
+    assert {item.index_name: item.index_value for item in draft.index_values} == {
+        "tourists_parking_percentage": 0.61,
+        "tourists_per_vehicle": 2.5,
+    }

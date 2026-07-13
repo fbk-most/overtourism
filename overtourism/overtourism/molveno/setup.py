@@ -107,6 +107,11 @@ model_evaluator = MolvenoEvaluator(
     grid=grid,
     sampler=sampler,
     index_name_map=INDEX_NAME_MAP,
+    percentage_widget_ids={
+        entry.index_id
+        for entry in MOLVENO_SIM_INDEXES.entries
+        if entry.index_category == "%"
+    },
 )
 extras_config = ExtrasConfig(
     problem_keys=frozenset(("objective", "links", "groups", "editable_indexes")),
