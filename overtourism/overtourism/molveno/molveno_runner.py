@@ -534,7 +534,8 @@ class MolvenoOutput(ModelOutput):
             vals = interpolate.interpn(
                 (self.tt, self.ee), uf, pts, bounds_error=False, fill_value=0.0
             )
-            result[name] = [int(v) for v in vals]
+            vals = np.nan_to_num(vals, nan=0.0, posinf=0.0, neginf=0.0)
+            result[name] = [max(0, int(v)) for v in vals]
         return result
 
     @functools.cached_property
@@ -548,8 +549,13 @@ class MolvenoOutput(ModelOutput):
             u_vals = interpolate.interpn(
                 (self.tt, self.ee), uf, pts, bounds_error=False, fill_value=0.0
             )
-            usage += u_vals / cap_loc
+            if np.isfinite(cap_loc) and cap_loc > 0:
+                usage += u_vals / cap_loc
+            else:
+                usage += np.inf
         usage *= 100.0 / len(self.usage_fields)
+        usage = np.nan_to_num(usage, nan=0.0, posinf=100.0, neginf=0.0)
+        usage = np.clip(usage, 0.0, 100.0)
         return [int(u) for u in usage]
 
     @functools.cached_property
@@ -570,6 +576,7 @@ class MolvenoOutput(ModelOutput):
         variance = sum(
             (params["scale"] ** 2) / (params["loc"] ** 2)
             for params in self.capacity_distributions.values()
+            if np.isfinite(params["loc"]) and params["loc"] > 0
         )
         n_c = len(self.capacity_distributions)
         agg_scale = (variance**0.5) * 100.0 / n_c
