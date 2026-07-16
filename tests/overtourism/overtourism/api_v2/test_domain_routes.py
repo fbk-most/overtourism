@@ -81,21 +81,18 @@ def test_problem_routes_accept_typed_domain_fields(
         json={
             "name": "Lake Cleanup",
             "description": "Reduce visitor pressure",
-            "extras": {
-                "groups": ["pressure"],
-                "objective": "Keep the shoreline usable",
-                "links": ["https://example.test/lake"],
-            },
+            "objective": "Keep the shoreline usable",
+            "groups": ["pressure"],
+            "links": ["https://example.test/lake"],
         },
     )
 
     assert response.status_code == 200
-    assert response.json()["extras"] == {
-        "groups": ["pressure"],
-        "objective": "Keep the shoreline usable",
-        "links": ["https://example.test/lake"],
-        "editable_indexes": ["pressure-widget"],
-    }
+    assert response.json()["objective"] == "Keep the shoreline usable"
+    assert response.json()["groups"] == ["pressure"]
+    assert response.json()["links"] == ["https://example.test/lake"]
+    assert response.json()["editable_indexes"] == ["pressure-widget"]
+    assert "extras" not in response.json()
     assert viewer.group_calls[-1] == ["pressure"]
 
 
@@ -109,10 +106,8 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
         json={
             "name": "Lake Cleanup",
             "description": "Reduce visitor pressure",
-            "extras": {
-                "groups": ["pressure"],
-                "objective": "Keep the shoreline usable",
-            },
+            "objective": "Keep the shoreline usable",
+            "groups": ["pressure"],
         },
     )
     assert create_response.status_code == 200
@@ -128,11 +123,10 @@ def test_problem_updates_preserve_current_groups_when_request_omits_domain_field
     )
 
     assert update_response.status_code == 200
-    assert update_response.json()["extras"] == {
-        "groups": ["pressure"],
-        "objective": "Keep the shoreline usable",
-        "editable_indexes": ["pressure-widget"],
-    }
+    assert update_response.json()["objective"] == "Keep the shoreline usable"
+    assert update_response.json()["groups"] == ["pressure"]
+    assert update_response.json()["editable_indexes"] == ["pressure-widget"]
+    assert "extras" not in update_response.json()
     assert viewer.group_calls[-1] == ["pressure"]
 
 
@@ -159,14 +153,91 @@ def test_problem_routes_expose_typed_domain_fields_in_openapi(client) -> None:
     assert set(post_schema["properties"]) >= {
         "name",
         "description",
-        "extras",
+        "objective",
+        "groups",
+        "links",
     }
+    assert "extras" not in post_schema["properties"]
     assert set(put_schema["properties"]) >= {
         "version",
         "name",
         "description",
-        "extras",
+        "objective",
+        "groups",
+        "links",
     }
+    assert "extras" not in put_schema["properties"]
+
+
+def test_proposal_routes_keep_related_scenario_ids_top_level(
+    client,
+    tenant: str,
+) -> None:
+    problem_response = client.post(
+        f"/api/v2/{tenant}/problems",
+        json={
+            "name": "Proposal Problem",
+            "description": "Problem for proposal routing",
+            "objective": "Keep the shoreline usable",
+            "groups": ["pressure"],
+        },
+    )
+    assert problem_response.status_code == 200
+    problem_id = problem_response.json()["problem_id"]
+    base_scenario_id = f"{tenant}_base_scenario"
+    create_response = client.post(
+        f"/api/v2/{tenant}/proposals",
+        params={"problem_id": problem_id},
+        json={
+            "name": "Proposal API",
+            "description": "Created through the route",
+            "status": "draft",
+            "related_scenario_ids": [base_scenario_id],
+        },
+    )
+
+    assert create_response.status_code == 200
+    assert create_response.json()["related_scenario_ids"] == [base_scenario_id]
+    assert "extras" not in create_response.json()
+
+
+def test_scenario_routes_expose_index_diffs_top_level(
+    client,
+    tenant: str,
+    monkeypatch,
+) -> None:
+    problem_response = client.post(
+        f"/api/v2/{tenant}/problems",
+        json={
+            "name": "Scenario Problem",
+            "description": "Problem for scenario routing",
+            "objective": "Keep the shoreline usable",
+            "groups": ["pressure"],
+        },
+    )
+    assert problem_response.status_code == 200
+    problem_id = problem_response.json()["problem_id"]
+    base_scenario_id = f"{tenant}_base_scenario"
+    monkeypatch.setattr(
+        "overtourism.overtourism.backend_extension.api.v2.scenario.scenario_index_diffs",
+        lambda handler, scenario: {"visits": "+3"},
+    )
+
+    list_response = client.get(
+        f"/api/v2/{tenant}/scenarios",
+        params={"problem_id": problem_id},
+    )
+    read_response = client.get(
+        f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
+        params={"problem_id": problem_id},
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["index_diffs"] == {"visits": "+3"}
+    assert "extras" not in list_response.json()[0]
+    assert read_response.status_code == 200
+    assert read_response.json()["index_diffs"] == {"visits": "+3"}
+    assert "extras" not in read_response.json()
 
 
 def test_domain_routes_return_500_for_failing_collaborators(

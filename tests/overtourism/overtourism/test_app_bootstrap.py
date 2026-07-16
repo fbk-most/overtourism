@@ -20,6 +20,9 @@ from overtourism.backend.api.shared.dependencies import get_handler
         (
             "overtourism.overtourism.app_v2",
             [
+                "/api/v2/{tenant}/problems",
+                "/api/v2/{tenant}/proposals",
+                "/api/v2/{tenant}/scenarios",
                 "/api/v2/{tenant}/data/overtourism/indexes/categories",
                 "/api/v2/{tenant}/widgets",
             ],

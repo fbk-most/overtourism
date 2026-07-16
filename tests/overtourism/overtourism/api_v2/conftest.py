@@ -19,9 +19,12 @@ from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.overtourism.backend_extension.api.v2.data import data_router
+from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.problem_extras import (
     prepare_problem_extras,
 )
+from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
+from overtourism.overtourism.backend_extension.api.v2.scenario import scenario_router
 from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
@@ -149,7 +152,16 @@ def handler(
 def client(handler: Handler, tenant: str) -> TestClient:
     app = create_app(
         handler,
-        extra_routers=[data_router, widget_router],
+        include_problem_router=False,
+        include_proposal_router=False,
+        include_scenario_router=False,
+        extra_routers=[
+            problem_router,
+            proposal_router,
+            scenario_router,
+            data_router,
+            widget_router,
+        ],
     )
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
@@ -167,7 +179,16 @@ def client(handler: Handler, tenant: str) -> TestClient:
 def error_client(handler: Handler, tenant: str) -> TestClient:
     app = create_app(
         handler,
-        extra_routers=[data_router, widget_router],
+        include_problem_router=False,
+        include_proposal_router=False,
+        include_scenario_router=False,
+        extra_routers=[
+            problem_router,
+            proposal_router,
+            scenario_router,
+            data_router,
+            widget_router,
+        ],
     )
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,

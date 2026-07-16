@@ -66,6 +66,9 @@ def create_app(
     version: str = APP_VERSION,
     description: str = "Reusable API for digital twin workflows",
     extra_routers: list[APIRouter] | None = None,
+    include_problem_router: bool = True,
+    include_proposal_router: bool = True,
+    include_scenario_router: bool = True,
 ) -> FastAPI:
     """Create a FastAPI app wired to the given handler."""
     init_handler(handler)
@@ -86,9 +89,12 @@ def create_app(
         allow_headers=["*"],
     )
 
-    app.include_router(problem_router)
-    app.include_router(proposal_router)
-    app.include_router(scenario_router)
+    if include_problem_router:
+        app.include_router(problem_router)
+    if include_proposal_router:
+        app.include_router(proposal_router)
+    if include_scenario_router:
+        app.include_router(scenario_router)
     app.include_router(evaluation_router)
     app.include_router(session_router)
     app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX, tags=["Auth"])
