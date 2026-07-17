@@ -3,76 +3,39 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.problem import (
-    PostProblemData as BackendPostProblemData,
-)
-from overtourism.backend.api.v2.models.problem import (
-    ProblemData as BackendProblemData,
-)
-from overtourism.backend.api.v2.models.problem import (
-    UpdateProblemData as BackendUpdateProblemData,
+from overtourism.backend.api.v2.problem import (
+    create_problem as base_create_problem,
 )
 from overtourism.backend.api.v2.problem import (
-    create_problem as backend_create_problem,
+    delete_problem as base_delete_problem,
 )
 from overtourism.backend.api.v2.problem import (
-    delete_problem as backend_delete_problem,
+    list_problems as base_list_problems,
 )
 from overtourism.backend.api.v2.problem import (
-    list_problems as backend_list_problems,
+    read_problem as base_read_problem,
 )
 from overtourism.backend.api.v2.problem import (
-    read_problem as backend_read_problem,
-)
-from overtourism.backend.api.v2.problem import (
-    update_problem as backend_update_problem,
+    update_problem as base_update_problem,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
+from overtourism.overtourism.backend_extension.api.v2.models.problem import (
+    OvertourismPostProblemData,
+    OvertourismProblemData,
+    OvertourismUpdateProblemData,
+)
+from overtourism.overtourism.backend_extension.api.v2.utils import (
+    prepare_problem_payload,
+    to_problem_api_overtourism,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class ProblemData(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    problem_id: str
-    version: int = 0
-    tenant: str
-    name: str | None = None
-    description: str | None = None
-    created: str | None = None
-    updated: str | None = None
-    objective: str | None = None
-    groups: list[str] = Field(default_factory=list)
-    links: list[str] = Field(default_factory=list)
-    editable_indexes: list[str] = Field(default_factory=list)
-
-
-class PostProblemData(BaseModel):
-    name: str
-    description: str
-    objective: str | None = None
-    groups: list[str] = Field(default_factory=list)
-    links: list[str] = Field(default_factory=list)
-
-
-class UpdateProblemData(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    version: int | None = None
-    name: str | None = None
-    description: str | None = None
-    objective: str | None = None
-    groups: list[str] | None = None
-    links: list[str] | None = None
 
 
 problem_router = APIRouter(
@@ -82,28 +45,9 @@ problem_router = APIRouter(
 )
 
 
-def _problem_payload(data: BaseModel) -> dict[str, Any]:
-    payload = data.model_dump(exclude_unset=True)
-    return {
-        key: payload[key] for key in ("objective", "groups", "links") if key in payload
-    }
-
-
-def _problem_to_api(problem: BackendProblemData | dict[str, Any]) -> ProblemData:
-    payload = problem.model_dump() if hasattr(problem, "model_dump") else dict(problem)
-    extras = dict(payload.pop("extras", {}) or {})
-    payload["objective"] = extras.get("objective")
-    payload["groups"] = [str(item) for item in extras.get("groups", [])]
-    payload["links"] = [str(item) for item in extras.get("links", [])]
-    payload["editable_indexes"] = [
-        str(item) for item in extras.get("editable_indexes", [])
-    ]
-    return ProblemData(**payload)
-
-
 @problem_router.get(
     "",
-    response_model=list[ProblemData],
+    response_model=list[OvertourismProblemData],
     responses={
         500: {"description": "Problem manager error"},
         200: {"description": "Problem list"},
@@ -112,12 +56,10 @@ def _problem_to_api(problem: BackendProblemData | dict[str, Any]) -> ProblemData
 async def list_problems(
     tenant: str,
     handler: Handler = Depends(get_handler),
-) -> list[ProblemData]:
+) -> list[OvertourismProblemData]:
     try:
-        return [
-            _problem_to_api(problem)
-            for problem in await backend_list_problems(tenant, handler=handler)
-        ]
+        listed = await base_list_problems(tenant=tenant, handler=handler)
+        return [to_problem_api_overtourism(problem) for problem in listed]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise
@@ -125,7 +67,7 @@ async def list_problems(
 
 @problem_router.post(
     "",
-    response_model=ProblemData,
+    response_model=OvertourismProblemData,
     responses={
         500: {"description": "Problem manager error"},
         400: {"description": "Problem already exists"},
@@ -134,20 +76,22 @@ async def list_problems(
 )
 async def create_problem(
     tenant: str,
-    data: PostProblemData,
+    data: OvertourismPostProblemData,
     handler: Handler = Depends(get_handler),
-) -> ProblemData:
+) -> OvertourismProblemData:
     try:
-        problem = await backend_create_problem(
-            tenant,
-            BackendPostProblemData(
-                name=data.name,
-                description=data.description,
-                extras=_problem_payload(data),
-            ),
+        payload = prepare_problem_payload(
+            problem_id=None,
+            tenant=tenant,
+            payload=data.model_dump(),
             handler=handler,
         )
-        return _problem_to_api(problem)
+        created = await base_create_problem(
+            tenant=tenant,
+            data=payload,
+            handler=handler,
+        )
+        return to_problem_api_overtourism(created)
     except Exception as e:
         logger.error(f"Error creating problem {data.name}: {e}")
         raise
@@ -155,7 +99,7 @@ async def create_problem(
 
 @problem_router.get(
     "/{problem_id}",
-    response_model=ProblemData,
+    response_model=OvertourismProblemData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -166,10 +110,10 @@ async def read_problem(
     tenant: str,
     problem_id: str,
     handler: Handler = Depends(get_handler),
-) -> ProblemData:
+) -> OvertourismProblemData:
     try:
-        problem = await backend_read_problem(tenant, problem_id, handler=handler)
-        return _problem_to_api(problem)
+        read = await base_read_problem(tenant, problem_id, handler=handler)
+        return to_problem_api_overtourism(read)
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
         raise
@@ -177,7 +121,7 @@ async def read_problem(
 
 @problem_router.put(
     "/{problem_id}",
-    response_model=ProblemData,
+    response_model=OvertourismProblemData,
     responses={
         500: {"description": "Problem manager error"},
         404: {"description": "Problem does not exist"},
@@ -187,22 +131,23 @@ async def read_problem(
 async def update_problem(
     tenant: str,
     problem_id: str,
-    data: UpdateProblemData,
+    data: OvertourismUpdateProblemData,
     handler: Handler = Depends(get_handler),
-) -> ProblemData:
+) -> OvertourismProblemData:
     try:
-        problem = await backend_update_problem(
-            tenant,
-            problem_id,
-            BackendUpdateProblemData(
-                version=data.version,
-                name=data.name,
-                description=data.description,
-                extras=_problem_payload(data),
-            ),
+        payload = prepare_problem_payload(
+            problem_id=problem_id,
+            tenant=tenant,
+            payload=data.model_dump(exclude_unset=True),
             handler=handler,
         )
-        return _problem_to_api(problem)
+        updated = await base_update_problem(
+            tenant=tenant,
+            problem_id=problem_id,
+            data=payload,
+            handler=handler,
+        )
+        return to_problem_api_overtourism(updated)
     except Exception as e:
         logger.error(f"Error updating problem {problem_id}: {e}")
         raise
@@ -222,7 +167,7 @@ async def delete_problem(
     handler: Handler = Depends(get_handler),
 ) -> None:
     try:
-        await backend_delete_problem(tenant, problem_id, handler=handler)
+        await base_delete_problem(tenant, problem_id, handler=handler)
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")
         raise

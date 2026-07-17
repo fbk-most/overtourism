@@ -16,6 +16,7 @@ from overtourism.backend.api.v2.utils import (
     check_version,
     get_scenario_or_404,
     prepare_values,
+    raise_immutable_base_scenario_error,
     scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -33,20 +34,24 @@ scenario_router = APIRouter(
 
 @scenario_router.get(
     "",
-    response_model=list[ScenarioData],
+    response_model=ScenarioData | list[ScenarioData],
     responses={
         500: {"description": "Scenario manager error"},
         404: {"description": "Problem does not exist"},
-        200: {"description": "Scenario list"},
+        200: {"description": "Scenario list or base scenario"},
     },
 )
 async def list_scenarios(
     tenant: str,
     proposal_id: str | None = None,
+    base_only: bool = False,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
-) -> list[ScenarioData]:
+) -> ScenarioData | list[ScenarioData]:
     try:
+        if base_only:
+            base_scenario_id = handler.manager.scenario_manager.base_scenario_id
+            scenario = get_scenario_or_404(handler, base_scenario_id)
+            return scenario_to_api(handler, scenario)
         scenarios = handler.manager.list_scenarios(tenant, proposal_id)
         return [scenario_to_api(handler, scenario) for scenario in scenarios]
     except Exception as e:
@@ -67,7 +72,6 @@ async def read_scenario(
     tenant: str,
     scenario_id: str,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
         scenario = get_scenario_or_404(handler, scenario_id)
@@ -83,6 +87,7 @@ async def read_scenario(
     responses={
         500: {"description": "Scenario manager error"},
         404: {"description": "Scenario does not exist"},
+        400: {"description": "Base scenario cannot be updated"},
         200: {"description": "Scenario updated"},
     },
 )
@@ -91,9 +96,9 @@ async def update_scenario(
     scenario_id: str,
     data: UpdateScenarioData,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
+        raise_immutable_base_scenario_error(handler, scenario_id)
         current_scenario = get_scenario_or_404(handler, scenario_id)
         check_version(current_scenario.version, data.version)
         updated_values = (
@@ -121,6 +126,7 @@ async def update_scenario(
     responses={
         500: {"description": "Scenario manager error"},
         404: {"description": "Scenario does not exist"},
+        400: {"description": "Base scenario cannot be deleted"},
         200: {"description": "Scenario deleted"},
     },
 )
@@ -128,9 +134,9 @@ async def delete_scenario(
     tenant: str,
     scenario_id: str,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> dict:
     try:
+        raise_immutable_base_scenario_error(handler, scenario_id)
         get_scenario_or_404(handler, scenario_id)
         handler.manager.delete_scenario(scenario_id)
         logger.info(f"Scenario deleted: {scenario_id}")

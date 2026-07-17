@@ -89,17 +89,17 @@ def manager(tmp_path, tenant: str) -> Manager:
 
 @pytest.fixture
 def problem_id(manager: Manager) -> str:
-    return manager.base_problem_config.problem_id
+    return manager.name_cfg.problem_id
 
 
 @pytest.fixture
 def scenario_id(manager: Manager) -> str:
-    return manager.base_problem_config.scenario_id
+    return manager.name_cfg.scenario_id
 
 
 @pytest.fixture
 def proposal_id(manager: Manager) -> str:
-    return manager.base_problem_config.proposal_id
+    return manager.name_cfg.proposal_id
 
 
 @pytest.fixture

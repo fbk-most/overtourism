@@ -24,11 +24,13 @@ class ScenarioManager:
 
     def __init__(
         self,
+        base_scenario_id: str,
         model: Model,
         model_evaluator: ModelEvaluator,
         store: Store,
     ) -> None:
         """Create a scenario manager bound to a problem."""
+        self.base_scenario_id = base_scenario_id
         self.model = model
         self.model_evaluator = model_evaluator
         self.store = store

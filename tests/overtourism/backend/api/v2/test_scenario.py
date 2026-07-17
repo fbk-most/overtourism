@@ -24,6 +24,30 @@ def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) ->
     assert read_response.json()["version"] == 1
 
 
+def test_list_scenarios_can_return_only_the_base_scenario(
+    client,
+    tenant: str,
+    problem_id: str,
+    manager: Manager,
+) -> None:
+    base_scenario_id = f"{tenant}_base_scenario"
+    extra_scenario = manager.scenario_manager.create_scenario(
+        "scenario-extra",
+        tenant,
+        values={"visits": 3},
+        name="Extra scenario",
+    )
+
+    response = client.get(
+        f"/api/v2/{tenant}/scenarios",
+        params={"problem_id": problem_id, "base_only": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["scenario_id"] == base_scenario_id
+    assert response.json()["scenario_id"] != extra_scenario.scenario_id
+
+
 def test_scenario_routes_expose_index_diffs_in_extras(
     client,
     tenant: str,

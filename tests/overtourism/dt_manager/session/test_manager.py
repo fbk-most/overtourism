@@ -36,7 +36,7 @@ def _make_manager(
 
 def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
     manager, evaluator, model = _make_manager(tmp_path)
-    tenant = manager.base_problem_config.tenant
+    tenant = manager.name_cfg.tenant
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
@@ -100,7 +100,7 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
 
 def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> None:
     manager, _evaluator, _model = _make_manager(tmp_path)
-    tenant = manager.base_problem_config.tenant
+    tenant = manager.name_cfg.tenant
 
     manager.problem_manager.create_problem(
         "problem-alpha",

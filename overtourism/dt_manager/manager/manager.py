@@ -41,14 +41,19 @@ class Manager:
         model_evaluator: ModelEvaluator,
         store_config: StoreConfig,
         extras_config: ExtrasConfig | None = None,
-        base_problem_config: BaseConfig | None = None,
+        names_cfg: BaseConfig | None = None,
     ) -> None:
         """Create the high-level manager facade."""
         self.store = create_store(store_config.store_type, **store_config.config)
-
+        self.name_cfg = names_cfg if names_cfg is not None else BaseConfig()
         self.problem_manager = ProblemManager(self.store)
         self.proposal_manager = ProposalManager(self.store)
-        self.scenario_manager = ScenarioManager(model, model_evaluator, self.store)
+        self.scenario_manager = ScenarioManager(
+            self.name_cfg.scenario_id,
+            model,
+            model_evaluator,
+            self.store,
+        )
         self.evaluation_manager = EvaluationManager(
             self.store,
             Executor(model, model_evaluator),
@@ -58,9 +63,6 @@ class Manager:
 
         self.extras_config = (
             extras_config if extras_config is not None else ExtrasConfig()
-        )
-        self.base_problem_config = (
-            base_problem_config if base_problem_config is not None else BaseConfig()
         )
 
         self._setup()
@@ -74,37 +76,37 @@ class Manager:
         Bootstrap the default problem when the store is empty.
         """
         try:
-            self.scenario_manager.read_scenario(self.base_problem_config.scenario_id)
+            self.scenario_manager.read_scenario(self.name_cfg.scenario_id)
             return
         except EntityDoesNotExist:
             pass
 
         self.problem_manager.create_problem(
-            problem_id=self.base_problem_config.problem_id,
-            tenant=self.base_problem_config.tenant,
-            name=self.base_problem_config.problem_name,
-            description=self.base_problem_config.problem_description,
-            extras=self.base_problem_config.problem_extras,
+            problem_id=self.name_cfg.problem_id,
+            tenant=self.name_cfg.tenant,
+            name=self.name_cfg.problem_name,
+            description=self.name_cfg.problem_description,
+            extras=self.name_cfg.problem_extras,
         )
         self.scenario_manager.create_scenario(
-            scenario_id=self.base_problem_config.scenario_id,
-            tenant=self.base_problem_config.tenant,
-            name=self.base_problem_config.scenario_name,
-            description=self.base_problem_config.scenario_description,
-            extras=self.base_problem_config.scenario_extras,
+            scenario_id=self.name_cfg.scenario_id,
+            tenant=self.name_cfg.tenant,
+            name=self.name_cfg.scenario_name,
+            description=self.name_cfg.scenario_description,
+            extras=self.name_cfg.scenario_extras,
         )
-        self.evaluate_scenario(scenario_id=self.base_problem_config.scenario_id)
+        self.evaluate_scenario(scenario_id=self.name_cfg.scenario_id)
         self.proposal_manager.create_proposal(
-            proposal_id=self.base_problem_config.proposal_id,
-            problem_id=self.base_problem_config.problem_id,
-            name=self.base_problem_config.proposal_name,
-            description=self.base_problem_config.proposal_description,
-            status=self.base_problem_config.proposal_status,
-            extras=self.base_problem_config.proposal_extras,
+            proposal_id=self.name_cfg.proposal_id,
+            problem_id=self.name_cfg.problem_id,
+            name=self.name_cfg.proposal_name,
+            description=self.name_cfg.proposal_description,
+            status=self.name_cfg.proposal_status,
+            extras=self.name_cfg.proposal_extras,
         )
         self.relationship_manager.link_scenario_proposal(
-            proposal_id=self.base_problem_config.proposal_id,
-            scenario_id=self.base_problem_config.scenario_id,
+            proposal_id=self.name_cfg.proposal_id,
+            scenario_id=self.name_cfg.scenario_id,
         )
 
     # ───────────────────────────────────────────────────────────

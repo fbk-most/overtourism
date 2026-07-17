@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.problem.problem import Problem
+from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.scenario.values import values_as_scipy
 from overtourism.dt_manager.utils.exception import (
@@ -53,6 +54,18 @@ def get_scenario_or_404(handler: Handler, scenario_id: str) -> Scenario:
         ) from exc
 
 
+def raise_immutable_base_scenario_error(
+    handler: Handler, tenant: str, scenario_id: str
+) -> None:
+    """Raise an error indicating that the base scenario cannot be modified."""
+    base_scenario_id = handler.manager.scenario_manager.get_base_scenario_id(tenant)
+    if scenario_id == base_scenario_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Base scenario cannot be modified or deleted",
+        )
+
+
 # ──────────────────────────────────────────────
 # Proposal
 # ──────────────────────────────────────────────
@@ -67,6 +80,31 @@ def get_proposal_or_404(handler: Handler, proposal_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Proposal '{proposal_id}' not found",
         ) from exc
+
+
+def validate_related_scenario_ids(
+    handler: Handler,
+    related_scenario_ids: list[str] | None,
+) -> list[str] | None:
+    if related_scenario_ids is None:
+        return None
+    validated_ids = list(dict.fromkeys(related_scenario_ids))
+    for scenario_id in validated_ids:
+        get_scenario_or_404(handler, scenario_id)
+    return validated_ids
+
+
+def proposal_to_api(
+    handler: Handler,
+    proposal: Proposal,
+) -> dict:
+    payload = proposal.to_dict()
+    payload["related_scenario_ids"] = (
+        handler.manager.relationship_manager.get_related_scenario_ids(
+            proposal.proposal_id
+        )
+    )
+    return payload
 
 
 # ──────────────────────────────────────────────

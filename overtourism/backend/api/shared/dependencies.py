@@ -11,7 +11,7 @@ _handler_registry: dict[str, Handler] = {}
 
 def init_handler(handler: Handler) -> None:
     """Set the default handler instance for its tenant."""
-    tenant = handler.manager.base_problem_config.tenant
+    tenant = handler.manager.name_cfg.tenant
     global _handler_registry
     _handler_registry = {tenant: handler}
 

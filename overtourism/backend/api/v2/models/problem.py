@@ -7,6 +7,19 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ProblemData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    problem_id: str
+    version: int = 0
+    tenant: str
+    name: str | None = None
+    description: str | None = None
+    created: str | None = None
+    updated: str | None = None
+    extras: dict[str, Any] = Field(default_factory=dict)
+
+
 class PostProblemData(BaseModel):
     name: str
     description: str
@@ -19,17 +32,4 @@ class UpdateProblemData(BaseModel):
     version: int | None = None
     name: str | None = None
     description: str | None = None
-    extras: dict[str, Any] = Field(default_factory=dict)
-
-
-class ProblemData(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    problem_id: str
-    version: int = 0
-    tenant: str
-    name: str | None = None
-    description: str | None = None
-    created: str | None = None
-    updated: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)

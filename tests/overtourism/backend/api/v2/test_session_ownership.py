@@ -94,7 +94,7 @@ def test_resolve_session_owner_prefers_email_then_subject_then_anonymous() -> No
 def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
     handler: Handler,
 ) -> None:
-    tenant = handler.manager.base_problem_config.tenant
+    tenant = handler.manager.name_cfg.tenant
 
     handler.session_ownership_store.claim_session(
         tenant,
@@ -128,7 +128,7 @@ def test_session_ownership_store_claims_reads_and_cleans_up_sessions(
 
 
 def test_claim_session_ownership_rejects_cross_user_claims(handler: Handler) -> None:
-    tenant = handler.manager.base_problem_config.tenant
+    tenant = handler.manager.name_cfg.tenant
 
     handler.session_ownership_store.claim_session(
         tenant,
@@ -156,7 +156,7 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
     handler: Handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    tenant = handler.manager.base_problem_config.tenant
+    tenant = handler.manager.name_cfg.tenant
     app = create_app(handler)
 
     def owner_a_context() -> AuthContext:
@@ -186,7 +186,7 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
     with TestClient(app) as client:
         create_response = client.post(
             f"/api/v2/{tenant}/sessions",
-            params={"problem_id": handler.manager.base_problem_config.problem_id},
+            params={"problem_id": handler.manager.name_cfg.problem_id},
             json={"metadata": {}},
         )
         assert create_response.status_code == 200
@@ -204,14 +204,14 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions/{session_id}",
-                params={"problem_id": handler.manager.base_problem_config.problem_id},
+                params={"problem_id": handler.manager.name_cfg.problem_id},
             ).status_code
             == 404
         )
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions",
-                params={"problem_id": handler.manager.base_problem_config.problem_id},
+                params={"problem_id": handler.manager.name_cfg.problem_id},
             ).json()
             == []
         )
@@ -220,7 +220,7 @@ def test_session_routes_reject_other_users_but_keep_owner_access(
         assert (
             client.get(
                 f"/api/v2/{tenant}/sessions/{session_id}",
-                params={"problem_id": handler.manager.base_problem_config.problem_id},
+                params={"problem_id": handler.manager.name_cfg.problem_id},
             ).status_code
             == 200
         )

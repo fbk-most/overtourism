@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import typing
 
 from fastapi import APIRouter, Depends
 
@@ -17,13 +16,11 @@ from overtourism.backend.api.v2.models.proposal import (
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_proposal_or_404,
-    get_scenario_or_404,
+    proposal_to_api,
+    validate_related_scenario_ids,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
-
-if typing.TYPE_CHECKING:
-    from overtourism.dt_manager.proposal.proposal import Proposal
 
 logger = logging.getLogger(__name__)
 
@@ -32,31 +29,6 @@ proposal_router = APIRouter(
     tags=["Proposals"],
     dependencies=[Depends(get_auth_context)],
 )
-
-
-def _validate_related_scenario_ids(
-    handler: Handler,
-    related_scenario_ids: list[str] | None,
-) -> list[str] | None:
-    if related_scenario_ids is None:
-        return None
-    validated_ids = list(dict.fromkeys(related_scenario_ids))
-    for scenario_id in validated_ids:
-        get_scenario_or_404(handler, scenario_id)
-    return validated_ids
-
-
-def _proposal_to_api(
-    handler: Handler,
-    proposal: Proposal,
-) -> dict:
-    payload = proposal.to_dict()
-    payload["related_scenario_ids"] = (
-        handler.manager.relationship_manager.get_related_scenario_ids(
-            proposal.proposal_id
-        )
-    )
-    return payload
 
 
 @proposal_router.get(
@@ -79,7 +51,7 @@ async def list_proposals(
         proposals = handler.manager.list_proposals(
             problem_id=problem_id, scenario_id=scenario_id
         )
-        return [_proposal_to_api(handler, proposal) for proposal in proposals]
+        return [proposal_to_api(handler, proposal) for proposal in proposals]
     except Exception as e:
         logger.error(f"Error listing proposals: {e}")
         raise
@@ -96,20 +68,19 @@ async def list_proposals(
 )
 async def create_proposal(
     tenant: str,
-    proposal: PostProposalData,
+    data: PostProposalData,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ProposalData:
     """Create a proposal for a problem."""
     try:
-        proposal_payload = proposal.model_dump(exclude_unset=True)
-        proposal_payload["related_scenario_ids"] = _validate_related_scenario_ids(
+        proposal_payload = data.model_dump(exclude_unset=True)
+        proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
             handler,
             proposal_payload.get("related_scenario_ids"),
         )
-        proposal = handler.manager.create_proposal(problem_id, **proposal_payload)
+        proposal = handler.manager.create_proposal(**proposal_payload)
         logger.info(f"Proposal created: {proposal.proposal_id}")
-        return _proposal_to_api(handler, proposal)
+        return proposal_to_api(handler, proposal)
     except Exception as e:
         logger.error(f"Error creating proposal: {e}")
         raise
@@ -128,12 +99,11 @@ async def read_proposal(
     tenant: str,
     proposal_id: str,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ProposalData:
     """Read a proposal by identifier."""
     try:
         proposal = get_proposal_or_404(handler, proposal_id)
-        return _proposal_to_api(handler, proposal)
+        return proposal_to_api(handler, proposal)
     except Exception as e:
         logger.error(f"Error reading proposal {proposal_id}: {e}")
         raise
@@ -151,23 +121,22 @@ async def read_proposal(
 async def update_proposal(
     tenant: str,
     proposal_id: str,
-    proposal: UpdateProposalData,
+    data: UpdateProposalData,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
         current_proposal = get_proposal_or_404(handler, proposal_id)
-        check_version(current_proposal.version, proposal.version)
-        proposal_payload = proposal.model_dump(exclude_unset=True, exclude={"version"})
-        proposal_payload["related_scenario_ids"] = _validate_related_scenario_ids(
+        check_version(current_proposal.version, data.version)
+        proposal_payload = data.model_dump(exclude_unset=True, exclude={"version"})
+        proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
             handler,
             proposal_payload.get("related_scenario_ids"),
         )
         handler.manager.update_proposal(proposal_id, **proposal_payload)
         updated_proposal = handler.manager.read_proposal(proposal_id)
         logger.info(f"Proposal updated: {proposal_id}")
-        return _proposal_to_api(handler, updated_proposal)
+        return proposal_to_api(handler, updated_proposal)
     except Exception as e:
         logger.error(f"Error updating proposal {proposal_id}: {e}")
         raise
@@ -185,7 +154,6 @@ async def delete_proposal(
     tenant: str,
     proposal_id: str,
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> None:
     """Delete a proposal from a problem."""
     try:

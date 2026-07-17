@@ -78,7 +78,7 @@ def _translate_constraint_names(data: dict[str, Any]) -> dict[str, Any]:
 
 def arrange_data(
     data: MolvenoOutput,
-    api_version: Literal["v1", "v2"] = "v1",
+    api_version: Literal["v2"] = "v2",
     as_snapshot: bool = True,
     fields: list[str] | None = None,
 ) -> dict:
@@ -98,28 +98,25 @@ def arrange_data(
     """
     snapshot = _translate_constraint_names(data.to_snapshot())
 
-    if api_version == "v2":
-        if fields is not None:
-            return {k: snapshot[k] for k in fields if k in snapshot}
-        if as_snapshot:
-            return snapshot
+    if fields is not None:
+        return {k: snapshot[k] for k in fields if k in snapshot}
+    if as_snapshot:
+        return snapshot
 
-    data = snapshot  # type: ignore[assignment]  # reuse variable for v1 dict path
-
-    # v1 ───────────────────────────────────────────────────────────────────────
+    # Arange for frontend ───────────────────
     d: dict = {}  # type: ignore[unreachable]
     d["points"] = {}
     d["points"]["uncertainty"] = []
     d["points"]["uncertainty_by_constraint"] = {
-        k: [] for k in data["uncertainty_by_constraint"]
+        k: [] for k in snapshot["uncertainty_by_constraint"]
     }
 
     for tourists, excursionists, index, usage, usage_unc in zip(
-        data["sample_x"],
-        data["sample_y"],
-        data["uncertainty"],
-        data["usage"],
-        data["usage_uncertainty"],
+        snapshot["sample_x"],
+        snapshot["sample_y"],
+        snapshot["uncertainty"],
+        snapshot["usage"],
+        snapshot["usage_uncertainty"],
     ):
         d["points"]["uncertainty"].append(
             {
@@ -131,13 +128,13 @@ def arrange_data(
             }
         )
 
-    for k, v in data["uncertainty_by_constraint"].items():
+    for k, v in snapshot["uncertainty_by_constraint"].items():
         for tourists, excursionists, index, usage, usage_unc in zip(
-            data["sample_x"],
-            data["sample_y"],
+            snapshot["sample_x"],
+            snapshot["sample_y"],
             v,
-            data["usage_by_constraint"][k],
-            data["usage_uncertainty_by_constraint"][k],
+            snapshot["usage_by_constraint"][k],
+            snapshot["usage_uncertainty_by_constraint"][k],
         ):
             d["points"]["uncertainty_by_constraint"][k].append(
                 {
@@ -149,12 +146,12 @@ def arrange_data(
                 }
             )
 
-    d["kpis"] = data["kpis"]
-    d["x_max"] = data["x_max"]
-    d["y_max"] = data["y_max"]
-    d["capacity_mean"] = data["capacity_mean"]
-    d["capacity_mean_by_constraint"] = data["capacity_mean_by_constraint"]
-    d["constraint_curves"] = data["constraint_curves"]
+    d["kpis"] = snapshot["kpis"]
+    d["x_max"] = snapshot["x_max"]
+    d["y_max"] = snapshot["y_max"]
+    d["capacity_mean"] = snapshot["capacity_mean"]
+    d["capacity_mean_by_constraint"] = snapshot["capacity_mean_by_constraint"]
+    d["constraint_curves"] = snapshot["constraint_curves"]
     return d
 
 

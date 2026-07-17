@@ -104,7 +104,7 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=manager.base_problem_config.tenant,
+        tenant=manager.name_cfg.tenant,
         name="Problem Alpha",
         description="Primary problem",
         extras={"region": "tn"},
@@ -155,13 +155,13 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
     }
 
     assert {item.problem_id for item in manager.list_problems()} == {
-        manager.base_problem_config.problem_id,
+        manager.name_cfg.problem_id,
         "problem-alpha",
     }
     assert {
         item.scenario_id for item in manager.list_scenarios(tenant=problem.tenant)
     } == {
-        manager.base_problem_config.scenario_id,
+        manager.name_cfg.scenario_id,
         scenario.scenario_id,
     }
     assert {
@@ -183,7 +183,7 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=manager.base_problem_config.tenant,
+        tenant=manager.name_cfg.tenant,
         name="Problem Alpha",
         description="Primary problem",
     )
@@ -249,7 +249,7 @@ def test_manager_read_scenario_data_reuses_persisted_results(tmp_path) -> None:
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=manager.base_problem_config.tenant,
+        tenant=manager.name_cfg.tenant,
         name="Problem Alpha",
         description="Primary problem",
     )

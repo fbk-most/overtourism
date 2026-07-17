@@ -69,14 +69,10 @@ async def create_problem(
 ) -> ProblemData:
     """Create a new problem with default scenario."""
     try:
-        problem_payload = data.model_dump(exclude_unset=True)
-        extras = handler.manager.problem_extras_from_dict(problem_payload)
-        if handler.prepare_problem_extras_fn is not None:
-            extras = handler.prepare_problem_extras_fn(extras, problem_payload)
         problem = handler.manager.create_problem(
             name=data.name,
             description=data.description,
-            extras=extras,
+            extras=data.extras,
             tenant=tenant,
         )
         logger.info(f"Problem created: {data.name}")
@@ -128,19 +124,11 @@ async def update_problem(
     try:
         problem = get_problem_or_404(handler, problem_id)
         check_version(problem.version, data.version)
-        problem_payload = data.model_dump(exclude_unset=True, exclude={"version"})
-        extras = handler.manager.problem_extras_from_dict(problem_payload)
-        if handler.prepare_problem_extras_fn is not None:
-            extras = handler.prepare_problem_extras_fn(
-                extras,
-                problem_payload,
-                problem.extras,
-            )
         updated_problem = handler.manager.update_problem(
             problem_id,
             name=data.name,
             description=data.description,
-            extras=extras,
+            extras=data.extras,
         )
         logger.info(f"Problem updated: {problem_id}")
         return updated_problem.to_dict()

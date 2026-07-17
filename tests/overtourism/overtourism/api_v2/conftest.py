@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from overtourism.overtourism.backend_extension.api.v2.scenario import scenario_router
 
 from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
@@ -20,11 +21,10 @@ from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.overtourism.backend_extension.api.v2.data import data_router
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
-from overtourism.overtourism.backend_extension.api.v2.problem_extras import (
+from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
+from overtourism.overtourism.backend_extension.api.v2.utils import (
     prepare_problem_extras,
 )
-from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
-from overtourism.overtourism.backend_extension.api.v2.scenario import scenario_router
 from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 

@@ -44,15 +44,6 @@ class ArrangeDataFnLike(Protocol):
     ) -> dict[str, Any]: ...
 
 
-class PrepareProblemExtrasFnLike(Protocol):
-    def __call__(
-        self,
-        extras: dict[str, Any],
-        payload: dict[str, Any],
-        current_extras: dict[str, Any] | None = None,
-    ) -> dict[str, Any]: ...
-
-
 class Handler:
     """
     Container for backend singletons.
@@ -65,7 +56,6 @@ class Handler:
         data_loader: DataLoaderLike | None = None,
         get_widgets_fn: GetWidgetsFnLike | None = None,
         get_widget_ids_by_groups_fn: GetWidgetIdsByGroupsFnLike | None = None,
-        prepare_problem_extras_fn: PrepareProblemExtrasFnLike | None = None,
         arrange_data_fn: ArrangeDataFnLike | None = None,
         prepare_values_fn: Callable[..., dict] | None = None,
         session_ownership_store: SessionOwnershipStore | None = None,
@@ -75,7 +65,6 @@ class Handler:
         self.data_loader = data_loader
         self.get_widgets_fn = get_widgets_fn
         self.get_widget_ids_by_groups_fn = get_widget_ids_by_groups_fn
-        self.prepare_problem_extras_fn = prepare_problem_extras_fn
         self.arrange_data_fn = arrange_data_fn
         self.prepare_values_fn = prepare_values_fn
         self.session_ownership_store = session_ownership_store

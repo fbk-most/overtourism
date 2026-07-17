@@ -71,7 +71,6 @@ async def create_session(
     data: CreateSessionData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> SessionSummaryData:
     try:
         session = handler.manager.create_session(metadata=data.metadata)
@@ -107,7 +106,6 @@ async def list_sessions(
     tenant: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> list[SessionSummaryData]:
     try:
         session_ids = set(list_owned_session_ids(handler, tenant, context))
@@ -142,7 +140,6 @@ async def read_session(
     session_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> SessionData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -181,7 +178,6 @@ async def delete_session(
     session_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> dict:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -215,7 +211,6 @@ async def create_session_scenario(
     data: PostScenarioData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
         get_session_or_404(handler, session_id)
@@ -259,7 +254,6 @@ async def read_session_scenario(
     scenario_id: str,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -290,7 +284,6 @@ async def save_scenario(
     data: SaveScenarioData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> ScenarioData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -331,7 +324,6 @@ async def create_session_evaluation(
     data: PostEvaluationData,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -369,7 +361,6 @@ async def read_session_evaluation(
     evaluation_id: str | None = None,
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> EvaluationData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -393,9 +384,7 @@ async def read_session_evaluation(
             )
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
-        logger.error(
-            f"Error reading evaluation {scenario_id or evaluation_id} in problem {problem_id}: {e}"
-        )
+        logger.error(f"Error reading evaluation {scenario_id or evaluation_id}: {e}")
         raise
 
 
@@ -417,7 +406,6 @@ async def get_session_data(
     params: list[str] | None = Query(default=None),
     context: AuthContext = Depends(get_auth_context),
     handler: Handler = Depends(get_handler),
-    problem_id: str | None = None,
 ) -> EvaluationOutputData:
     try:
         require_session_ownership(handler, tenant, session_id, context)

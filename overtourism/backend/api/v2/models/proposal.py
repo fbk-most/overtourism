@@ -27,6 +27,7 @@ class ProposalData(BaseModel):
 class PostProposalData(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
+    problem_id: str
     name: str | None = None
     description: str | None = None
     status: ProposalStatus | None = None
