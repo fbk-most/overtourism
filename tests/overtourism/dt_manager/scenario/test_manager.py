@@ -26,7 +26,12 @@ def test_create_update_save_load_and_delete_scenario(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    manager = ScenarioManager(
+        f"{tenant}_base_scenario",
+        fake_model,
+        fake_model_evaluator,
+        sql_store,
+    )
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(
@@ -105,7 +110,12 @@ def test_update_scenario_preserves_existing_values_when_overriding_subset(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    manager = ScenarioManager(
+        f"{tenant}_base_scenario",
+        fake_model,
+        fake_model_evaluator,
+        sql_store,
+    )
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(
@@ -140,7 +150,13 @@ def test_scenario_manager_exposes_only_stateless_scenario_operations(
     fake_model_evaluator,
     problem_payload,
 ) -> None:
-    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    tenant = problem_payload["tenant"]
+    manager = ScenarioManager(
+        f"{tenant}_base_scenario",
+        fake_model,
+        fake_model_evaluator,
+        sql_store,
+    )
 
     assert not hasattr(manager, "create_session_scenario")
     assert not hasattr(manager, "update_session_scenario")
@@ -159,7 +175,12 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    manager = ScenarioManager(
+        f"{tenant}_base_scenario",
+        fake_model,
+        fake_model_evaluator,
+        sql_store,
+    )
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(
@@ -222,7 +243,12 @@ def test_detach_scenario_preserves_existing_values_when_overriding_subset(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = ScenarioManager(fake_model, fake_model_evaluator, sql_store)
+    manager = ScenarioManager(
+        f"{tenant}_base_scenario",
+        fake_model,
+        fake_model_evaluator,
+        sql_store,
+    )
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(

@@ -40,7 +40,7 @@ def handler(tmp_path, ownership_store: SessionOwnershipStore) -> Handler:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        base_problem_config=BaseConfig(tenant="tenant-alpha"),
+        names_cfg=BaseConfig(tenant="tenant-alpha"),
     )
     return Handler(manager=manager, session_ownership_store=ownership_store)
 

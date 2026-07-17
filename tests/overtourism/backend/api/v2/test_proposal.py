@@ -13,8 +13,8 @@ def test_create_and_list_proposals_for_a_problem(
     base_scenario_id = f"{tenant}_base_scenario"
     create_response = client.post(
         f"/api/v2/{tenant}/proposals",
-        params={"problem_id": problem_id},
         json={
+            "problem_id": problem_id,
             "proposal_id": "proposal-api",
             "name": "Proposal API",
             "description": "Created through the route",
@@ -151,8 +151,8 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     base_scenario_id = f"{tenant}_base_scenario"
     create_response = client.post(
         f"/api/v2/{tenant}/proposals",
-        params={"problem_id": problem_id},
         json={
+            "problem_id": problem_id,
             "proposal_id": "proposal-invalid",
             "related_scenario_ids": ["missing-scenario"],
         },

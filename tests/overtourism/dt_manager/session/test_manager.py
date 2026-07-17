@@ -18,7 +18,7 @@ def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    base_problem_config: BaseConfig | None = None,
+    names_cfg: BaseConfig | None = None,
 ) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
@@ -29,7 +29,7 @@ def _make_manager(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        base_problem_config=base_problem_config,
+        names_cfg=names_cfg,
     )
     return manager, evaluator, model
 

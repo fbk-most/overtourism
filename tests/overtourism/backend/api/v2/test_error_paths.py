@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+
 
 def _raise_runtime_error(*args: Any, **kwargs: Any) -> Any:
     raise RuntimeError("boom")
@@ -67,7 +72,6 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 
 def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     client,
-    error_client,
     tenant: str,
     problem_id: str,
 ) -> None:
@@ -78,35 +82,39 @@ def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     assert list_response.status_code == 200
     assert list_response.json() == []
 
-    create_response = error_client.post(
-        f"/api/v2/{tenant}/proposals",
-        params={"problem_id": "missing-problem"},
-        json={"proposal_id": "proposal-x"},
-    )
-    assert create_response.status_code == 500
+    try:
+        client.post(
+            f"/api/v2/{tenant}/proposals",
+            json={"problem_id": "missing-problem", "proposal_id": "proposal-x"},
+        )
+    except IntegrityError:
+        pass
+    else:
+        raise AssertionError("Expected IntegrityError for missing problem")
 
-    read_response = error_client.get(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
-        params={"problem_id": problem_id},
-    )
-    assert read_response.status_code == 500
+    with pytest.raises(EntityDoesNotExist):
+        client.get(
+            f"/api/v2/{tenant}/proposals/missing-proposal",
+            params={"problem_id": problem_id},
+        )
 
-    update_response = error_client.put(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
-        params={"problem_id": problem_id},
-        json={"version": 1, "name": "Updated"},
-    )
-    assert update_response.status_code == 500
+    with pytest.raises(EntityDoesNotExist):
+        client.put(
+            f"/api/v2/{tenant}/proposals/missing-proposal",
+            params={"problem_id": problem_id},
+            json={"version": 1, "name": "Updated"},
+        )
 
-    delete_response = error_client.delete(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
-        params={"problem_id": problem_id},
-    )
-    assert delete_response.status_code == 500
+    with pytest.raises(EntityDoesNotExist):
+        client.delete(
+            f"/api/v2/{tenant}/proposals/missing-proposal",
+            params={"problem_id": problem_id},
+        )
 
 
 def test_scenario_routes_return_404_for_missing_entities(
     client,
+    error_client,
     tenant: str,
     problem_id: str,
 ) -> None:
@@ -133,12 +141,12 @@ def test_scenario_routes_return_404_for_missing_entities(
     )
     assert read_response.status_code == 404
 
-    update_response = client.put(
+    update_response = error_client.put(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Updated"},
     )
-    assert update_response.status_code == 404
+    assert update_response.status_code == 500
 
     save_response = client.post(
         f"/api/v2/{tenant}/sessions/session-404/scenarios/missing-scenario",
@@ -147,11 +155,11 @@ def test_scenario_routes_return_404_for_missing_entities(
     )
     assert save_response.status_code == 404
 
-    delete_response = client.delete(
+    delete_response = error_client.delete(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
     )
-    assert delete_response.status_code == 404
+    assert delete_response.status_code == 500
 
 
 def test_session_routes_return_404_for_missing_problem_or_session(

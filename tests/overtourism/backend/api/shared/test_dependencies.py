@@ -16,7 +16,7 @@ from overtourism.backend.handler import Handler
 
 
 def _build_handler(tenant: str) -> Handler:
-    manager = SimpleNamespace(base_problem_config=SimpleNamespace(tenant=tenant))
+    manager = SimpleNamespace(name_cfg=SimpleNamespace(tenant=tenant))
     return Handler(manager=manager)
 
 

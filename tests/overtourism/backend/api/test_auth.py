@@ -8,7 +8,6 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v1.main import create_app as create_app_v1
 from overtourism.backend.api.v2.main import create_app as create_app_v2
 from overtourism.backend.auth import jwt as auth_jwt
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
@@ -31,7 +30,7 @@ def handler(tmp_path) -> Handler:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        base_problem_config=BaseConfig(tenant="tenant-alpha"),
+        names_cfg=BaseConfig(tenant="tenant-alpha"),
     )
     return Handler(manager=manager)
 
@@ -39,7 +38,6 @@ def handler(tmp_path) -> Handler:
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
         (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
@@ -67,7 +65,6 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
         (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
@@ -92,7 +89,6 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
         (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
@@ -139,7 +135,6 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
 @pytest.mark.parametrize(
     ("app_factory", "problems_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/problems"),
         (create_app_v2, "/api/v2/tenant-alpha/problems"),
     ],
 )
@@ -174,7 +169,6 @@ def test_tenant_scoped_routes_accept_tokens_that_list_the_path_tenant(
 @pytest.mark.parametrize(
     ("app_factory", "problems_path"),
     [
-        (create_app_v1, "/api/v1/tenant-gamma/problems"),
         (create_app_v2, "/api/v2/tenant-gamma/problems"),
     ],
 )
@@ -210,7 +204,6 @@ def test_tenant_scoped_routes_reject_tokens_missing_the_path_tenant(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
         (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )
@@ -246,7 +239,6 @@ def test_auth_me_rejects_missing_required_tenant_claim(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v1, "/api/v1/tenant-alpha/auth/me"),
         (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
     ],
 )

@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from overtourism.overtourism.backend_extension.api.v2.scenario import scenario_router
 
 from overtourism.backend.api.v2.main import create_app
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
@@ -19,12 +18,11 @@ from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.dt_manager.utils.metadata import ExtrasConfig
+from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.overtourism.backend_extension.api.v2.data import data_router
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
-from overtourism.overtourism.backend_extension.api.v2.utils import (
-    prepare_problem_extras,
-)
 from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
@@ -117,7 +115,10 @@ def manager(tmp_path, tenant: str) -> Manager:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        base_problem_config=BaseConfig(tenant=tenant),
+        names_cfg=BaseConfig(tenant=tenant),
+        extras_config=ExtrasConfig(
+            problem_keys=frozenset({"objective", "groups", "links"}),
+        ),
     )
 
 
@@ -134,14 +135,6 @@ def handler(
         data_loader=data_loader,
         get_widgets_fn=viewer.get_widgets,
         get_widget_ids_by_groups_fn=viewer.get_widget_ids_by_groups,
-        prepare_problem_extras_fn=lambda extras, payload, current_extras=None: (
-            prepare_problem_extras(
-                extras,
-                payload,
-                current_extras,
-                viewer=viewer,
-            )
-        ),
         arrange_data_fn=_normalize_output,
         prepare_values_fn=lambda values: dict(values),
         session_ownership_store=session_ownership_store,

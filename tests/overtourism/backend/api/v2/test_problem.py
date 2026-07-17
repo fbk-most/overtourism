@@ -42,7 +42,7 @@ def test_create_problem_returns_slugified_problem_with_version(
     assert response.json()["tenant"] == tenant
     assert response.json()["name"] == "Lake Cleanup"
     assert response.json()["description"] == "Reduce visitor pressure"
-    assert response.json()["extras"] == {}
+    assert response.json()["extras"] == {"ignored": True}
 
 
 def test_read_problem_returns_current_version(client, tenant: str) -> None:

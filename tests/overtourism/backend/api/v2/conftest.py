@@ -83,7 +83,7 @@ def manager(tmp_path, tenant: str) -> Manager:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        base_problem_config=BaseConfig(tenant=tenant),
+        names_cfg=BaseConfig(tenant=tenant),
     )
 
 
