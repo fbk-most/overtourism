@@ -1,0 +1,581 @@
+# SPDX-License-Identifier: Apache-2.0
+"""
+Loads and prepares the base "phenomenon" dataframes used to compute the
+capacity / tourism indexes for Trentino, saves them in a format compatible with the Indicators/Phenomenon modules.
+
+Each phenomenon dataframe is typically contains:
+  - DATA: the time dimension, at whatever granularity is natural for that
+    phenomenon (YYYY for yearly data, YYYY-MM-DD for daily data)
+  - LOCATION: the comune/ambito name
+  - COMUNE_ID: mapped location identifier(s), when available
+  - ... plus the phenomenon's own value column(s)
+
+NOTE ON ID_COMUNE FORMATTING: ISTAT comune codes are conventionally
+represented as 6-digit zero-padded strings (e.g. 22001 -> "022001"). The
+raw sources / mapping JSONs here store them as plain ints, so every
+dataframe that carries an ID_COMUNE column is normalized to the
+zero-padded string form right before it's returned, via `pad_id_comune()`.
+"""
+
+import json
+import logging
+from pathlib import Path
+
+import pandas as pd
+from unidecode import unidecode
+
+# from data_preparation.utils import get_dataframe, put_dataframe, log_dataframe, get_s3
+
+logging.basicConfig(level=logging.INFO)
+
+PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
+
+
+def customize_unidecode(x):
+    """
+    Convert the input string, removing accents, converting to uppercase, and stripping whitespace.
+    """
+    if x.endswith("'"):  # removes also trailing apostrophe if present
+        x = x.removesuffix("'")
+    return unidecode(x.strip().upper())
+
+
+def pad_id_comune(series, width=6):
+    """Zero-pad an ID_COMUNE column to `width` digits (e.g. 22001 -> '022001').
+
+    Missing / unmapped values (NaN) are left untouched. Works regardless of
+    whether the column arrives as int, float (common when NaNs are present),
+    or string dtype.
+    """
+
+    def _pad(x):
+        if pd.isna(x):
+            return x
+        return str(int(x)).zfill(width)
+
+    return series.apply(_pad)
+
+
+def _remove_provincia(df, comune_col="comune", upper=False):
+    """Drop rows whose comune starts with 'PROVINCIA', logging what gets removed."""
+    series = df[comune_col].str.upper() if upper else df[comune_col]
+    mask = series.str.startswith("PROVINCIA")
+    if mask.any():
+        logging.info(
+            f"Comune {df.loc[mask, comune_col].unique()} is a PROVINCIA, removing it from the analysis"
+        )
+        df = df[~mask]
+    return df
+
+
+def _to_data_location(df, date_col, drop_cols=None):
+    """Standardize a phenomenon dataframe to DATA/LOCATION column naming.
+
+    date_col: name of the column holding the time dimension (e.g. "anno" or "date").
+    drop_cols: optional columns to drop before returning (e.g. a redundant "anno"
+    column once the daily "date" column is promoted to DATA).
+    """
+    df = df.drop(columns=drop_cols) if drop_cols else df
+    return df.rename(columns={date_col: "DATA", "comune": "LOCATION"})
+
+
+def compute_arrivi_trentino():
+    # arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"), nrows=2000)
+    arrivi_trentino = pd.read_csv("raw_data_trentino/arrivi_trentino_ISPAT.csv")
+    arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
+    arrivi_trentino = pd.melt(
+        arrivi_trentino,
+        id_vars="comune",
+        value_vars=["2021", "2022", "2023", "2024"],
+        value_name="arrivi",
+        var_name="anno",
+    )
+    arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
+    arrivi_trentino = arrivi_trentino.sort_values(by=["comune", "anno"]).reset_index(
+        drop=True
+    )
+
+    arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
+    arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
+
+    return arrivi_trentino
+
+
+def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
+
+    presenze_ispat = pd.read_csv("raw_data_trentino/presenze_Trentino_ISPAT.csv")
+    presenze_alb_xalb = pd.read_csv(
+        "raw_data_trentino/presenze_Trentino_ISPAT_alb_xalb.csv"
+    )
+    with open(PATH_MAPPING / "map_comuni_into_apt.json") as f:
+        json_apt = json.load(f)
+
+    ## Adjust the datasets
+    ## presenze_ispat
+    presenze_ispat.rename(
+        columns={"Ambito": "comune", "Presenze": "presenze"}, inplace=True
+    )
+    presenze_ispat["Anno"] = presenze_ispat["Anno"].astype(int)
+    presenze_ispat["data"] = pd.to_datetime(
+        {"year": presenze_ispat["Anno"], "month": presenze_ispat["Mese"], "day": 1}
+    )
+    presenze_ispat.drop(columns=["Anno", "Mese"], inplace=True)
+    presenze_ispat["ID_COMUNE"] = (
+        presenze_ispat["comune"]
+        .map(json_apt)
+        .apply(lambda x: [int(i) for i in x] if isinstance(x, list) else x)
+    )
+
+    presenze_ispat = presenze_ispat.sort_values(by=["comune", "data"]).reset_index(
+        drop=True
+    )
+    presenze_ispat = _remove_provincia(presenze_ispat, upper=True)
+
+    ## presenze_ispat_alb_xalb
+    presenze_alb_xalb["Anno"] = presenze_alb_xalb["Anno"].astype(int)
+    presenze_alb_xalb["data"] = pd.to_datetime(
+        {
+            "year": presenze_alb_xalb["Anno"],
+            "month": presenze_alb_xalb["Mese"],
+            "day": 1,
+        }
+    )
+    presenze_alb_xalb.drop(columns=["Anno", "Mese"], inplace=True)
+    presenze_alb_xalb = presenze_alb_xalb.sort_values("data")
+    values_mapping = list(mapping_comuni.values())
+
+    presenze_alb_xalb["ID_COMUNE"] = [values_mapping] * len(presenze_alb_xalb)
+
+    ## disaggregation
+    presenze_ispat = disaggregate_apt_presences(
+        presenze_ispat,
+        presenze_alb_xalb,
+        mapping_comuni,
+        how=how,
+        distribution=distribution,
+    )
+
+    df = _to_data_location(
+        presenze_ispat,
+        date_col="data",
+    )
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return df
+
+
+def compute_popolazione():
+    json_popolazione = json.load(open(PATH_MAPPING / "popolazione_Trento.json"))
+    # Dataframe popolazione dal 2020
+    # popolazione_df = get_dataframe("popolazione_2020_2024")
+    popolazione_df = pd.read_parquet("raw_data_trentino/popolazione_2020_2024.parquet")
+    popolazione_df["comune"] = popolazione_df["comune"].apply(
+        lambda x: customize_unidecode(x)
+    )
+    popolazione_df["ID_COMUNE"] = popolazione_df["comune"].map(json_popolazione)
+    popolazione_df = _remove_provincia(popolazione_df)
+    popolazione_df = _to_data_location(popolazione_df, date_col="anno")
+
+    popolazione_df["ID_COMUNE"] = pad_id_comune(popolazione_df["ID_COMUNE"])
+
+    return popolazione_df
+
+
+# Explicit overrides for comuni whose official Italian name differs from
+# a naive "before the dash" split of the bilingual name in the source CSV.
+COMUNE_NAME_OVERRIDES = {
+    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
+    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
+    "CANAL SAN BOVO": "CANAL SAN BOVO",
+    "CANAZEI-CIANACEI": "CANAZEI",
+    "FIEROZZO-VLAROTZ": "FIEROZZO",
+    "FRASSILONGO-GARAIT": "FRASSILONGO",
+    "LUSERNA-LUSERN": "LUSERNA",
+    "MAZZIN-MAZIN": "MAZZIN",
+    "MOENA-MOENA": "MOENA",
+    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
+    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
+    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
+}
+
+
+def compute_strutture(mapping_comuni):
+    strutture_ospitalita_trentino_df = pd.read_csv(
+        "raw_data_trentino/Annuario-TavXIII-per-comune-csv.csv"
+    )
+    json_strutture = PATH_MAPPING / "strutture_ospitalita_Trento_2020.json"
+    json_strutture = json.load(open(json_strutture))
+
+    ## take years from 2020
+    strutture_ospitalita_from_2020 = strutture_ospitalita_trentino_df[
+        strutture_ospitalita_trentino_df["anno"] > 2019
+    ].copy()
+    strutture_ospitalita_from_2020["comune"] = strutture_ospitalita_from_2020[
+        "comune"
+    ].apply(lambda x: customize_unidecode(x).replace("0", "-"))
+
+    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020[
+        "comune"
+    ].map(json_strutture)
+
+    strutture_ospitalita_from_2020 = _remove_provincia(strutture_ospitalita_from_2020)
+
+    ## Standardize to the common DATA / LOCATION schema
+    strutture_ospitalita_from_2020 = _to_data_location(
+        strutture_ospitalita_from_2020, date_col="anno"
+    )
+
+    CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
+    CATEGORIA_ALLOGGI_PRIVATI = "all. privati numero"
+    CATEGORIA_TOT_CONVENZIONALI_LETTI = "tot convenzionali posti_letto"
+    CATEGORIA_ALLOGGI_PRIVATI_LETTI = "all. privati posti_letto"
+
+    strutture_ospitalita_from_2020["tot_strutture"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI]
+        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
+    )
+    strutture_ospitalita_from_2020["tot_strutture_non_conv"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
+    )
+    strutture_ospitalita_from_2020["tot_postiletto"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI_LETTI]
+        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
+    )
+    strutture_ospitalita_from_2020["tot_postiletto_non_conv"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
+    )
+
+    # Try direct match first, then fall back to the override table
+    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020[
+        "LOCATION"
+    ].map(mapping_comuni)
+
+    unmatched_mask = strutture_ospitalita_from_2020["ID_COMUNE"].isna()
+    if unmatched_mask.any():
+        fallback_names = strutture_ospitalita_from_2020.loc[
+            unmatched_mask, "LOCATION"
+        ].map(COMUNE_NAME_OVERRIDES)
+        strutture_ospitalita_from_2020.loc[unmatched_mask, "ID_COMUNE"] = (
+            fallback_names.map(mapping_comuni)
+        )
+
+    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(
+        strutture_ospitalita_from_2020["ID_COMUNE"]
+    )
+
+    # Report anything still unresolved
+    still_missing = strutture_ospitalita_from_2020[
+        strutture_ospitalita_from_2020["ID_COMUNE"].isna()
+    ]["LOCATION"].unique()
+    if len(still_missing) > 0:
+        print(
+            f"[compute_strutture] WARNING: could not find ID_COMUNE for "
+            f"{len(still_missing)} comune(s): {sorted(still_missing)}"
+        )
+
+    return strutture_ospitalita_from_2020[
+        [
+            "DATA",
+            "LOCATION",
+            "ID_COMUNE",
+            "tot_postiletto",
+            "tot_postiletto_non_conv",
+            "tot_strutture",
+            "tot_strutture_non_conv",
+        ]
+    ]
+
+
+def split_presences(df, id_to_comune):
+    rows = []
+
+    for _, row in df.iterrows():
+        ids = row["ID_COMUNE"]
+
+        if isinstance(ids, int):
+            new_row = row.copy()
+            new_row["comune"] = id_to_comune.get(ids)
+            rows.append(new_row)
+            continue
+
+        if len(ids) == 1:
+            new_row = row.copy()
+            new_row["ID_COMUNE"] = ids[0]
+            new_row["comune"] = id_to_comune.get(ids[0])
+            rows.append(new_row)
+            continue
+
+        total = int(row["presenze"])
+        n = len(ids)
+
+        base = total // n
+        remainder = total % n
+
+        for i, ID_COMUNE in enumerate(ids):
+            new_row = row.copy()
+            new_row["ID_COMUNE"] = ID_COMUNE
+            new_row["comune"] = id_to_comune.get(ID_COMUNE)
+            new_row["presenze"] = base + (1 if i < remainder else 0)
+            rows.append(new_row)
+    return pd.DataFrame(rows)
+
+
+def split_data_province(df, mapping_comuni):
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
+    df = df.set_index("data")
+    n = len(mapping_comuni)
+    df["base_alb"] = df["Presenze alberghi"] // n
+    df["rem_alb"] = df["Presenze alberghi"] % n
+
+    df["base_xalb"] = df["Presenze extra-alberghi"] // n
+    df["rem_xalb"] = df["Presenze extra-alberghi"] % n
+
+    df = df.reset_index()
+
+    df_exploded = df.explode("ID_COMUNE")
+
+    df_exploded["idx_comune"] = df_exploded.groupby("data").cumcount()
+
+    df_exploded["Presenze alberghi"] = df_exploded["base_alb"] + (
+        df_exploded["idx_comune"] < df_exploded["rem_alb"]
+    ).astype(int)
+    df_exploded["Presenze extra-alberghi"] = df_exploded["base_xalb"] + (
+        df_exploded["idx_comune"] < df_exploded["rem_xalb"]
+    ).astype(int)
+    df_exploded["comune"] = df_exploded["ID_COMUNE"].map(id_to_comune)
+
+    df_final = df_exploded[
+        ["data", "ID_COMUNE", "comune", "Presenze extra-alberghi"]
+    ]  # "Presenze alberghi"
+    return df_final
+
+
+def split_presences_distributional(df, distribution, cols=["presenze"]):
+    """
+    Distribuisce le presenze ISPAT (mensili, per APT) su base
+    giornaliera e comunale, usando come "forma" di riferimento
+    la distribuzione osservata nei dati Vodafone (giornalieri, per comune).
+    """
+    df = df.copy()
+    distribution = distribution.copy()
+    df["DATA"] = pd.to_datetime(df["DATA"])
+    df["MESE"] = df["DATA"].dt.to_period("M")
+
+    distribution["DATA"] = pd.to_datetime(distribution["DATA"])
+    distribution["ID_COMUNE"] = distribution["ID_COMUNE"].astype(int)
+    distribution["MESE"] = distribution["DATA"].dt.to_period("M")
+
+    df_exploded = df.rename(
+        columns={"LOCATION": "APT", "presenze": "presenze_apt_mese"}
+    ).explode(
+        "ID_COMUNE"
+    )  # mettiamo un comune per ogni riga (espandiamo la matrice)
+    df_exploded["ID_COMUNE"] = df_exploded["ID_COMUNE"].astype(int)
+
+    # Per ogni comune dell'APT, prende TUTTI i giorni di quel mese da Vodafone
+    merged = pd.merge(
+        df_exploded.drop(columns="DATA"),
+        distribution.rename(columns={"presenze": "presenze_vodafone"}),
+        on=["MESE", "ID_COMUNE"],
+    )
+    if len(merged[merged.isna().any(axis=1)]) > 0:
+        logging.warning(
+            f"Found {merged[merged.isna().any(axis=1)].shape[0]} rows with missing values after merging ISPAT and Vodafone data"
+        )
+
+    merged["denom_area_mese"] = merged.groupby(["APT", "MESE"])[
+        "presenze_vodafone"
+    ].transform(
+        "sum"
+    )  # Denominatore: somma vodafone su TUTTI i comuni/giorni dell'APT in quel mese
+
+    merged["weight"] = merged["presenze_vodafone"] / merged["denom_area_mese"]
+    for c in cols:
+        merged[f"{c}_distributed"] = (merged[c] * merged["weight"]).round()
+    merged.rename(columns={"LOCATION": "comune"}, inplace=True)
+
+    return merged.drop(columns=["MESE", "denom_area_mese", "weight"] + cols)
+
+
+## DISAGGREGATION FUNCTIONS
+
+
+def disaggregate_apt_presences(
+    df, df_xalb, mapping_comuni, how="uniform", distribution=None
+):
+    """
+    Expand rows with multiple ID_COMUNEs into one row per municipality.
+    dividing presences equally between APT locations.
+    WARNING: in this case, there are two approximations of alberghieri. We mantain the columns relative to the thinner granularity (in this case, APT is kept, at the cost of province)
+    TODO: generalize this function without columns hardcoded
+    """
+    # mapping_comuni
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
+    if how == "uniform":
+        presences = split_presences(df, id_to_comune)
+        presences_xalb = split_data_province(df_xalb, mapping_comuni)
+        presences = presences.merge(
+            presences_xalb, on=["data", "ID_COMUNE", "comune"], how="left"
+        )
+    elif how == "distributional":
+        assert (
+            not distribution is None
+        ), "Distribution must be provided for distributional disaggregation"
+        df.rename(columns={"comune": "LOCATION", "data": "DATA"}, inplace=True)
+        presences = split_presences_distributional(
+            df, distribution, cols=["presenze_apt_mese"]
+        )
+        df_xalb["LOCATION"] = "PROVINCIA"
+        df_xalb.rename(columns={"data": "DATA"}, inplace=True)
+        presences_xalb = split_presences_distributional(
+            df_xalb, distribution, cols=["Presenze alberghi", "Presenze extra-alberghi"]
+        )
+
+    else:
+        raise ValueError(f"Unknown disaggregation method: {how}")
+    return presences.merge(
+        presences_xalb.drop(columns={"APT", "Presenze alberghi_distributed"}),
+        on=["DATA", "ID_COMUNE", "comune", "presenze_vodafone"],
+        how="outer",
+    ).drop(columns={"APT"})
+
+
+def disaggregate_vodafone_presences(df, mapping_comuni, how="uniform"):
+    """
+    Expand rows with multiple ID_COMUNEs into one row per municipality.
+
+    The presenze are divided as evenly as possible while preserving the total.
+
+    NOTE: This is a temporary workaround, better ways to distribute presences should be implemented.
+    """
+
+    # mapping_comuni is keyed name -> id; we need the reverse (id -> name) here.
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
+    if how == "uniform":
+        presences = split_presences(df, id_to_comune)
+    else:
+        raise ValueError(f"Unknown disaggregation method: {how}")
+    return pd.DataFrame(presences)
+
+
+def compute_vodafone_attendences(mapping_comuni):
+    vodafone_attendences_df = pd.read_csv("raw_data_trentino/vodafone_attendences.csv")
+
+    with open(PATH_MAPPING / "vodafone_Trento.json") as f:
+        json_vodafone = json.load(f)
+
+    with open(
+        "raw_data_trentino/TRENTINO-comuni_Vodafone_2023.geojson",
+        "r",
+        encoding="utf-8",
+    ) as f:
+        geojson_comuni_json_data = json.load(f)
+
+    # Map Vodafone location IDs to municipality names
+    location_map = {
+        feature["properties"]["id"]: feature["properties"]["name"].upper()
+        for feature in geojson_comuni_json_data["features"]
+    }
+
+    vodafone_attendences_df["comune"] = vodafone_attendences_df["locId"].map(
+        location_map
+    )
+
+    vodafone_attendences_df["ID_COMUNE"] = vodafone_attendences_df["comune"].map(
+        json_vodafone
+    )
+
+    # Unify Vigo di Fassa and Pozza di Fassa
+    logging.info(
+        "Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)"
+    )
+
+    mask = vodafone_attendences_df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
+
+    vodafone_attendences_df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
+    vodafone_attendences_df.loc[mask, "ID_COMUNE"] = [[22250]] * mask.sum()
+
+    # Keep only tourist presences at municipality level
+    df = vodafone_attendences_df[
+        (vodafone_attendences_df["userProfile"] == "TOURIST")
+        & (vodafone_attendences_df["locType"] == "TN_MKT_AL_3")
+        & (vodafone_attendences_df["comune"].notna())
+    ].copy()
+
+    # Aggregate daily presences by municipality
+    aggregations = {
+        "ID_COMUNE": "first",
+        "value": "sum",
+    }
+
+    df = (
+        df.groupby(["date", "comune"])
+        .agg(aggregations)
+        .reset_index()
+        .rename(columns={"value": "presenze"})
+    )
+
+    df = disaggregate_vodafone_presences(df, mapping_comuni)
+
+    # Standardize schema
+    df = _to_data_location(
+        df,
+        date_col="date",
+    )
+
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return df
+
+
+def compute_phenomenon_dataframes():
+    """Loads and prepares the base "phenomenon" dataframes.
+
+    Returns a dict with keys:
+      "phen_strutture_ospitalita", "phen_popolazione",
+      "phen_vodafone_attendences", "phen_arrivi_trentino"
+    Each value is a dataframe standardized to DATA/LOCATION (+ ID, + the
+    phenomenon's own value columns). Any ID_COMUNE column is zero-padded to
+    6 digits (e.g. 22001 -> "022001").
+    """
+
+    with open(PATH_MAPPING / "mapping_comuni_ISTAT.json") as f:
+        mapping_comuni = json.load(f)
+
+    popolazione_df = compute_popolazione()
+    strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)
+    vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
+    arrivi_trentino = compute_arrivi_trentino()
+    presenze_df = compute_presenze_trentino(
+        mapping_comuni, how="distributional", distribution=vodafone_attendences_df
+    )
+
+    return {
+        "phen_popolazione": popolazione_df,
+        "phen_strutture": strutture_ospitalita_from_2020,
+        "phen_arrivi": arrivi_trentino,
+        "phen_presenze": presenze_df,
+    }
+
+
+# def local():
+#     dict_dfs = compute_phenomenon_dataframes()
+#     for key, value in dict_dfs.items():
+#         put_dataframe(value, key, type="csv")
+#     logging.info("salvataggio completato.")
+
+
+# def main():
+#     logging.info(f"\n## Salvataggio dei fenomeni di base sulla piattaforma")
+#     dict_dfs = compute_phenomenon_dataframes()
+#     for key, value in dict_dfs.items():
+#         log_dataframe(value.reset_index(), key)
+#     logging.info("salvataggio completato.")
+
+
+if __name__ == "__main__":
+    # local()
+    dict_dfs = compute_phenomenon_dataframes()
+    path = Path("processed_data_trentino")
+    for name, df in dict_dfs.items():
+        df.to_parquet(path / f"{name}.parquet")
