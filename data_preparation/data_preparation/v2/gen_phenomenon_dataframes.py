@@ -533,21 +533,21 @@ def compute_phenomenon_dataframes():
 
 
 def main():
-    logging.info(f"\n## Computing phenomenon dataframes")
+    logging.info(f"## Computing phenomenon dataframes")
     dict_dfs = compute_phenomenon_dataframes()
-    logging.info("\n## Uploading phenomenon dataframes...")
+    logging.info("## Uploading phenomenon dataframes...")
     for key, value in dict_dfs.items():
         log_dataframe(value.reset_index(), key)
-    logging.info("\n## Saved.")
+    logging.info("## Saved.")
 
 def local():
     """Saves locally the results"""
-    logging.info("\n## Computing phenomenon dataframes...")
+    logging.info("## Computing phenomenon dataframes...")
     dict_dfs = compute_phenomenon_dataframes()
-    logging.info("\n## Saving phenomenon dataframes...")
+    logging.info("## Saving phenomenon dataframes...")
     for key, value in dict_dfs.items():
         put_dataframe(value, key, type="parquet")
-    logging.info("\n## Saved.")
+    logging.info("## Saved.")
 
 if __name__ == "__main__":
     local()
