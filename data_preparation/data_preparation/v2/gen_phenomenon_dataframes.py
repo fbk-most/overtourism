@@ -24,7 +24,7 @@ from pathlib import Path
 import pandas as pd
 import geopandas as geopd
 from unidecode import unidecode
-from utils import get_dataframe, get_s3
+from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
 
 # from data_preparation.utils import get_dataframe, put_dataframe, log_dataframe, get_s3
 
@@ -50,7 +50,6 @@ def pad_id_comune(series, width=6):
     whether the column arrives as int, float (common when NaNs are present),
     or string dtype.
     """
-
     def _pad(x):
         if pd.isna(x):
             return x
@@ -533,25 +532,22 @@ def compute_phenomenon_dataframes():
     }
 
 
-# def local():
-#     dict_dfs = compute_phenomenon_dataframes()
-#     for key, value in dict_dfs.items():
-#         put_dataframe(value, key, type="csv")
-#     logging.info("salvataggio completato.")
+def main():
+    logging.info(f"\n## Computing phenomenon dataframes")
+    dict_dfs = compute_phenomenon_dataframes()
+    logging.info("\n## Uploading phenomenon dataframes...")
+    for key, value in dict_dfs.items():
+        log_dataframe(value.reset_index(), key)
+    logging.info("\n## Saved.")
 
-
-# def main():
-#     logging.info(f"\n## Salvataggio dei fenomeni di base sulla piattaforma")
-#     dict_dfs = compute_phenomenon_dataframes()
-#     for key, value in dict_dfs.items():
-#         log_dataframe(value.reset_index(), key)
-#     logging.info("salvataggio completato.")
-
+def local():
+    """Saves locally the results"""
+    logging.info("\n## Computing phenomenon dataframes...")
+    dict_dfs = compute_phenomenon_dataframes()
+    logging.info("\n## Saving phenomenon dataframes...")
+    for key, value in dict_dfs.items():
+        put_dataframe(value, key, type="parquet")
+    logging.info("\n## Saved.")
 
 if __name__ == "__main__":
-    # local()
-    dict_dfs = compute_phenomenon_dataframes()
-    path = Path("processed_data_trentino")
-    path.mkdir(parents=True, exist_ok=True)
-    for name, df in dict_dfs.items():
-        df.to_parquet(path / f"{name}.parquet")
+    local()
