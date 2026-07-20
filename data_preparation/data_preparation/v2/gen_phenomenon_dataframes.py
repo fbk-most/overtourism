@@ -22,16 +22,16 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+import geopandas as geopd
 from unidecode import unidecode
+from utils import get_dataframe, get_s3
 
 # from data_preparation.utils import get_dataframe, put_dataframe, log_dataframe, get_s3
 
 logging.basicConfig(level=logging.INFO)
 
-PATH_RAW_DATA = Path(__file__).parent.resolve() / "raw_data_trentino" 
 PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
 
-assert PATH_RAW_DATA.exists(), "Path to raw data does not exist"
 assert PATH_MAPPING.exists(), "Path to mapping does not exist"
 
 def customize_unidecode(x):
@@ -83,7 +83,7 @@ def _to_data_location(df, date_col, drop_cols=None):
 
 
 def compute_arrivi_trentino():
-    arrivi_trentino = pd.read_csv(PATH_RAW_DATA / "arrivi_trentino_ISPAT.csv")
+    arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
     arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
     arrivi_trentino = pd.melt(
         arrivi_trentino,
@@ -104,8 +104,8 @@ def compute_arrivi_trentino():
 
 def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = None):
     
-    presenze_ispat = pd.read_csv(PATH_RAW_DATA / "presenze_Trentino_ISPAT.csv")
-    presenze_alb_xalb = pd.read_csv(PATH_RAW_DATA / "presenze_Trentino_ISPAT_alb_xalb.csv")
+    presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
+    presenze_alb_xalb = pd.read_csv(get_s3("presenze_Trentino_ISPAT_alb_xalb.csv"))
     with open(PATH_MAPPING / "map_comuni_into_apt.json") as f:
         json_apt = json.load(f)
 
@@ -163,9 +163,7 @@ def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = No
 
 def compute_popolazione():
     json_popolazione = json.load(open(PATH_MAPPING / "popolazione_Trento.json"))
-    # Dataframe popolazione dal 2020
-    # popolazione_df = get_dataframe("popolazione_2020_2024")
-    popolazione_df = pd.read_parquet(PATH_RAW_DATA / "popolazione_2020_2024.parquet")
+    popolazione_df = get_dataframe("popolazione_2020_2024")
     popolazione_df["comune"] = popolazione_df["comune"].apply(
         lambda x: customize_unidecode(x)
     )
@@ -197,9 +195,7 @@ COMUNE_NAME_OVERRIDES = {
 
 
 def compute_strutture(mapping_comuni):
-    strutture_ospitalita_trentino_df = pd.read_csv(
-        PATH_RAW_DATA / "Annuario-TavXIII-per-comune-csv.csv"
-    )
+    strutture_ospitalita_trentino_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
     json_strutture = PATH_MAPPING / "strutture_ospitalita_Trento_2020.json"
     json_strutture = json.load(open(json_strutture))
 
@@ -448,23 +444,13 @@ def disaggregate_vodafone_presences(df, mapping_comuni, how="uniform"):
 
 
 def compute_vodafone_attendences(mapping_comuni):
-    vodafone_attendences_df = pd.read_csv(PATH_RAW_DATA / "vodafone_attendences.csv")
+    vodafone_attendences_df = get_dataframe("vodafone_attendences")
 
     with open(PATH_MAPPING / "vodafone_Trento.json") as f:
         json_vodafone = json.load(f)
 
-    with open(
-        PATH_RAW_DATA / "TRENTINO-comuni_Vodafone_2023.geojson",
-        "r",
-        encoding="utf-8",
-    ) as f:
-        geojson_comuni_json_data = json.load(f)
-
-    # Map Vodafone location IDs to municipality names
-    location_map = {
-        feature["properties"]["id"]: feature["properties"]["name"].upper()
-        for feature in geojson_comuni_json_data["features"]
-    }
+    geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
+    location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
 
     vodafone_attendences_df["comune"] = vodafone_attendences_df["locId"].map(
         location_map
