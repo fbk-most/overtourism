@@ -30,9 +30,11 @@ from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
 
 logging.basicConfig(level=logging.INFO)
 
+PATH_RAW_DATA = Path(__file__).parent.resolve() / "raw_data_trentino"
 PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
 
-assert PATH_MAPPING.exists(), "Path to mapping does not exist"
+assert PATH_MAPPING.exists(), f"Path to mapping does not exist {PATH_MAPPING}"
+assert PATH_RAW_DATA.exists(), f"Path to raw data does not exist {PATH_RAW_DATA}"
 
 def customize_unidecode(x):
     """
@@ -502,6 +504,59 @@ def compute_vodafone_attendences(mapping_comuni):
     return df
 
 
+def compute_flussi_trentino():
+    df_ = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns__.parquet")
+    df_u = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns_user.parquet")
+
+    cols = ['AREA_ID', 'AREA_LABEL', 
+            'hotspot_level_tot_in_flows_t_0_0_w_all_days_d_', 'tot_in_flows_t_0_0_w_all_days_d_', 'hotspot_level_tot_out_flows_t_0_0_w_all_days_d_', 'tot_out_flows_t_0_0_w_all_days_d_']
+    ## Mappatura colonne dati parquet completo
+    df__map = {
+        'AREA_ID': 'ID',
+        'AREA_LABEL': 'comune',
+        'tot_in_flows_t_0_0_w_all_days_d_': 'FLOWS_IN',
+        'tot_out_flows_t_0_0_w_all_days_d_': 'FLOWS_OUT',
+        'hotspot_level_tot_in_flows_t_0_0_w_all_days_d_': 'LEVEL_IN',
+        'hotspot_level_tot_out_flows_t_0_0_w_all_days_d_': 'LEVEL_OUT',
+    }
+
+    df_flussi_all = df_[cols].copy()
+    df_flussi_all = df_flussi_all[df_flussi_all['AREA_ID'].str.startswith('ITA.04.022.', na=False)]
+
+    # TODO: MANAGE DIFFERENTLY (this operation of multiplying was done in original file)
+    df_flussi_all['tot_in_flows_t_0_0_w_all_days_d_'] *= 4
+    df_flussi_all['tot_out_flows_t_0_0_w_all_days_d_'] *= 4
+
+    df_flussi_all.rename(columns = df__map, inplace=True)
+    df_flussi_all['comune'] = df_flussi_all['comune'].str.upper()
+
+    ## Mappatura colonne dati Utenti / Escursionisti / Turisti 
+    cols_user = ['AREA_ID', 'AREA_LABEL',
+                 'hotspot_level_tot_in_flows_TOURIST_t_0_0_w_all_days_d_','tot_in_flows_TOURIST_t_0_0_w_all_days_d_','hotspot_level_tot_out_flows_TOURIST_t_0_0_w_all_days_d_','tot_out_flows_TOURIST_t_0_0_w_all_days_d_','hotspot_level_tot_in_flows_VISITOR_t_0_0_w_all_days_d_','tot_in_flows_VISITOR_t_0_0_w_all_days_d_','hotspot_level_tot_out_flows_VISITOR_t_0_0_w_all_days_d_','tot_out_flows_VISITOR_t_0_0_w_all_days_d_']
+    df_u_map = {
+        'AREA_ID': 'ID',
+        'AREA_LABEL': 'comune',
+        'hotspot_level_tot_in_flows_TOURIST_t_0_0_w_all_days_d_':'LEVEL_IN_TOURISTS',
+        'tot_in_flows_TOURIST_t_0_0_w_all_days_d_':'FLOWS_IN_TOURISTS',
+        'hotspot_level_tot_out_flows_TOURIST_t_0_0_w_all_days_d_':'LEVEL_OUT_TOURISTS',
+        'tot_out_flows_TOURIST_t_0_0_w_all_days_d_':'FLOWS_OUT_TOURISTS',
+        'hotspot_level_tot_in_flows_VISITOR_t_0_0_w_all_days_d_':'LEVEL_IN_VISITORS',
+        'tot_in_flows_VISITOR_t_0_0_w_all_days_d_': 'FLOWS_IN_VISITORS',
+        'hotspot_level_tot_out_flows_VISITOR_t_0_0_w_all_days_d_':'LEVEL_OUT_VISITORS',
+        'tot_out_flows_VISITOR_t_0_0_w_all_days_d_':'FLOWS_OUT_VISITORS'
+        }
+
+    df_flussi_all_user = df_u[cols_user].copy()
+    df_flussi_all_user = df_flussi_all_user[df_flussi_all_user['AREA_ID'].str.startswith('ITA.04.022.', na=False)]
+    df_flussi_all_user.rename(columns = df_u_map, inplace=True)
+    df_flussi_all_user['comune'] = df_flussi_all_user['comune'].str.upper()
+
+    df_merged = pd.merge(df_flussi_all, df_flussi_all_user, on=['ID', 'comune'], how='outer', indicator=True)
+    if len(df_merged[df_merged['_merge'] != 'both']) > 0:
+        logging.warning("WARNING: discrepancies found in IDs: ",len(df_merged[df_merged['_merge'] != 'both']))
+    return df_merged.drop(columns=['_merge'])
+
+
 def compute_phenomenon_dataframes():
     """Loads and prepares the base "phenomenon" dataframes.
 
@@ -523,13 +578,15 @@ def compute_phenomenon_dataframes():
     presenze_df = compute_presenze_trentino(
         mapping_comuni, how="distributional", distribution=vodafone_attendences_df
     )
+    flussi_df = compute_flussi_trentino()
 
     return {
         "phen_popolazione": popolazione_df,
         "phen_strutture": strutture_ospitalita_from_2020,
         "phen_arrivi": arrivi_trentino,
         "phen_presenze": presenze_df,
-    }
+        "phen_flussi": flussi_df
+       }
 
 
 def main():
