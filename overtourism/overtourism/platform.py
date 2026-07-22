@@ -53,3 +53,36 @@ def download_index_data() -> None:
             project.get_artifact(artifact).download(str(download_dir))
         except StoreError as e:
             print(f"Failed to download artifact {artifact}: {e}")
+
+
+def download_index_data_v2() -> None:
+    """Download the index data from the digitalhub platform."""
+    dataitems = [
+        "phen_arrivi.parquet",
+        "phen_popolazione.parquet",
+        "phen_presenze.parquet",
+        "phen_strutture.parquet",
+    ]
+    artifacts = [
+        "map_comuni_into_apt.json",
+        "mapping_comuni_ISTAT.json",
+        "Com01012026_g",
+    ]
+
+    project = dh.get_project(project_name)
+    download_dir = Path(__file__).parent / "database" / "index_data_v2"
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    for dataitem in dataitems:
+        print(f"Downloading dataitem: {dataitem}")
+        try:
+            project.get_dataitem(dataitem).download(str(download_dir))
+        except StoreError as e:
+            print(f"Failed to download dataitem {dataitem}: {e}")
+
+    for artifact in artifacts:
+        print(f"Downloading artifact: {artifact}")
+        try:
+            project.get_artifact(artifact).download(str(download_dir))
+        except StoreError as e:
+            print(f"Failed to download artifact {artifact}: {e}")
