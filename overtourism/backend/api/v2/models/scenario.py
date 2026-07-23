@@ -20,6 +20,14 @@ class ScenarioData(BaseModel):
     index_values: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class CreateScenarioData(BaseModel):
+    values: dict[str, Any] | None = None
+    name: str | None = None
+    description: str | None = None
+    extras: dict[str, Any] | None = None
+    proposal_id: str | None = None
+
+
 class PostScenarioData(BaseModel):
     base_scenario_id: str
     name: str | None = None

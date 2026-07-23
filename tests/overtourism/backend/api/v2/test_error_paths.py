@@ -146,7 +146,7 @@ def test_scenario_routes_return_404_for_missing_entities(
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Updated"},
     )
-    assert update_response.status_code == 500
+    assert update_response.status_code == 404
 
     save_response = client.post(
         f"/api/v2/{tenant}/sessions/session-404/scenarios/missing-scenario",
@@ -159,7 +159,7 @@ def test_scenario_routes_return_404_for_missing_entities(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
     )
-    assert delete_response.status_code == 500
+    assert delete_response.status_code == 404
 
 
 def test_session_routes_return_404_for_missing_problem_or_session(

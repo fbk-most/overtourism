@@ -222,9 +222,7 @@ def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
         fake_module,
     )
 
-    scenario = manager.read_scenario(
-        f"{handler.manager.name_cfg.tenant}_base_scenario"
-    )
+    scenario = manager.read_scenario(f"{handler.manager.name_cfg.tenant}_base_scenario")
     manager.update_scenario(scenario.scenario_id, values={"visits": 9})
     scenario = manager.read_scenario(scenario.scenario_id)
 
