@@ -8,7 +8,9 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from time import time
 
-from overtourism.backend.api.v2.models.territorial_config import TerritorialConfig
+from overtourism.overtourism.backend_extension.models.territorial_config import (
+    TerritorialConfig,
+)
 from overtourism.backend.api.v2.index_utils import (
     _empty_map_response,
     _build_geodataframe,
@@ -17,7 +19,7 @@ from overtourism.backend.api.v2.index_utils import (
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.trentino_indicators import (
+from overtourism.overtourism.backend_extension.models.trentino_indicators import (
     _REGISTRY,
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,

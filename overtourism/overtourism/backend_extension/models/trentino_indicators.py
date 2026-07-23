@@ -6,14 +6,18 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from overtourism.backend.api.v2.models.indicator import Indicator
-from overtourism.backend.api.v2.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.models.indicator import Indicator
+from overtourism.overtourism.backend_extension.models.phenomenon import Phenomenon
 
 # ---------------------------------------------------------------------------
 # Source paths
 # ---------------------------------------------------------------------------
 data_dir = (
-    Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
+    Path(__file__).resolve().parents[4]
+    / "overtourism"
+    / "overtourism"
+    / "database"
+    / "index_data_v2"
 )  # TODO: replace this with dataloader
 
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
