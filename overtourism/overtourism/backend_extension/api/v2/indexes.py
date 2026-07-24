@@ -130,6 +130,7 @@ def get_indicators_list():
                 {
                     "value": key,
                     "label": indicator.name or key,
+                    "index_description": indicator.description,
                     "availableForVariation": indicator.availableForVariation,
                     "extraFields": indicator.extraFields,
                     "years_range": {
@@ -222,8 +223,6 @@ def get_index_data(
             geo_data = _to_map_response(gdf_final)
 
         return {
-            "description": f"La mappa sottostante mostra per ogni area del territorio il valore relativo  all'{indicator.name.lower()}",
-            "index_description": indicator.description,
             "geo_data": {
                 "data": geo_data["geojson"],
                 "min_value": geo_data["min_value"],
@@ -274,8 +273,6 @@ def get_variation_data(
         series = tc.apply_to_series(raw_series)
 
         return {
-            "description": f"Il grafico sottostante mostra la variazione dell'{indicator.name.lower()} nell'intervallo di tempo selezionato",
-            "index_description": indicator.description,
             "labels": labels,
             "series": series,
         }
@@ -350,8 +347,6 @@ def get_variation_over_time(
             geo_data = _to_map_response(gdf_final)
 
         return {
-            "description": f"La mappa sottostante mostra per ogni area del territorio il valore relativo alla variazione dell'{indicator.name.lower()} tra due periodi di riferimento.",
-            "index_description": indicator.description,
             "geo_data": {
                 "data": geo_data["geojson"],
                 "min_value": geo_data["min_value"],
