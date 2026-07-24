@@ -78,6 +78,8 @@ class AccommodationCapacityIndicator(Indicator):
 
     name = "Indice di ricettività"
 
+    description = "L'indice di ricettività definisce il rapporto fra i letti presenti negli esercizi ricettivi e gli abitanti di una stessa area. L'indice è una misura della capacità turistica rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla popolazione residente e alla consistenza degli esercizi alberghieri e extra-alberghieri."
+
     def __init__(self, source_file1, source_file2):
         super().__init__(
             phenomena=[
@@ -92,6 +94,7 @@ class TourismIndexIndicator(Indicator):
     """Total presences per resident."""
 
     name = "Indice di turisticità"
+    description = "L'indice di turisticità definisce il rapporto fra il numero medio giornaliero di turisti negli esercizi ricettivi e gli abitanti di una stessa area. L'indice è una misura dell'effettivo peso del turismo rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati Vodafone per quanto riguarda le presenze turistiche e dai dati ISPAT relativi alla popolazione residente."
 
     def __init__(self, source_file1, source_file2, presences_col_name):
         super().__init__(
@@ -107,6 +110,7 @@ class HospitalityIndexFacilitiesIndicator(Indicator):
     """Share of non-hotel facilities over total facilities."""
 
     name = "Indice di incidenza ospitalità non convenzionale (strutture)"
+    description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il rapporto fra le strutture ricettive non convenzionali e il totale delle strutture presenti in un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
 
     def __init__(self, source_file):
         super().__init__(
@@ -122,6 +126,7 @@ class HospitalityIndexBedsIndicator(Indicator):
     """Share of non-hotel beds over total beds."""
 
     name = "Indice di incidenza ospitalità non convenzionale (posti letto)"
+    description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il rapporto fra il numero di posti letto in strutture ricettive non convenzionali e il numero totale di posti letto in tutte le strutture di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
 
     def __init__(self, source_file):
         super().__init__(
@@ -137,6 +142,7 @@ class HiddenTourismIndicator(Indicator):
     """Calculates the hidden tourism indicator as the ratio between Vodafone registered attendences and accomodancy ones"""
 
     name = "Indice di turismo sommerso"
+    description = "L'indice misura il rapporto fra le presenze di turisti raccolte attraverso l'analisi di dati da rete di telefonia mobile e le presenze ufficiali di turisti in strutture alberghiere e extra-alberghiere. L'analisi è a livello di ambito turistico e riguarda gli anni 2022 e 2023. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
 
     def __init__(self, source_file):
         super().__init__(
@@ -170,6 +176,7 @@ class SeasonalityIndicator(Indicator):
     """Sum of arrivals in a reference sub-period over total arrivals."""
 
     name = "Indice di stagionalita delle presenze"
+    description = "L'indice di stagionalità definisce il rapporto fra le presenze di turisti ed escursionisti durante tra due periodi (es: anno completo ed alta stagione). L'indice è calcolato partendo dai dati Vodafone relativi alle presenze di turisti ed escursionisti."
     availableForVariation = False
     extraFields = ["seasonality"]
 
