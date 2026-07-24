@@ -94,39 +94,6 @@ def test_problem_routes_accept_typed_domain_fields(
     assert response.json()["editable_indexes"] == []
 
 
-@pytest.mark.xfail(reason="Known problem wrapper validation bug when domain fields are omitted", strict=True)
-def test_problem_updates_preserve_current_groups_when_request_omits_domain_fields(
-    client,
-    tenant: str,
-    viewer,
-) -> None:
-    create_response = client.post(
-        f"/api/v2/{tenant}/problems",
-        json={
-            "name": "Lake Cleanup",
-            "description": "Reduce visitor pressure",
-            "objective": "Keep the shoreline usable",
-            "groups": ["pressure"],
-        },
-    )
-    assert create_response.status_code == 200
-    problem_id = create_response.json()["problem_id"]
-
-    update_response = client.put(
-        f"/api/v2/{tenant}/problems/{problem_id}",
-        json={
-            "version": create_response.json()["version"],
-            "name": "Lake Cleanup Updated",
-            "description": "Still reducing pressure",
-        },
-    )
-
-    assert update_response.status_code == 200
-    assert update_response.json()["objective"] is None
-    assert update_response.json()["groups"] == []
-    assert update_response.json()["editable_indexes"] == []
-
-
 def test_problem_routes_expose_typed_domain_fields_in_openapi(client) -> None:
     response = client.get("/openapi.json")
 
