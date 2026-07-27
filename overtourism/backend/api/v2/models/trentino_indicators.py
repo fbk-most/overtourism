@@ -20,6 +20,7 @@ MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
 POPULATION_SOURCE = data_dir / "phen_popolazione.parquet"
 STRUCTURES_SOURCE = data_dir / "phen_strutture.parquet"
 ATTENDENCES_SOURCE = data_dir / "phen_presenze.parquet"
+FLOWS_SOURCE = data_dir / "phen_flussi.parquet"
 MACRO_AREAS_FILE = data_dir / "map_comuni_into_apt.json"
 CODICI_COMUNI_FILE = data_dir / "mapping_comuni_ISTAT.json"
 
@@ -51,6 +52,10 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     ),
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
+    "flussi-in-turisti": lambda: FlowsIndicator(FLOWS_SOURCE),
+    "flussi-in-escursionisti": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
+    "flussi-out-escursionisti": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
+    "flussi-out-tourists": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT")
 }
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
@@ -161,7 +166,23 @@ class HiddenTourismIndicator(Indicator):
     ) -> pd.Series:
         return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
 
+class FlowsIndicator(Indicator):
+    """Calculates the flows indicator as the ratio between tourist flows and total flows."""
 
+    name = "Indice di flussi"
+
+    def __init__(self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"):
+        phen_name = flows_col.lower()
+        phen_name_tot = f"{phen_name}_tot"
+        super().__init__(
+            phenomena=[
+                FlowPhenomenon(source_file, col=flows_col, name=phen_name),
+                FlowPhenomenon(source_file, col=flows_col_tot, name=phen_name_tot),
+            ],
+            combinator=self.divide(phen_name, phen_name_tot),
+        )
+
+    
 class SeasonalityIndicator(Indicator):
     """Sum of arrivals in a reference sub-period over total arrivals."""
 
@@ -315,4 +336,21 @@ class PopulationPhenomenon(Phenomenon):
             col,
             agg="mean",
             dtype={"LOCATION_ID": str},
+        )
+
+
+class FlowPhenomenon(Phenomenon):
+    """Flows in/out + users"""
+
+    name = "flows"
+    temporal_strategy = "constant"
+    temporal_resolution = "yearly"
+    spatial_resolution = "comune"
+    spatial_strategy = "identity"
+
+    def __init__(self, source, col="flows"):
+        super().__init__(
+            source,
+            col,
+            agg="sum",
         )
