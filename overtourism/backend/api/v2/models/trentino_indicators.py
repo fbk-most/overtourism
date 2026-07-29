@@ -16,7 +16,13 @@ data_dir = (
     Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
 )  # TODO: replace this with dataloader
 
+_VODAFONE_ID_INDICATORS = {
+    "ratio-flussi-in-turisti", "ratio-flussi-in-escursionisti",
+    "ratio-flussi-out-escursionisti", "ratio-flussi-out-tourists",
+}
+
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
+MAP_IDS = data_dir / "cities_gdf_base_columns.geojson"
 POPULATION_SOURCE = data_dir / "phen_popolazione.parquet"
 STRUCTURES_SOURCE = data_dir / "phen_strutture.parquet"
 ATTENDENCES_SOURCE = data_dir / "phen_presenze.parquet"
@@ -52,10 +58,10 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     ),
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
-    "flussi-in-turisti": lambda: FlowsIndicator(FLOWS_SOURCE),
-    "flussi-in-escursionisti": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
-    "flussi-out-escursionisti": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
-    "flussi-out-tourists": lambda: FlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT")
+    "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
+    "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
+    "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
+    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT")
 }
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
@@ -166,18 +172,27 @@ class HiddenTourismIndicator(Indicator):
     ) -> pd.Series:
         return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
 
-class FlowsIndicator(Indicator):
-    """Calculates the flows indicator as the ratio between tourist flows and total flows."""
-
-    name = "Indice di flussi"
+class RatioFlowsIndicator(Indicator):
+    """Calculates the flows indicator as the ratio between tourist/excursionist flows and total flows."""
 
     def __init__(self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"):
         phen_name = flows_col.lower()
         phen_name_tot = f"{phen_name}_tot"
+        self.name = f"Rapporto di flussi {phen_name.removeprefix('flows_').replace('_', ' ')}" 
         super().__init__(
             phenomena=[
-                FlowPhenomenon(source_file, col=flows_col, name=phen_name),
-                FlowPhenomenon(source_file, col=flows_col_tot, name=phen_name_tot),
+                FlowPhenomenon(
+                    source_file,
+                    col=flows_col,
+                    municipality_id_col="ID",
+                    name=phen_name,
+                ),
+                FlowPhenomenon(
+                    source_file,
+                    col=flows_col_tot,
+                    municipality_id_col="ID",
+                    name=phen_name_tot,
+                ),
             ],
             combinator=self.divide(phen_name, phen_name_tot),
         )
@@ -348,9 +363,12 @@ class FlowPhenomenon(Phenomenon):
     spatial_resolution = "comune"
     spatial_strategy = "identity"
 
-    def __init__(self, source, col="flows"):
+    def __init__(self, source, col="flows", municipality_id_col="ID", name=None):
         super().__init__(
             source,
             col,
             agg="sum",
+            municipality_id_col=municipality_id_col,
         )
+        if name is not None:
+            self.name = name

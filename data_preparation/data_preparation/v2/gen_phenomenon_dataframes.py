@@ -554,7 +554,7 @@ def compute_flussi_trentino():
     df_merged = pd.merge(df_flussi_all, df_flussi_all_user, on=['ID', 'comune'], how='outer', indicator=True)
     if len(df_merged[df_merged['_merge'] != 'both']) > 0:
         logging.warning("WARNING: discrepancies found in IDs: ",len(df_merged[df_merged['_merge'] != 'both']))
-    df_merged['anno'] = 2024
+    df_merged['DATA'] = 2024
 
     return df_merged.drop(columns=['_merge'])
 
