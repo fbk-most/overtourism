@@ -23,7 +23,7 @@ from overtourism.backend.api.v2.models.trentino_indicators import (
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
     MAP_IDS,
-    _VODAFONE_ID_INDICATORS,
+    _VODAFONE_ID_PREFIXES,
     get_indicator,
 )
 from overtourism.backend.api.v2.index_utils_trentino import (
@@ -202,7 +202,7 @@ def get_index_data(
             f"[{index}] start_date={start_date}, end_date={end_date}, "
             f"extra={extra}, spatial_granularity={tc.spatial_granularity}"
         )
-        if index in _VODAFONE_ID_INDICATORS:
+        if index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
             gdf_base = get_vodafone_map_geometry(MAP_IDS)   
         else:
             gdf_base = get_map_geometry(MAP_SHAPEFILE)
@@ -221,7 +221,7 @@ def get_index_data(
                 gdf_final = _build_macro_area_geodataframe(
                     result, MACRO_AREAS_FILE, MAP_SHAPEFILE
                 )
-            elif index in _VODAFONE_ID_INDICATORS:
+            elif index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
                 gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)

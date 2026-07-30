@@ -16,10 +16,11 @@ data_dir = (
     Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
 )  # TODO: replace this with dataloader
 
-_VODAFONE_ID_INDICATORS = {
-    "ratio-flussi-in-turisti", "ratio-flussi-in-escursionisti",
-    "ratio-flussi-out-escursionisti", "ratio-flussi-out-tourists",
-}
+_VODAFONE_ID_PREFIXES = [
+    'ratio',
+    'level',
+    'flows'
+]
 
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
 MAP_IDS = data_dir / "cities_gdf_base_columns.geojson"
@@ -61,7 +62,18 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
     "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
     "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
-    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT")
+    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT"),
+
+    "flows-in-escursionisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_IN_VISITORS",
+        flow_col = "FLOWS_IN_VISITORS"
+    ),
+    "flows-in-turisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_IN_TOURISTS",
+        flow_col = "FLOWS_IN_TOURISTS"
+    )
 }
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
@@ -197,7 +209,38 @@ class RatioFlowsIndicator(Indicator):
             combinator=self.divide(phen_name, phen_name_tot),
         )
 
-    
+class FlowsIndicatorLevel(Indicator):
+    """
+    Calculates hotspot level, using 10 - val scale
+    """
+    extraFields = ["flow_value"]
+    def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
+        self.col = col
+        self.name = f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
+        super().__init__(
+            phenomena=[
+                FlowPhenomenon(
+                    source_file,
+                    col=col,
+                    municipality_id_col="ID",
+                    name = col,
+                    agg="mean"
+                ),
+                FlowPhenomenon(
+                    source_file,
+                    col=flow_col,
+                    municipality_id_col="ID",
+                    name="flow_value",
+                    agg="sum",
+                ),
+            ],
+            combinator=self.compute_hotspot_level,
+        )
+
+    def compute_hotspot_level(self, df: pd.DataFrame, **extra) -> pd.Series:
+        return np.where(df[self.col] == -1, 0, 10 - df[self.col])
+
+
 class SeasonalityIndicator(Indicator):
     """Sum of arrivals in a reference sub-period over total arrivals."""
 
@@ -363,11 +406,11 @@ class FlowPhenomenon(Phenomenon):
     spatial_resolution = "comune"
     spatial_strategy = "identity"
 
-    def __init__(self, source, col="flows", municipality_id_col="ID", name=None):
+    def __init__(self, source, col="flows", municipality_id_col="ID", name=None, agg="sum"):
         super().__init__(
             source,
             col,
-            agg="sum",
+            agg=agg,
             municipality_id_col=municipality_id_col,
         )
         if name is not None:
