@@ -23,7 +23,7 @@ from overtourism.backend.api.v2.models.trentino_indicators import (
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
     MAP_IDS,
-    _VODAFONE_ID_PREFIXES,
+    # _VODAFONE_ID_PREFIXES,
     get_indicator,
 )
 from overtourism.backend.api.v2.index_utils_trentino import (
