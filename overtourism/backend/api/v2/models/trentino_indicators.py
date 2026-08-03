@@ -16,11 +16,11 @@ data_dir = (
     Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
 )  # TODO: replace this with dataloader
 
-_VODAFONE_ID_PREFIXES = [
-    'ratio',
-    'level',
-    'flows'
-]
+# _VODAFONE_ID_PREFIXES = [
+#     'ratio',
+#     'level',
+#     'flows'
+# ]
 
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
 MAP_IDS = data_dir / "cities_gdf_base_columns.geojson"
@@ -196,13 +196,13 @@ class RatioFlowsIndicator(Indicator):
                 FlowPhenomenon(
                     source_file,
                     col=flows_col,
-                    municipality_id_col="ID",
+                    municipality_id_col="ID_COMUNE",
                     name=phen_name,
                 ),
                 FlowPhenomenon(
                     source_file,
                     col=flows_col_tot,
-                    municipality_id_col="ID",
+                    municipality_id_col="ID_COMUNE",
                     name=phen_name_tot,
                 ),
             ],
@@ -222,13 +222,13 @@ class FlowsIndicatorLevel(Indicator):
                 FlowPhenomenon(
                     source_file,
                     col=col,
-                    municipality_id_col="ID",
+                    municipality_id_col="ID_COMUNE",
                     name = col,
                 ),
                 FlowPhenomenon(
                     source_file,
                     col=flow_col,
-                    municipality_id_col="ID",
+                    municipality_id_col="ID_COMUNE",
                     name="flow_value",
                 ),
             ],

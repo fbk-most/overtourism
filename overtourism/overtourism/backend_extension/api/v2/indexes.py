@@ -43,6 +43,9 @@ indexes_router = APIRouter(
     # TODO: restoredependencies=[Depends(get_auth_context)],
 )
 
+# from pathlib import Path 
+# PATH_JSON_MAP = Path(__file__).parent.resolve() / 'filename.json'
+
 # ---------------------------------------------------------------------------
 # Endpoint-level permission defaults
 # Future: replace with per-user resolution from auth token / session.
@@ -202,10 +205,10 @@ def get_index_data(
             f"[{index}] start_date={start_date}, end_date={end_date}, "
             f"extra={extra}, spatial_granularity={tc.spatial_granularity}"
         )
-        if index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
-            gdf_base = get_vodafone_map_geometry(MAP_IDS)   
-        else:
-            gdf_base = get_map_geometry(MAP_SHAPEFILE)
+        # if index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
+        #     gdf_base = get_vodafone_map_geometry(MAP_IDS)   
+        # else:
+        gdf_base = get_map_geometry(MAP_SHAPEFILE)
 
         computed_index = indicator.get_indicator(
             start_date=start_date,
@@ -221,8 +224,8 @@ def get_index_data(
                 gdf_final = _build_macro_area_geodataframe(
                     result, MACRO_AREAS_FILE, MAP_SHAPEFILE
                 )
-            elif index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
-                gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
+            # elif index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
+            #     gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
             geo_data = _to_map_response(gdf_final)
