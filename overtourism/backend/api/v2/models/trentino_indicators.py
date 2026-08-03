@@ -224,14 +224,12 @@ class FlowsIndicatorLevel(Indicator):
                     col=col,
                     municipality_id_col="ID",
                     name = col,
-                    agg="mean"
                 ),
                 FlowPhenomenon(
                     source_file,
                     col=flow_col,
                     municipality_id_col="ID",
                     name="flow_value",
-                    agg="sum",
                 ),
             ],
             combinator=self.compute_hotspot_level,
@@ -406,7 +404,12 @@ class FlowPhenomenon(Phenomenon):
     spatial_resolution = "comune"
     spatial_strategy = "identity"
 
-    def __init__(self, source, col="flows", municipality_id_col="ID", name=None, agg="sum"):
+    def __init__(self, 
+                 source, 
+                 col="flows", 
+                 municipality_id_col="ID", 
+                 name=None, 
+                 agg="mean"):        # TODO: check why mean works and not sum 
         super().__init__(
             source,
             col,
