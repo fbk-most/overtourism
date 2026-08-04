@@ -63,7 +63,6 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
     "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
     "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT"),
-
     "flows-in-escursionisti": lambda: FlowsIndicatorLevel(
         FLOWS_SOURCE, 
         col="LEVEL_IN_VISITORS",
@@ -73,6 +72,16 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
         FLOWS_SOURCE, 
         col="LEVEL_IN_TOURISTS",
         flow_col = "FLOWS_IN_TOURISTS"
+    ),
+    "flows-out-escursionisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_OUT_VISITORS",
+        flow_col = "FLOWS_OUT_VISITORS"
+    ),
+    "flows-out-turisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_OUT_TOURISTS",
+        flow_col = "FLOWS_OUT_TOURISTS"
     )
 }
 
