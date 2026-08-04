@@ -235,7 +235,7 @@ class FlowsIndicatorLevel(Indicator):
         )
 
     def compute_hotspot_level(self, df: pd.DataFrame, **extra) -> pd.Series:
-        return np.where(df[self.col] == -1, 0, 10 - df[self.col])
+        return pd.Series(np.where(df[self.col] == -1, 0, 10 - df[self.col]))
 
 
 class SeasonalityIndicator(Indicator):
