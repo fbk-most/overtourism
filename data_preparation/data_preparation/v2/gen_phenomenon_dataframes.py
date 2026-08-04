@@ -30,8 +30,11 @@ from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
 
 logging.basicConfig(level=logging.INFO)
 
+PATH_OVERTOURISM = Path(__file__).parent.parent.parent.parent.resolve() 
 PATH_RAW_DATA = Path(__file__).parent.resolve() / "raw_data_trentino"
 PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
+PATH_AIXPA_INDEX_DFS = PATH_OVERTOURISM / 'overtourism' / 'overtourism' / 'database' / 'index_data_v2'
+PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 assert PATH_MAPPING.exists(), f"Path to mapping does not exist {PATH_MAPPING}"
 assert PATH_RAW_DATA.exists(), f"Path to raw data does not exist {PATH_RAW_DATA}"
@@ -665,7 +668,7 @@ def local():
     dict_dfs = compute_phenomenon_dataframes()
     logging.info("## Saving phenomenon dataframes...")
     for key, value in dict_dfs.items():
-        put_dataframe(value, key, type="parquet")
+        put_dataframe(value, key, type="parquet", path = PATH_AIXPA_INDEX_DFS)
     logging.info("## Saved.")
 
 if __name__ == "__main__":

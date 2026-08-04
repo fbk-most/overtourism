@@ -213,7 +213,6 @@ class FlowsIndicatorLevel(Indicator):
     """
     Calculates hotspot level, using 10 - val scale
     """
-    extraFields = ["flow_value"]
     def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
         self.col = col
         self.name = f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
