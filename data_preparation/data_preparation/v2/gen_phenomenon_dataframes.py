@@ -531,7 +531,8 @@ def create_mapping(df):
         'TN OLTRE ADIGE SUD': 'TRENTO',
         'TN SUD': 'TRENTO'
     }
-
+    
+    df = df.copy()
     with open(PATH_MAPPING / "vodafone_Trento.json") as f: 
         mapping_comuni_voda = json.load(f)
     df['codice_istat_voda'] = df['comune'].str.upper().str.strip().map(mapping_comuni_voda)
