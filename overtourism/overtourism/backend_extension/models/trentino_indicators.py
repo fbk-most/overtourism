@@ -152,12 +152,12 @@ class HiddenTourismIndicator(Indicator):
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="presenze_apt_mese_distributed",
+                    col="presenze_alb_distributed",
                     name="presenze_alb",
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="Presenze extra-alberghi_distributed",
+                    col="presenze_xalb_distributed",
                     name="presenze_xalb",
                 ),
             ],
@@ -237,7 +237,7 @@ class PresencesPhenomenon(Phenomenon):
     spatial_strategy = "identity"
 
     def __init__(self, source, col="presenze", name=None):
-        super().__init__(source, col, agg="sum")
+        super().__init__(source, col, agg="mean")
         if name is not None:
             self.name = name
 
