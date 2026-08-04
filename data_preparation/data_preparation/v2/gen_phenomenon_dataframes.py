@@ -553,7 +553,7 @@ def create_mapping(df):
 
 
 def compute_flussi_trentino(mapping_comuni):
-    df_ = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns__.parquet")
+    df_ = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns__.parquet")    # TODO: upload this on platform
     df_u = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns_user.parquet")
 
     cols = ['AREA_ID', 'AREA_LABEL', 
