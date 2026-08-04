@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
@@ -117,7 +118,7 @@ model_evaluator = MolvenoEvaluator(
 extras_config = ExtrasConfig(
     problem_keys=frozenset(("objective", "links", "groups", "editable_indexes")),
     proposal_keys=frozenset(("resources", "context", "impact")),
-    scenario_keys=frozenset(("index_diffs")),
+    scenario_keys=frozenset("index_diffs"),
 )
 
 
@@ -135,9 +136,12 @@ names_cfg = BaseConfig(
 # ──────────────────────────────────────────────
 data_dir = Path(__file__).parent.parent / "database"
 index_data_path = data_dir / "index_data"
+database_url = os.getenv(
+    "OVERTOURISM_DATABASE", f"sqlite:///{data_dir / 'overtourism.sqlite'}"
+)
 store_conf = StoreConfig(
     "sql",
-    {"url": f"sqlite:///{data_dir / 'overtourism.sqlite'}"},
+    {"url": database_url},
 )
 session_ownership_store = SessionOwnershipStore(data_dir / "session_ownership.sqlite")
 

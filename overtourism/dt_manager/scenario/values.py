@@ -85,25 +85,14 @@ def values_as_scipy(scenario_data: Scenario) -> dict[str, Any]:
                 values[val.index_name] = val.index_value
             case IndexType.UNIFORM.value:
                 values[val.index_name] = stats.uniform(
-                    **{
-                        "loc": val.index_value["loc"],
-                        "scale": val.index_value["scale"],
-                    }
+                    loc=val.index_value["loc"], scale=val.index_value["scale"]
                 )
             case IndexType.LOGNORM.value:
                 values[val.index_name] = stats.lognorm(
-                    **{
-                        "loc": val.index_value["loc"],
-                        "scale": val.index_value["scale"],
-                        "s": val.index_value["s"],
-                    }
+                    loc=val.index_value["loc"], scale=val.index_value["scale"], s=val.index_value["s"]
                 )
             case IndexType.TRIANG.value:
                 values[val.index_name] = stats.triang(
-                    **{
-                        "loc": val.index_value["loc"],
-                        "scale": val.index_value["scale"],
-                        "c": val.index_value["c"],
-                    }
+                    loc=val.index_value["loc"], scale=val.index_value["scale"], c=val.index_value["c"]
                 )
     return values

@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import pytest
+
+os.environ.setdefault(
+    "OVERTOURISM_MOLVENO_DATABASE_URL",
+    f"sqlite:///{Path(tempfile.gettempdir()) / f'overtourism-molveno-tests-{os.getpid()}.sqlite'}",
+)
 
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,

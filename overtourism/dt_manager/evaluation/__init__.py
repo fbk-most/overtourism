@@ -8,4 +8,4 @@ from overtourism.dt_manager.evaluation.manager import (
     EvaluationManager as EvaluationManager,
 )
 
-__all__ = ["Evaluation", "EvaluationState", "EvaluationManager"]
+__all__ = ["Evaluation", "EvaluationManager", "EvaluationState"]

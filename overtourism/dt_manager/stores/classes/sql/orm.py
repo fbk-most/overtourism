@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
+import zstandard as zstd
 from sqlalchemy import (
     JSON,
     ForeignKey,
@@ -16,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import LargeBinary, TypeDecorator
 
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.stores.enums import ProblemNestedKey
@@ -23,6 +26,37 @@ from overtourism.dt_manager.stores.enums import ProblemNestedKey
 
 class SQLBase(DeclarativeBase):
     pass
+
+
+class CompressedJSON(TypeDecorator[bytes | None]):
+    """Persist JSON payloads as compressed binary blobs."""
+
+    impl = LargeBinary
+    cache_ok = True
+
+    def process_bind_param(
+        self,
+        value: dict[str, Any] | None,
+        _dialect: Any,
+    ) -> bytes | None:
+        if value is None:
+            return None
+        serialized = json.dumps(value, separators=(",", ":")).encode("utf-8")
+        return zstd.ZstdCompressor(level=10).compress(serialized)
+
+    def process_result_value(
+        self,
+        value: bytes | bytearray | memoryview | str | dict[str, Any] | None,
+        _dialect: Any,
+    ) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            return json.loads(value)
+        decompressed = zstd.ZstdDecompressor().decompress(bytes(value))
+        return json.loads(decompressed.decode("utf-8"))
 
 
 class ProblemORM(SQLBase):
@@ -141,7 +175,7 @@ class EvaluationORM(SQLBase):
     started: Mapped[str | None] = mapped_column(String)
     finished: Mapped[str | None] = mapped_column(String)
     result: Mapped[dict[str, Any] | None] = mapped_column(
-        MutableDict.as_mutable(JSON),
+        CompressedJSON(),
         nullable=True,
     )
 

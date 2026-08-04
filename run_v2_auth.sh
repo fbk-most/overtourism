@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 source "$ROOT_DIR/.venv/bin/activate"
 
+#export OVERTOURISM_DATABASE="postgresql+psycopg://postgres:123@localhost:5432/postgres"
 export AUTH_ENABLED="${AUTH_ENABLED:-false}"
 export AUTH_ISSUER="${AUTH_ISSUER:-https://aac.platform.smartcommunitylab.it}"
 export AUTH_JWKS_URL="${AUTH_JWKS_URL:-https://aac.platform.smartcommunitylab.it/jwk}"

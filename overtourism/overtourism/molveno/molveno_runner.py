@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import numpy as np
 from civic_digital_twins.dt_model import (

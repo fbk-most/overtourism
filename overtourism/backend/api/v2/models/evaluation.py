@@ -24,7 +24,7 @@ class EvaluationData(BaseModel):
     finished: str | None = None
 
     @classmethod
-    def from_domain(cls, evaluation: Any) -> "EvaluationData":
+    def from_domain(cls, evaluation: Any) -> EvaluationData:
         payload = evaluation.to_dict() if hasattr(evaluation, "to_dict") else evaluation
         return cls(
             evaluation_id=payload["evaluation_id"],

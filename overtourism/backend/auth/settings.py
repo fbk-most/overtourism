@@ -26,7 +26,7 @@ class AuthSettings:
     leeway_seconds: int = 30
 
     @classmethod
-    def from_env(cls) -> "AuthSettings":
+    def from_env(cls) -> AuthSettings:
         enabled_value = os.getenv(AuthEnvironmentVariable.ENABLED)
         algorithms_value = os.getenv(AuthEnvironmentVariable.ALGORITHMS)
         leeway_value = os.getenv(AuthEnvironmentVariable.LEEWAY_SECONDS)
