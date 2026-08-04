@@ -165,12 +165,12 @@ class HiddenTourismIndicator(Indicator):
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="presenze_apt_mese_distributed",
+                    col="presenze_alb_distributed",
                     name="presenze_alb",
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="Presenze extra-alberghi_distributed",
+                    col="presenze_xalb_distributed",
                     name="presenze_xalb",
                 ),
             ],
