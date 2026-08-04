@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -82,8 +83,11 @@ def _auth_context_tenant(
 
 def get_auth_context(
     tenant: str | None = None,
-    authorization: HTTPAuthorizationCredentials | None = Security(bearer_auth_scheme),
-    settings: AuthSettings = Depends(get_auth_settings),
+    authorization: Annotated[
+        HTTPAuthorizationCredentials | None, Security(bearer_auth_scheme)
+    ] = None,
+    *,
+    settings: Annotated[AuthSettings, Depends(get_auth_settings)],
 ) -> AuthContext:
     """Build the auth context for the current request.
     When auth is enabled, validate the bearer token and tenant claim."""

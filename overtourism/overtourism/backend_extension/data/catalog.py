@@ -968,10 +968,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _BEACH,
             (
-                "Numero massimo di presenza nella spiaggia di Molveno che "
-                "garantiscono un distanziamento adeguato fra le persone",
-                "Maximum number of people on Molveno beach that guarantee "
-                "adequate distancing between persons",
+                (
+                    "Numero massimo di presenza nella spiaggia di Molveno che "
+                    "garantiscono un distanziamento adeguato fra le persone"
+                ),
+                (
+                    "Maximum number of people on Molveno beach that guarantee "
+                    "adequate distancing between persons"
+                ),
             ),
             min=0.0,
             max=10000.0,
@@ -988,10 +992,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _HOTELS,
             (
-                "Totale posti letto nelle strutture ricettive alberghiere e "
-                "extralberghiere a Molveno",
-                "Total beds in hotel and extra-hotel accommodation facilities "
-                "in Molveno",
+                (
+                    "Totale posti letto nelle strutture ricettive alberghiere e "
+                    "extralberghiere a Molveno"
+                ),
+                (
+                    "Total beds in hotel and extra-hotel accommodation facilities "
+                    "in Molveno"
+                ),
             ),
             min=0.0,
             max=10000.0,
@@ -1100,10 +1108,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _HOTELS,
             (
-                "Percentuale di turisti che alloggiano in strutture ricettive "
-                "alberghiere o extralberghiere a Molveno",
-                "Percentage of tourists staying in hotel or extra-hotel "
-                "accommodation facilities in Molveno",
+                (
+                    "Percentuale di turisti che alloggiano in strutture ricettive "
+                    "alberghiere o extralberghiere a Molveno"
+                ),
+                (
+                    "Percentage of tourists staying in hotel or extra-hotel "
+                    "accommodation facilities in Molveno"
+                ),
             ),
             min=0.0,
             max=100.0,
@@ -1138,10 +1150,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _PARKING,
             (
-                "Occupazione media (numero medio di persone) nei veicoli "
-                "utilizzati dai turisti",
-                "Average occupancy (mean number of persons) in vehicles "
-                "used by tourists",
+                (
+                    "Occupazione media (numero medio di persone) nei veicoli "
+                    "utilizzati dai turisti"
+                ),
+                (
+                    "Average occupancy (mean number of persons) in vehicles "
+                    "used by tourists"
+                ),
             ),
             min=0.1,
             max=5.0,
@@ -1157,10 +1173,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _PARKING,
             (
-                "Occupazione media (numero medio di persone) nei veicoli "
-                "utilizzati dagli escursionisti",
-                "Average occupancy (mean number of persons) in vehicles "
-                "used by excursionists",
+                (
+                    "Occupazione media (numero medio di persone) nei veicoli "
+                    "utilizzati dagli escursionisti"
+                ),
+                (
+                    "Average occupancy (mean number of persons) in vehicles "
+                    "used by excursionists"
+                ),
             ),
             min=0.1,
             max=5.0,
@@ -1176,10 +1196,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _PARKING,
             (
-                "Numero di veicoli di turisti che possono occupare lo stesso "
-                "posto auto nell'arco della giornata",
-                "Number of tourist vehicles that can occupy the same parking "
-                "space during the day",
+                (
+                    "Numero di veicoli di turisti che possono occupare lo stesso "
+                    "posto auto nell'arco della giornata"
+                ),
+                (
+                    "Number of tourist vehicles that can occupy the same parking "
+                    "space during the day"
+                ),
             ),
             min=1.0,
             max=4.0,
@@ -1195,10 +1219,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _PARKING,
             (
-                "Numero di veicoli di escursionisti che possono occupare lo "
-                "stesso posto auto nell'arco della giornata",
-                "Number of excursionist vehicles that can occupy the same "
-                "parking space during the day",
+                (
+                    "Numero di veicoli di escursionisti che possono occupare lo "
+                    "stesso posto auto nell'arco della giornata"
+                ),
+                (
+                    "Number of excursionist vehicles that can occupy the same "
+                    "parking space during the day"
+                ),
             ),
             min=1.0,
             max=4.0,
@@ -1214,12 +1242,16 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _FLOWS,
             (
-                "Questo fattore serve per aumentare (> 100%) o diminuire "
-                "(< 100%) la presenza stimata di turisti rispeto al valore "
-                "storico.",
-                "This factor is used to increase (> 100%) or decrease "
-                "(< 100%) the estimated tourist presence relative to the "
-                "historical value.",
+                (
+                    "Questo fattore serve per aumentare (> 100%) o diminuire "
+                    "(< 100%) la presenza stimata di turisti rispeto al valore "
+                    "storico."
+                ),
+                (
+                    "This factor is used to increase (> 100%) or decrease "
+                    "(< 100%) the estimated tourist presence relative to the "
+                    "historical value."
+                ),
             ),
             min=5.0,
             max=400.0,
@@ -1236,12 +1268,16 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _FLOWS,
             (
-                "Questo fattore serve per aumentare (> 100%) o diminuire "
-                "(< 100%) la presenza stimata di escursionisti rispeto al "
-                "valore storico.",
-                "This factor is used to increase (> 100%) or decrease "
-                "(< 100%) the estimated excursionist presence relative to "
-                "the historical value.",
+                (
+                    "Questo fattore serve per aumentare (> 100%) o diminuire "
+                    "(< 100%) la presenza stimata di escursionisti rispeto al "
+                    "valore storico."
+                ),
+                (
+                    "This factor is used to increase (> 100%) or decrease "
+                    "(< 100%) the estimated excursionist presence relative to "
+                    "the historical value."
+                ),
             ),
             min=5.0,
             max=400.0,
@@ -1258,11 +1294,15 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _FLOWS,
             (
-                "Questo valore rappresenta il livello massimo che può "
-                "raggiungere la presenza di turisti a Molveno durante una "
-                "giornata",
-                "This value represents the maximum level that tourist "
-                "presence in Molveno can reach during a day",
+                (
+                    "Questo valore rappresenta il livello massimo che può "
+                    "raggiungere la presenza di turisti a Molveno durante una "
+                    "giornata"
+                ),
+                (
+                    "This value represents the maximum level that tourist "
+                    "presence in Molveno can reach during a day"
+                ),
             ),
             min=1000.0,
             max=20000.0,
@@ -1278,11 +1318,15 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _FLOWS,
             (
-                "Questo valore rappresenta il livello massimo che può "
-                "raggiungere la presenza di escursionisti a Molveno durante "
-                "una giornata",
-                "This value represents the maximum level that excursionist "
-                "presence in Molveno can reach during a day",
+                (
+                    "Questo valore rappresenta il livello massimo che può "
+                    "raggiungere la presenza di escursionisti a Molveno durante "
+                    "una giornata"
+                ),
+                (
+                    "This value represents the maximum level that excursionist "
+                    "presence in Molveno can reach during a day"
+                ),
             ),
             min=1000.0,
             max=20000.0,
@@ -1298,12 +1342,16 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _RESTAURANTS,
             (
-                "Fattore di allocazione che rappresenta il numero di posti a "
-                "sedere occupati nel caso di ristoranti pieni (tenendo conto "
-                "ad es. tavoli non completi)",
-                "Allocation factor representing the number of occupied seats "
-                "when restaurants are full (accounting for e.g. partially "
-                "filled tables)",
+                (
+                    "Fattore di allocazione che rappresenta il numero di posti a "
+                    "sedere occupati nel caso di ristoranti pieni (tenendo conto "
+                    "ad es. tavoli non completi)"
+                ),
+                (
+                    "Allocation factor representing the number of occupied seats "
+                    "when restaurants are full (accounting for e.g. partially "
+                    "filled tables)"
+                ),
             ),
             min=50.0,
             max=150.0,
@@ -1320,8 +1368,10 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _RESTAURANTS,
             (
-                "Numero di volte in cui un tavolo viene occupato nell'arco "
-                "di un servizio",
+                (
+                    "Numero di volte in cui un tavolo viene occupato nell'arco "
+                    "di un servizio"
+                ),
                 "Number of times a table is occupied during a service period",
             ),
             min=0.5,
@@ -1338,8 +1388,10 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _BEACH,
             (
-                "Numero di turisti che possono occupare lo stesso posto in "
-                "spiaggia della giornata",
+                (
+                    "Numero di turisti che possono occupare lo stesso posto in "
+                    "spiaggia della giornata"
+                ),
                 "Number of tourists that can occupy the same beach spot during the day",
             ),
             min=1.0,
@@ -1357,10 +1409,14 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _BEACH,
             (
-                "Numero di escursionsti che possono occupare lo stesso posto "
-                "in spiaggia della giornata",
-                "Number of excursionists that can occupy the same beach spot "
-                "during the day",
+                (
+                    "Numero di escursionsti che possono occupare lo stesso posto "
+                    "in spiaggia della giornata"
+                ),
+                (
+                    "Number of excursionists that can occupy the same beach spot "
+                    "during the day"
+                ),
             ),
             min=1.0,
             max=4.0,
@@ -1376,12 +1432,16 @@ MOLVENO_SIM_INDEXES = SimIndexCatalog(
             ),
             _HOTELS,
             (
-                "Fattore di allocazione che rappresenta il numero di posti "
-                "letto occupati nel caso di alberghi pieni (tenendo conto "
-                "ad es. di camere doppie uso singolio)",
-                "Allocation factor representing the number of occupied beds "
-                "when hotels are full (accounting for e.g. double rooms "
-                "used as single)",
+                (
+                    "Fattore di allocazione che rappresenta il numero di posti "
+                    "letto occupati nel caso di alberghi pieni (tenendo conto "
+                    "ad es. di camere doppie uso singolio)"
+                ),
+                (
+                    "Allocation factor representing the number of occupied beds "
+                    "when hotels are full (accounting for e.g. double rooms "
+                    "used as single)"
+                ),
             ),
             min=50.0,
             max=125.0,

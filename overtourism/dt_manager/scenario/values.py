@@ -89,10 +89,14 @@ def values_as_scipy(scenario_data: Scenario) -> dict[str, Any]:
                 )
             case IndexType.LOGNORM.value:
                 values[val.index_name] = stats.lognorm(
-                    loc=val.index_value["loc"], scale=val.index_value["scale"], s=val.index_value["s"]
+                    loc=val.index_value["loc"],
+                    scale=val.index_value["scale"],
+                    s=val.index_value["s"],
                 )
             case IndexType.TRIANG.value:
                 values[val.index_name] = stats.triang(
-                    loc=val.index_value["loc"], scale=val.index_value["scale"], c=val.index_value["c"]
+                    loc=val.index_value["loc"],
+                    scale=val.index_value["scale"],
+                    c=val.index_value["c"],
                 )
     return values

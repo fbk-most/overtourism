@@ -124,10 +124,10 @@ extras_config = ExtrasConfig(
 
 names_cfg = BaseConfig(
     tenant="molveno",
-    problem_extras=dict(
-        editable_indexes=list(INDEX_NAME_MAP.keys()),
-        groups=["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
-    ),
+    problem_extras={
+        "editable_indexes": list(INDEX_NAME_MAP.keys()),
+        "groups": ["Parcheggi", "Spiaggia", "Ristoranti", "Alberghi", "Flussi"],
+    },
 )
 
 

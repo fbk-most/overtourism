@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 
@@ -20,7 +20,9 @@ data_router = APIRouter(
 )
 
 
-def _loader(managers: Handler = Depends(get_handler)) -> DataLoaderLike:
+def _loader(
+    managers: Annotated[Handler, Depends(get_handler)],
+) -> DataLoaderLike:
     if managers.data_loader is None:
         raise RuntimeError("Data loader not configured")
     return managers.data_loader
@@ -37,7 +39,8 @@ def _loader(managers: Handler = Depends(get_handler)) -> DataLoaderLike:
 async def get_overtourism_categories_list(
     tenant: str,
     language: Literal["it", "en"] = "it",
-    loader: DataLoaderLike = Depends(_loader),
+    *,
+    loader: Annotated[DataLoaderLike, Depends(_loader)],
 ) -> dict:
     try:
         return loader.get_categories(language=language)
@@ -58,7 +61,8 @@ async def get_overtourism_indexes_list(
     tenant: str,
     category: str = "",
     language: Literal["it", "en"] = "it",
-    loader: DataLoaderLike = Depends(_loader),
+    *,
+    loader: Annotated[DataLoaderLike, Depends(_loader)],
 ) -> dict:
     try:
         return loader.get_list(category=category, language=language)
@@ -79,7 +83,7 @@ async def get_overtourism_indexes_list(
 async def get_overtourism_indexes_data(
     tenant: str,
     dataframe: str,
-    loader: DataLoaderLike = Depends(_loader),
+    loader: Annotated[DataLoaderLike, Depends(_loader)],
 ) -> dict:
     try:
         return loader.get_dataframe(dataframe)
@@ -100,7 +104,7 @@ async def get_overtourism_indexes_data(
 async def get_overtourism_indexes_map(
     tenant: str,
     map: str,
-    loader: DataLoaderLike = Depends(_loader),
+    loader: Annotated[DataLoaderLike, Depends(_loader)],
 ) -> dict:
     try:
         return loader.get_map(map)

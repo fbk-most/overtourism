@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -39,7 +40,7 @@ problem_router = APIRouter(
 )
 async def list_problems(
     tenant: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
@@ -65,7 +66,7 @@ async def list_problems(
 async def create_problem(
     tenant: str,
     data: PostProblemData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
     """Create a new problem with default scenario."""
     try:
@@ -94,7 +95,7 @@ async def create_problem(
 async def read_problem(
     tenant: str,
     problem_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
     """Read a problem."""
     try:
@@ -118,7 +119,7 @@ async def update_problem(
     tenant: str,
     problem_id: str,
     data: UpdateProblemData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
@@ -148,7 +149,7 @@ async def update_problem(
 async def delete_problem(
     tenant: str,
     problem_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     """Delete a problem from the store."""
     try:
