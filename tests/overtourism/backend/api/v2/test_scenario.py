@@ -5,11 +5,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
-from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2 import utils as api_utils
-from overtourism.backend.api.v2.scenario import update_scenario
-from overtourism.backend.api.v2.models.scenario import UpdateScenarioData
 from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -83,6 +79,31 @@ def test_scenario_routes_expose_index_diffs_in_extras(
     assert read_response.json()["extras"]["index_diffs"] == {"visits": "+3"}
 
 
+def test_create_stored_scenario_persists_values_and_metadata(
+    client,
+    tenant: str,
+) -> None:
+    response = client.post(
+        f"/api/v2/{tenant}/scenarios",
+        json={
+            "name": "Created through API",
+            "description": "Stored scenario payload",
+            "values": {"visits": 12},
+            "extras": {"channel": "api"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scenario_id"]
+    assert payload["name"] == "Created through API"
+    assert payload["description"] == "Stored scenario payload"
+    assert payload["extras"]["channel"] == "api"
+    assert payload["index_values"] == [
+        {"index_name": "visits", "index_value": 12, "index_type": "constant"}
+    ]
+
+
 def test_list_stored_scenarios_can_filter_by_related_proposal(
     client,
     manager: Manager,
@@ -109,8 +130,6 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
         f"{tenant}_base_scenario",
     }
 
-
-@pytest.mark.xfail(raises=TypeError, strict=True, reason="Known base scenario update bug")
 def test_update_stored_scenario_requires_the_current_version(
     client,
     tenant: str,
@@ -123,24 +142,10 @@ def test_update_stored_scenario_requires_the_current_version(
         json={"name": "Updated default", "values": {"visits": 11}},
     )
 
-    assert missing_version.status_code == 428
-    assert missing_version.json() == {"detail": "Missing version in entity payload"}
-
-    handler = client.app.dependency_overrides[get_handler]()
-    with pytest.raises(TypeError):
-        asyncio.run(
-            update_scenario(
-                tenant=tenant,
-                scenario_id=base_scenario_id,
-                data=UpdateScenarioData(
-                    version=1,
-                    name="Updated default",
-                    description="Updated through the route",
-                    values={"visits": 11},
-                ),
-                handler=handler,
-            )
-        )
+    assert missing_version.status_code == 400
+    assert missing_version.json() == {
+        "detail": "Base scenario cannot be modified or deleted"
+    }
 
 
 def test_session_scenario_can_be_created_updated_and_saved(
@@ -325,4 +330,7 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
         json={"version": 1},
     )
 
-    assert delete_response.status_code == 500
+    assert delete_response.status_code == 200
+    assert scenario.scenario_id not in {
+        item.scenario_id for item in manager.list_scenarios(tenant)
+    }

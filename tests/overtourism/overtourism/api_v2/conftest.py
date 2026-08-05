@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from overtourism.backend.api.v2.main import create_app
+from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
@@ -19,7 +20,6 @@ from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
-from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.overtourism.backend_extension.api.v2.data import data_router
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router

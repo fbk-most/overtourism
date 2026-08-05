@@ -8,16 +8,17 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from time import time
 
-from overtourism.backend.api.v2.models.territorial_config import TerritorialConfig
+from overtourism.overtourism.backend_extension.models.territorial_config import (
+    TerritorialConfig,
+)
 from overtourism.backend.api.v2.index_utils import (
-    _empty_map_response,
     _build_geodataframe,
     _to_map_response,
     get_chart_labels,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.trentino_indicators import (
+from overtourism.overtourism.backend_extension.models.trentino_indicators import (
     _REGISTRY,
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
@@ -135,6 +136,7 @@ def get_indicators_list():
                 {
                     "value": key,
                     "label": indicator.name or key,
+                    "index_description": indicator.description,
                     "availableForVariation": indicator.availableForVariation,
                     "extraFields": indicator.extraFields,
                     "years_range": {
@@ -217,7 +219,8 @@ def get_index_data(
         )
 
         if computed_index is None:
-            geo_data = _empty_map_response(gdf_base)
+            raise RuntimeError("It was not possible to compute the indicator")
+
         else:
             result = tc.apply(computed_index)
             if tc.spatial_granularity == "macro_area":
@@ -235,7 +238,7 @@ def get_index_data(
                 "data": geo_data["geojson"],
                 "min_value": geo_data["min_value"],
                 "max_value": geo_data["max_value"],
-            }
+            },
         }
 
     except HTTPException:
@@ -260,7 +263,6 @@ def get_variation_data(
     ``spatial_granularity`` (query param) controls the territorial grain.
     """
     try:
-        t1 = time()
         tc = _build_tc(request)
         logger.info(
             f"[{index} variation] start_date={start_date}, end_date={end_date}, "
@@ -280,7 +282,10 @@ def get_variation_data(
 
         series = tc.apply_to_series(raw_series)
 
-        return {"labels": labels, "series": series}
+        return {
+            "labels": labels,
+            "series": series,
+        }
 
     except HTTPException:
         raise
@@ -328,7 +333,7 @@ def get_variation_over_time(
         )
 
         if baseline_df is None or current_df is None:
-            geo_data = _empty_map_response(gdf_base)
+            raise RuntimeError("Empty base or refrence period")
         else:
             merged = baseline_df[["ID_COMUNE", "INDICE"]].merge(
                 current_df[["ID_COMUNE", "INDICE"]],
@@ -356,7 +361,7 @@ def get_variation_over_time(
                 "data": geo_data["geojson"],
                 "min_value": geo_data["min_value"],
                 "max_value": geo_data["max_value"],
-            }
+            },
         }
 
     except HTTPException:

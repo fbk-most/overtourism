@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from typing import Callable, Optional
 
-from overtourism.backend.api.v2.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.models.phenomenon import Phenomenon
 from overtourism.backend.api.v2.index_utils import get_chart_labels
 
 # ---------------------------------------------------------------------------

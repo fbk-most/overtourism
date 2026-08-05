@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.models.scenario import (
+    CreateScenarioData,
     ScenarioData,
     UpdateScenarioData,
 )
@@ -78,6 +79,33 @@ async def read_scenario(
         return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
+        raise
+
+
+@scenario_router.post(
+    "",
+    response_model=ScenarioData,
+    responses={
+        500: {"description": "Scenario manager error"},
+        404: {"description": "Problem does not exist"},
+        200: {"description": "Scenario created"},
+    },
+)
+async def create_scenario(
+    tenant: str,
+    data: CreateScenarioData,
+    handler: Handler = Depends(get_handler),
+) -> ScenarioData:
+    try:
+        scenario_payload = data.model_dump(exclude_unset=True)
+        scenario_payload["values"] = prepare_values(
+            handler, scenario_payload.get("values")
+        )
+        scenario = handler.manager.create_scenario(**scenario_payload)
+        logger.info(f"Scenario created: {scenario.scenario_id}")
+        return scenario_to_api(handler, scenario)
+    except Exception as e:
+        logger.error(f"Error creating scenario: {e}")
         raise
 
 

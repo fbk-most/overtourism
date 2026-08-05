@@ -25,8 +25,15 @@ def _build_geodataframe(gdf_base, result, join_on="ID_COMUNE", area_name_col="CO
 
 
 def _compute_min_max(gdf_final):
+    # Comupute min amd max and can clamp the minimum to 0.0 when it is less than or equal to 1
     try:
-        return float(gdf_final["INDICE"].min()), float(gdf_final["INDICE"].max())
+        min_val = float(gdf_final["INDICE"].min())
+        max_val = float(gdf_final["INDICE"].max())
+
+        if min_val <= 1:
+            min_val = 0.0
+
+        return min_val, max_val
     except Exception:
         return -1, -1
 

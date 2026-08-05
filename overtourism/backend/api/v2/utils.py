@@ -55,11 +55,11 @@ def get_scenario_or_404(handler: Handler, scenario_id: str) -> Scenario:
 
 
 def raise_immutable_base_scenario_error(
-    handler: Handler, tenant: str, scenario_id: str
+    handler: Handler,
+    scenario_id: str,
 ) -> None:
     """Raise an error indicating that the base scenario cannot be modified."""
-    base_scenario_id = handler.manager.scenario_manager.get_base_scenario_id(tenant)
-    if scenario_id == base_scenario_id:
+    if scenario_id == handler.manager.scenario_manager.base_scenario_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Base scenario cannot be modified or deleted",

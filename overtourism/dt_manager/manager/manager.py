@@ -244,6 +244,7 @@ class Manager:
         """Create a scenario and persist it."""
         scenario = self.scenario_manager.create_scenario(
             scenario_id=uuid4().hex,
+            tenant=self.name_cfg.tenant,
             values=values,
             name=name,
             description=description,

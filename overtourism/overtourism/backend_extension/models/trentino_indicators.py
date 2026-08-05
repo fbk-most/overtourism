@@ -6,14 +6,18 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from overtourism.backend.api.v2.models.indicator import Indicator
-from overtourism.backend.api.v2.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.models.indicator import Indicator
+from overtourism.overtourism.backend_extension.models.phenomenon import Phenomenon
 
 # ---------------------------------------------------------------------------
 # Source paths
 # ---------------------------------------------------------------------------
 data_dir = (
-    Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
+    Path(__file__).resolve().parents[4]
+    / "overtourism"
+    / "overtourism"
+    / "database"
+    / "index_data_v2"
 )  # TODO: replace this with dataloader
 
 # _VODAFONE_ID_PREFIXES = [
@@ -106,6 +110,8 @@ class AccommodationCapacityIndicator(Indicator):
 
     name = "Indice di ricettività"
 
+    description = "L'indice di ricettività definisce il <strong>rapporto</strong> fra i <strong>letti presenti negli esercizi ricettivi<strong> e gli <strong>abitanti<strong> di una stessa area. L'indice è una misura della capacità turistica rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla popolazione residente e alla consistenza degli esercizi alberghieri e extra-alberghieri."
+
     def __init__(self, source_file1, source_file2):
         super().__init__(
             phenomena=[
@@ -120,6 +126,7 @@ class TourismIndexIndicator(Indicator):
     """Total presences per resident."""
 
     name = "Indice di turisticità"
+    description = "L'indice di turisticità definisce il <strong>rapporto</strong> fra il <strong>numero medio giornaliero di turisti negli esercizi ricettivi<strong> e gli <strong>abitanti<strong> di una stessa area. L'indice è una misura dell'effettivo peso del turismo rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati Vodafone per quanto riguarda le presenze turistiche e dai dati ISPAT relativi alla popolazione residente."
 
     def __init__(self, source_file1, source_file2, presences_col_name):
         super().__init__(
@@ -135,6 +142,7 @@ class HospitalityIndexFacilitiesIndicator(Indicator):
     """Share of non-hotel facilities over total facilities."""
 
     name = "Indice di incidenza ospitalità non convenzionale (strutture)"
+    description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto</strong> fra le <strong>strutture ricettive non convenzionali<strong> e il <strong>totale delle strutture<strong> presenti in un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
 
     def __init__(self, source_file):
         super().__init__(
@@ -150,6 +158,7 @@ class HospitalityIndexBedsIndicator(Indicator):
     """Share of non-hotel beds over total beds."""
 
     name = "Indice di incidenza ospitalità non convenzionale (posti letto)"
+    description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto<strong> fra il <strong>numero di posti letto in strutture ricettive non convenzionali<strong> e il <strong>numero totale di posti letto<strong> in tutte le strutture di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
 
     def __init__(self, source_file):
         super().__init__(
@@ -165,6 +174,7 @@ class HiddenTourismIndicator(Indicator):
     """Calculates the hidden tourism indicator as the ratio between Vodafone registered attendences and accomodancy ones"""
 
     name = "Indice di turismo sommerso"
+    description = "L'indice misura il <strong>rapporto<strong> fra le <strong>presenze di turisti misurate<strong> attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali<strong> di turisti in strutture alberghiere e extra-alberghiere. L'analisi è a livello di ambito turistico e riguarda gli anni 2022 e 2023. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
 
     def __init__(self, source_file):
         super().__init__(
@@ -250,7 +260,8 @@ class FlowsIndicatorLevel(Indicator):
 class SeasonalityIndicator(Indicator):
     """Sum of arrivals in a reference sub-period over total arrivals."""
 
-    name = "Indice di stagionalita delle presenze"
+    name = "Indice di stagionalità delle presenze"
+    description = "L'indice di stagionalità definisce il <strong>rapporto</strong> fra le <strong>presenze di turisti ed escursionisti durante tra due periodi<strong> (es: anno completo ed alta stagione). L'indice è calcolato partendo dai dati Vodafone relativi alle presenze di turisti ed escursionisti."
     availableForVariation = False
     extraFields = ["seasonality"]
 
@@ -311,7 +322,7 @@ class PresencesPhenomenon(Phenomenon):
     spatial_strategy = "identity"
 
     def __init__(self, source, col="presenze", name=None):
-        super().__init__(source, col, agg="sum")
+        super().__init__(source, col, agg="mean")
         if name is not None:
             self.name = name
 
