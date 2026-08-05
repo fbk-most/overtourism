@@ -23,17 +23,13 @@ from overtourism.overtourism.backend_extension.models.trentino_indicators import
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
-    MAP_IDS,
-    # _VODAFONE_ID_PREFIXES,
     get_indicator,
 )
 from overtourism.backend.api.v2.index_utils_trentino import (
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,
-    get_vodafone_map_geometry,
     _build_macro_area_geodataframe,
-    _build_geodataframe_vodafone_ids
 )
 
 logger = logging.getLogger(__name__)
@@ -41,10 +37,10 @@ logger = logging.getLogger(__name__)
 indexes_router = APIRouter(
     prefix=f"{TENANT_ROUTE_PREFIX}/indexes",
     tags=["Indexes"],
-    # TODO: restoredependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(get_auth_context)],
 )
 
-# from pathlib import Path 
+# from pathlib import Path
 # PATH_JSON_MAP = Path(__file__).parent.resolve() / 'filename.json'
 
 # ---------------------------------------------------------------------------
@@ -110,6 +106,75 @@ def _build_tc(
 def _extra_params(request: Request) -> dict:
     """Strip all known/territorial params; return indicator-specific extras."""
     return {k: v for k, v in request.query_params.items() if k not in _KNOWN_PARAMS}
+
+
+# ---------------------------------------------------------------------------
+# Date validation helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_date(value: Optional[str], field_name: str) -> Optional[datetime]:
+    """Parse a YYYY-MM-DD date string, raising a 422 on bad input."""
+    if value is None:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid date format for '{field_name}': {value!r}. "
+            "Expected YYYY-MM-DD.",
+        ) from exc
+
+
+def _validate_date_order(
+    start_dt: Optional[datetime],
+    end_dt: Optional[datetime],
+    start_field: str = "start_date",
+    end_field: str = "end_date",
+) -> None:
+    """Ensure end_dt is not before start_dt (when both are present)."""
+    if start_dt is not None and end_dt is not None and end_dt < start_dt:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{end_field}' ({end_dt.date()}) cannot be before "
+            f"'{start_field}' ({start_dt.date()}).",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Map value validation helper
+# ---------------------------------------------------------------------------
+
+
+def _validate_map_values(min_value: Any, max_value: Any, *, context: str) -> None:
+    """
+    Guard against degenerate / invalid map value ranges.
+
+    Raises instead of letting the response go out when:
+      - both min_value and max_value are <= 0, or
+      - either min_value or max_value is NaN.
+    """
+    min_is_nan = min_value is None or (
+        isinstance(min_value, float) and np.isnan(min_value)
+    )
+    max_is_nan = max_value is None or (
+        isinstance(max_value, float) and np.isnan(max_value)
+    )
+
+    if min_is_nan or max_is_nan:
+        raise HTTPException(
+            status_code=422,
+            detail=f"[{context}] Computed value range is invalid "
+            f"(min_value={min_value}, max_value={max_value}).",
+        )
+
+    if min_value <= 0 and max_value <= 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"[{context}] Computed value range is non-positive "
+            f"(min_value={min_value}, max_value={max_value}).",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,8 +272,13 @@ def get_index_data(
             f"[{index}] start_date={start_date}, end_date={end_date}, "
             f"extra={extra}, spatial_granularity={tc.spatial_granularity}"
         )
+
+        start_dt = _parse_date(start_date, "start_date")
+        end_dt = _parse_date(end_date, "end_date")
+        _validate_date_order(start_dt, end_dt)
+
         # if index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
-        #     gdf_base = get_vodafone_map_geometry(MAP_IDS)   
+        #     gdf_base = get_vodafone_map_geometry(MAP_IDS)
         # else:
         gdf_base = get_map_geometry(MAP_SHAPEFILE)
 
@@ -232,6 +302,12 @@ def get_index_data(
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
             geo_data = _to_map_response(gdf_final)
+
+        _validate_map_values(
+            geo_data["min_value"],
+            geo_data["max_value"],
+            context=f"{index} get_index_data",
+        )
 
         return {
             "geo_data": {
@@ -269,8 +345,14 @@ def get_variation_data(
             f"temporal={granularity}, spatial={tc.spatial_granularity}"
         )
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        start_dt = _parse_date(start_date, "start_date")
+        end_dt = _parse_date(end_date, "end_date")
+        if start_dt is None or end_dt is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Both 'start_date' and 'end_date' are required.",
+            )
+        _validate_date_order(start_dt, end_dt)
 
         labels = get_chart_labels(start_dt, end_dt, granularity)
         indicator = get_indicator(index)
@@ -308,7 +390,6 @@ def get_variation_over_time(
     or per macro-area depending on ``spatial_granularity``.
     """
     try:
-        t1 = time()
         tc = _build_tc(request)
         indicator = get_indicator(index)
         extra = _extra_params(request)
@@ -319,6 +400,55 @@ def get_variation_over_time(
             f"comparison=({start_date_comparison}, {end_date_comparison}) "
             f"extra={extra}, spatial={tc.spatial_granularity}"
         )
+
+        baseline_start_dt = _parse_date(start_date_baseline, "start_date_baseline")
+        baseline_end_dt = _parse_date(end_date_baseline, "end_date_baseline")
+        comparison_start_dt = _parse_date(
+            start_date_comparison, "start_date_comparison"
+        )
+        comparison_end_dt = _parse_date(end_date_comparison, "end_date_comparison")
+
+        # end >= start within each period
+        _validate_date_order(
+            baseline_start_dt,
+            baseline_end_dt,
+            "start_date_baseline",
+            "end_date_baseline",
+        )
+        _validate_date_order(
+            comparison_start_dt,
+            comparison_end_dt,
+            "start_date_comparison",
+            "end_date_comparison",
+        )
+
+        # comparison period must differ from baseline period, and baseline
+        # must come before comparison
+        if (
+            baseline_start_dt is not None
+            and baseline_end_dt is not None
+            and comparison_start_dt is not None
+            and comparison_end_dt is not None
+        ):
+            if (baseline_start_dt, baseline_end_dt) == (
+                comparison_start_dt,
+                comparison_end_dt,
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="The comparison period must be different from the "
+                    "baseline period.",
+                )
+
+            if baseline_end_dt > comparison_start_dt:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Baseline period ({baseline_start_dt.date()} - "
+                        f"{baseline_end_dt.date()}) must end before the "
+                        f"comparison period starts ({comparison_start_dt.date()})."
+                    ),
+                )
 
         gdf_base = get_map_geometry(MAP_SHAPEFILE)
         baseline_df = indicator.get_indicator(
@@ -355,6 +485,12 @@ def get_variation_over_time(
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
             geo_data = _to_map_response(gdf_final)
+
+        _validate_map_values(
+            geo_data["min_value"],
+            geo_data["max_value"],
+            context=f"{index} get_variation_over_time",
+        )
 
         return {
             "geo_data": {
