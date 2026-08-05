@@ -38,7 +38,7 @@ def build_app() -> FastAPI:
 standalone_mode = os.getenv("DT_OVERTURISM_STANDALONE_MODE", "true").lower() == "true"
 
 if not standalone_mode:
-    download_index_data()
+    # download_index_data()
     download_index_data_v2()
 
 app = build_app()
