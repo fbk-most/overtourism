@@ -20,10 +20,18 @@ data_dir = (
     / "index_data_v2"
 )  # TODO: replace this with dataloader
 
+# _VODAFONE_ID_PREFIXES = [
+#     'ratio',
+#     'level',
+#     'flows'
+# ]
+
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
+MAP_IDS = data_dir / "cities_gdf_base_columns.geojson"
 POPULATION_SOURCE = data_dir / "phen_popolazione.parquet"
 STRUCTURES_SOURCE = data_dir / "phen_strutture.parquet"
 ATTENDENCES_SOURCE = data_dir / "phen_presenze.parquet"
+FLOWS_SOURCE = data_dir / "phen_flussi.parquet"
 MACRO_AREAS_FILE = data_dir / "map_comuni_into_apt.json"
 CODICI_COMUNI_FILE = data_dir / "mapping_comuni_ISTAT.json"
 
@@ -55,6 +63,30 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     ),
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
+    "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
+    "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
+    "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
+    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT"),
+    "flows-in-escursionisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_IN_VISITORS",
+        flow_col = "FLOWS_IN_VISITORS"
+    ),
+    "flows-in-turisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_IN_TOURISTS",
+        flow_col = "FLOWS_IN_TOURISTS"
+    ),
+    "flows-out-escursionisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_OUT_VISITORS",
+        flow_col = "FLOWS_OUT_VISITORS"
+    ),
+    "flows-out-turisti": lambda: FlowsIndicatorLevel(
+        FLOWS_SOURCE, 
+        col="LEVEL_OUT_TOURISTS",
+        flow_col = "FLOWS_OUT_TOURISTS"
+    )
 }
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
@@ -170,6 +202,59 @@ class HiddenTourismIndicator(Indicator):
         **extra,
     ) -> pd.Series:
         return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
+
+class RatioFlowsIndicator(Indicator):
+    """Calculates the flows indicator as the ratio between tourist/excursionist flows and total flows."""
+
+    def __init__(self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"):
+        phen_name = flows_col.lower()
+        phen_name_tot = f"{phen_name}_tot"
+        self.name = f"Rapporto di flussi {phen_name.removeprefix('flows_').replace('_', ' ')}" 
+        super().__init__(
+            phenomena=[
+                FlowPhenomenon(
+                    source_file,
+                    col=flows_col,
+                    municipality_id_col="ID_COMUNE",
+                    name=phen_name,
+                ),
+                FlowPhenomenon(
+                    source_file,
+                    col=flows_col_tot,
+                    municipality_id_col="ID_COMUNE",
+                    name=phen_name_tot,
+                ),
+            ],
+            combinator=self.divide(phen_name, phen_name_tot),
+        )
+
+class FlowsIndicatorLevel(Indicator):
+    """
+    Calculates hotspot level, using 10 - val scale
+    """
+    def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
+        self.col = col
+        self.name = f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
+        super().__init__(
+            phenomena=[
+                FlowPhenomenon(
+                    source_file,
+                    col=col,
+                    municipality_id_col="ID_COMUNE",
+                    name = col,
+                ),
+                FlowPhenomenon(
+                    source_file,
+                    col=flow_col,
+                    municipality_id_col="ID_COMUNE",
+                    name="flow_value",
+                ),
+            ],
+            combinator=self.compute_hotspot_level,
+        )
+
+    def compute_hotspot_level(self, df: pd.DataFrame, **extra) -> pd.Series:
+        return pd.Series(np.where(df[self.col] == -1, 0, 10 - df[self.col]))
 
 
 class SeasonalityIndicator(Indicator):
@@ -327,3 +412,28 @@ class PopulationPhenomenon(Phenomenon):
             agg="mean",
             dtype={"LOCATION_ID": str},
         )
+
+
+class FlowPhenomenon(Phenomenon):
+    """Flows in/out + users"""
+
+    name = "flows"
+    temporal_strategy = "constant"
+    temporal_resolution = "yearly"
+    spatial_resolution = "comune"
+    spatial_strategy = "identity"
+
+    def __init__(self, 
+                 source, 
+                 col="flows", 
+                 municipality_id_col="ID", 
+                 name=None, 
+                 agg="mean"):        # TODO: check why mean works and not sum 
+        super().__init__(
+            source,
+            col,
+            agg=agg,
+            municipality_id_col=municipality_id_col,
+        )
+        if name is not None:
+            self.name = name

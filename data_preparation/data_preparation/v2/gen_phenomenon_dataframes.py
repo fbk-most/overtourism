@@ -30,8 +30,11 @@ from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
 
 logging.basicConfig(level=logging.INFO)
 
+PATH_OVERTOURISM = Path(__file__).parent.parent.parent.parent.resolve() 
 PATH_RAW_DATA = Path(__file__).parent.resolve() / "raw_data_trentino"
 PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
+PATH_AIXPA_INDEX_DFS = PATH_OVERTOURISM / 'overtourism' / 'overtourism' / 'database' / 'index_data_v2'
+PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 assert PATH_MAPPING.exists(), f"Path to mapping does not exist {PATH_MAPPING}"
 assert PATH_RAW_DATA.exists(), f"Path to raw data does not exist {PATH_RAW_DATA}"
@@ -279,7 +282,7 @@ def compute_strutture(mapping_comuni):
         ]
     ]
 
-def split_presences(df, id_to_comune):
+def split_cols_unif(df, id_to_comune, cols_split=["presenze"]):
     """Function which splits the presences uniformly between multiple ID_COMUNE"""
     rows = []
 
@@ -299,17 +302,18 @@ def split_presences(df, id_to_comune):
             rows.append(new_row)
             continue
 
-        total = int(row["presenze"])
         n = len(ids)
-
-        base = total // n
-        remainder = total % n
 
         for i, ID_COMUNE in enumerate(ids):
             new_row = row.copy()
             new_row["ID_COMUNE"] = ID_COMUNE
             new_row["comune"] = id_to_comune.get(ID_COMUNE)
-            new_row["presenze"] = base + (1 if i < remainder else 0)
+
+            for c in cols_split:
+                total = int(row[c])
+                base = total // n
+                remainder = total % n
+                new_row[c] = base + (1 if i < remainder else 0)
             rows.append(new_row)
     return pd.DataFrame(rows)
 
@@ -400,7 +404,7 @@ def disaggregate_apt_presences(
     id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
     df_xalb.rename(columns = {"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"},inplace = True)
     if how == "uniform":
-        presences = split_presences(df, id_to_comune)
+        presences = split_cols_unif(df, id_to_comune)
         presences_xalb = split_data_province(df_xalb, mapping_comuni)
         presences = presences.merge(
             presences_xalb, 
@@ -438,7 +442,7 @@ def disaggregate_vodafone_presences(df, mapping_comuni, how="uniform"):
     # mapping_comuni is keyed name -> id; we need the reverse (id -> name) here.
     id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
     if how == "uniform":
-        presences = split_presences(df, id_to_comune)
+        presences = split_cols_unif(df, id_to_comune)
     else:
         raise ValueError(f"Unknown disaggregation method: {how}")
     return pd.DataFrame(presences)
@@ -504,8 +508,52 @@ def compute_vodafone_attendences(mapping_comuni):
     return df
 
 
-def compute_flussi_trentino():
-    df_ = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns__.parquet")
+def create_mapping(df):
+    """Utility function which creates mapping ISTAT IDS <> IDs """
+
+    extra_mapping = {
+        'BENESELLO + CALLIANO + VOLANO' : 'BESENELLO + CALLIANO + VOLANO',
+        'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZ' : 'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZZO',
+        'PERGINE VALSUGANA + VIGNOLA-FALESINA (NORD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
+        'PERGINE VALSUGANA + VIGNOLA-FALESINA (SUD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
+        'RIVA DEL GARDA (PAESE)' : 'RIVA DEL GARDA',
+        'RIVA DEL GARDA (SUL LAGO)': 'RIVA DEL GARDA',
+        'ROVERETO (BORGO SACCO)': 'ROVERETO',
+        'ROVERETO (CENTRO)': 'ROVERETO',
+        'ROVERETO (LIZZANA - OSPEDALE)': 'ROVERETO',
+        'ROVERETO (MARCO)': 'ROVERETO',
+        'ROVERETO (NORIGLIO)': 'ROVERETO',
+        'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSIN': 'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSINA',
+        'TN CENTRO': 'TRENTO',
+        'TN EST': 'TRENTO',
+        'TN NORD': 'TRENTO',
+        'TN OLTRE ADIGE NORD': 'TRENTO',
+        'TN OLTRE ADIGE SUD': 'TRENTO',
+        'TN SUD': 'TRENTO'
+    }
+    
+    df = df.copy()
+    with open(PATH_MAPPING / "vodafone_Trento.json") as f: 
+        mapping_comuni_voda = json.load(f)
+    df['codice_istat_voda'] = df['comune'].str.upper().str.strip().map(mapping_comuni_voda)
+
+    df.loc[df['codice_istat_voda'].isna(), 'codice_istat_voda'] = (
+        df.loc[df['codice_istat_voda'].isna(), 'comune']
+        .str.upper().str.strip()
+        .map(extra_mapping)
+        .str.upper().str.strip()
+        .map(mapping_comuni_voda)
+    )
+
+    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
+    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
+    for idx in df.index[mask]:
+        df.at[idx, "codice_istat_voda"] = [22250]
+    return dict(zip(df['ID'], df['codice_istat_voda']))
+
+
+def compute_flussi_trentino(mapping_comuni):
+    df_ = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns__.parquet")    # TODO: upload this on platform
     df_u = pd.read_parquet(PATH_RAW_DATA / "grid_all_columns_user.parquet")
 
     cols = ['AREA_ID', 'AREA_LABEL', 
@@ -554,7 +602,25 @@ def compute_flussi_trentino():
     df_merged = pd.merge(df_flussi_all, df_flussi_all_user, on=['ID', 'comune'], how='outer', indicator=True)
     if len(df_merged[df_merged['_merge'] != 'both']) > 0:
         logging.warning("WARNING: discrepancies found in IDs: ",len(df_merged[df_merged['_merge'] != 'both']))
-    return df_merged.drop(columns=['_merge'])
+    df_merged['DATA'] = 2024
+    id_map = create_mapping(df_flussi_all_user[['ID', 'comune']])
+    df_merged["ID_COMUNE"] = df_merged["ID"].map(id_map)
+
+    value_cols = ['FLOWS_IN', 'FLOWS_OUT', 'FLOWS_IN_TOURISTS', 'FLOWS_OUT_TOURISTS',
+                    'FLOWS_IN_VISITORS', 'FLOWS_OUT_VISITORS']
+    level_cols = ['LEVEL_IN', 'LEVEL_OUT', 'LEVEL_IN_TOURISTS', 'LEVEL_OUT_TOURISTS',
+                  'LEVEL_IN_VISITORS', 'LEVEL_OUT_VISITORS']
+    df_merged = split_cols_unif(
+        df_merged, 
+        id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()},
+        cols_split = value_cols)
+    agg_dict = {
+        **{col: 'sum' for col in value_cols},
+        **{col: 'median' for col in level_cols}
+    }
+    df_merged = df_merged.groupby(['DATA', 'ID_COMUNE', 'comune']).agg(agg_dict).reset_index() # For the moment, use median for the level 
+    df_merged["ID_COMUNE"] = pad_id_comune(df_merged["ID_COMUNE"])
+    return df_merged
 
 
 def compute_phenomenon_dataframes():
@@ -578,7 +644,7 @@ def compute_phenomenon_dataframes():
     presenze_df = compute_presenze_trentino(
         mapping_comuni, how="distributional", distribution=vodafone_attendences_df
     )
-    flussi_df = compute_flussi_trentino()
+    flussi_df = compute_flussi_trentino(mapping_comuni)
 
     return {
         "phen_popolazione": popolazione_df,
@@ -603,7 +669,7 @@ def local():
     dict_dfs = compute_phenomenon_dataframes()
     logging.info("## Saving phenomenon dataframes...")
     for key, value in dict_dfs.items():
-        put_dataframe(value, key, type="parquet")
+        put_dataframe(value, key, type="parquet", path = PATH_AIXPA_INDEX_DFS)
     logging.info("## Saved.")
 
 if __name__ == "__main__":
