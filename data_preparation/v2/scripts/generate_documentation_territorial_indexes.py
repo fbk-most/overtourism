@@ -539,7 +539,7 @@ def main():
 
     input_file = (
         base_dir
-        / "../../../../overtourism/overtourism/backend_extension/models/trentino_indicators.py"
+        / "../../../overtourism/overtourism/backend_extension/models/trentino_indicators.py"
     ).resolve()
 
     print(input_file)
