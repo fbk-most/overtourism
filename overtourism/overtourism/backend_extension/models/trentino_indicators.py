@@ -50,7 +50,10 @@ TODO:
     # "turismo-sommerso":                 lambda: HiddenTourismIndicator(MAIN_DATA_SOURCE, WIND_SOURCE, "TURISTI_TOTALI"),
 """
 
+_VARIATION_RATE_KEY = "tasso-variazione"
+
 _REGISTRY: dict[str, Callable[[], Indicator]] = {
+    _VARIATION_RATE_KEY: lambda: VariationRateIndicator(),
     "tasso-ricettivita": lambda: AccommodationCapacityIndicator(
         STRUCTURES_SOURCE, POPULATION_SOURCE
     ),
@@ -64,29 +67,27 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
     "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
-    "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_IN_VISITORS"),
-    "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_VISITORS", flows_col_tot = "FLOWS_OUT"),
-    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(FLOWS_SOURCE, flows_col = "FLOWS_OUT_TOURISTS", flows_col_tot = "FLOWS_OUT"),
+    "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(
+        FLOWS_SOURCE, flows_col="FLOWS_IN_VISITORS"
+    ),
+    "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(
+        FLOWS_SOURCE, flows_col="FLOWS_OUT_VISITORS", flows_col_tot="FLOWS_OUT"
+    ),
+    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(
+        FLOWS_SOURCE, flows_col="FLOWS_OUT_TOURISTS", flows_col_tot="FLOWS_OUT"
+    ),
     "flows-in-escursionisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, 
-        col="LEVEL_IN_VISITORS",
-        flow_col = "FLOWS_IN_VISITORS"
+        FLOWS_SOURCE, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"
     ),
     "flows-in-turisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, 
-        col="LEVEL_IN_TOURISTS",
-        flow_col = "FLOWS_IN_TOURISTS"
+        FLOWS_SOURCE, col="LEVEL_IN_TOURISTS", flow_col="FLOWS_IN_TOURISTS"
     ),
     "flows-out-escursionisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, 
-        col="LEVEL_OUT_VISITORS",
-        flow_col = "FLOWS_OUT_VISITORS"
+        FLOWS_SOURCE, col="LEVEL_OUT_VISITORS", flow_col="FLOWS_OUT_VISITORS"
     ),
     "flows-out-turisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, 
-        col="LEVEL_OUT_TOURISTS",
-        flow_col = "FLOWS_OUT_TOURISTS"
-    )
+        FLOWS_SOURCE, col="LEVEL_OUT_TOURISTS", flow_col="FLOWS_OUT_TOURISTS"
+    ),
 }
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
@@ -203,13 +204,18 @@ class HiddenTourismIndicator(Indicator):
     ) -> pd.Series:
         return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
 
+
 class RatioFlowsIndicator(Indicator):
     """Calculates the flows indicator as the ratio between tourist/excursionist flows and total flows."""
 
-    def __init__(self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"):
+    def __init__(
+        self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"
+    ):
         phen_name = flows_col.lower()
         phen_name_tot = f"{phen_name}_tot"
-        self.name = f"Rapporto di flussi {phen_name.removeprefix('flows_').replace('_', ' ')}" 
+        self.name = (
+            f"Rapporto di flussi {phen_name.removeprefix('flows_').replace('_', ' ')}"
+        )
         super().__init__(
             phenomena=[
                 FlowPhenomenon(
@@ -228,20 +234,24 @@ class RatioFlowsIndicator(Indicator):
             combinator=self.divide(phen_name, phen_name_tot),
         )
 
+
 class FlowsIndicatorLevel(Indicator):
     """
     Calculates hotspot level, using 10 - val scale
     """
+
     def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
         self.col = col
-        self.name = f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
+        self.name = (
+            f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
+        )
         super().__init__(
             phenomena=[
                 FlowPhenomenon(
                     source_file,
                     col=col,
                     municipality_id_col="ID_COMUNE",
-                    name = col,
+                    name=col,
                 ),
                 FlowPhenomenon(
                     source_file,
@@ -304,6 +314,131 @@ class SeasonalityIndicator(Indicator):
         sub_agg = sub_agg.reindex(total_agg.index).fillna(0)
 
         return (sub_agg / total_agg.replace(0, np.nan)).values
+
+
+class VariationRateIndicator(Indicator):
+    """
+    Generic "Tasso di variazione" (rate of variation) index.
+
+    Computes the percentage change of *any other registered indicator*
+    between two periods: the request's regular baseline period
+    (``start_date`` / ``end_date``) and a comparison period
+    (``start_date_comparison`` / ``end_date_comparison``). The same
+    indicator is used as the phenomenon in both periods.
+
+    Rather than hard-coding one variation subclass per wrapped indicator,
+    the wrapped indicator is itself a parameter: it is selected at request
+    time via the ``indicator`` extra field (its registry key, e.g.
+    ``"indice-turisticita"``) — exactly like ``seasonality`` is an extra
+    field on ``SeasonalityIndicator`` above. This keeps a single
+    "tasso-variazione" entry in the registry that works for every
+    combinable indicator.
+
+    Because the wrapped indicator is only known once a request comes in,
+    this class doesn't use the phenomena/combinator pipeline from the base
+    class at all — ``_compute_indicator`` is fully overridden below, and
+    ``phenomena``/``combinator`` are left empty/no-op.
+    """
+
+    name = "Tasso di variazione"
+    description = "Il tasso di variazione misura la <strong>variazione percentuale</strong> di un indicatore fra un <strong>periodo di riferimento</strong> e un <strong>periodo di confronto</strong>, a parità di indicatore. È utile per confrontare due intervalli temporali (es. due stagioni, due anni) sullo stesso indice."
+    availableForVariation = False
+    extraFields = ["indicator", "start_date_comparison", "end_date_comparison"]
+
+    def __init__(self):
+        # No fixed phenomena: which indicator (and therefore which
+        # phenomena) to use is only known at request time, via the
+        # "indicator" extra field handled in _compute_indicator().
+        super().__init__(phenomena=[], combinator=self._unused_combinator)
+
+    @staticmethod
+    def _unused_combinator(df: pd.DataFrame, **_extra) -> pd.Series:  # pragma: no cover
+        # Never invoked: _compute_indicator() is fully overridden below and
+        # bypasses the base class's phenomena-driven pipeline entirely.
+        raise RuntimeError(
+            "VariationRateIndicator.combinator should never be called directly"
+        )
+
+    @property
+    def years_range(self) -> dict[str, int]:
+        """
+        Broadest year range across every combinable indicator in the
+        registry (excluding this one), since the actual wrapped indicator
+        isn't known until request time. Validity of the *chosen* indicator
+        for the requested dates is enforced in ``_compute_indicator``.
+        """
+        if self._years_range is None:
+            min_years, max_years = [], []
+            for key in _REGISTRY:
+                if key == _VARIATION_RATE_KEY:
+                    continue
+                try:
+                    yr = get_indicator(key).years_range
+                except ValueError:
+                    continue
+                min_years.append(yr["min_year"])
+                max_years.append(yr["max_year"])
+
+            if not min_years:
+                raise ValueError(
+                    f"{self!r}: no combinable indicators available to compute "
+                    "a years_range for"
+                )
+
+            self._years_range = {
+                "min_year": min(min_years),
+                "max_year": max(max_years),
+            }
+        return self._years_range
+
+    def _compute_indicator(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        **extra,
+    ) -> pd.DataFrame | None:
+        indicator_key = extra.pop("indicator", None)
+        start_date_comparison = extra.pop("start_date_comparison", None)
+        end_date_comparison = extra.pop("end_date_comparison", None)
+
+        if not indicator_key:
+            raise ValueError(
+                "'indicator' extra field is required for 'tasso-variazione'"
+            )
+        if indicator_key == _VARIATION_RATE_KEY:
+            raise ValueError("'tasso-variazione' cannot wrap itself")
+        if start_date_comparison is None or end_date_comparison is None:
+            raise ValueError(
+                "'start_date_comparison' and 'end_date_comparison' extra "
+                "fields are required for 'tasso-variazione'"
+            )
+
+        wrapped = get_indicator(indicator_key)
+
+        baseline_df = wrapped.get_indicator(
+            start_date=start_date, end_date=end_date, **extra
+        )
+        comparison_df = wrapped.get_indicator(
+            start_date=start_date_comparison,
+            end_date=end_date_comparison,
+            **extra,
+        )
+
+        if baseline_df is None or comparison_df is None:
+            return None
+
+        merged = baseline_df[["ID_COMUNE", "INDICE"]].merge(
+            comparison_df[["ID_COMUNE", "INDICE"]],
+            on="ID_COMUNE",
+            how="outer",
+            suffixes=("_baseline", "_comparison"),
+        )
+        merged["INDICE"] = (
+            (merged["INDICE_comparison"] - merged["INDICE_baseline"])
+            / merged["INDICE_baseline"].replace(0, np.nan)
+        ) * 100
+
+        return merged[["ID_COMUNE", "INDICE"]]
 
 
 # ---------------------------------------------------------------------------
@@ -423,12 +558,9 @@ class FlowPhenomenon(Phenomenon):
     spatial_resolution = "comune"
     spatial_strategy = "identity"
 
-    def __init__(self, 
-                 source, 
-                 col="flows", 
-                 municipality_id_col="ID", 
-                 name=None, 
-                 agg="mean"):        # TODO: check why mean works and not sum 
+    def __init__(
+        self, source, col="flows", municipality_id_col="ID", name=None, agg="mean"
+    ):  # TODO: check why mean works and not sum
         super().__init__(
             source,
             col,
