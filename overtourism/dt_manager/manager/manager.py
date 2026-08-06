@@ -344,7 +344,7 @@ class Manager:
         if isinstance(result, dict):
             try:
                 return self.model_evaluator.build_output(result)
-            except Exception:
+            except (AttributeError, KeyError, TypeError, ValueError):
                 return self.evaluate_scenario(scenario_id).result
         return self.evaluate_scenario(scenario_id).result
 
@@ -468,7 +468,7 @@ class Manager:
                 session_scenario.scenario_id,
             )
             self.evaluation_manager.save_evaluation(evaluations)
-        except Exception:
+        except (EntityDoesNotExist, KeyError):
             pass
         self.session_manager.delete_session(session_id)
         return self.read_scenario(scenario_id)

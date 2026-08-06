@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -57,7 +58,8 @@ async def list_proposals(
     tenant: str,
     problem_id: str | None = None,
     scenario_id: str | None = None,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[OvertourismProposalData]:
     try:
         listed = await base_list_proposals(
@@ -84,7 +86,7 @@ async def list_proposals(
 async def create_proposal(
     tenant: str,
     data: OvertourismPostProposalData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProposalData:
     try:
         payload = prepare_proposal_payload(
@@ -115,7 +117,7 @@ async def create_proposal(
 async def read_proposal(
     tenant: str,
     proposal_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProposalData:
     try:
         read = await base_read_proposal(
@@ -142,7 +144,7 @@ async def update_proposal(
     tenant: str,
     proposal_id: str,
     proposal: OvertourismUpdateProposalData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProposalData:
     try:
         payload = prepare_proposal_payload(
@@ -173,7 +175,7 @@ async def update_proposal(
 async def delete_proposal(
     tenant: str,
     proposal_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     try:
         await base_delete_proposal(

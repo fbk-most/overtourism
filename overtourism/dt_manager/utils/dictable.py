@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, Self, TypeVar
 
 from numpy import generic as numpy_generic
 
@@ -33,7 +33,7 @@ class Dictable:
         return {key: self.to_plain(value) for key, value in self.__dict__.items()}
 
     @classmethod
-    def from_dict(cls: type[TDictable], data: dict[str, Any]) -> TDictable:
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """Create an instance from a dictionary.
 
         This method can be overridden in subclasses to handle specific attribute types.

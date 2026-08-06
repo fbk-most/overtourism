@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 
@@ -32,7 +32,8 @@ widget_router = APIRouter(
 async def list_widgets(
     tenant: str,
     language: Literal["it", "en"] = "it",
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> Widgets:
     del tenant
 

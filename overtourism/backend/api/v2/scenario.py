@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -46,7 +47,8 @@ async def list_scenarios(
     tenant: str,
     proposal_id: str | None = None,
     base_only: bool = False,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData | list[ScenarioData]:
     try:
         if base_only:
@@ -72,7 +74,7 @@ async def list_scenarios(
 async def read_scenario(
     tenant: str,
     scenario_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         scenario = get_scenario_or_404(handler, scenario_id)
@@ -94,7 +96,7 @@ async def read_scenario(
 async def create_scenario(
     tenant: str,
     data: CreateScenarioData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
@@ -123,7 +125,7 @@ async def update_scenario(
     tenant: str,
     scenario_id: str,
     data: UpdateScenarioData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         raise_immutable_base_scenario_error(handler, scenario_id)
@@ -161,7 +163,7 @@ async def update_scenario(
 async def delete_scenario(
     tenant: str,
     scenario_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
         raise_immutable_base_scenario_error(handler, scenario_id)

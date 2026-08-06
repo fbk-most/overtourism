@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
-import pytest
 from overtourism.backend.api.v2 import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
@@ -129,6 +126,7 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
         related_scenario.scenario_id,
         f"{tenant}_base_scenario",
     }
+
 
 def test_update_stored_scenario_requires_the_current_version(
     client,

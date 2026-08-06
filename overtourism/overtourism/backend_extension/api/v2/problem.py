@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -55,7 +56,7 @@ problem_router = APIRouter(
 )
 async def list_problems(
     tenant: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[OvertourismProblemData]:
     try:
         listed = await base_list_problems(tenant=tenant, handler=handler)
@@ -77,7 +78,7 @@ async def list_problems(
 async def create_problem(
     tenant: str,
     data: OvertourismPostProblemData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProblemData:
     try:
         payload = prepare_problem_payload(
@@ -109,7 +110,7 @@ async def create_problem(
 async def read_problem(
     tenant: str,
     problem_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProblemData:
     try:
         read = await base_read_problem(tenant, problem_id, handler=handler)
@@ -132,7 +133,7 @@ async def update_problem(
     tenant: str,
     problem_id: str,
     data: OvertourismUpdateProblemData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProblemData:
     try:
         payload = prepare_problem_payload(
@@ -164,7 +165,7 @@ async def update_problem(
 async def delete_problem(
     tenant: str,
     problem_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     try:
         await base_delete_problem(tenant, problem_id, handler=handler)

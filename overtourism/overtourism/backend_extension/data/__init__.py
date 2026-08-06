@@ -17,14 +17,14 @@ from overtourism.overtourism.backend_extension.data.loader import (
 )
 
 __all__ = [
+    "MOLVENO_SIM_INDEXES",
+    "OVERTOURISM_INDEX_CATALOG",
     "CategoryDefinition",
     "IndexCatalog",
     "IndexDefinition",
     "Language",
     "LocalizedText",
     "MapDefinition",
-    "MOLVENO_SIM_INDEXES",
-    "OVERTOURISM_INDEX_CATALOG",
     "OvertourismIndexesLoader",
     "SimIndexCatalog",
     "SimIndexEntry",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
@@ -45,7 +46,8 @@ evaluation_router = APIRouter(
 async def create_evaluation(
     tenant: str,
     data: PostEvaluationData,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> EvaluationData:
     try:
@@ -74,7 +76,8 @@ async def create_evaluation(
 async def list_evaluations(
     tenant: str,
     scenario_id: str | None = None,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> list[EvaluationData]:
     try:
@@ -97,7 +100,8 @@ async def list_evaluations(
 async def read_evaluation(
     tenant: str,
     evaluation_id: str,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> EvaluationData:
     try:
@@ -121,7 +125,8 @@ async def update_evaluation(
     tenant: str,
     evaluation_id: str,
     data: UpdateEvaluationData,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> EvaluationData:
     try:
@@ -151,7 +156,8 @@ async def delete_evaluation(
     tenant: str,
     evaluation_id: str,
     data: VersionData | None = None,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> dict[str, str]:
     try:
@@ -178,9 +184,10 @@ async def delete_evaluation(
 async def get_data(
     tenant: str,
     evaluation_id: str,
-    as_snapshot: bool = Query(default=True),
-    params: list[str] | None = Query(default=None),
-    handler: Handler = Depends(get_handler),
+    as_snapshot: Annotated[bool, Query()] = True,
+    params: Annotated[list[str] | None, Query()] = None,
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
     problem_id: str | None = None,
 ) -> EvaluationOutputData:
     try:

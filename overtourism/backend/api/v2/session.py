@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -69,8 +70,8 @@ session_router = APIRouter(
 async def create_session(
     tenant: str,
     data: CreateSessionData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> SessionSummaryData:
     try:
         session = handler.manager.create_session(metadata=data.metadata)
@@ -104,8 +105,8 @@ async def create_session(
 )
 async def list_sessions(
     tenant: str,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[SessionSummaryData]:
     try:
         session_ids = set(list_owned_session_ids(handler, tenant, context))
@@ -138,8 +139,8 @@ async def list_sessions(
 async def read_session(
     tenant: str,
     session_id: str,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> SessionData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -176,8 +177,8 @@ async def read_session(
 async def delete_session(
     tenant: str,
     session_id: str,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -209,8 +210,8 @@ async def create_session_scenario(
     tenant: str,
     session_id: str,
     data: PostScenarioData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         get_session_or_404(handler, session_id)
@@ -252,8 +253,8 @@ async def read_session_scenario(
     tenant: str,
     session_id: str,
     scenario_id: str,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -282,8 +283,9 @@ async def save_scenario(
     session_id: str,
     scenario_id: str,
     data: SaveScenarioData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    *,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -322,8 +324,9 @@ async def create_session_evaluation(
     tenant: str,
     session_id: str,
     data: PostEvaluationData,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    *,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -359,8 +362,9 @@ async def read_session_evaluation(
     session_id: str,
     scenario_id: str | None = None,
     evaluation_id: str | None = None,
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    *,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
         require_session_ownership(handler, tenant, session_id, context)
@@ -402,10 +406,11 @@ async def get_session_data(
     tenant: str,
     session_id: str,
     evaluation_id: str,
-    as_snapshot: bool = Query(default=True),
-    params: list[str] | None = Query(default=None),
-    context: AuthContext = Depends(get_auth_context),
-    handler: Handler = Depends(get_handler),
+    as_snapshot: Annotated[bool, Query()] = True,
+    params: Annotated[list[str] | None, Query()] = None,
+    *,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationOutputData:
     try:
         require_session_ownership(handler, tenant, session_id, context)

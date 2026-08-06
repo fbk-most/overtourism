@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -44,7 +45,8 @@ async def list_proposals(
     tenant: str,
     problem_id: str | None = None,
     scenario_id: str | None = None,
-    handler: Handler = Depends(get_handler),
+    *,
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[ProposalData]:
     """List all proposals for a problem."""
     try:
@@ -69,7 +71,7 @@ async def list_proposals(
 async def create_proposal(
     tenant: str,
     data: PostProposalData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Create a proposal for a problem."""
     try:
@@ -98,7 +100,7 @@ async def create_proposal(
 async def read_proposal(
     tenant: str,
     proposal_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Read a proposal by identifier."""
     try:
@@ -122,7 +124,7 @@ async def update_proposal(
     tenant: str,
     proposal_id: str,
     data: UpdateProposalData,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
@@ -153,7 +155,7 @@ async def update_proposal(
 async def delete_proposal(
     tenant: str,
     proposal_id: str,
-    handler: Handler = Depends(get_handler),
+    handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     """Delete a proposal from a problem."""
     try:

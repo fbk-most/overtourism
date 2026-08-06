@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import typing
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 if typing.TYPE_CHECKING:
     from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore

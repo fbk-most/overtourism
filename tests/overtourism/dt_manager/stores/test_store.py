@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import inspect
 
@@ -217,3 +219,44 @@ def test_sqlite_schema_defines_indexes_for_common_read_paths(sql_store) -> None:
         "scenario_id",
         "started",
     )
+
+
+def test_evaluation_results_are_compressed_at_rest_and_restored_on_read(
+    sql_store,
+    problem_payload,
+    scenario_payload,
+) -> None:
+    sql_store.save_problem(problem_payload)
+    sql_store.save_scenario(scenario_payload)
+
+    result = {
+        "notes": ["lorem ipsum dolor sit amet" * 50 for _ in range(20)],
+        "metrics": {
+            "visits": 1234,
+            "crowding": 0.87,
+            "detail": [f"value-{index}" for index in range(200)],
+        },
+    }
+    evaluation = {
+        "evaluation_id": "evaluation-compressed",
+        "scenario_id": scenario_payload["scenario_id"],
+        "type": "default",
+        "state": "COMPLETED",
+        "started": "2026-05-15T08:10:00Z",
+        "finished": "2026-05-15T08:11:00Z",
+        "result": result,
+    }
+    expected_evaluation = dict(evaluation, version=0)
+
+    sql_store.save_evaluation(evaluation)
+
+    assert sql_store.load_evaluation(evaluation["evaluation_id"]) == expected_evaluation
+
+    with sql_store.engine.connect() as connection:
+        raw_result = connection.exec_driver_sql(
+            "select result from evaluations where evaluation_id = ?",
+            (evaluation["evaluation_id"],),
+        ).scalar_one()
+
+    assert isinstance(raw_result, (bytes, bytearray, memoryview))
+    assert len(bytes(raw_result)) < len(json.dumps(result).encode("utf-8"))
