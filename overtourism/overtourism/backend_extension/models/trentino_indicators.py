@@ -460,22 +460,23 @@ class CrowdingIndicator(Indicator):
         attendences_source,
         flows_source
     ):
+        self._top_indicators = [
+            AccommodationCapacityIndicator(structures_source, population_source),
+            TourismIndexIndicator(population_source, attendences_source, presences_col_name="presenze_vodafone"),
+            SeasonalityIndicator(attendences_source),
+        ]
+        self._max_indicator = FlowsIndicatorLevel(flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS")
         super().__init__(
-            phenomena=[
-                AccommodationCapacityIndicator(structures_source, population_source),
-                TourismIndexIndicator(population_source, attendences_source, presences_col_name = "presenze_vodafone"),
-                SeasonalityIndicator(attendences_source),
-                FlowsIndicatorLevel(flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"),
-            ],
+            phenomena=[*self._top_indicators, self._max_indicator],
             combinator=self.compute_score,
         )
 
     def _compute_top(self, df: pd.DataFrame, **_extra) -> pd.Series:
         """Compute top quantile score"""
         df['score'] = 0
-        for i in range(0,3):
+        for indicator in self._top_indicators:
             for q in [0.75, 0.875, 0.9375]:
-                target_phen_name = self.phenomena[i].name
+                target_phen_name = indicator.name
                 thr = df[target_phen_name].quantile(q)
                 df['score'] += df[target_phen_name].ge(thr).fillna(False).astype(int)
         return df
@@ -483,7 +484,7 @@ class CrowdingIndicator(Indicator):
 
     def _compute_max(self, df: pd.DataFrame, **_extra):
         """Assingns 2 points to the places with max level of flows"""
-        col = self.phenomena[-1].name  # flussi 
+        col = self._max_indicator.name  # flussi 
         df.loc[df[col] == df[col].max(), 'score'] += 2  # estrae il massimo
         return df 
 
