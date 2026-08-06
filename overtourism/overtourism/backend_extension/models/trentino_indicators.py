@@ -250,7 +250,7 @@ class FlowsIndicatorLevel(Indicator):
     def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
         self.col = col
         self.name = (
-            f"Livello flussi {col.removeprefix('LEVEL').replace('_', ' ').lower()}"
+            f"Livello flussi{col.removeprefix('LEVEL').replace('_', ' ').lower()}"
         )
         super().__init__(
             phenomena=[
@@ -467,28 +467,31 @@ class CrowdingIndicator(Indicator):
                 SeasonalityIndicator(attendences_source),
                 FlowsIndicatorLevel(flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"),
             ],
-            combinator=self._compute_top,
+            combinator=self.compute_score,
         )
 
     def _compute_top(self, df: pd.DataFrame, **_extra) -> pd.Series:
         """Compute top quantile score"""
+        df['score'] = 0
         for i in range(0,3):
             for q in [0.75, 0.875, 0.9375]:
                 target_phen_name = self.phenomena[i].name
                 thr = df[target_phen_name].quantile(q)
                 df['score'] += df[target_phen_name].ge(thr).fillna(False).astype(int)
-        return df['score']
+        return df
 
 
     def _compute_max(self, df: pd.DataFrame, **_extra):
-        """TO IMPLEMENT"""
-        score = 0 
-        return score
+        """Assingns 2 points to the places with max level of flows"""
+        col = self.phenomena[-1].name  # flussi 
+        df.loc[df[col] == df[col].max(), 'score'] += 2  # estrae il massimo
+        return df 
 
-    def _compute_score(self, df: pd.DataFrame, **_extra) -> pd.Series:
-        """TO IMPLEMENT"""
-        score = 0 
-        return score
+    def compute_score(self, df: pd.DataFrame, **_extra) -> pd.Series:
+        """Computes the total score of crowding index """
+        df = self._compute_top(df)
+        df = self._compute_max(df)
+        return df['score']
 
 
 # ---------------------------------------------------------------------------
