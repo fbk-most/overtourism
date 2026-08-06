@@ -71,6 +71,10 @@ def download_index_data_v2() -> None:
 
     project = dh.get_project(project_name)
     download_dir = Path(__file__).parent / "database" / "index_data_v2"
+
+    if download_dir.exists():
+        return  # Skip download if the directory already exists
+
     download_dir.mkdir(parents=True, exist_ok=True)
 
     for dataitem in dataitems:
