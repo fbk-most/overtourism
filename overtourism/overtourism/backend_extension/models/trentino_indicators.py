@@ -416,27 +416,34 @@ class VariationRateIndicator(Indicator):
 
         wrapped = get_indicator(indicator_key)
 
-        baseline_df = wrapped.get_indicator(
-            start_date=start_date, end_date=end_date, **extra
+        # Current period (e.g. 2025)
+        current_df = wrapped.get_indicator(
+            start_date=start_date,
+            end_date=end_date,
+            **extra,
         )
-        comparison_df = wrapped.get_indicator(
+
+        # Reference period (e.g. 2024)
+        previous_df = wrapped.get_indicator(
             start_date=start_date_comparison,
             end_date=end_date_comparison,
             **extra,
         )
 
-        if baseline_df is None or comparison_df is None:
+        if current_df is None or previous_df is None:
             return None
 
-        merged = baseline_df[["ID_COMUNE", "INDICE"]].merge(
-            comparison_df[["ID_COMUNE", "INDICE"]],
+        merged = current_df[["ID_COMUNE", "INDICE"]].merge(
+            previous_df[["ID_COMUNE", "INDICE"]],
             on="ID_COMUNE",
             how="outer",
-            suffixes=("_baseline", "_comparison"),
+            suffixes=("_current", "_previous"),
         )
+
+        # Percentage variation: (current - previous) / previous * 100
         merged["INDICE"] = (
-            (merged["INDICE_comparison"] - merged["INDICE_baseline"])
-            / merged["INDICE_baseline"].replace(0, np.nan)
+            (merged["INDICE_current"] - merged["INDICE_previous"])
+            / merged["INDICE_previous"].replace(0, np.nan)
         ) * 100
 
         return merged[["ID_COMUNE", "INDICE"]]
