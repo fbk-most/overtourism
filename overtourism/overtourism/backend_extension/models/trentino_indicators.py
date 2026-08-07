@@ -341,9 +341,10 @@ class VariationRateIndicator(Indicator):
     """
 
     name = "Tasso di variazione"
-    description = "Il tasso di variazione misura la <strong>variazione percentuale</strong> di un indicatore fra un <strong>periodo di riferimento</strong> e un <strong>periodo di confronto</strong>, a parità di indicatore. È utile per confrontare due intervalli temporali (es. due stagioni, due anni) sullo stesso indice."
+    description = "Il tasso di variazione misura la <strong>variazione percentuale</strong> di un indicatore fra il <strong>periodo selezionato</strong> ed un <strong>periodo storicizzato di confronto</strong>. È utile per confrontare due intervalli temporali (es. due stagioni, due anni) sullo stesso indice."
     availableForVariation = False
     extraFields = ["indicator", "start_date_comparison", "end_date_comparison"]
+    internal_only = True
 
     def __init__(self):
         # No fixed phenomena: which indicator (and therefore which

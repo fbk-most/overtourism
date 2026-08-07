@@ -73,6 +73,7 @@ class Indicator:
     description: str = ""
     availableForVariation: bool = True
     extraFields: list[str] = []
+    internal_only = False
 
     # How this indicator's own daily INDICE values collapse to one row per
     # comune when *it* is used as a phenomenon by a parent Indicator (see
@@ -330,17 +331,14 @@ class Indicator:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        seasonality: Optional[str] = None,
         **extra,
     ) -> Optional[pd.DataFrame]:
-        key = self._cache_key(start_date, end_date, seasonality, **extra)
+        key = self._cache_key(start_date, end_date, **extra)
         if key in self._indicator_cache:
             cached = self._indicator_cache[key]
             return cached.copy() if cached is not None else None
 
-        result = self._compute_indicator(
-            start_date, end_date, seasonality=seasonality, **extra
-        )
+        result = self._compute_indicator(start_date, end_date, **extra)
         self._indicator_cache[key] = result
         return result.copy() if result is not None else None
 
@@ -348,10 +346,11 @@ class Indicator:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        seasonality: Optional[str] = None,
         **extra,
     ) -> Optional[pd.DataFrame]:
         self._ensure_resolved()
+
+        seasonality = extra.pop("seasonality", None)
 
         # ── 1. Filter, apply seasonality, and aggregate each phenomenon ──
         aggregated: dict[str, pd.DataFrame] = {}

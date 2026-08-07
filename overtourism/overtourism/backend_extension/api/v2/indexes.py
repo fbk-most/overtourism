@@ -197,19 +197,20 @@ def get_indicators_list():
         indicators = []
         for key in _REGISTRY:
             indicator = get_indicator(key)
-            indicators.append(
-                {
-                    "value": key,
-                    "label": indicator.name or key,
-                    "index_description": indicator.description,
-                    "availableForVariation": indicator.availableForVariation,
-                    "extraFields": indicator.extraFields,
-                    "years_range": {
-                        "min_year": indicator.years_range["min_year"],
-                        "max_year": indicator.years_range["max_year"],
-                    },
-                }
-            )
+            if not indicator.internal_only:
+                indicators.append(
+                    {
+                        "value": key,
+                        "label": indicator.name or key,
+                        "index_description": indicator.description,
+                        "availableForVariation": indicator.availableForVariation,
+                        "extraFields": indicator.extraFields,
+                        "years_range": {
+                            "min_year": indicator.years_range["min_year"],
+                            "max_year": indicator.years_range["max_year"],
+                        },
+                    }
+                )
         return {"indicators": indicators}
     except Exception as e:
         logger.info(f"[get-index-list] Error fetching indicators: {e}")
@@ -367,137 +368,6 @@ def get_variation_data(
         return {
             "labels": labels,
             "series": series,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@indexes_router.get("/get-variation-over-time", response_model=Dict[str, Any])
-def get_variation_over_time(
-    request: Request,
-    index: str,
-    start_date_baseline: Optional[str] = Query(None),
-    end_date_baseline: Optional[str] = Query(None),
-    start_date_comparison: Optional[str] = Query(None),
-    end_date_comparison: Optional[str] = Query(None),
-):
-    """
-    Percentage change of an indicator between two periods, mapped per comune
-    or per macro-area depending on ``spatial_granularity``.
-    """
-    try:
-        tc = _build_tc(request)
-        indicator = get_indicator(index)
-        extra = _extra_params(request)
-
-        logger.info(
-            f"[{index} variation-over-time] "
-            f"baseline=({start_date_baseline}, {end_date_baseline}) "
-            f"comparison=({start_date_comparison}, {end_date_comparison}) "
-            f"extra={extra}, spatial={tc.spatial_granularity}"
-        )
-
-        baseline_start_dt = _parse_date(start_date_baseline, "start_date_baseline")
-        baseline_end_dt = _parse_date(end_date_baseline, "end_date_baseline")
-        comparison_start_dt = _parse_date(
-            start_date_comparison, "start_date_comparison"
-        )
-        comparison_end_dt = _parse_date(end_date_comparison, "end_date_comparison")
-
-        # end >= start within each period
-        _validate_date_order(
-            baseline_start_dt,
-            baseline_end_dt,
-            "start_date_baseline",
-            "end_date_baseline",
-        )
-        _validate_date_order(
-            comparison_start_dt,
-            comparison_end_dt,
-            "start_date_comparison",
-            "end_date_comparison",
-        )
-
-        # comparison period must differ from baseline period, and baseline
-        # must come before comparison
-        if (
-            baseline_start_dt is not None
-            and baseline_end_dt is not None
-            and comparison_start_dt is not None
-            and comparison_end_dt is not None
-        ):
-            if (baseline_start_dt, baseline_end_dt) == (
-                comparison_start_dt,
-                comparison_end_dt,
-            ):
-                raise HTTPException(
-                    status_code=422,
-                    detail="The comparison period must be different from the "
-                    "baseline period.",
-                )
-
-            if baseline_end_dt > comparison_start_dt:
-                raise HTTPException(
-                    status_code=422,
-                    detail=(
-                        f"Baseline period ({baseline_start_dt.date()} - "
-                        f"{baseline_end_dt.date()}) must end before the "
-                        f"comparison period starts ({comparison_start_dt.date()})."
-                    ),
-                )
-
-        gdf_base = get_map_geometry(MAP_SHAPEFILE)
-        baseline_df = indicator.get_indicator(
-            start_date=start_date_baseline,
-            end_date=end_date_baseline,
-            **extra,
-        )
-        current_df = indicator.get_indicator(
-            start_date=start_date_comparison,
-            end_date=end_date_comparison,
-            **extra,
-        )
-
-        if baseline_df is None or current_df is None:
-            raise RuntimeError("Empty base or refrence period")
-        else:
-            merged = baseline_df[["ID_COMUNE", "INDICE"]].merge(
-                current_df[["ID_COMUNE", "INDICE"]],
-                on="ID_COMUNE",
-                how="outer",
-                suffixes=("_baseline", "_comparison"),
-            )
-            merged["INDICE"] = (
-                (merged["INDICE_comparison"] - merged["INDICE_baseline"])
-                / merged["INDICE_baseline"].replace(0, np.nan)
-            ) * 100
-
-            result = tc.apply(merged[["ID_COMUNE", "INDICE"]])
-
-            if tc.spatial_granularity == "macro_area":
-                gdf_final = _build_macro_area_geodataframe(
-                    result, MACRO_AREAS_FILE, MAP_SHAPEFILE
-                )
-            else:
-                gdf_final = _build_geodataframe(gdf_base, result)
-            geo_data = _to_map_response(gdf_final)
-
-        _validate_map_values(
-            geo_data["min_value"],
-            geo_data["max_value"],
-            context=f"{index} get_variation_over_time",
-        )
-
-        return {
-            "geo_data": {
-                "data": geo_data["geojson"],
-                "min_value": geo_data["min_value"],
-                "max_value": geo_data["max_value"],
-            },
         }
 
     except HTTPException:
