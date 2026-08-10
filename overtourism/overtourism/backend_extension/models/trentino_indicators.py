@@ -35,6 +35,7 @@ FLOWS_SOURCE = data_dir / "phen_flussi.parquet"
 FLOWS_SOURCE_TEMP_2023 = data_dir / "phen_flussi_temp_2023.parquet"
 MACRO_AREAS_FILE = data_dir / "map_comuni_into_apt.json"
 CODICI_COMUNI_FILE = data_dir / "mapping_comuni_ISTAT.json"
+INCLUDE_TEMP_REGISTRY = False
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -61,17 +62,16 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     "indice-turisticita": lambda: TourismIndexIndicator(
         POPULATION_SOURCE, ATTENDENCES_SOURCE, "presenze_vodafone"
     ),
-    "indice-stagionalita": lambda: SeasonalityIndicator(ATTENDENCES_SOURCE),
+    # "indice-stagionalita": lambda: SeasonalityIndicator(ATTENDENCES_SOURCE),
     "indice-ospitalita-strutture": lambda: HospitalityIndexFacilitiesIndicator(
         STRUCTURES_SOURCE
     ),
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
+}
+_REGISTRY_TEMP: dict[str, Callable[[], Indicator]] = {
     "indice-affollamento": lambda: CrowdingIndicator(
-        STRUCTURES_SOURCE,
-        POPULATION_SOURCE,
-        ATTENDENCES_SOURCE,
-        FLOWS_SOURCE_TEMP_2023
+        STRUCTURES_SOURCE, POPULATION_SOURCE, ATTENDENCES_SOURCE, FLOWS_SOURCE_TEMP_2023
     ),
     "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
     "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(
@@ -96,6 +96,9 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
         FLOWS_SOURCE, col="LEVEL_OUT_TOURISTS", flow_col="FLOWS_OUT_TOURISTS"
     ),
 }
+
+if INCLUDE_TEMP_REGISTRY:
+    _REGISTRY.update(_REGISTRY_TEMP)
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
 
@@ -322,6 +325,7 @@ class SeasonalityIndicator(Indicator):
 
         return (sub_agg / total_agg.replace(0, np.nan)).values
 
+
 class VariationRateIndicator(Indicator):
     """
     Generic "Tasso di variazione" (rate of variation) index.
@@ -462,18 +466,20 @@ class CrowdingIndicator(Indicator):
     description = "L'indice complessivo di affollamento turistico estivo integra e aggrega diversi indici legati all'affollamento turistico (ricettività, turisticità, stagionalità e flussi di escursionisti)."
 
     def __init__(
-        self,
-        structures_source,
-        population_source,
-        attendences_source,
-        flows_source
+        self, structures_source, population_source, attendences_source, flows_source
     ):
         self._top_indicators = [
             AccommodationCapacityIndicator(structures_source, population_source),
-            TourismIndexIndicator(population_source, attendences_source, presences_col_name="presenze_vodafone"),
+            TourismIndexIndicator(
+                population_source,
+                attendences_source,
+                presences_col_name="presenze_vodafone",
+            ),
             SeasonalityIndicator(attendences_source),
         ]
-        self._max_indicator = FlowsIndicatorLevel(flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS")
+        self._max_indicator = FlowsIndicatorLevel(
+            flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"
+        )
         super().__init__(
             phenomena=[*self._top_indicators, self._max_indicator],
             combinator=self.compute_score,
@@ -481,26 +487,25 @@ class CrowdingIndicator(Indicator):
 
     def _compute_top(self, df: pd.DataFrame, **_extra) -> pd.Series:
         """Compute top quantile score"""
-        df['score'] = 0
+        df["score"] = 0
         for indicator in self._top_indicators:
             for q in [0.75, 0.875, 0.9375]:
                 target_phen_name = indicator.name
                 thr = df[target_phen_name].quantile(q)
-                df['score'] += df[target_phen_name].ge(thr).fillna(False).astype(int)
+                df["score"] += df[target_phen_name].ge(thr).fillna(False).astype(int)
         return df
-
 
     def _compute_max(self, df: pd.DataFrame, **_extra):
         """Assingns 2 points to the places with max level of flows"""
-        col = self._max_indicator.name  # flussi 
-        df.loc[df[col] == df[col].max(), 'score'] += 2  # estrae il massimo
-        return df 
+        col = self._max_indicator.name  # flussi
+        df.loc[df[col] == df[col].max(), "score"] += 2  # estrae il massimo
+        return df
 
     def compute_score(self, df: pd.DataFrame, **_extra) -> pd.Series:
-        """Computes the total score of crowding index """
+        """Computes the total score of crowding index"""
         df = self._compute_top(df)
         df = self._compute_max(df)
-        return df['score']
+        return df["score"]
 
 
 # ---------------------------------------------------------------------------
