@@ -256,6 +256,17 @@ def get_comuni(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _extra_params(request: Request, indicator) -> dict:
+    """
+    Return only the query params this specific indicator has declared it
+    needs, via its `extraFields` class attribute. "seasonality" is always
+    allowed since the base Indicator._compute_indicator() supports it
+    for every indicator, not just ones that list it explicitly.
+    """
+    allowed = set(getattr(indicator, "extraFields", ())) | {"seasonality"}
+    return {k: v for k, v in request.query_params.items() if k in allowed}
+
+
 @indexes_router.get("/get_index_data", response_model=Dict[str, Any])
 def get_index_data(
     request: Request,
@@ -264,10 +275,11 @@ def get_index_data(
     end_date: Optional[str] = Query(None),
 ):
     try:
-        t1 = time()
         tc = _build_tc(request)
         indicator = get_indicator(index)
-        extra = _extra_params(request)
+        extra = _extra_params(
+            request, indicator
+        )  # <-- whitelist driven by this indicator
 
         logger.info(
             f"[{index}] start_date={start_date}, end_date={end_date}, "
@@ -278,9 +290,6 @@ def get_index_data(
         end_dt = _parse_date(end_date, "end_date")
         _validate_date_order(start_dt, end_dt)
 
-        # if index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
-        #     gdf_base = get_vodafone_map_geometry(MAP_IDS)
-        # else:
         gdf_base = get_map_geometry(MAP_SHAPEFILE)
 
         computed_index = indicator.get_indicator(
