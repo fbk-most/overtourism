@@ -37,12 +37,15 @@ def put_dataframe(df: pd.DataFrame, name: str, type: str = "parquet", path: Path
             raise NotImplementedError(f"Unsupported type: {type}")
     return str(path)
 
-def log_dataframe(df: pd.DataFrame, name: str):
-    """Uploads a dataframe"""
-    put_dataframe(df, name, type="parquet")
+def log_dataframe(df: pd.DataFrame, name: str, type: str = "parquet"):
+    """Uploads a dataframe."""
+    file_path = put_dataframe(df, name, type=type)
     project = dh.get_or_create_project(PROJECT)
-    project.log_dataitem(name, "table", data=df)
 
+    if type in {"parquet", "csv"}:
+        return project.log_table(f"{name}.{type}", source=file_path, file_format=type)
+
+    raise NotImplementedError(f"Unsupported type: {type}.")
 
 def init_s3_dhcli(env = "most-platform"):
     """
