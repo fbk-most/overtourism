@@ -185,7 +185,7 @@ class HiddenTourismIndicator(Indicator):
     """Calculates the hidden tourism indicator as the ratio between Vodafone registered attendences and accomodancy ones"""
 
     name = "Indice di turismo sommerso"
-    description = "L'indice misura il <strong>rapporto<strong> fra le <strong>presenze di turisti misurate</strong> attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali</strong> di turisti in strutture alberghiere e extra-alberghiere. L'analisi è a livello di ambito turistico e riguarda gli anni 2022 e 2023. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
+    description = "L'indice misura il <strong>rapporto</strong> fra le <strong>presenze di turisti misurate</strong> attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali</strong> di turisti in strutture alberghiere e extra-alberghiere. L'analisi è a livello di ambito turistico e riguarda gli anni 2022 e 2023. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
 
     def __init__(self, source_file):
         super().__init__(
