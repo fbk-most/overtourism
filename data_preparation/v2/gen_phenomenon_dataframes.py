@@ -669,6 +669,7 @@ def main():
     dict_dfs = compute_phenomenon_dataframes()
     logging.info("## Uploading phenomenon dataframes...")
     for key, value in dict_dfs.items():
+        put_dataframe(value, key, type="parquet", path = PATH_AIXPA_INDEX_DFS)
         log_dataframe(value.reset_index(), key, type="parquet")
     logging.info("## Saved.")
 
