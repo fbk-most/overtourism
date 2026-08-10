@@ -622,6 +622,14 @@ def compute_flussi_trentino(mapping_comuni):
     return df_merged
 
 
+def compute_flussi_2023_temp(flussi_df):
+    """Compute a temporary version of the flussi dataframe for 2023, using the 2024 data as a proxy.
+    NOTE: IMPORTANT: This is a temporary solution, and should be replaced with actual data when available."""
+    flussi_temp_2023 = flussi_df.copy()
+    flussi_temp_2023["DATA"] = 2023
+    return flussi_temp_2023
+
+
 def compute_phenomenon_dataframes():
     """Loads and prepares the base "phenomenon" dataframes.
 
@@ -644,13 +652,15 @@ def compute_phenomenon_dataframes():
         mapping_comuni, how="distributional", distribution=vodafone_attendences_df
     )
     flussi_df = compute_flussi_trentino(mapping_comuni)
+    phen_flussi_temp_2023 = compute_flussi_2023_temp(flussi_df)
 
     return {
         "phen_popolazione": popolazione_df,
         "phen_strutture": strutture_ospitalita_from_2020,
         "phen_arrivi": arrivi_trentino,
         "phen_presenze": presenze_df,
-        "phen_flussi": flussi_df
+        "phen_flussi": flussi_df,
+        "phen_flussi_temp_2023": phen_flussi_temp_2023
        }
 
 
