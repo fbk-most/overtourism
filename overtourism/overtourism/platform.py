@@ -62,6 +62,8 @@ def download_index_data_v2() -> None:
         "phen_popolazione.parquet",
         "phen_presenze.parquet",
         "phen_strutture.parquet",
+        "phen_flussi.parquet",
+        "phen_flussi_temp_2023.parquet",
     ]
     artifacts = [
         "map_comuni_into_apt.json",
