@@ -79,6 +79,50 @@ def pad_id_comune(series, width=6):
     return series.apply(_pad)
 
 
+def create_mapping(df):
+    """Utility function which creates mapping ISTAT IDS <> IDs """
+
+    extra_mapping = {
+        'BENESELLO + CALLIANO + VOLANO' : 'BESENELLO + CALLIANO + VOLANO',
+        'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZ' : 'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZZO',
+        'PERGINE VALSUGANA + VIGNOLA-FALESINA (NORD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
+        'PERGINE VALSUGANA + VIGNOLA-FALESINA (SUD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
+        'RIVA DEL GARDA (PAESE)' : 'RIVA DEL GARDA',
+        'RIVA DEL GARDA (SUL LAGO)': 'RIVA DEL GARDA',
+        'ROVERETO (BORGO SACCO)': 'ROVERETO',
+        'ROVERETO (CENTRO)': 'ROVERETO',
+        'ROVERETO (LIZZANA - OSPEDALE)': 'ROVERETO',
+        'ROVERETO (MARCO)': 'ROVERETO',
+        'ROVERETO (NORIGLIO)': 'ROVERETO',
+        'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSIN': 'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSINA',
+        'TN CENTRO': 'TRENTO',
+        'TN EST': 'TRENTO',
+        'TN NORD': 'TRENTO',
+        'TN OLTRE ADIGE NORD': 'TRENTO',
+        'TN OLTRE ADIGE SUD': 'TRENTO',
+        'TN SUD': 'TRENTO'
+    }
+    
+    df = df.copy()
+    with open(PATH_MAPPING / "vodafone_Trento.json") as f: 
+        mapping_comuni_voda = json.load(f)
+    df['codice_istat_voda'] = df['comune'].str.upper().str.strip().map(mapping_comuni_voda)
+
+    df.loc[df['codice_istat_voda'].isna(), 'codice_istat_voda'] = (
+        df.loc[df['codice_istat_voda'].isna(), 'comune']
+        .str.upper().str.strip()
+        .map(extra_mapping)
+        .str.upper().str.strip()
+        .map(mapping_comuni_voda)
+    )
+
+    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
+    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
+    for idx in df.index[mask]:
+        df.at[idx, "codice_istat_voda"] = [22250]
+    return dict(zip(df['ID'], df['codice_istat_voda']))
+
+
 def _remove_provincia(df, comune_col="comune", upper=False):
     """Drop rows whose comune starts with 'PROVINCIA', logging what gets removed."""
     series = df[comune_col].str.upper() if upper else df[comune_col]
@@ -107,179 +151,6 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
     if id_comune is None and name in overrides:
         id_comune = mapping_comuni.get(overrides[name])
     return id_comune
-
-
-## COMPUTATION 
-## Functions to compute phenomena dataframes 
-def compute_arrivi_trentino():
-    arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
-    arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
-    arrivi_trentino = pd.melt(
-        arrivi_trentino,
-        id_vars="comune",
-        value_vars=["2021", "2022", "2023", "2024"],
-        value_name="arrivi",
-        var_name="anno",
-    )
-    arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
-    arrivi_trentino = arrivi_trentino.sort_values(by=["comune", "anno"]).reset_index(
-        drop=True
-    )
-
-    arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
-    arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
-
-    return arrivi_trentino
-
-def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = None):
-    
-    presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
-    presenze_alb_xalb = pd.read_csv(get_s3("presenze_Trentino_ISPAT_alb_xalb.csv"))
-    with open(PATH_MAPPING / "map_comuni_into_apt.json") as f:
-        json_apt = json.load(f)
-
-    ## Adjust the datasets
-    ## presenze_ispat
-    presenze_ispat.rename(
-        columns={"Ambito": "comune", "Presenze": "presenze"}, inplace=True
-    )
-    presenze_ispat["Anno"] = presenze_ispat["Anno"].astype(int)
-    presenze_ispat["data"] = pd.to_datetime(
-        {"year": presenze_ispat["Anno"], "month": presenze_ispat["Mese"], "day": 1}
-    )
-    presenze_ispat.drop(columns=["Anno", "Mese"], inplace=True)
-    presenze_ispat["ID_COMUNE"] = presenze_ispat["comune"].map(json_apt).apply(
-        lambda x: [int(i) for i in x] if isinstance(x, list) else x
-    )
-
-    presenze_ispat = presenze_ispat.sort_values(by=["comune", "data"]).reset_index(
-        drop=True
-    )
-    presenze_ispat = _remove_provincia(presenze_ispat, upper=True)
-
-    ## presenze_ispat_alb_xalb
-    presenze_alb_xalb["Anno"] = presenze_alb_xalb["Anno"].astype(int)
-    presenze_alb_xalb["data"] = pd.to_datetime(
-        {
-            "year": presenze_alb_xalb["Anno"],
-            "month": presenze_alb_xalb["Mese"],
-            "day": 1,
-        }
-    )
-    presenze_alb_xalb.drop(columns=["Anno", "Mese"], inplace=True)
-    presenze_alb_xalb = presenze_alb_xalb.sort_values("data")
-    values_mapping = list(mapping_comuni.values())
-
-    presenze_alb_xalb["ID_COMUNE"] = [values_mapping] * len(presenze_alb_xalb)
-
-    ## disaggregation
-    presenze_ispat = disaggregate_apt_presences(
-        presenze_ispat,
-        presenze_alb_xalb,
-        mapping_comuni,
-        how=how,
-        distribution=distribution,
-    )
-
-    df = _to_data_location(
-        presenze_ispat,
-        date_col="data",
-    )
-    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime('%Y-%m-%d')
-    return df
-
-
-
-def compute_popolazione(mapping_comuni):
-    popolazione_df = get_dataframe("popolazione_2020_2024")
-    popolazione_df["comune"] = popolazione_df["comune"].apply(customize_unidecode)
-    popolazione_df["ID_COMUNE"] = popolazione_df["comune"].apply(
-        lambda x: resolve_id_comune(x, mapping_comuni)
-    )
-    popolazione_df = _remove_provincia(popolazione_df)
-    popolazione_df = _to_data_location(popolazione_df, date_col="anno")
-    popolazione_df["ID_COMUNE"] = pad_id_comune(popolazione_df["ID_COMUNE"])
-    return popolazione_df
-
-
-def compute_strutture(mapping_comuni):
-    strutture_ospitalita_trentino_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
-    # niente più json_strutture / strutture_ospitalita_Trento_2020.json
-
-    strutture_ospitalita_from_2020 = strutture_ospitalita_trentino_df[
-        strutture_ospitalita_trentino_df["anno"] > 2019
-    ].copy()
-    strutture_ospitalita_from_2020["comune"] = strutture_ospitalita_from_2020["comune"].apply(
-        lambda x: customize_unidecode(x).replace("0", "-")
-    )
-    strutture_ospitalita_from_2020 = _remove_provincia(strutture_ospitalita_from_2020)
-
-    ## Standardize to the common DATA / LOCATION schema
-    strutture_ospitalita_from_2020 = _to_data_location(
-        strutture_ospitalita_from_2020, date_col="anno"
-    )
-
-    CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
-    CATEGORIA_ALLOGGI_PRIVATI = "all. privati numero"
-    CATEGORIA_TOT_CONVENZIONALI_LETTI = "tot convenzionali posti_letto"
-    CATEGORIA_ALLOGGI_PRIVATI_LETTI = "all. privati posti_letto"
-
-    strutture_ospitalita_from_2020["tot_strutture"] = (
-        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI]
-        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
-    )
-    strutture_ospitalita_from_2020["tot_strutture_non_conv"] = (
-        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
-    )
-    strutture_ospitalita_from_2020["tot_postiletto"] = (
-        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI_LETTI]
-        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
-    )
-    strutture_ospitalita_from_2020["tot_postiletto_non_conv"] = (
-        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
-    )
-
-    # Try direct match first, then fall back to the override table
-    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020["LOCATION"].apply(
-        lambda x: resolve_id_comune(x, mapping_comuni)
-    )
-    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(strutture_ospitalita_from_2020["ID_COMUNE"])
-
-    unmatched_mask = strutture_ospitalita_from_2020["ID_COMUNE"].isna()
-    if unmatched_mask.any():
-        fallback_names = strutture_ospitalita_from_2020.loc[
-            unmatched_mask, "LOCATION"
-        ].map(COMUNE_NAME_OVERRIDES)
-        strutture_ospitalita_from_2020.loc[unmatched_mask, "ID_COMUNE"] = (
-            fallback_names.map(mapping_comuni)
-        )
-
-    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(
-        strutture_ospitalita_from_2020["ID_COMUNE"]
-    )
-
-    # Report anything still unresolved
-    still_missing = strutture_ospitalita_from_2020[
-        strutture_ospitalita_from_2020["ID_COMUNE"].isna()
-    ]["LOCATION"].unique()
-    if len(still_missing) > 0:
-        print(
-            f"[compute_strutture] WARNING: could not find ID_COMUNE for "
-            f"{len(still_missing)} comune(s): {sorted(still_missing)}"
-        )
-
-    return strutture_ospitalita_from_2020[
-        [
-            "DATA",
-            "LOCATION",
-            "ID_COMUNE",
-            "tot_postiletto",
-            "tot_postiletto_non_conv",
-            "tot_strutture",
-            "tot_strutture_non_conv",
-        ]
-    ]
 
 
 ## DISAGGREGATION FUNCTIONS 
@@ -398,6 +269,175 @@ def disaggregate_apt_presences(
     ).drop(columns={"LOCATION"})
 
 
+## COMPUTATION 
+## Functions to compute phenomena dataframes 
+def compute_arrivi_trentino(years = ["2021", "2022", "2023", "2024"]):
+    arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
+    arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
+    arrivi_trentino = pd.melt(
+        arrivi_trentino,
+        id_vars="comune",
+        value_vars=years,
+        value_name="arrivi",
+        var_name="anno",
+    )
+    arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
+    arrivi_trentino = arrivi_trentino.sort_values(by=["comune", "anno"]).reset_index(
+        drop=True
+    )
+
+    arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
+    arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
+
+    return arrivi_trentino
+
+
+def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = None):
+    presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
+    presenze_alb_xalb = pd.read_csv(get_s3("presenze_Trentino_ISPAT_alb_xalb.csv"))
+    with open(PATH_MAPPING / "map_comuni_into_apt.json") as f:
+        json_apt = json.load(f)
+
+    ## Adjust the datasets
+    ## presenze_ispat
+    presenze_ispat.rename(
+        columns={"Ambito": "comune", "Presenze": "presenze"}, inplace=True
+    )
+    presenze_ispat["Anno"] = presenze_ispat["Anno"].astype(int)
+    presenze_ispat["data"] = pd.to_datetime(
+        {"year": presenze_ispat["Anno"], "month": presenze_ispat["Mese"], "day": 1}
+    )
+    presenze_ispat.drop(columns=["Anno", "Mese"], inplace=True)
+    presenze_ispat["ID_COMUNE"] = presenze_ispat["comune"].map(json_apt).apply(
+        lambda x: [int(i) for i in x] if isinstance(x, list) else x
+    )
+    presenze_ispat = presenze_ispat.sort_values(by=["comune", "data"]).reset_index(
+        drop=True
+    )
+    presenze_ispat = _remove_provincia(presenze_ispat, upper=True)
+
+    ## presenze_ispat_alb_xalb
+    presenze_alb_xalb["Anno"] = presenze_alb_xalb["Anno"].astype(int)
+    presenze_alb_xalb["data"] = pd.to_datetime(
+        {
+            "year": presenze_alb_xalb["Anno"],
+            "month": presenze_alb_xalb["Mese"],
+            "day": 1,
+        }
+    )
+    presenze_alb_xalb.drop(columns=["Anno", "Mese"], inplace=True)
+    presenze_alb_xalb = presenze_alb_xalb.sort_values("data")
+    presenze_alb_xalb["ID_COMUNE"] = [list(mapping_comuni.values())] * len(presenze_alb_xalb)
+
+    ## disaggregation with specified method 
+    presenze_ispat = disaggregate_apt_presences(
+        presenze_ispat,
+        presenze_alb_xalb,
+        mapping_comuni,
+        how=how,
+        distribution=distribution,
+    )
+
+    df = _to_data_location(
+        presenze_ispat,
+        date_col="data",
+    )
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime('%Y-%m-%d')
+    return df
+
+
+def compute_popolazione(mapping_comuni):
+    popolazione_df = get_dataframe("popolazione_2020_2024")
+    popolazione_df["comune"] = popolazione_df["comune"].apply(customize_unidecode)
+    popolazione_df["ID_COMUNE"] = popolazione_df["comune"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
+    )
+    popolazione_df = _remove_provincia(popolazione_df)
+    popolazione_df = _to_data_location(popolazione_df, date_col="anno")
+    popolazione_df["ID_COMUNE"] = pad_id_comune(popolazione_df["ID_COMUNE"])
+    return popolazione_df
+
+
+def compute_strutture(mapping_comuni):
+    strutture_ospitalita_trentino_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
+    strutture_ospitalita_from_2020 = strutture_ospitalita_trentino_df[
+        strutture_ospitalita_trentino_df["anno"] > 2019
+    ].copy()  # consideriamo solo anni successivi, a causa di aggregazioni comunali
+    strutture_ospitalita_from_2020["comune"] = strutture_ospitalita_from_2020["comune"].apply(
+        lambda x: customize_unidecode(x).replace("0", "-")
+    )
+    strutture_ospitalita_from_2020 = _remove_provincia(strutture_ospitalita_from_2020)
+
+    ## Standardize to the common DATA / LOCATION schema
+    strutture_ospitalita_from_2020 = _to_data_location(
+        strutture_ospitalita_from_2020, date_col="anno"
+    )
+
+    CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
+    CATEGORIA_ALLOGGI_PRIVATI = "all. privati numero"
+    CATEGORIA_TOT_CONVENZIONALI_LETTI = "tot convenzionali posti_letto"
+    CATEGORIA_ALLOGGI_PRIVATI_LETTI = "all. privati posti_letto"
+
+    strutture_ospitalita_from_2020["tot_strutture"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI]
+        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
+    )
+    strutture_ospitalita_from_2020["tot_strutture_non_conv"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI]
+    )
+    strutture_ospitalita_from_2020["tot_postiletto"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI_LETTI]
+        + strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
+    )
+    strutture_ospitalita_from_2020["tot_postiletto_non_conv"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
+    )
+
+    # Try direct match first, then fall back to the override table
+    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020["LOCATION"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
+    )
+    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(strutture_ospitalita_from_2020["ID_COMUNE"])
+
+    unmatched_mask = strutture_ospitalita_from_2020["ID_COMUNE"].isna()
+    if unmatched_mask.any():
+        fallback_names = strutture_ospitalita_from_2020.loc[
+            unmatched_mask, "LOCATION"
+        ].map(COMUNE_NAME_OVERRIDES)
+        strutture_ospitalita_from_2020.loc[unmatched_mask, "ID_COMUNE"] = (
+            fallback_names.map(mapping_comuni)
+        )
+
+    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(
+        strutture_ospitalita_from_2020["ID_COMUNE"]
+    )
+
+    # Report anything still unresolved
+    still_missing = strutture_ospitalita_from_2020[
+        strutture_ospitalita_from_2020["ID_COMUNE"].isna()
+    ]["LOCATION"].unique()
+    if len(still_missing) > 0:
+        print(
+            f"[compute_strutture] WARNING: could not find ID_COMUNE for "
+            f"{len(still_missing)} comune(s): {sorted(still_missing)}"
+        )
+
+    return strutture_ospitalita_from_2020[
+        [
+            "DATA",
+            "LOCATION",
+            "ID_COMUNE",
+            "tot_postiletto",
+            "tot_postiletto_non_conv",
+            "tot_strutture",
+            "tot_strutture_non_conv",
+        ]
+    ]
+
+
+
+
 
 def compute_vodafone_attendences(mapping_comuni):
     vodafone_attendences_df = get_dataframe("vodafone_attendences")
@@ -407,11 +447,9 @@ def compute_vodafone_attendences(mapping_comuni):
 
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
     location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
-
     vodafone_attendences_df["comune"] = vodafone_attendences_df["locId"].map(
         location_map
     )
-
     vodafone_attendences_df["ID_COMUNE"] = vodafone_attendences_df["comune"].map(
         json_vodafone
     )
@@ -422,7 +460,6 @@ def compute_vodafone_attendences(mapping_comuni):
     )
 
     mask = vodafone_attendences_df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
-
     vodafone_attendences_df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
     vodafone_attendences_df.loc[mask, "ID_COMUNE"] = [[22250]] * mask.sum()
 
@@ -446,7 +483,7 @@ def compute_vodafone_attendences(mapping_comuni):
         .rename(columns={"value": "presenze"})
     )
 
-    df = disaggregate(df, mapping_comuni, cols=["presenze"])
+    df = disaggregate(df, mapping_comuni, cols=["presenze"])  # NOTE: disaggregation for the moment is uniform, since the aggregated municipalities are not so unbalanced (except for pergine)
 
     # Standardize schema
     df = _to_data_location(
@@ -457,50 +494,6 @@ def compute_vodafone_attendences(mapping_comuni):
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return df
-
-
-def create_mapping(df):
-    """Utility function which creates mapping ISTAT IDS <> IDs """
-
-    extra_mapping = {
-        'BENESELLO + CALLIANO + VOLANO' : 'BESENELLO + CALLIANO + VOLANO',
-        'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZ' : 'BORGO CHIESE + CASTEL CONDINO + PIEVE DI BONO-PREZZO',
-        'PERGINE VALSUGANA + VIGNOLA-FALESINA (NORD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
-        'PERGINE VALSUGANA + VIGNOLA-FALESINA (SUD)': 'PERGINE VALSUGANA + VIGNOLA-FALESINA',
-        'RIVA DEL GARDA (PAESE)' : 'RIVA DEL GARDA',
-        'RIVA DEL GARDA (SUL LAGO)': 'RIVA DEL GARDA',
-        'ROVERETO (BORGO SACCO)': 'ROVERETO',
-        'ROVERETO (CENTRO)': 'ROVERETO',
-        'ROVERETO (LIZZANA - OSPEDALE)': 'ROVERETO',
-        'ROVERETO (MARCO)': 'ROVERETO',
-        'ROVERETO (NORIGLIO)': 'ROVERETO',
-        'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSIN': 'SANT\'ORSOLA TERME + FRASSILONGO + PALU\' DEL FERSINA',
-        'TN CENTRO': 'TRENTO',
-        'TN EST': 'TRENTO',
-        'TN NORD': 'TRENTO',
-        'TN OLTRE ADIGE NORD': 'TRENTO',
-        'TN OLTRE ADIGE SUD': 'TRENTO',
-        'TN SUD': 'TRENTO'
-    }
-    
-    df = df.copy()
-    with open(PATH_MAPPING / "vodafone_Trento.json") as f: 
-        mapping_comuni_voda = json.load(f)
-    df['codice_istat_voda'] = df['comune'].str.upper().str.strip().map(mapping_comuni_voda)
-
-    df.loc[df['codice_istat_voda'].isna(), 'codice_istat_voda'] = (
-        df.loc[df['codice_istat_voda'].isna(), 'comune']
-        .str.upper().str.strip()
-        .map(extra_mapping)
-        .str.upper().str.strip()
-        .map(mapping_comuni_voda)
-    )
-
-    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
-    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
-    for idx in df.index[mask]:
-        df.at[idx, "codice_istat_voda"] = [22250]
-    return dict(zip(df['ID'], df['codice_istat_voda']))
 
 
 def compute_flussi_trentino(mapping_comuni):
@@ -566,6 +559,8 @@ def compute_flussi_trentino(mapping_comuni):
         df_merged, 
         id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()},
         cols_split = value_cols)
+
+    # df_merged = disaggregate()
     agg_dict = {
         **{col: 'sum' for col in value_cols},
         **{col: 'median' for col in level_cols}
@@ -583,6 +578,7 @@ def compute_flussi_2023_temp(flussi_df):
     return flussi_temp_2023
 
 
+## MAIN computation of phenomena 
 def compute_phenomenon_dataframes():
     """Loads and prepares the base "phenomenon" dataframes.
 
@@ -615,7 +611,6 @@ def compute_phenomenon_dataframes():
         "phen_flussi": flussi_df,
         "phen_flussi_temp_2023": phen_flussi_temp_2023
        }
-
 
 def main():
     logging.info(f"## Computing phenomenon dataframes")
