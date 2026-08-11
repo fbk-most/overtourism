@@ -26,16 +26,31 @@ import geopandas as geopd
 from unidecode import unidecode
 from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
 
-# from data_preparation.utils import get_dataframe, put_dataframe, log_dataframe, get_s3
-
 logging.basicConfig(level=logging.INFO)
 
-PATH_OVERTOURISM = Path(__file__).parent.parent.parent.parent.resolve() 
+PATH_OVERTOURISM = Path(__file__).parents[3].resolve() 
 PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
-PATH_AIXPA_INDEX_DFS = PATH_OVERTOURISM / 'overtourism' / 'overtourism' / 'database' / 'index_data_v2'
+PATH_AIXPA_INDEX_DFS = PATH_OVERTOURISM / 'overtourism' / 'overtourism' / 'overtourism' / 'database' / 'index_data_v2'
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 assert PATH_MAPPING.exists(), f"Path to mapping does not exist {PATH_MAPPING}"
+
+# Explicit overrides for comuni whose official Italian name differs from
+# a naive "before the dash" split of the bilingual name in the source CSV.
+COMUNE_NAME_OVERRIDES = {
+    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
+    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
+    "CANAL SAN BOVO": "CANAL SAN BOVO",
+    "CANAZEI-CIANACEI": "CANAZEI",
+    "FIEROZZO-VLAROTZ": "FIEROZZO",
+    "FRASSILONGO-GARAIT": "FRASSILONGO",
+    "LUSERNA-LUSERN": "LUSERNA",
+    "MAZZIN-MAZIN": "MAZZIN",
+    "MOENA-MOENA": "MOENA",
+    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
+    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
+    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
+}
 
 def customize_unidecode(x):
     """
@@ -82,6 +97,13 @@ def _to_data_location(df, date_col, drop_cols=None):
     """
     df = df.drop(columns=drop_cols) if drop_cols else df
     return df.rename(columns={date_col: "DATA", "comune": "LOCATION"})
+
+def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
+    """Map a comune name to its ISTAT ID, falling back to the bilingual-name overrides."""
+    id_comune = mapping_comuni.get(name)
+    if id_comune is None and name in overrides:
+        id_comune = mapping_comuni.get(overrides[name])
+    return id_comune
 
 
 def compute_arrivi_trentino():
@@ -163,56 +185,29 @@ def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = No
     return df
 
 
-def compute_popolazione():
-    json_popolazione = json.load(open(PATH_MAPPING / "popolazione_Trento.json"))
+
+def compute_popolazione(mapping_comuni):
     popolazione_df = get_dataframe("popolazione_2020_2024")
-    popolazione_df["comune"] = popolazione_df["comune"].apply(
-        lambda x: customize_unidecode(x)
+    popolazione_df["comune"] = popolazione_df["comune"].apply(customize_unidecode)
+    popolazione_df["ID_COMUNE"] = popolazione_df["comune"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
     )
-    popolazione_df["ID_COMUNE"] = popolazione_df["comune"].map(json_popolazione)
     popolazione_df = _remove_provincia(popolazione_df)
     popolazione_df = _to_data_location(popolazione_df, date_col="anno")
-
     popolazione_df["ID_COMUNE"] = pad_id_comune(popolazione_df["ID_COMUNE"])
-
     return popolazione_df
-
-
-# Explicit overrides for comuni whose official Italian name differs from
-# a naive "before the dash" split of the bilingual name in the source CSV.
-COMUNE_NAME_OVERRIDES = {
-    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
-    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
-    "CANAL SAN BOVO": "CANAL SAN BOVO",
-    "CANAZEI-CIANACEI": "CANAZEI",
-    "FIEROZZO-VLAROTZ": "FIEROZZO",
-    "FRASSILONGO-GARAIT": "FRASSILONGO",
-    "LUSERNA-LUSERN": "LUSERNA",
-    "MAZZIN-MAZIN": "MAZZIN",
-    "MOENA-MOENA": "MOENA",
-    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
-    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
-    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
-}
 
 
 def compute_strutture(mapping_comuni):
     strutture_ospitalita_trentino_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
-    json_strutture = PATH_MAPPING / "strutture_ospitalita_Trento_2020.json"
-    json_strutture = json.load(open(json_strutture))
+    # niente più json_strutture / strutture_ospitalita_Trento_2020.json
 
-    ## take years from 2020
     strutture_ospitalita_from_2020 = strutture_ospitalita_trentino_df[
         strutture_ospitalita_trentino_df["anno"] > 2019
     ].copy()
-    strutture_ospitalita_from_2020["comune"] = strutture_ospitalita_from_2020[
-        "comune"
-    ].apply(lambda x: customize_unidecode(x).replace("0", "-"))
-
-    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020[
-        "comune"
-    ].map(json_strutture)
-
+    strutture_ospitalita_from_2020["comune"] = strutture_ospitalita_from_2020["comune"].apply(
+        lambda x: customize_unidecode(x).replace("0", "-")
+    )
     strutture_ospitalita_from_2020 = _remove_provincia(strutture_ospitalita_from_2020)
 
     ## Standardize to the common DATA / LOCATION schema
@@ -241,9 +236,10 @@ def compute_strutture(mapping_comuni):
     )
 
     # Try direct match first, then fall back to the override table
-    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020[
-        "LOCATION"
-    ].map(mapping_comuni)
+    strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020["LOCATION"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
+    )
+    strutture_ospitalita_from_2020["ID_COMUNE"] = pad_id_comune(strutture_ospitalita_from_2020["ID_COMUNE"])
 
     unmatched_mask = strutture_ospitalita_from_2020["ID_COMUNE"].isna()
     if unmatched_mask.any():
@@ -644,7 +640,7 @@ def compute_phenomenon_dataframes():
     with open(PATH_MAPPING / "mapping_comuni_ISTAT.json") as f:
         mapping_comuni = json.load(f)
 
-    popolazione_df = compute_popolazione()
+    popolazione_df = compute_popolazione(mapping_comuni)
     strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)
     vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
     arrivi_trentino = compute_arrivi_trentino()
@@ -680,7 +676,7 @@ def local():
     logging.info("## Saving phenomenon dataframes...")
     for key, value in dict_dfs.items():
         put_dataframe(value, key, type="parquet", path = PATH_AIXPA_INDEX_DFS)
-    logging.info("## Saved.")
+    logging.info(f"## Phenomena saved in the following path: {PATH_AIXPA_INDEX_DFS}.")
 
 if __name__ == "__main__":
     local()
