@@ -52,6 +52,9 @@ COMUNE_NAME_OVERRIDES = {
     "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
 }
 
+
+## UTILS FUNCTIONS
+## Some functions for decoding / padding / cleaning 
 def customize_unidecode(x):
     """
     Convert the input string, removing accents, converting to uppercase, and stripping whitespace.
@@ -106,6 +109,8 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
     return id_comune
 
 
+## COMPUTATION 
+## Functions to compute phenomena dataframes 
 def compute_arrivi_trentino():
     arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
     arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
@@ -276,81 +281,41 @@ def compute_strutture(mapping_comuni):
         ]
     ]
 
-def split_cols_unif(df, id_to_comune, cols_split=["presenze"]):
-    """Function which splits the presences uniformly between multiple ID_COMUNE"""
+
+## DISAGGREGATION FUNCTIONS 
+## Helper functions used to disaggregate series, according to uniformity or a specfic distribution 
+def disaggregate_uniform(df, id_to_comune, cols_split, id_col="ID_COMUNE"):
+    """
+    Expands every line, dividing the column equally between the IDs.
+    """
     rows = []
-
     for _, row in df.iterrows():
-        ids = row["ID_COMUNE"]
-
-        if isinstance(ids, int):
-            new_row = row.copy()
-            new_row["comune"] = id_to_comune.get(ids)
-            rows.append(new_row)
-            continue
-
-        if len(ids) == 1:
-            new_row = row.copy()
-            new_row["ID_COMUNE"] = ids[0]
-            new_row["comune"] = id_to_comune.get(ids[0])
-            rows.append(new_row)
-            continue
-
+        ids = row[id_col]
+        if not isinstance(ids, (list, tuple)):
+            ids = [ids]
         n = len(ids)
-
-        for i, ID_COMUNE in enumerate(ids):
+        for i, cid in enumerate(ids):
             new_row = row.copy()
-            new_row["ID_COMUNE"] = ID_COMUNE
-            new_row["comune"] = id_to_comune.get(ID_COMUNE)
-
+            new_row[id_col] = cid
+            new_row["comune"] = id_to_comune.get(cid)
             for c in cols_split:
+                if pd.isna(row[c]):
+                    new_row[c] = pd.NA
+                    continue
                 total = int(row[c])
-                base = total // n
-                remainder = total % n
+                base, remainder = divmod(total, n)
                 new_row[c] = base + (1 if i < remainder else 0)
             rows.append(new_row)
     return pd.DataFrame(rows)
 
-def split_data_province(df, mapping_comuni):
-    """Function which splits the data between all the comuni of the province, uniformly"""
-    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
-    df = df.set_index("data")
-    n = len(mapping_comuni)
-    df["base_alb"] = df["presenze_alb"] // n
-    df["rem_alb"] = df["presenze_alb"] % n
-    
-    df["base_xalb"] = df["presenze_xalb"] // n
-    df["rem_xalb"] = df["presenze_xalb"] % n
-    
-    df = df.reset_index()
-    
-    df_exploded = df.explode("ID_COMUNE")
-    
-    df_exploded["idx_comune"] = df_exploded.groupby("data").cumcount()
-    
-    df_exploded["presenze_alb"] = df_exploded["base_alb"] + (df_exploded["idx_comune"] < df_exploded["rem_alb"]).astype(int)
-    df_exploded["presenze_xalb"] = df_exploded["base_xalb"] + (df_exploded["idx_comune"] < df_exploded["rem_xalb"]).astype(int)
-    df_exploded["comune"] = df_exploded["ID_COMUNE"].map(id_to_comune)
 
-    df_final = df_exploded[[ "data", "ID_COMUNE", "comune", "presenze_xalb"]]    # "presenze_alb"
-    return df_final
-
-
-def split_presences_distributional(
-    df: pd.DataFrame,
-    distribution: pd.DataFrame,
-    cols = ["presenze"],
-    *,
-    group_col: str = "LOCATION",
-    time_col: str = "DATA",
-    id_col: str = "ID_COMUNE",
-    weight_col: str = "presenze",
-    period: str = "M",
+def disaggregate_distributional(
+    df, distribution, cols,
+    *, group_col="LOCATION", time_col="DATA", id_col="ID_COMUNE",
+    weight_col="presenze", period="M",
 ) -> pd.DataFrame:
     """
-    Distribuisce le presenze ISPAT (mensili, per APT) su base
-    giornaliera e comunale, usando come "forma" di riferimento
-    la distribuzione osservata nei dati Vodafone (giornalieri, per comune).
+    It distributes ISPAT attendance data on a daily and municipal basis, using the distribution observed in Vodafone data (daily, by municipality) as a reference profile
     """
     df = df.copy()
     distribution = distribution.copy()
@@ -382,8 +347,17 @@ def split_presences_distributional(
         merged[f"{c}_distributed"] = (merged[c] * merged["weight"]).round()
     return merged.drop(columns=["_PERIOD", "_denom", "weight", "_GROUP",*cols])
 
+def disaggregate(df, mapping_comuni, cols, how="uniform", distribution=None, id_col="ID_COMUNE", **kwargs):
+    """Disaggregation function, to expand rows with multiple ID_COMUNEs into one row per municipality. This supports uniform and distributional disaggregations. """
+    if how == "uniform":
+        id_to_comune = {v: k for k, v in mapping_comuni.items()}
+        return disaggregate_uniform(df, id_to_comune, cols_split=cols, id_col=id_col)
+    elif how == "distributional":
+        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        return disaggregate_distributional(df, distribution, cols=cols, id_col=id_col, **kwargs)
+    else:
+        raise ValueError(f"Unknown disaggregation method: {how}")
 
-## DISAGGREGATION FUNCTIONS 
 
 def disaggregate_apt_presences(
         df, df_xalb, mapping_comuni, how = "uniform", distribution = None
@@ -398,8 +372,8 @@ def disaggregate_apt_presences(
     id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
     df_xalb.rename(columns = {"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"},inplace = True)
     if how == "uniform":
-        presences = split_cols_unif(df, id_to_comune)
-        presences_xalb = split_data_province(df_xalb, mapping_comuni)
+        presences = disaggregate_uniform(df, id_to_comune)
+        presences_xalb = disaggregate_uniform(df_xalb, mapping_comuni)
         presences = presences.merge(
             presences_xalb, 
             on=["data", "ID_COMUNE", "comune"], 
@@ -408,10 +382,10 @@ def disaggregate_apt_presences(
     elif how == "distributional":
         assert not distribution is None, "Distribution must be provided for distributional disaggregation"
         df.rename(columns={"comune":"LOCATION", "data":"DATA", "presenze": "presenze_alb"}, inplace = True)
-        presences = split_presences_distributional(df, distribution, cols = ["presenze_alb"])
+        presences = disaggregate_distributional(df, distribution, cols = ["presenze_alb"])
         df_xalb["LOCATION"] = "PROVINCIA"
         df_xalb.rename(columns={"data":"DATA"}, inplace = True)
-        presences_xalb = split_presences_distributional(
+        presences_xalb = disaggregate_distributional(
             df_xalb, distribution, 
             cols = ["presenze_alb", "presenze_xalb"]
         )
@@ -423,23 +397,6 @@ def disaggregate_apt_presences(
         how="outer"
     ).drop(columns={"LOCATION"})
 
-
-def disaggregate_vodafone_presences(df, mapping_comuni, how="uniform"):
-    """
-    Expand rows with multiple ID_COMUNEs into one row per municipality.
-
-    The presenze are divided as evenly as possible while preserving the total.
-
-    NOTE: This is a temporary workaround, better ways to distribute presences should be implemented.
-    """
-
-    # mapping_comuni is keyed name -> id; we need the reverse (id -> name) here.
-    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
-    if how == "uniform":
-        presences = split_cols_unif(df, id_to_comune)
-    else:
-        raise ValueError(f"Unknown disaggregation method: {how}")
-    return pd.DataFrame(presences)
 
 
 def compute_vodafone_attendences(mapping_comuni):
@@ -489,7 +446,7 @@ def compute_vodafone_attendences(mapping_comuni):
         .rename(columns={"value": "presenze"})
     )
 
-    df = disaggregate_vodafone_presences(df, mapping_comuni)
+    df = disaggregate(df, mapping_comuni, cols=["presenze"])
 
     # Standardize schema
     df = _to_data_location(
@@ -605,7 +562,7 @@ def compute_flussi_trentino(mapping_comuni):
                     'FLOWS_IN_VISITORS', 'FLOWS_OUT_VISITORS']
     level_cols = ['LEVEL_IN', 'LEVEL_OUT', 'LEVEL_IN_TOURISTS', 'LEVEL_OUT_TOURISTS',
                   'LEVEL_IN_VISITORS', 'LEVEL_OUT_VISITORS']
-    df_merged = split_cols_unif(
+    df_merged = disaggregate_uniform(
         df_merged, 
         id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()},
         cols_split = value_cols)
