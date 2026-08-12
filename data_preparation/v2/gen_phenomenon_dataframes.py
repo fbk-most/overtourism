@@ -24,16 +24,13 @@ from pathlib import Path
 import pandas as pd
 import geopandas as geopd
 from unidecode import unidecode
-from utils import get_dataframe, get_s3, log_dataframe, put_dataframe
+from utils import get_dataframe, get_s3, log_dataframe, put_dataframe, get_json_s3
 
 logging.basicConfig(level=logging.INFO)
 
 PATH_OVERTOURISM = Path(__file__).parents[3].resolve() 
-PATH_MAPPING = Path(__file__).parent.resolve() / ".." / "mapping"
 PATH_AIXPA_INDEX_DFS = PATH_OVERTOURISM / 'overtourism' / 'overtourism' / 'overtourism' / 'database' / 'index_data_v2'
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
-
-assert PATH_MAPPING.exists(), f"Path to mapping does not exist {PATH_MAPPING}"
 
 # Explicit overrides for comuni whose official Italian name differs from
 # a naive "before the dash" split of the bilingual name in the source CSV.
@@ -104,8 +101,7 @@ def create_mapping(df):
     }
     
     df = df.copy()
-    with open(PATH_MAPPING / "vodafone_Trento.json") as f: 
-        mapping_comuni_voda = json.load(f)
+    mapping_comuni_voda = get_json_s3("mapping_ids/mapping_comuni_into_vodafone_Trento.json")
     df['codice_istat_voda'] = df['comune'].str.upper().str.strip().map(mapping_comuni_voda)
 
     df.loc[df['codice_istat_voda'].isna(), 'codice_istat_voda'] = (
@@ -295,8 +291,7 @@ def compute_arrivi_trentino(years = ["2021", "2022", "2023", "2024"]):
 def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = None):
     presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
     presenze_alb_xalb = pd.read_csv(get_s3("presenze_Trentino_ISPAT_alb_xalb.csv"))
-    with open(PATH_MAPPING / "map_comuni_into_apt.json") as f:
-        json_apt = json.load(f)
+    json_apt = get_json_s3("mapping_ids/map_comuni_into_apt.json")
 
     ## Adjust the datasets
     ## presenze_ispat
@@ -436,14 +431,10 @@ def compute_strutture(mapping_comuni):
     ]
 
 
-
-
-
 def compute_vodafone_attendences(mapping_comuni):
     vodafone_attendences_df = get_dataframe("vodafone_attendences")
 
-    with open(PATH_MAPPING / "vodafone_Trento.json") as f:
-        json_vodafone = json.load(f)
+    json_vodafone = get_json_s3("mapping_ids/mapping_comuni_into_vodafone_Trento.json")
 
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
     location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
@@ -589,10 +580,7 @@ def compute_phenomenon_dataframes():
     phenomenon's own value columns). Any ID_COMUNE column is zero-padded to
     6 digits (e.g. 22001 -> "022001").
     """
-
-    with open(PATH_MAPPING / "mapping_comuni_ISTAT.json") as f:
-        mapping_comuni = json.load(f)
-
+    mapping_comuni = get_json_s3("mapping_ids/mapping_comuni_ISTAT.json")
     popolazione_df = compute_popolazione(mapping_comuni)
     strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)
     vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)

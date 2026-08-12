@@ -7,6 +7,7 @@ import pandas as pd
 import io
 import boto3
 import configparser
+import json 
 
 PROJECT = os.environ.get("PROJECT_NAME", "overtourism")
 BUCKET_NAME = os.environ.get("S3_BUCKET", "datalake")
@@ -18,6 +19,11 @@ PATH_SAVE = Path(__file__).resolve().parent / "processed_data_trentino"
 
 def get_dataframe(name: str) -> DataFrame:
     return dh.get_dataitem(name, project=PROJECT).as_df()
+
+def get_json_s3(name: str) -> dict:
+    """Scarica e parsa un JSON da S3, es. get_json_s3('mapping_ids/mapping_comuni_ISTAT.json')."""
+    buffer = get_s3(name)
+    return json.load(buffer)
 
 def put_dataframe(df: pd.DataFrame, name: str, type: str = "parquet", path: Path = PATH_SAVE) -> str:
     """Saves a dataframe"""
