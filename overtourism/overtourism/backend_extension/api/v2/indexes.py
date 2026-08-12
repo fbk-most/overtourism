@@ -221,7 +221,7 @@ def get_indicators_list():
         ) from e
 
 
-@indexes_router.get("/get-comuni", response_model=Dict[str, Any])
+@indexes_router.get("/get-spatial-areas", response_model=Dict[str, Any])
 def get_comuni(request: Request):
     """
     Return the list of spatial units visible to the caller.
@@ -235,9 +235,9 @@ def get_comuni(request: Request):
     try:
         tc = _build_tc(request)
 
-        if tc.spatial_granularity == "macro_area":
-            area_entries = [{"code": a.name, "name": a.name} for a in tc.areas]
-            return {"comuni": [{"code": "-1", "name": "Regione"}] + area_entries}
+        area_entries = [{"code": "-1", "name": "Regione"}] + [
+            {"code": a.name, "name": a.name} for a in tc.areas
+        ]
 
         # Comune granularity: filter by allowed_comuni
         all_comuni = get_list_comuni(CODICI_COMUNI_FILE)
@@ -250,7 +250,7 @@ def get_comuni(request: Request):
         else:
             comuni = all_comuni
 
-        return {"comuni": comuni}
+        return {"comuni": comuni, "areas": area_entries}
 
     except HTTPException:
         raise
