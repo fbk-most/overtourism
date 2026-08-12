@@ -169,20 +169,6 @@ def initialize_df_null_day_dataframe(cities_gdf, df_distance_matrix, s3, list_fi
 
     return df_od_null_days, df_presenze_null_days, df_distance_matrix
 
-def save_geodafeame_in_directory_output_and_init_global_geodata_and_global_geo_flows(cities_gdf, config, str_grid_idx, columns_2_hold_geopandas_base, str_dir_output = str_dir_output):
-    """
-    Save the GeoDataFrame in the output directory and initialize global variables.
-        Description:
-        - Save the GeoDataFrame with base columns to a GeoJSON file in the output directory
-        - Initialize global variables for holding all columns of flows and the GeoDataFrame
-    """ 
-    # Save the output at the base level of
-    cities_gdf[str_grid_idx] = cities_gdf.index  # add the grid idx as a column
-    cities_gdf[columns_2_hold_geopandas_base].to_file(os.path.join(config[str_dir_output],f"cities_gdf_base_columns.geojson"),driver="GeoJSON")  # save the base columns of the cities gdf
-    global_Tij_holding_all_columns_flows = None 
-    global_cities_gdf_holding_all_columns_flows = cities_gdf
-    return global_Tij_holding_all_columns_flows, global_cities_gdf_holding_all_columns_flows
-
 
 def initialize_concatenated_od_dataframe(list_files_od, s3, str_period_id_presenze, col_str_day_od, col_str_is_week,
                                         df_distance_matrix, str_origin_od = str_origin_od, str_destination_od = str_destination_od,
@@ -421,10 +407,10 @@ def main_generate_flows_and_grids(str_name_project = str_name_project, str_dir_d
 
     for case_pipeline in case_pipelines_to_run:
         pipeline_vars = list(filter(len, case_pipeline.split("_")))
-        global_Tij_holding_all_columns_flows, global_cities_gdf_holding_all_columns_flows = save_geodafeame_in_directory_output_and_init_global_geodata_and_global_geo_flows(
-                cities_gdf=cities_gdf, config=config, str_grid_idx=str_grid_idx,
-                columns_2_hold_geopandas_base=columns_2_hold_geopandas_base,
-            )
+        cities_gdf[str_grid_idx] = cities_gdf.index  # add the grid idx as a column
+        global_Tij_holding_all_columns_flows = None 
+        global_cities_gdf_holding_all_columns_flows = cities_gdf
+        
         # Build the cartesian product of the conditioning sets in order
         conditioning_values = [conditioned_sets[var] for var in pipeline_vars]
         for combo in itertools.product(*conditioning_values):
@@ -474,9 +460,7 @@ def main_generate_flows_and_grids(str_name_project = str_name_project, str_dir_d
                     str_centroid_lon=str_centroid_lon, cities_gdf=cities_gdf, str_dir_output_date=str_dir_output_date,
                 )
 
-        global_Tij_holding_all_columns_flows.write_parquet(os.path.join(config[str_dir_output],f"Tij_all_columns_{case_pipeline}.parquet"))
         grid_global.write_parquet(os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet"))  
-        print(f"Saved: {os.path.join(config[str_dir_output],f"Tij_all_columns_{case_pipeline}.parquet")}") 
         print(f"Saved: {os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet")}")
 
 
