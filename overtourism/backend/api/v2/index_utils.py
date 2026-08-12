@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 import geopandas as gpd
 import pandas as pd
+from math import ceil, floor
 
 # ---------------------------------------------------------------------------
 # Map response helpers
@@ -25,8 +26,26 @@ def _build_geodataframe(gdf_base, result, join_on="ID_COMUNE", area_name_col="CO
     )
 
 
+def _translate_columns(
+    gdf: gpd.GeoDataFrame, translations: dict[str, str]
+) -> gpd.GeoDataFrame:
+    """
+    Rename GeoDataFrame columns using a predefined translation dictionary.
+
+    Only columns whose current name is a key in `translations` are renamed
+    (e.g. phenomenon keywords like "beds" / "population"); anything not
+    listed there — "AREA_NAME", "INDICE", "geometry", etc. — is left
+    untouched. Safe to call even if some mapped keys aren't present in
+    `gdf` (e.g. "tasso-variazione" only ever has INDICE).
+
+    Returns a new GeoDataFrame; does not mutate `gdf` in place.
+    """
+    rename_map = {col: translations[col] for col in gdf.columns if col in translations}
+    return gdf.rename(columns=rename_map)
+
+
 def _compute_min_max(gdf_final):
-    # Comupute min amd max and can clamp the minimum to 0.0 when it is less than or equal to 1
+    # Compute min and max and clamp the minimum to 0.0 when <= 1
     try:
         min_val = float(gdf_final["INDICE"].min())
         max_val = float(gdf_final["INDICE"].max())
@@ -34,7 +53,16 @@ def _compute_min_max(gdf_final):
         if min_val <= 1:
             min_val = 0.0
 
+        if 0 <= max_val <= 1:
+            # Round max up to the first decimal
+            max_val = ceil(max_val * 10) / 10
+        else:
+            # Round max up and min down to nearest integer
+            max_val = ceil(max_val)
+            min_val = floor(min_val)
+
         return min_val, max_val
+
     except Exception:
         return -1, -1
 

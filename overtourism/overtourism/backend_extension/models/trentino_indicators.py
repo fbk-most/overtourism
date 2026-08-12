@@ -100,6 +100,47 @@ _REGISTRY_TEMP: dict[str, Callable[[], Indicator]] = {
 if INCLUDE_TEMP_REGISTRY:
     _REGISTRY.update(_REGISTRY_TEMP)
 
+# ---------------------------------------------------------------------------
+# Italian translations for phenomenon keywords returned in API responses
+# ---------------------------------------------------------------------------
+# The GeoJSON properties returned by /get_index_data carry one column per
+# phenomenon that makes up the requested indicator (e.g. "beds" and
+# "population" for "tasso-ricettivita"), plus "INDICE" itself. Those column
+# names come straight from each Phenomenon's `.name` (see the phenomenon
+# classes below) and are English by convention, since they're also used
+# internally as pandas/DataFrame keys throughout indicator.py.
+#
+# This dictionary is the single predefined mapping from those internal
+# keywords to the Italian labels exposed to the frontend. It's applied via
+# `index_utils._translate_columns()` right before a GeoDataFrame is
+# serialised to GeoJSON, so indicator/phenomenon internals never need to
+# know about it.
+#
+# Only keys listed here get renamed — "AREA_NAME", "INDICE", and "geometry"
+# are intentionally left out and pass through unchanged. Add an entry here
+# whenever a new Phenomenon (or a custom `name=...` override) is introduced
+# and should be human-readable in the API response.
+PHENOMENON_LABELS_IT: dict[str, str] = {
+    # AccommodationCapacityIndicator ("tasso-ricettivita")
+    "beds": "posti letto",
+    "population": "popolazione",
+    # TourismIndexIndicator ("indice-turisticita")
+    "presences": "presenze",
+    # HospitalityIndexFacilitiesIndicator ("indice-ospitalita-strutture")
+    "extra_Facilities": "strutture extra-alb.",
+    "Facilities_total": "strutture totali",
+    # HospitalityIndexBedsIndicator ("indice-ospitalita-letti")
+    "extra_beds": "posti letto extra-alb.",
+    # HiddenTourismIndicator ("indice-turismo-sommerso")
+    "presenze_vodafone": "presenze rete mobile",
+    "presenze_alb": "presenze alb.",
+    "presenze_xalb": "presenze extra-alb.",
+    # FlowPhenomenon-based indicators (RatioFlowsIndicator, FlowsIndicatorLevel;
+    # currently only reachable if INCLUDE_TEMP_REGISTRY is enabled)
+    "flows": "flussi",
+    "flow_value": "valore flusso",
+}
+
 _INDICATOR_CACHE: dict[str, Indicator] = {}
 
 

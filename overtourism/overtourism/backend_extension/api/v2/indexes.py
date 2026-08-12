@@ -14,6 +14,7 @@ from overtourism.overtourism.backend_extension.models.territorial_config import 
 from overtourism.backend.api.v2.index_utils import (
     _build_geodataframe,
     _to_map_response,
+    _translate_columns,
     get_chart_labels,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -23,6 +24,7 @@ from overtourism.overtourism.backend_extension.models.trentino_indicators import
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
+    PHENOMENON_LABELS_IT,
     get_indicator,
 )
 from overtourism.backend.api.v2.index_utils_trentino import (
@@ -311,6 +313,12 @@ def get_index_data(
             #     gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
+
+            # Translate phenomenon keywords (e.g. "beds", "population") into
+            # Italian before serialising to GeoJSON. "AREA_NAME"/"INDICE" are
+            # left untouched since they aren't in PHENOMENON_LABELS_IT.
+            gdf_final = _translate_columns(gdf_final, PHENOMENON_LABELS_IT)
+
             geo_data = _to_map_response(gdf_final)
 
         _validate_map_values(
