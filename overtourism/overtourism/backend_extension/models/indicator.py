@@ -176,6 +176,24 @@ class Indicator:
         )
 
     # ------------------------------------------------------------------
+    # Numerical safety
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _safe_std(cls, value) -> float:
+        """
+        Normalize a computed std value: NaN -> 0.0, and any value that's
+        within floating-point noise of zero -> 0.0 (pandas' .std() can leave
+        tiny non-zero residues like 1.4e-16 for groups of identical values
+        due to catastrophic cancellation in the variance formula).
+        """
+        _STD_EPS = 1e-9  # below this, treat as floating-point noise around zero
+        if pd.isna(value):
+            return 0.0
+        value = float(value)
+        return 0.0 if abs(value) < _STD_EPS else value
+
+    # ------------------------------------------------------------------
     # Built-in combinators
     # ------------------------------------------------------------------
 
@@ -523,7 +541,7 @@ class Indicator:
             **extra,
         )
         std_by_comune = {
-            comune: (float(v) if pd.notna(v) else 0.0)
+            comune: self._safe_std(v)
             for comune, v in merged_cd.groupby("ID_COMUNE")["INDICE"].std().items()
         }
 
@@ -539,7 +557,7 @@ class Indicator:
         region_val = (
             region_indice.iloc[0] if hasattr(region_indice, "iloc") else region_indice
         )
-        region_value = float(region_val) if pd.notna(region_val) else 0.0
+        region_value = self._safe_std(region_val)
 
         # ── region-wide daily std ─────────────────────────────────────────
         merged_d = self._merge_daily(daily_by_date, on=["DATA"])
@@ -550,8 +568,7 @@ class Indicator:
             end_date=end_date,
             **extra,
         )
-        region_std_val = merged_d["INDICE"].std()
-        region_std = float(region_std_val) if pd.notna(region_std_val) else 0.0
+        region_std = self._safe_std(merged_d["INDICE"].std())
 
         return comune_result, std_by_comune, region_value, region_std
 

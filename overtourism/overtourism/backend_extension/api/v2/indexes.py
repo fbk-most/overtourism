@@ -222,12 +222,9 @@ def get_indicators_list():
 
 
 @indexes_router.get("/get-spatial-areas", response_model=Dict[str, Any])
-def get_comuni(request: Request):
+def get_spatial_areas(request: Request):
     """
     Return the list of spatial units visible to the caller.
-
-    At "comune" granularity: the filtered list of individual comuni.
-    At "macro_area" granularity: the four province-level area names.
 
     The region aggregate ("-1") is always included first.
     """
