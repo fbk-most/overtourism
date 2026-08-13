@@ -163,6 +163,7 @@ class AccommodationCapacityIndicator(Indicator):
     name = "Indice di ricettività"
 
     description = "L'indice di ricettività definisce il <strong>rapporto</strong> fra i <strong>letti presenti negli esercizi ricettivi</strong> e gli <strong>abitanti</strong> di una stessa area. L'indice è una misura della capacità turistica rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla popolazione residente e alla consistenza degli esercizi alberghieri e extra-alberghieri."
+    index_value_unit_description = "Rapporto posti letto / popolazione"
 
     def __init__(self, source_file1, source_file2):
         super().__init__(
@@ -179,6 +180,7 @@ class TourismIndexIndicator(Indicator):
 
     name = "Indice di turisticità"
     description = "L'indice di turisticità definisce il <strong>rapporto</strong> fra il <strong>numero medio giornaliero di turisti negli esercizi ricettivi</strong> e gli <strong>abitanti</strong> di una stessa area. L'indice è una misura dell'effettivo peso del turismo rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati Vodafone per quanto riguarda le presenze turistiche e dai dati ISPAT relativi alla popolazione residente."
+    index_value_unit_description = "Rapporto fra numero turisti e popolazione"
 
     def __init__(self, source_file1, source_file2, presences_col_name):
         super().__init__(
@@ -195,6 +197,9 @@ class HospitalityIndexFacilitiesIndicator(Indicator):
 
     name = "Indice di incidenza ospitalità non convenzionale (strutture)"
     description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto</strong> fra le <strong>strutture ricettive non convenzionali</strong> e il <strong>totale delle strutture</strong> presenti in un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
+    index_value_unit_description = (
+        "Percentuale strutture ricettive non conv. rispetto al totale"
+    )
 
     def __init__(self, source_file):
         super().__init__(
@@ -211,6 +216,9 @@ class HospitalityIndexBedsIndicator(Indicator):
 
     name = "Indice di incidenza ospitalità non convenzionale (posti letto)"
     description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto</strong> fra il <strong>numero di posti letto in strutture ricettive non convenzionali</strong> e il <strong>numero totale di posti letto</strong> in tutte le strutture di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla consistenza degli esercizi alberghieri e extra-alberghieri."
+    index_value_unit_description = (
+        "Percentuale letti in strututre ricettive non conv. rispetto al totale"
+    )
 
     def __init__(self, source_file):
         super().__init__(
@@ -227,6 +235,7 @@ class HiddenTourismIndicator(Indicator):
 
     name = "Indice di turismo sommerso"
     description = "L'indice misura il <strong>rapporto</strong> fra le <strong>presenze di turisti misurate</strong> attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali</strong> di turisti in strutture alberghiere e extra-alberghiere. L'analisi è a livello di ambito turistico e riguarda gli anni 2022 e 2023. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
+    index_value_unit_description = "Rapporto fra presenze misurate e ufficiali"
 
     def __init__(self, source_file):
         super().__init__(

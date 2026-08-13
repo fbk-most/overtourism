@@ -71,6 +71,7 @@ class Indicator:
 
     name: str = ""
     description: str = ""
+    index_value_unit_description = "Valore indice territoriale"
     availableForVariation: bool = True
     extraFields: list[str] = []
     internal_only = False

@@ -330,6 +330,7 @@ def get_index_data(
                 "min_value": geo_data["min_value"],
                 "max_value": geo_data["max_value"],
             },
+            "index_value_unit_description": indicator.index_value_unit_description,
         }
 
     except HTTPException:
