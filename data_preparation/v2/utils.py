@@ -4,6 +4,8 @@ import digitalhub as dh
 import os
 from pathlib import Path
 import pandas as pd 
+import geopandas as gpd
+import tempfile
 import io
 import boto3
 import configparser
@@ -98,6 +100,38 @@ def get_s3(name: str):
     object.download_fileobj(buffer)
     buffer.seek(0)
     return buffer
+
+
+
+def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
+    """
+    Downloads shapefile files (.shp, .shx, .dbf, .prj) and returns a pandas GeoDataFrame.
+    """
+    _, bucket = init_s3()
+    
+    if base_path.endswith('.shp'):
+        base_path = base_path[:-4]
+        
+    s3_prefix = 'overtourism/inputdata/' + base_path
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        downloaded_shp = None
+
+        for obj in bucket.objects.filter(Prefix=s3_prefix):
+            file_name = Path(obj.key).name
+            local_file_path = temp_path / file_name
+            
+            bucket.download_file(obj.key, str(local_file_path))
+            
+            if file_name.endswith('.shp'):
+                downloaded_shp = local_file_path
+
+        if downloaded_shp is None:
+            raise FileNotFoundError(f"Nessun file .shp trovato per il prefisso: {s3_prefix}")
+
+        gdf = gpd.read_file(downloaded_shp)
+    return gdf
 
 
 if __name__== "__main__":

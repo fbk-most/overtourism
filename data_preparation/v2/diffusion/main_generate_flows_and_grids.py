@@ -1,7 +1,7 @@
 from data_preparation.v2.diffusion.global_import import *
 import itertools
 
-from data_preparation.v2.utils import init_s3, BASE_DIR
+from data_preparation.v2.utils import init_s3, BASE_DIR, read_shapefile_s3
 
 def get_Gtfs_data(config, str_prefix_complete_path, str_name_dataset_gtfs):
     """
@@ -21,7 +21,7 @@ def get_Gtfs_data(config, str_prefix_complete_path, str_name_dataset_gtfs):
     return feed, is_gtfs_available
 
 def initialize_geodataframe_polygons(config, complete_path_Istat_population = complete_path_Istat_population,
-                                    str_prefix_complete_path = str_prefix_complete_path, str_name_shape_city = str_name_shape_city, str_name_centroid_city = str_name_centroid_city):
+                                    str_prefix_complete_path = str_prefix_complete_path, str_name_shape_city = str_name_shape_city, str_name_centroid_city = str_name_centroid_city, local = False):
     # ------------------  Extract Cities of interest from Vodafone ------------------ #                                                                                 # NOTE: here you can define what is the list of comuni you want to consider
     print("Compute comuni polygons...")
 
@@ -38,7 +38,10 @@ def initialize_geodataframe_polygons(config, complete_path_Istat_population = co
     Istat_obj = Istat_population_data(complete_path_Istat_population)
 
     # NOTE: Read geometries from the shapefile of the cities
-    cities_gdf = gpd.read_file(os.path.join(BASE_DIR,"Data","mavfa-fbk_AIxPA_tourism-delivery_2025.08.22-zoning","fbk-aixpa-turismo.shp"))
+    if local: 
+        cities_gdf = gpd.read_file(os.path.join(BASE_DIR,"Data","mavfa-fbk_AIxPA_tourism-delivery_2025.08.22-zoning","fbk-aixpa-turismo.shp"))
+    else:
+        cities_gdf = read_shapefile_s3("mavfa-fbk_AIxPA_tourism-delivery_2025.08.22-zoning/fbk-aixpa-turismo.shp")
     #cities_gdf = gpd.read_file(os.path.join(BASE_DIR,"Data","shapefile_fbk_2025.05.21","fbk.shp"))
 
     # NOTE: Join the informations of the population (from Istat) with the geometries of the city

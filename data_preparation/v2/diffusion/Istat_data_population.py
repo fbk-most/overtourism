@@ -1,7 +1,8 @@
 import polars as pl
 import pandas as pd
 import re
-
+from data_preparation.v2.utils import get_s3
+from pathlib import Path
 
 def preprocess_city_names(name):
     """Normalize city names for better matching"""
@@ -148,12 +149,15 @@ class Istat_population_data:
         self.list_comuni = self.get_list_comuni()
         self.get_population_df()
 
-    def load_data(self):
+    def load_data(self, local = False):
         """
         Load the ISTAT population data from the CSV file.
         """
-        self.df_istat = pl.DataFrame(pd.read_csv(self.path,sep=";"))
-
+        if local: 
+            self.df_istat = pl.DataFrame(pd.read_csv(self.path,sep=";"))
+        else:
+            self.df_istat = pl.DataFrame(pd.read_csv(get_s3(Path(self.path).name),sep=";"))
+            
     def get_list_comuni(self):
         """
         Get a list of unique municipalities from the ISTAT data.
