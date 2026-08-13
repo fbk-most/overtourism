@@ -1,6 +1,6 @@
 from diffusion.main_generate_flows_and_grids import main_generate_flows_and_grids
-import gen_phenomenon_dataframes
+from gen_phenomenon_dataframes import main as generate_df
 
 if __name__ == "__main__":
     main_generate_flows_and_grids(local = False)
-    gen_phenomenon_dataframes.main()
+    generate_df()
