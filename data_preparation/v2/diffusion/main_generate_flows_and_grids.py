@@ -1,7 +1,7 @@
 from data_preparation.v2.diffusion.global_import import *
 import itertools
 
-from data_preparation.v2.utils import init_s3, BASE_DIR, read_shapefile_s3
+from data_preparation.v2.utils import init_s3, BASE_DIR, log_dataframe, read_shapefile_s3
 
 def get_Gtfs_data(config, str_prefix_complete_path, str_name_dataset_gtfs):
     """
@@ -362,7 +362,8 @@ def main_generate_flows_and_grids(str_name_project = str_name_project, str_dir_d
                         int_hour_start_window_interest = 7, int_hour_end_window_interest = 8, int_min_aggregation_OD = int_min_aggregation_OD, Lx = Lx, Ly = Ly,
                         col_str_day_od = col_str_day_od, str_period_id_presenze = str_period_id_presenze, col_str_is_week = col_str_is_week,
                         list_time_intervals = list_time_intervals, UserProfiles = UserProfiles, week_days = week_days,
-                        conditioning_2_columns_to_hold_when_aggregating = conditioning_2_columns_to_hold_when_aggregating
+                        conditioning_2_columns_to_hold_when_aggregating = conditioning_2_columns_to_hold_when_aggregating,
+                        local = True
                         ):
     """
     Main function to perform overtourism analysis using hierarchical classification of flows.
@@ -463,9 +464,17 @@ def main_generate_flows_and_grids(str_name_project = str_name_project, str_dir_d
                     str_centroid_lon=str_centroid_lon, cities_gdf=cities_gdf, str_dir_output_date=str_dir_output_date,
                 )
 
-        grid_global.write_parquet(os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet"))  
-        print(f"Saved: {os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet")}")
+        if local:
+            grid_global.write_parquet(os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet"))  
+            print(f"Saved: {os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet")}")
+        else: 
+            log_dataframe(
+                grid_global.to_pandas(),
+                name=f"grid_all_columns_{case_pipeline}",
+                type="parquet",
+            )
+            print(f"Uploaded: grid_all_columns_{case_pipeline}")
 
 
 if __name__ == "__main__":
-    main_generate_flows_and_grids()
+    main_generate_flows_and_grids(local = False)
