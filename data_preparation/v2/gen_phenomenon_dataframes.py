@@ -51,6 +51,16 @@ COMUNE_NAME_OVERRIDES = {
 }
 
 
+FLUSSI_VALUE_COLS = [
+    "FLOWS_IN", "FLOWS_OUT", "FLOWS_IN_TOURISTS", "FLOWS_OUT_TOURISTS",
+    "FLOWS_IN_VISITORS", "FLOWS_OUT_VISITORS",
+]
+FLUSSI_LEVEL_COLS = [
+    "LEVEL_IN", "LEVEL_OUT", "LEVEL_IN_TOURISTS", "LEVEL_OUT_TOURISTS",
+    "LEVEL_IN_VISITORS", "LEVEL_OUT_VISITORS",
+]
+
+
 ## UTILS FUNCTIONS
 ## Some functions for decoding / padding / cleaning 
 def customize_unidecode(x):
@@ -476,10 +486,7 @@ def compute_flussi_trentino(mapping_comuni):
     id_map = create_mapping(df_flussi_all_user[['ID', 'comune']])
     df_merged["ID_COMUNE"] = df_merged["ID"].map(id_map)
 
-    value_cols = ['FLOWS_IN', 'FLOWS_OUT', 'FLOWS_IN_TOURISTS', 'FLOWS_OUT_TOURISTS',
-                    'FLOWS_IN_VISITORS', 'FLOWS_OUT_VISITORS']
-    level_cols = ['LEVEL_IN', 'LEVEL_OUT', 'LEVEL_IN_TOURISTS', 'LEVEL_OUT_TOURISTS',
-                  'LEVEL_IN_VISITORS', 'LEVEL_OUT_VISITORS']
+    value_cols, level_cols = FLUSSI_VALUE_COLS, FLUSSI_LEVEL_COLS
     df_merged = disaggregate(
         df_merged,
         cols=value_cols,
