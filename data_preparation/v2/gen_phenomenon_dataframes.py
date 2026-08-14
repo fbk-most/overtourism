@@ -179,7 +179,7 @@ def disaggregate_uniform(df, id_to_comune, cols_split, id_col="ID_COMUNE"):
 
 def disaggregate_distributional(
     df, distribution, cols,
-    *, group_col="LOCATION", time_col="DATA", id_col="ID_COMUNE",
+    *, id_col="ID_COMUNE", group_col="LOCATION", time_col="DATA",
     weight_col="presenze", period="M",
 ) -> pd.DataFrame:
     """
@@ -187,10 +187,10 @@ def disaggregate_distributional(
     """
     df = df.copy()
     distribution = distribution.copy()
-    df[time_col] = pd.to_datetime(df[time_col])
+    df[time_col] = pd.to_datetime(df[time_col].astype(str), errors="coerce")
     df["_PERIOD"] = df[time_col].dt.to_period(period)
 
-    distribution["_PERIOD"] = pd.to_datetime(distribution[time_col]).dt.to_period(period)
+    distribution["_PERIOD"] = pd.to_datetime(distribution[time_col].astype(str), errors="coerce").dt.to_period(period)
     distribution[id_col] = distribution[id_col].astype(int)
 
     df_exploded = df.rename(
@@ -493,7 +493,8 @@ def compute_vodafone_attendences(mapping_comuni):
     )
 
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
+
     return df
 
 
