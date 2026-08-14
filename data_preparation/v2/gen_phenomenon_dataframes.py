@@ -25,6 +25,7 @@ import pandas as pd
 import geopandas as geopd
 from unidecode import unidecode
 from utils import get_dataframe, get_s3, log_dataframe, put_dataframe, get_json_s3
+from disaggregation import disaggregate
 
 logging.basicConfig(level=logging.INFO)
 
@@ -150,122 +151,6 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
     return id_comune
 
 
-## DISAGGREGATION FUNCTIONS 
-## Helper functions used to disaggregate series, according to uniformity or a specfic distribution 
-def disaggregate_uniform(df, id_to_comune, cols_split, id_col="ID_COMUNE"):
-    """
-    Expands every line, dividing the column equally between the IDs.
-    """
-    rows = []
-    for _, row in df.iterrows():
-        ids = row[id_col]
-        if not isinstance(ids, (list, tuple)):
-            ids = [ids]
-        n = len(ids)
-        for i, cid in enumerate(ids):
-            new_row = row.copy()
-            new_row[id_col] = cid
-            new_row["comune"] = id_to_comune.get(cid)
-            for c in cols_split:
-                if pd.isna(row[c]):
-                    new_row[c] = pd.NA
-                    continue
-                total = int(row[c])
-                base, remainder = divmod(total, n)
-                new_row[c] = base + (1 if i < remainder else 0)
-            rows.append(new_row)
-    return pd.DataFrame(rows)
-
-
-def disaggregate_distributional(
-    df, distribution, cols,
-    *, id_col="ID_COMUNE", group_col="LOCATION", time_col="DATA",
-    weight_col="presenze", period="M",
-) -> pd.DataFrame:
-    """
-    It distributes ISPAT attendance data on a daily and municipal basis, using the distribution observed in Vodafone data (daily, by municipality) as a reference profile
-    """
-    df = df.copy()
-    distribution = distribution.copy()
-    df[time_col] = pd.to_datetime(df[time_col].astype(str), errors="coerce")
-    df["_PERIOD"] = df[time_col].dt.to_period(period)
-
-    distribution["_PERIOD"] = pd.to_datetime(distribution[time_col].astype(str), errors="coerce").dt.to_period(period)
-    distribution[id_col] = distribution[id_col].astype(int)
-
-    df_exploded = df.rename(
-        columns={group_col: "_GROUP"}
-    ).explode(id_col)
-    df_exploded[id_col] = df_exploded[id_col].astype(int)
-
-    # Per ogni comune dell'APT, prende TUTTI i giorni di quel mese da Vodafone
-    merged = pd.merge(
-        df_exploded.drop(columns = [time_col]),
-        distribution.rename(
-            columns={weight_col: "presenze_vodafone"}),
-        on=["_PERIOD", id_col],
-    )
-    if len(merged[merged.isna().any(axis=1)]) > 0:
-        logging.warning(
-            f"Found {merged[merged.isna().any(axis=1)].shape[0]} rows with missing values after merging ISPAT and Vodafone data"
-        )
-    merged["_denom"] = merged.groupby(["_GROUP", "_PERIOD"])["presenze_vodafone"].transform("sum")
-    merged["weight"] = merged["presenze_vodafone"] / merged["_denom"]
-    for c in cols:
-        merged[f"{c}_distributed"] = (merged[c] * merged["weight"]).round()
-    return merged.drop(columns=["_PERIOD", "_denom", "weight", "_GROUP",*cols])
-
-def disaggregate(df, mapping_comuni, cols, how="uniform", distribution=None, id_col="ID_COMUNE", **kwargs):
-    """Disaggregation function, to expand rows with multiple ID_COMUNEs into one row per municipality. This supports uniform and distributional disaggregations. """
-    if how == "uniform":
-        id_to_comune = {v: k for k, v in mapping_comuni.items()}
-        return disaggregate_uniform(df, id_to_comune, cols_split=cols, id_col=id_col)
-    elif how == "distributional":
-        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
-        return disaggregate_distributional(df, distribution, cols=cols, id_col=id_col, **kwargs)
-    else:
-        raise ValueError(f"Unknown disaggregation method: {how}")
-
-
-def disaggregate_apt_presences(
-        df, df_xalb, mapping_comuni, how = "uniform", distribution = None
-):
-    """
-    Expand rows with multiple ID_COMUNEs into one row per municipality.
-    dividing presences equally between APT locations.
-    WARNING: in this case, there are two approximations of alberghieri. We mantain the columns relative to the thinner granularity (in this case, APT is kept, at the cost of province) 
-    TODO: generalize this function without columns hardcoded
-    """
-    # mapping_comuni
-    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
-    df_xalb.rename(columns = {"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"},inplace = True)
-    if how == "uniform":
-        presences = disaggregate_uniform(df, id_to_comune)
-        presences_xalb = disaggregate_uniform(df_xalb, mapping_comuni)
-        presences = presences.merge(
-            presences_xalb, 
-            on=["data", "ID_COMUNE", "comune"], 
-            how="left"
-        )
-    elif how == "distributional":
-        assert not distribution is None, "Distribution must be provided for distributional disaggregation"
-        df.rename(columns={"comune":"LOCATION", "data":"DATA", "presenze": "presenze_alb"}, inplace = True)
-        presences = disaggregate_distributional(df, distribution, cols = ["presenze_alb"])
-        df_xalb["LOCATION"] = "PROVINCIA"
-        df_xalb.rename(columns={"data":"DATA"}, inplace = True)
-        presences_xalb = disaggregate_distributional(
-            df_xalb, distribution, 
-            cols = ["presenze_alb", "presenze_xalb"]
-        )
-    else: 
-        raise ValueError(f"Unknown disaggregation method: {how}")
-    return presences.merge(
-        presences_xalb.drop(columns={"LOCATION", "presenze_alb_distributed"}), 
-        on=["DATA", "ID_COMUNE", "presenze_vodafone"],
-        how="outer"
-    ).drop(columns={"LOCATION"})
-
-
 ## COMPUTATION 
 ## Functions to compute phenomena dataframes 
 def compute_arrivi_trentino(years = ["2021", "2022", "2023", "2024"]):
@@ -290,7 +175,7 @@ def compute_arrivi_trentino(years = ["2021", "2022", "2023", "2024"]):
     return arrivi_trentino
 
 
-def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = None):
+def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
     logging.info("Downloading presenze_Trentino_ISPAT.csv from S3...")
     presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
     logging.info("Downloading presenze_Trentino_ISPAT_alb_xalb.csv from S3...")
@@ -298,14 +183,19 @@ def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = No
     logging.info("Downloading mapping_ids/map_comuni_into_apt.json from S3...")
     json_apt = get_json_s3("mapping_ids/map_comuni_into_apt.json")
 
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
     ## Adjust the datasets
     ## presenze_ispat
+    ## APT level: monthly presences by ambito
     presenze_ispat.rename(
-        columns={"Ambito": "comune", "Presenze": "presenze"}, inplace=True
+        columns={"Ambito": "comune", "Presenze": "presenze_alb"}, inplace=True
     )
-    presenze_ispat["Anno"] = presenze_ispat["Anno"].astype(int)
     presenze_ispat["data"] = pd.to_datetime(
-        {"year": presenze_ispat["Anno"], "month": presenze_ispat["Mese"], "day": 1}
+        {
+            "year": presenze_ispat["Anno"].astype(int),
+            "month": presenze_ispat["Mese"],
+            "day": 1,
+        }
     )
     presenze_ispat.drop(columns=["Anno", "Mese"], inplace=True)
     presenze_ispat["ID_COMUNE"] = presenze_ispat["comune"].map(json_apt).apply(
@@ -317,33 +207,57 @@ def compute_presenze_trentino(mapping_comuni, how = "uniform", distribution = No
     presenze_ispat = _remove_provincia(presenze_ispat, upper=True)
 
     ## presenze_ispat_alb_xalb
-    presenze_alb_xalb["Anno"] = presenze_alb_xalb["Anno"].astype(int)
+    ## Province level: monthly alberghiero / extra-alberghiero split
+    presenze_ispat = _to_data_location(presenze_ispat, date_col="data")
+
+    presenze_alb_xalb.rename(
+        columns={
+            "Presenze alberghi": "presenze_alb",
+            "Presenze extra-alberghi": "presenze_xalb",
+        },
+        inplace=True,
+    )
     presenze_alb_xalb["data"] = pd.to_datetime(
         {
-            "year": presenze_alb_xalb["Anno"],
+            "year": presenze_alb_xalb["Anno"].astype(int),
             "month": presenze_alb_xalb["Mese"],
             "day": 1,
         }
     )
     presenze_alb_xalb.drop(columns=["Anno", "Mese"], inplace=True)
-    presenze_alb_xalb = presenze_alb_xalb.sort_values("data")
+    presenze_alb_xalb = presenze_alb_xalb.sort_values("data").reset_index(drop=True)
+    presenze_alb_xalb["comune"] = "PROVINCIA"
     presenze_alb_xalb["ID_COMUNE"] = [list(mapping_comuni.values())] * len(presenze_alb_xalb)
+    presenze_alb_xalb = _to_data_location(presenze_alb_xalb, date_col="data")
 
-    ## disaggregation with specified method 
-    presenze_ispat = disaggregate_apt_presences(
-        presenze_ispat,
-        presenze_alb_xalb,
-        mapping_comuni,
-        how=how,
-        distribution=distribution,
+    ## Monthly x APT -> daily x comune
+    kwargs = dict(axis="both", freq_from="M", freq_to="D", id_to_name=id_to_comune)
+    if how == "distributional":
+        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        kwargs.update(
+            space_weights=distribution,
+            space_weight_col="presenze",
+            space_time_freq="M",
+            time_weights=distribution,
+            time_weight_col="presenze",
+        )
+    elif how != "uniform":
+        raise ValueError(f"Unknown disaggregation method: {how}")
+
+    presenze = disaggregate(presenze_ispat, cols=["presenze_alb"], **kwargs)
+    presenze_prov = disaggregate(
+        presenze_alb_xalb, cols=["presenze_alb", "presenze_xalb"], **kwargs
     )
 
-    df = _to_data_location(
-        presenze_ispat,
-        date_col="data",
+    # presenze_alb is kept at the finer (APT) granularity, only the
+    # extra-alberghiero column is taken from the province-level estimate
+    df = presenze.merge(
+        presenze_prov[["DATA", "ID_COMUNE", "presenze_xalb"]],
+        on=["DATA", "ID_COMUNE"],
+        how="outer",
     )
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime('%Y-%m-%d')
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return df
 
 
@@ -438,7 +352,10 @@ def compute_strutture(mapping_comuni):
     ]
 
 
-def compute_vodafone_attendences(mapping_comuni):
+def compute_vodafone_attendences(
+    mapping_comuni, how="uniform", distribution=None,
+    weight_col="popolazione", weight_freq="Y",
+):
     logging.info("Downloading dataframe 'vodafone_attendences'...")
     vodafone_attendences_df = get_dataframe("vodafone_attendences")
 
@@ -472,29 +389,33 @@ def compute_vodafone_attendences(mapping_comuni):
     ].copy()
 
     # Aggregate daily presences by municipality
-    aggregations = {
-        "ID_COMUNE": "first",
-        "value": "sum",
-    }
-
     df = (
         df.groupby(["date", "comune"])
-        .agg(aggregations)
+        .agg({"ID_COMUNE": "first", "value": "sum"})
         .reset_index()
         .rename(columns={"value": "presenze"})
     )
+    df = _to_data_location(df, date_col="date")
 
-    df = disaggregate(df, mapping_comuni, cols=["presenze"])  # NOTE: disaggregation for the moment is uniform, since the aggregated municipalities are not so unbalanced (except for pergine)
-
-    # Standardize schema
-    df = _to_data_location(
-        df,
-        date_col="date",
+    ## disaggregation spatial only, data is already daily
+    kwargs = dict(
+        axis="space",
+        id_to_name={id_comune: name for name, id_comune in mapping_comuni.items()},
     )
+    if how == "distributional":
+        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        kwargs.update(
+            space_weights=distribution,
+            space_weight_col=weight_col,
+            space_time_freq=weight_freq,
+        )
+    elif how != "uniform":
+        raise ValueError(f"Unknown disaggregation method: {how}")
+
+    df = disaggregate(df, cols=["presenze"], **kwargs)
 
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
-
     return df
 
 
@@ -559,12 +480,14 @@ def compute_flussi_trentino(mapping_comuni):
                     'FLOWS_IN_VISITORS', 'FLOWS_OUT_VISITORS']
     level_cols = ['LEVEL_IN', 'LEVEL_OUT', 'LEVEL_IN_TOURISTS', 'LEVEL_OUT_TOURISTS',
                   'LEVEL_IN_VISITORS', 'LEVEL_OUT_VISITORS']
-    df_merged = disaggregate_uniform(
-        df_merged, 
-        id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()},
-        cols_split = value_cols)
+    df_merged = disaggregate(
+        df_merged,
+        cols=value_cols,
+        axis="space",
+        group_col="comune",
+        id_to_name={id_comune: name for name, id_comune in mapping_comuni.items()},
+    )
 
-    # df_merged = disaggregate()
     agg_dict = {
         **{col: 'sum' for col in value_cols},
         **{col: 'median' for col in level_cols}
