@@ -53,9 +53,9 @@ TODO:
 """
 
 _VARIATION_RATE_KEY = "tasso-variazione"
+_PERIOD_PERCENTAGE_IMPACT_KEY = "incidenza-periodo"
 
 _REGISTRY: dict[str, Callable[[], Indicator]] = {
-    _VARIATION_RATE_KEY: lambda: VariationRateIndicator(),
     "tasso-ricettivita": lambda: AccommodationCapacityIndicator(
         STRUCTURES_SOURCE, POPULATION_SOURCE
     ),
@@ -68,6 +68,8 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     ),
     "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
     "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
+    _VARIATION_RATE_KEY: lambda: VariationRateIndicator(),
+    _PERIOD_PERCENTAGE_IMPACT_KEY: lambda: PeriodPercentageImpactIndicator(),
 }
 _REGISTRY_TEMP: dict[str, Callable[[], Indicator]] = {
     "indice-affollamento": lambda: CrowdingIndicator(
@@ -334,6 +336,7 @@ class SeasonalityIndicator(Indicator):
     description = "L'indice di stagionalità definisce il <strong>rapporto</strong> fra le <strong>presenze di turisti ed escursionisti durante tra due periodi</strong> (es: anno completo ed alta stagione). L'indice è calcolato partendo dai dati Vodafone relativi alle presenze di turisti ed escursionisti."
     availableForVariation = False
     extraFields = ["seasonality"]
+    internal_only = True
 
     def __init__(self, source_file):
         self._phenom = PresencesPhenomenon(source_file, col="presenze_vodafone")
@@ -504,6 +507,133 @@ class VariationRateIndicator(Indicator):
         merged["INDICE"] = (
             (merged["INDICE_current"] - merged["INDICE_previous"])
             / merged["INDICE_previous"].replace(0, np.nan)
+        ) * 100
+
+        return merged[["ID_COMUNE", "INDICE"]]
+
+
+class PeriodPercentageImpactIndicator(Indicator):
+    """
+    Percentage weight that a seasonal sub-period has on the total value of
+    another indicator over the full requested period.
+
+    Hybrid of VariationRateIndicator (wrapped indicator selected at request
+    time via the "indicator" extra field) and SeasonalityIndicator (result
+    expresses a sub-period's share of a total period, via "seasonality").
+
+    result = 100 * INDICE(wrapped, full_period, seasonality=X)
+                 / INDICE(wrapped, full_period, no seasonality filter)
+    """
+
+    name = "Incidenza percentuale del periodo"
+    description = (
+        "L'incidenza percentuale del periodo misura il <strong>peso "
+        "percentuale</strong> che un <strong>sotto-periodo stagionale</strong> "
+        "(es. alta stagione, periodo di spalla, weekend) ha sul "
+        "<strong>totale del periodo selezionato</strong>, per un indicatore "
+        "a scelta."
+    )
+    availableForVariation = False
+    extraFields = ["indicator", "seasonality"]
+    internal_only = True
+
+    def __init__(self):
+        # Same rationale as VariationRateIndicator: the wrapped indicator is
+        # only known at request time via the "indicator" extra field, so the
+        # base class's phenomena/combinator pipeline is bypassed entirely.
+        super().__init__(phenomena=[], combinator=self._unused_combinator)
+
+    @staticmethod
+    def _unused_combinator(df: pd.DataFrame, **_extra) -> pd.Series:  # pragma: no cover
+        raise RuntimeError(
+            "PeriodPercentageImpactIndicator.combinator should never be called directly"
+        )
+
+    @property
+    def years_range(self) -> dict[str, int]:
+        """Broadest year range across every combinable indicator, same
+        rationale as VariationRateIndicator.years_range."""
+        if self._years_range is None:
+            min_years, max_years = [], []
+            for key in _REGISTRY:
+                if key == _PERIOD_PERCENTAGE_IMPACT_KEY:
+                    continue
+                try:
+                    yr = get_indicator(key).years_range
+                except ValueError:
+                    continue
+                min_years.append(yr["min_year"])
+                max_years.append(yr["max_year"])
+
+            if not min_years:
+                raise ValueError(
+                    f"{self!r}: no combinable indicators available to compute "
+                    "a years_range for"
+                )
+
+            self._years_range = {
+                "min_year": min(min_years),
+                "max_year": max(max_years),
+            }
+        return self._years_range
+
+    def _compute_indicator(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        **extra,
+    ) -> pd.DataFrame | None:
+        indicator_key = extra.pop("indicator", None)
+        seasonality = extra.pop("seasonality", None)
+
+        if not indicator_key:
+            raise ValueError(
+                "'indicator' extra field is required for 'incidenza-periodo'"
+            )
+        if indicator_key == _PERIOD_PERCENTAGE_IMPACT_KEY:
+            raise ValueError("'incidenza-periodo' cannot wrap itself")
+        if indicator_key == _VARIATION_RATE_KEY:
+            # Not strictly wrong, but tasso-variazione already needs its own
+            # extra fields (start/end_date_comparison); reject early with a
+            # clear message rather than a confusing missing-field error.
+            raise ValueError("'incidenza-periodo' cannot wrap 'tasso-variazione'")
+        if not seasonality:
+            raise ValueError(
+                "'seasonality' extra field is required for 'incidenza-periodo'"
+            )
+
+        wrapped = get_indicator(indicator_key)
+
+        total_df = wrapped.get_indicator(
+            start_date=start_date,
+            end_date=end_date,
+            **extra,
+        )
+        seasonal_df = wrapped.get_indicator(
+            start_date=start_date,
+            end_date=end_date,
+            seasonality=seasonality,
+            **extra,
+        )
+
+        if total_df is None or seasonal_df is None:
+            return None
+
+        merged = (
+            total_df[["ID_COMUNE", "INDICE"]]
+            .rename(columns={"INDICE": "INDICE_total"})
+            .merge(
+                seasonal_df[["ID_COMUNE", "INDICE"]].rename(
+                    columns={"INDICE": "INDICE_seasonal"}
+                ),
+                on="ID_COMUNE",
+                how="outer",
+            )
+        )
+        merged["INDICE_seasonal"] = merged["INDICE_seasonal"].fillna(0)
+
+        merged["INDICE"] = (
+            merged["INDICE_seasonal"] / merged["INDICE_total"].replace(0, np.nan)
         ) * 100
 
         return merged[["ID_COMUNE", "INDICE"]]
