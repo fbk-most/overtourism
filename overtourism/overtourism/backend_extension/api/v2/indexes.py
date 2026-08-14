@@ -205,6 +205,7 @@ def get_indicators_list():
                         "value": key,
                         "label": indicator.name or key,
                         "index_description": indicator.description,
+                        "index_value_unit_description": indicator.index_value_unit_description,
                         "availableForVariation": indicator.availableForVariation,
                         "extraFields": indicator.extraFields,
                         "years_range": {
@@ -330,7 +331,6 @@ def get_index_data(
                 "min_value": geo_data["min_value"],
                 "max_value": geo_data["max_value"],
             },
-            "index_value_unit_description": indicator.index_value_unit_description,
         }
 
     except HTTPException:
