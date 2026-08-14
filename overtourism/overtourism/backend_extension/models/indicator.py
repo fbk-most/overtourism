@@ -27,8 +27,7 @@ class Indicator:
     ---------------------------------
     An Indicator can itself be passed inside another Indicator's
     ``phenomena`` list, to build a macro-indicator out of several
-    sub-indicators (e.g. an "attractiveness index" combining a density
-    indicator and a seasonality indicator). This works because Indicator
+    sub-indicators. This works because Indicator
     implements the same duck-typed interface Phenomenon exposes — `.name`,
     `.agg`, `.resolve()`, `._filter_by_date()`, `.aggregate()`,
     `.date_bounds()` — so `_ensure_resolved()` / `_compute_indicator()` /
@@ -50,8 +49,9 @@ class Indicator:
 
     Supported values:
       - None (default): no filtering, all days kept
-      - "high": July + August
-      - "shoulder": April, May, June, September, October
+      - "summer-months": July + August
+      - "winter-months": December + January
+      - "shoulder-months": April, May, June, September, October
       - "weekend": Saturday + Sunday
       - "weekdays": Monday through Friday
       - "festivities": Italian national public holidays (fixed-date
@@ -82,10 +82,11 @@ class Indicator:
     # summing a ratio across days rarely means anything.
     agg: str = "mean"
 
-    # Calendar-month buckets for the "high"/"shoulder" seasonality filters.
+    # Calendar-month buckets for seasonality filters.
     _MONTHLY_SEASONALITY: dict[str, list[int]] = {
-        "high": [7, 8],
-        "shoulder": [4, 5, 6, 9, 10],
+        "summer-months": [7, 8],
+        "winter-months": [12, 1],
+        "shoulder-months": [4, 5, 6, 9, 10],
     }
 
     def __init__(
