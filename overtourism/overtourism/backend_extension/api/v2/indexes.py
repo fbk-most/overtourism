@@ -171,13 +171,6 @@ def _validate_map_values(min_value: Any, max_value: Any, *, context: str) -> Non
             f"(min_value={min_value}, max_value={max_value}).",
         )
 
-    if min_value <= 0 and max_value <= 0:
-        raise HTTPException(
-            status_code=422,
-            detail=f"[{context}] Computed value range is non-positive "
-            f"(min_value={min_value}, max_value={max_value}).",
-        )
-
 
 # ---------------------------------------------------------------------------
 # Endpoints
