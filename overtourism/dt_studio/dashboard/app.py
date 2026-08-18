@@ -16,9 +16,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from overtourism.model.common.sustainability_field import OvertourismParameterMeta
 
-from .adapter import OvertourismAdapter, PlotData, ScenarioDef
+from .adapter import OvertourismAdapter, ParameterSpec, PlotData, ScenarioDef
 
 # ---------------------------------------------------------------------------
 # Constraint colour palette
@@ -47,11 +46,13 @@ def _param_hash(params: dict[str, Any]) -> str:
     Tuples are converted to lists before JSON encoding so that distribution
     range values ``(lo, hi)`` serialise correctly.
     """
-    serialisable = {k: list(v) if isinstance(v, tuple) else v for k, v in params.items()}
+    serialisable = {
+        k: list(v) if isinstance(v, tuple) else v for k, v in params.items()
+    }
     return hashlib.md5(json.dumps(serialisable, sort_keys=True).encode()).hexdigest()
 
 
-def _default_value(spec: OvertourismParameterMeta) -> Any:
+def _default_value(spec: ParameterSpec) -> Any:
     """Return the appropriate session-state default value for a parameter spec."""
     if spec.kind == "scalar":
         return spec.default
@@ -61,7 +62,7 @@ def _default_value(spec: OvertourismParameterMeta) -> Any:
     return "(tutte)"
 
 
-def _init_session(specs: list[OvertourismParameterMeta], scenarios: list[ScenarioDef]) -> None:
+def _init_session(specs: list[ParameterSpec], scenarios: list[ScenarioDef]) -> None:
     """Initialise ``st.session_state`` on the first page load.
 
     Pre-loads all predefined scenarios into ``__saved_scenarios__`` as
@@ -95,7 +96,7 @@ def _init_session(specs: list[OvertourismParameterMeta], scenarios: list[Scenari
     st.session_state["__initialized__"] = True
 
 
-def _load_scenario_params(scenario: ScenarioDef, specs: list[OvertourismParameterMeta]) -> None:
+def _load_scenario_params(scenario: ScenarioDef, specs: list[ParameterSpec]) -> None:
     """Write a scenario's parameter values into ``st.session_state``."""
     for spec in specs:
         key = f"_p_{spec.name}"
@@ -105,7 +106,7 @@ def _load_scenario_params(scenario: ScenarioDef, specs: list[OvertourismParamete
             st.session_state[key] = _default_value(spec)
 
 
-def _load_saved_params(saved: dict[str, Any], specs: list[OvertourismParameterMeta]) -> None:
+def _load_saved_params(saved: dict[str, Any], specs: list[ParameterSpec]) -> None:
     """Write a saved-scenario's parameter values into ``st.session_state``."""
     params = saved.get("params", {})
     for spec in specs:
@@ -116,7 +117,7 @@ def _load_saved_params(saved: dict[str, Any], specs: list[OvertourismParameterMe
             st.session_state[key] = _default_value(spec)
 
 
-def _read_current_params(specs: list[OvertourismParameterMeta]) -> dict[str, Any]:
+def _read_current_params(specs: list[ParameterSpec]) -> dict[str, Any]:
     """Read current widget values from ``st.session_state`` into a param dict.
 
     Categorical ``"(tutte)"`` values are omitted (treated as unpinned).
@@ -278,7 +279,10 @@ def _kpi_dataframe(named_outputs: list[tuple[str, PlotData]]) -> pd.DataFrame:
     rows = []
     for label, data in named_outputs:
         idx_val, idx_ci = data.sustainability_index
-        row: dict[str, str] = {"Scenario": label, "Complessivo": f"{idx_val * 100:.1f}% ±{idx_ci * 100:.1f}%"}
+        row: dict[str, str] = {
+            "Scenario": label,
+            "Complessivo": f"{idx_val * 100:.1f}% ±{idx_ci * 100:.1f}%",
+        }
         for name, (v, c) in data.sustainability_by_constraint.items():
             row[name.capitalize()] = f"{v * 100:.1f}% ±{c * 100:.1f}%"
         rows.append(row)
@@ -305,14 +309,19 @@ def _save_dialog(current_params: dict[str, Any]) -> None:
         elif name in saved and saved[name].get("predefined"):
             st.toast("⚠️ Non puoi sovrascrivere uno scenario predefinito.")
         else:
-            saved[name] = {"label": name, "params": current_params, "category": "Personale", "predefined": False}
+            saved[name] = {
+                "label": name,
+                "params": current_params,
+                "category": "Personale",
+                "predefined": False,
+            }
             st.session_state["__saved_scenarios__"] = saved
             st.toast(f"✅ Scenario «{name}» salvato.")
             st.rerun()
 
 
 @st.dialog("Carica scenario salvato")
-def _load_dialog(specs: list[OvertourismParameterMeta]) -> None:
+def _load_dialog(specs: list[ParameterSpec]) -> None:
     """Dialog: pick a saved scenario and restore its parameter values."""
     saved: dict[str, dict[str, Any]] = st.session_state["__saved_scenarios__"]
     if not saved:
@@ -333,7 +342,9 @@ def _load_dialog(specs: list[OvertourismParameterMeta]) -> None:
             display_labels.append(f"[{cat}] {saved[k]['label']}")
 
     selected_display = st.selectbox("Seleziona scenario", display_labels)
-    selected_key = options[display_labels.index(selected_display)] if selected_display else None
+    selected_key = (
+        options[display_labels.index(selected_display)] if selected_display else None
+    )
 
     if st.button("Carica", type="primary", width="stretch") and selected_key:
         _load_saved_params(saved[selected_key], specs)
@@ -386,7 +397,9 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
         if scenarios:
             st.subheader("Scenari predefiniti")
             labels = [s.label for s in scenarios]
-            active_key = st.session_state.get("__active_scenario_key__", scenarios[0].key)
+            active_key = st.session_state.get(
+                "__active_scenario_key__", scenarios[0].key
+            )
             active_label = scenarios_by_key.get(active_key, scenarios[0]).label
             selected_label = st.selectbox(
                 "Scenario predefinito",
@@ -437,14 +450,25 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
 
     col_title_spacer, col_save, col_load, col_compare = st.columns([6, 1, 1, 1])
     with col_save:
-        if st.button("💾 Salva", width="stretch", help="Salva i parametri correnti con un nome"):
+        if st.button(
+            "💾 Salva", width="stretch", help="Salva i parametri correnti con un nome"
+        ):
             _save_dialog(current_params)
     with col_load:
-        if st.button("📂 Carica", width="stretch", help="Ripristina i parametri di uno scenario salvato"):
+        if st.button(
+            "📂 Carica",
+            width="stretch",
+            help="Ripristina i parametri di uno scenario salvato",
+        ):
             _load_dialog(specs)
     with col_compare:
         if view == "simulation":
-            if st.button("📊 Confronta", width="stretch", type="primary", help="Confronta due scenari salvati"):
+            if st.button(
+                "📊 Confronta",
+                width="stretch",
+                type="primary",
+                help="Confronta due scenari salvati",
+            ):
                 st.session_state["__view__"] = "compare"
                 st.rerun()
         else:
@@ -457,7 +481,9 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
     # ── Compare view ─────────────────────────────────────────────
     if view == "compare":
         saved_names = list(saved.keys())
-        display_names = [f"[{saved[k]['category']}] {saved[k]['label']}" for k in saved_names]
+        display_names = [
+            f"[{saved[k]['category']}] {saved[k]['label']}" for k in saved_names
+        ]
 
         # Add "scenario corrente" as first option
         _CURRENT_KEY = "__current__"
@@ -466,11 +492,15 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
 
         col_a, col_b = st.columns(2)
         with col_a:
-            sel_a_label = st.selectbox("Scenario A", all_labels, index=0, key="__compare_a__")
+            sel_a_label = st.selectbox(
+                "Scenario A", all_labels, index=0, key="__compare_a__"
+            )
             sel_a_key = all_keys[all_labels.index(sel_a_label)]
         with col_b:
             default_b = min(1, len(all_keys) - 1)
-            sel_b_label = st.selectbox("Scenario B", all_labels, index=default_b, key="__compare_b__")
+            sel_b_label = st.selectbox(
+                "Scenario B", all_labels, index=default_b, key="__compare_b__"
+            )
             sel_b_key = all_keys[all_labels.index(sel_b_label)]
 
         def _resolve(key: str) -> tuple[str, dict[str, Any]]:
@@ -482,8 +512,12 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
         label_a, params_a = _resolve(sel_a_key)
         label_b, params_b = _resolve(sel_b_key)
 
-        data_a = _get_or_compute(adapter, params_a, cache, cache_order, f"Calcolo {label_a}…")
-        data_b = _get_or_compute(adapter, params_b, cache, cache_order, f"Calcolo {label_b}…")
+        data_a = _get_or_compute(
+            adapter, params_a, cache, cache_order, f"Calcolo {label_a}…"
+        )
+        data_b = _get_or_compute(
+            adapter, params_b, cache, cache_order, f"Calcolo {label_b}…"
+        )
 
         # Side-by-side field plots
         col_fa, col_fb = st.columns(2)

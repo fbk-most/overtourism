@@ -7,24 +7,58 @@ overtourism model.  String IDs (``index.name``) cross the interface boundary
 API-ready.  The name→Index map-back lives inside each concrete backend's
 ``evaluate()`` method (see ``overtourism.cdt_ext.runner_ext.build_scenario``).
 
-Widget specifications are ``OvertourismParameterMeta`` instances (see
-``overtourism.model.common``) — there used to be a separate ``ParameterSpec``
-type here, but once the backend-side metadata carries every field a widget
-needs (``label``, ``description``, ``unit``, ``category``, ``step``,
-``min_value``/``max_value``/``default_range``, ...) a second, identically-shaped
-type was pure duplication and was removed.
+Widget specifications are typed structurally, via the :class:`ParameterSpec`
+``Protocol`` below, rather than by importing the concrete
+``OvertourismParameterMeta`` dataclass from ``overtourism.model.common``.
+This module (and ``app.py``) is the generic, model-agnostic dashboard shell —
+shared by in-process adapters *and* HTTP-based ones
+(``overtourism.dt_studio.dashboard.http_adapter``) that are meant to run
+without ever importing ``overtourism.model.*`` (see
+``overtourism/BACKEND_DESIGN.md``: Layers 1-3 and Layer 5 are slated to run
+in separate containers, so an HTTP-based Layer 5 client pulling in Layers
+1-3's dependency chain just for a type hint defeats the point of the split).
+A previous, now-removed ``ParameterSpec`` *class* here was pure duplication
+of ``OvertourismParameterMeta`` because nothing depended on the two being
+decoupled at the time; the ``Protocol`` below isn't that — it's a structural
+contract that ``OvertourismParameterMeta`` (used by in-process adapters) and
+``http_adapter.HttpParameterSpec`` (used by HTTP-based ones) both satisfy
+without either importing the other or a shared concrete type.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
-from overtourism.model.common.sustainability_field import OvertourismParameterMeta
 
-__all__ = ["OvertourismAdapter", "PlotData", "ScenarioDef"]
+__all__ = ["OvertourismAdapter", "ParameterSpec", "PlotData", "ScenarioDef"]
+
+
+@runtime_checkable
+class ParameterSpec(Protocol):
+    """Structural contract for one tunable parameter's widget metadata.
+
+    Anything with these attributes works as a `parameter_specs()` entry.
+    Deliberately structural (not a base class to inherit from) so this
+    generic shell never needs to import a concrete type from
+    `overtourism.model.common` or anywhere else — see the module docstring.
+    """
+
+    name: str
+    kind: str  # "scalar" | "categorical" | "distribution"
+    label: str
+    description: str
+    unit: str
+    category: str
+    step: float | None
+    min_value: float | None
+    max_value: float | None
+    default: float | None
+    default_category: str | None
+    default_range: tuple[float, float] | None
+    support: list[str]
 
 
 @dataclass(frozen=True)
@@ -140,9 +174,12 @@ class OvertourismAdapter(ABC):
     --------------------------
     1. Subclass :class:`OvertourismAdapter`.
     2. Override :attr:`title` to return a descriptive page title.
-    3. Implement :meth:`parameter_specs` — return one
-       :class:`~overtourism.model.common.sustainability_field.OvertourismParameterMeta`
-       per tunable index (typically ``self._backend.parameter_schema()``).
+    3. Implement :meth:`parameter_specs` — return one :class:`ParameterSpec`
+       per tunable index (typically
+       ``self._backend.parameter_schema()`` for an in-process adapter, whose
+       ``OvertourismParameterMeta`` entries already satisfy :class:`ParameterSpec`
+       structurally; an HTTP-based adapter builds its own lightweight
+       equivalent instead — see ``http_adapter.HttpParameterSpec``).
     4. Implement :meth:`predefined_scenarios` — return zero or more
        :class:`ScenarioDef` objects representing named what-if configurations.
     5. Implement :meth:`run` — accept a ``{name: value}`` override dict and
@@ -156,12 +193,12 @@ class OvertourismAdapter(ABC):
         ...
 
     @abstractmethod
-    def parameter_specs(self) -> list[OvertourismParameterMeta]:
+    def parameter_specs(self) -> list[ParameterSpec]:
         """Return the ordered list of tunable parameter specifications.
 
         Returns
         -------
-        list of OvertourismParameterMeta
+        list of ParameterSpec
             One entry per index that the dashboard should expose as a sidebar
             widget.  The order determines the render order within each
             ``category`` group.

@@ -8,15 +8,14 @@ overtourism models is organized, why it is split the way it is, and what is
 still missing before a production frontend (FastAPI + a real UI) can be built
 on top of it.
 
-**Status**: Layers 1–3 and the Streamlit dev/test tooling (Layer 5, partial)
-are implemented for Fazzon and Molveno. Layer 4 (application backend) and a
-production Layer 5 (FastAPI, a real UI) do not exist yet *for these models* —
-see [Next steps](#next-steps). Both layers already exist for the older,
+**Status**: Layers 1–3, a REST API (Layer 5), and Streamlit dev/test tooling
+(Layer 5) are implemented for Fazzon and Molveno. Layer 4 (application
+backend) and a production UI (Layer 5) do not exist yet *for these models* —
+see [Next steps](#next-steps). Both already exist for the older,
 Trentino-wide model this repository previously served (`overtourism.OLD/`: a
 FastAPI backend and a persistence/scenario-catalogue layer, plus a separate
 Angular frontend); adapting that prior work is one option worth evaluating
-before building either layer from scratch — see the notes in each subsection
-below.
+before building Layer 4 from scratch — see the note in that subsection below.
 
 ---
 
@@ -25,7 +24,7 @@ below.
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  LAYER 5 — Frontend                                                      │
-│  Streamlit (today, dev/test only) | FastAPI + UI (next — adapt/reuse?)   │
+│  REST API · Streamlit (dev/test) | production UI (next — adapt/reuse?)   │
 │  Entry point lives here. Presentation only.                              │
 ├──────────────────────────────────────────────────────────────────────────┤
 │  LAYER 4 — Application / tool backend  (next, for these models —         │
@@ -56,7 +55,7 @@ below.
 | 2b — `overtourism.model.common` | Code shared by the overtourism models specifically (currently Fazzon and Molveno) — array math and types that only make sense for this "2D presence-vs-presence sustainability field" model family. |
 | 3 — Computation backend | One class per model (`FazzonBackend`, `MolvenoBackend`): builds the model, exposes its parameter schema, and evaluates scenarios. Frontend-agnostic — no Streamlit, FastAPI, or other UI/transport code. |
 | 4 — Application backend | Not implemented for Fazzon/Molveno yet. Would own scenario persistence, saved-result storage, and any cross-session state. `overtourism.OLD` already implements this pattern for the older model — see [Next steps](#next-steps). |
-| 5 — Frontend | Presentation only. Today: a Streamlit app used for development and manual testing. Next: a FastAPI service exposing the same backend over HTTP, and a real UI — both may be adaptable from `overtourism.OLD`/the old Angular frontend rather than built new. |
+| 5 — Frontend | Presentation only. Today: a REST API (`overtourism.api`) and Streamlit apps (in-process and HTTP-driven) used for development and manual testing. Next: a production UI — may be adaptable from `overtourism.OLD`'s old Angular frontend rather than built new. |
 
 ---
 
@@ -79,8 +78,9 @@ dependency pin with `overtourism.model.*`.
 
 ## Layer 2a — `overtourism.cdt_ext` (staged library extensions)
 
-**Location**: `overtourism/cdt_ext/runner_ext.py`, importable as
-`overtourism.cdt_ext.runner_ext`.
+**Location**: `overtourism/cdt_ext/runner_ext.py` (`ParameterMeta`,
+`EnsembleEvaluationConfig`, `build_scenario()`) and `overtourism/cdt_ext/codec.py`
+(`decode_array()`, kept in its own file — see below).
 
 Utilities that are genuinely domain-agnostic — useful to any `civic_digital_twins`
 model, not just the overtourism ones — but not yet part of the published
@@ -162,6 +162,28 @@ There is no `ModelBackend`/`ParametricModelBackend` base class: once
 is a one-line call (`evaluator.evaluate(build_scenario(...), config)`), so a
 wrapping ABC would add no capability. Layer 3 backends (§Layer 3) are plain
 concrete classes.
+
+### `decode_array()`
+
+The inverse of the library's own (module-private) `ModelOutput._encode_array`
+— decodes one `{"data", "dtype", "shape", "encoding"?}` field from a
+`to_snapshot()` response back into a `np.ndarray`. Used by
+`overtourism.dt_studio.dashboard.http_adapter` to consume the Layer 5 REST
+API's `/evaluate` response (§Layer 5 — REST API). A staging placeholder like
+the rest of this module: the real fix is for the library to expose this
+itself, ideally via a plain-JSON output option on `_serialize()`/
+`to_snapshot()` rather than requiring every HTTP consumer to decode base64.
+
+Lives in its own file, `codec.py`, rather than alongside `ParameterMeta`/
+`build_scenario()` in `runner_ext.py`: it has no need for `scipy`/
+`civic_digital_twins` (only `base64`+`numpy`), and `runner_ext.py` imports
+both. Layers 1–3 and Layer 5 are slated to run in separate containers (see
+the Status note at the top of this document) — an HTTP-based Layer 5 client
+that only needs `decode_array()` would otherwise drag in the whole
+`civic_digital_twins`/`scipy` dependency chain just by importing the module
+it lives in. Same reasoning applies to `overtourism.dt_studio.dashboard`
+not importing `overtourism.model.common.sustainability_field.OvertourismParameterMeta`
+— see §Layer 5 — Streamlit dev/test tooling.
 
 ---
 
@@ -305,33 +327,113 @@ choices about the axis grid, not per-evaluation quality knobs.
 
 ---
 
-## Layer 5 (today) — Streamlit dev/test tooling
+## Layer 5 — REST API
+
+**Location**: `overtourism/api/`, run with:
+
+```bash
+uv run fastapi dev overtourism/api/main.py
+```
+
+A REST layer over the Layer 3 backends. Depends only on
+`overtourism.model.*` — never on `overtourism.dt_studio.*` — so it can be
+deployed standalone. `FazzonBackend` and `MolvenoBackend` share an identical
+contract by convention (§Layer 3), so one generic route set parameterized by
+`{model_key}` covers both models instead of one router per model;
+`overtourism.api.registry` holds the `model_key -> Backend` mapping.
+
+| Endpoint | Description |
+|---|---|
+| `GET /models` | Registry catalogue: `[{key, title}, ...]`. |
+| `GET /models/{model_key}/schema` | `backend.parameter_schema()`, JSON-serialised. |
+| `POST /models/{model_key}/evaluate` | `{param_overrides: {...}}` → evaluation result. |
+
+`/evaluate` returns `SustainabilityFieldOutput.to_snapshot()` verbatim — the
+library's own `ModelOutput._serialize()` summary serializer, not a
+hand-rolled response shape. Array fields (`field`, `field_elements`,
+`x_values`, `y_values`) come back base64+dtype+shape-encoded rather than as
+plain JSON numbers; the only current consumer
+(`overtourism.dt_studio.dashboard.http_adapter.HttpOvertourismAdapter`) is
+code in this repo, so it decodes them with
+`overtourism.cdt_ext.codec.decode_array` (staged there — §Layer 2a —
+as a generic counterpart to the library's own, module-private
+`_decode_array`). If this API grows arbitrary third-party consumers, the
+right fix is for the library to expose a plain-JSON output option on
+`_serialize()`/`to_snapshot()` itself (e.g. an output-type parameter), not a
+parallel response schema maintained downstream here.
+
+Not implemented yet: `GET /scenarios` and `GET /results/{id}` — both require
+Layer 4 (scenario catalogue / persistence), which does not exist for these
+models yet (see [Next steps](#layer-4--application-backend)).
+
+**Adapt/reuse note**: `overtourism.OLD/backend/api/main.py`'s app-setup/CORS
+pattern was used as a structural reference for `overtourism/api/main.py`.
+
+---
+
+## Layer 5 — Streamlit dev/test tooling
 
 **Location**: `overtourism/dt_studio/`, isolated from the computation backend
-— nothing under `overtourism.model.*` imports Streamlit.
+— nothing under `overtourism.model.*` imports Streamlit, and the generic
+shell (`dashboard/adapter.py`, `dashboard/app.py`) doesn't import
+`overtourism.model.*` either, in either direction (see below).
 
 - `overtourism/dt_studio/dashboard/` — the generic, model-agnostic Streamlit
-  shell: `adapter.py` defines the `OvertourismAdapter` ABC and the `PlotData`/
-  `ScenarioDef` data types; `app.py`'s `run_dashboard()` renders the sidebar
-  widgets, field plot, KPI panel, and scenario selector for any adapter.
+  shell: `adapter.py` defines the `OvertourismAdapter` ABC, the `PlotData`/
+  `ScenarioDef` data types, and a `ParameterSpec` `Protocol` describing the
+  widget-metadata attributes a spec needs (`kind`, `label`, `min_value`, ...)
+  — structural, not a concrete class, so this module never imports
+  `overtourism.model.common` just for a type hint. `app.py`'s `run_dashboard()`
+  renders the sidebar widgets, field plot, KPI panel, and scenario selector
+  against that `Protocol`, for any adapter.
 - `overtourism/dt_studio/fazzon_dashboard.py` / `molveno_dashboard.py` — the
-  per-model entry points. Each defines a concrete `OvertourismAdapter`
-  subclass wrapping the corresponding `Backend`, and is run directly with:
+  in-process, per-model entry points. Each defines a concrete
+  `OvertourismAdapter` subclass wrapping the corresponding `Backend` directly
+  (no HTTP involved — the fastest way to iterate on model/backend code) and
+  returns real `OvertourismParameterMeta` instances from `parameter_specs()`,
+  which satisfy `ParameterSpec` structurally without either module importing
+  the other:
 
   ```bash
   uv run streamlit run overtourism/dt_studio/fazzon_dashboard.py
   uv run streamlit run overtourism/dt_studio/molveno_dashboard.py
   ```
 
+- `overtourism/dt_studio/dashboard/http_adapter.py` +
+  `fazzon_api_dashboard.py` / `molveno_api_dashboard.py` — the same
+  dashboard shell driven instead by the Layer 5 REST API over HTTP
+  (`HttpOvertourismAdapter`, one generic class for both models). This process
+  never imports `overtourism.model.*` at all — `parameter_specs()` returns
+  `HttpParameterSpec`, a local dataclass built from the API's JSON response
+  that also satisfies `ParameterSpec` structurally, so the same `Protocol`
+  is shared by both dashboard styles without either concrete type importing
+  the other. Only `httpx`, `numpy`, and plain JSON are involved — this
+  process exercises the real client/server boundary a production frontend
+  would use, and (deliberately) has none of Layers 1–3's dependencies
+  (`civic_digital_twins`, `scipy`) importable at all, matching the eventual
+  container split (see the Status note at the top of this document).
+
+  ```bash
+  uv run fastapi dev overtourism/api/main.py
+  uv run streamlit run overtourism/dt_studio/fazzon_api_dashboard.py
+  uv run streamlit run overtourism/dt_studio/molveno_api_dashboard.py
+  ```
+
+  Both dashboard styles are kept side by side: the in-process ones for fast
+  backend iteration, the HTTP ones for testing the API contract itself. The
+  HTTP-driven dashboards have no scenario selector yet —
+  `predefined_scenarios()` returns `[]` since there is no `/scenarios`
+  endpoint (see [Next steps](#layer-4--application-backend)).
+
 `OvertourismAdapter.run(param_overrides)` calls `backend.evaluate(param_overrides)`
-and maps the resulting `SustainabilityFieldOutput` onto `PlotData` (field names
-are aligned except `x_axis_name`/`y_axis_name` → `x_label`/`y_label`).
+— directly, or via the REST API — and maps the result onto `PlotData` (field
+names are aligned except `x_axis_name`/`y_axis_name` → `x_label`/`y_label`).
 `predefined_scenarios()` returns UI-facing `ScenarioDef` objects — scenario
 descriptions are presentation content and intentionally do not travel through
 the computation backend.
 
-This tooling is for development and manual testing only; it is not the
-production frontend (see [Next steps](#layer-5--fastapi-next)).
+Neither dashboard style is the production frontend (see
+[Next steps](#layer-5--production-ui)).
 
 ---
 
@@ -349,9 +451,12 @@ can be stateful across requests/sessions:
 | User scenario storage | Save/name/retrieve custom parameter sets across sessions. |
 | i18n | Translate `OvertourismParameterMeta.label`/`.description` if needed. |
 
-This layer is the single call target for every Layer 5 frontend: a FastAPI
-server *is* this layer plus HTTP routing; the current Streamlit dashboards use
-`st.session_state` as a temporary, in-process, non-persistent stand-in for it.
+`overtourism.api` (§Layer 5 — REST API) is currently stateless: every
+`/evaluate` call is a fresh Layer 3 computation, and there is no
+`/scenarios`/`/results` route. Once this layer exists, the REST API would
+call into it for those two routes; the in-process Streamlit dashboards
+already use `st.session_state` as a temporary, non-persistent stand-in for
+scenario catalogue + result caching within a single session.
 
 **Adapt/reuse candidate**: `overtourism.OLD/backend/managers.py` and
 `overtourism.OLD/dt_studio/manager/` (`ProblemManager`, `ScenarioManager`,
@@ -365,39 +470,19 @@ its persistence/store abstractions (`overtourism.OLD/dt_studio/manager/stores/`)
 and scenario-manager shape are a reasonable starting point to adapt rather
 than designing Layer 4 from a blank page.
 
-### Layer 5 — FastAPI
-
-Not implemented for Fazzon/Molveno yet. A REST layer over the Layer 3
-backends, mirroring the shape `SustainabilityFieldOutput` and
-`OvertourismParameterMeta` already have:
-
-| Endpoint | Description |
-|---|---|
-| `GET /schema` | `backend.parameter_schema()` as a JSON array. |
-| `GET /scenarios` | Scenario catalogue, from Layer 4. |
-| `POST /evaluate` | `{param_overrides: {...}}` → `backend.evaluate(...).to_snapshot()`. |
-| `GET /results/{id}` | Persisted result, from Layer 4. |
-
-**Adapt/reuse candidate**: `overtourism.OLD/backend/api/` already implements a
-working FastAPI service for the older model (`main.py` — app setup, CORS,
-router registration; `scenario.py`/`problem.py`/`widget.py`/`proposal.py`/
-`data.py` — the routers themselves). The route shapes above are not a
-one-to-one match with the old routers (those are keyed by `problem_id`/
-`scenario_id` against Layer 4's `ProblemManager`, these are keyed by model),
-but the FastAPI app scaffolding, CORS setup, and router-per-concern structure
-are directly reusable patterns.
-
 ### Layer 5 — production UI
 
-Not implemented for Fazzon/Molveno yet — the Streamlit dashboards (above) are
-dev/test tooling, not this. The previous production UI for the older model was
-a separate Angular single-page application
+Not implemented for Fazzon/Molveno yet — the Streamlit dashboards are
+dev/test tooling, not this (§Layer 5 — Streamlit dev/test tooling). The
+previous production UI for the older model was a separate Angular
+single-page application
 (`https://github.com/tn-aixpa/overtourism-frontend`, not part of this repo),
-served against the Layer 5 FastAPI backend. Whether the new models get a
-similarly separate Angular/SPA frontend, are folded into that existing
-frontend, or take a different approach is an open question — worth deciding
-alongside the Layer 5 FastAPI design above, since the two are coupled (the
-frontend consumes exactly the endpoints this layer exposes).
+served against `overtourism.OLD/backend/api/`'s FastAPI backend. Whether the
+new models get a similarly separate Angular/SPA frontend, are folded into
+that existing frontend, or take a different approach is an open question —
+the REST API already implemented (§Layer 5 — REST API) is what any such
+frontend would consume, so its endpoint shape may need to grow once that
+decision is made.
 
 ### Layer 5 — CLI (future)
 
