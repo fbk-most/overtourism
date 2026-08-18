@@ -5,19 +5,21 @@ from __future__ import annotations
 import pytest
 
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
-from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
+    Evaluation,
     EvaluationState,
 )
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
-from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
+from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationAlreadyExists,
 )
+from overtourism.overtourism import registry as execution_registry_module
+from overtourism.overtourism.registry import ModelExecutionService
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 FINISHED_TIMESTAMP = "2026-05-15T09:00:00Z"
@@ -43,11 +45,18 @@ def _make_scenario(tenant: str, scenario_id: str, visits: int) -> Scenario:
     )
 
 
-def _make_manager(sql_store, fake_model, fake_model_evaluator) -> EvaluationManager:
-    return EvaluationManager(
-        sql_store,
-        Executor(fake_model, fake_model_evaluator),
+def _make_manager(
+    sql_store,
+    fake_model,
+    fake_model_evaluator,
+) -> tuple[EvaluationManager, ModelExecutionService]:
+    manager = EvaluationManager(sql_store)
+    execution_manager = ModelExecutionService(
+        tenant=BaseConfig().tenant,
+        model=fake_model,
+        model_evaluator=fake_model_evaluator,
     )
+    return manager, execution_manager
 
 
 def _persist_problem_scenarios(
@@ -66,11 +75,15 @@ def test_create_run_load_and_delete_evaluation(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, execution_manager = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        evaluation_manager_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
     scenario = _make_scenario(tenant, "scenario-alpha", 7)
@@ -88,11 +101,12 @@ def test_create_run_load_and_delete_evaluation(
         == EvaluationState.RUNNING.value
     )
 
-    completed = manager.run_evaluation(
-        "evaluation-alpha",
+    completed = execution_manager.execute_evaluation(
+        running,
         scenario,
         ensemble_size=4,
     )
+    manager.save_evaluation(completed)
 
     assert completed.state is EvaluationState.COMPLETED
     assert completed.finished == FINISHED_TIMESTAMP
@@ -113,11 +127,15 @@ def test_create_run_load_and_delete_evaluation(
         manager.read_evaluation("evaluation-alpha").state is EvaluationState.COMPLETED
     )
 
-    reloaded_manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    reloaded_manager, _ = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
     loaded = reloaded_manager.list_evaluations()
 
     assert [item.evaluation_id for item in loaded] == ["evaluation-alpha"]
-    assert loaded[0].result.to_dict() == completed.result.to_dict()
+    assert loaded[0].result == completed.result.to_dict()
     assert (
         reloaded_manager.read_evaluation("evaluation-alpha").state
         is EvaluationState.COMPLETED
@@ -136,7 +154,7 @@ def test_evaluation_manager_exposes_only_persistent_and_object_lifecycle_operati
     fake_model_evaluator,
     problem_payload,
 ) -> None:
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, _ = _make_manager(sql_store, fake_model, fake_model_evaluator)
 
     assert not hasattr(manager, "create_session_evaluation")
     assert not hasattr(manager, "read_session_evaluation")
@@ -155,11 +173,15 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, execution_manager = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        evaluation_manager_module, "get_timestamp", lambda: SESSION_TIMESTAMP
+        execution_registry_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
 
     scenario = _make_scenario(tenant, "scenario-alpha", 11)
@@ -173,7 +195,11 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     assert evaluation.state is EvaluationState.RUNNING
     assert evaluation.started == CREATED_TIMESTAMP
 
-    completed = manager.execute_evaluation(evaluation, scenario, ensemble_size=3)
+    completed = execution_manager.execute_evaluation(
+        evaluation,
+        scenario,
+        ensemble_size=3,
+    )
     assert completed.state is EvaluationState.COMPLETED
     assert completed.finished == SESSION_TIMESTAMP
     assert completed.result.to_dict() == {
@@ -197,13 +223,20 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     )
 
     monkeypatch.setattr(
-        evaluation_manager_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
-    rerun = manager.rerun_evaluation(
+    restarted = Evaluation.create_default(
         completed.evaluation_id,
+        scenario_id=completed.scenario_id,
+        type=completed.type,
+        version=completed.version,
+    )
+    rerun = execution_manager.execute_evaluation(
+        restarted,
         scenario,
         ensemble_size=6,
     )
+    manager.save_evaluation(rerun)
 
     assert rerun.evaluation_id == completed.evaluation_id
     assert rerun.version == completed.version + 1
@@ -219,10 +252,14 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     }
     assert manager.read_evaluation(rerun.evaluation_id).to_dict() == rerun.to_dict()
 
-    reloaded_manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    reloaded_manager, _ = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
     loaded = reloaded_manager.read_evaluation(rerun.evaluation_id)
 
-    assert loaded.result.to_dict() == rerun.result.to_dict()
+    assert loaded.result == rerun.result.to_dict()
     assert (
         reloaded_manager.read_evaluation(rerun.evaluation_id).to_dict()
         == loaded.to_dict()
@@ -237,11 +274,15 @@ def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, execution_manager = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        evaluation_manager_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
     primary_scenario = _make_scenario(tenant, "scenario-alpha", 5)
@@ -258,14 +299,24 @@ def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
         primary_scenario.scenario_id,
         started=CREATED_TIMESTAMP,
     )
-    manager.run_evaluation("evaluation-alpha", primary_scenario, ensemble_size=2)
+    execution_manager.execute_evaluation(
+        manager.read_evaluation("evaluation-alpha"),
+        primary_scenario,
+        ensemble_size=2,
+    )
+    manager.save_evaluation(manager.read_evaluation("evaluation-alpha"))
 
     manager.create_evaluation(
         "evaluation-beta",
         secondary_scenario.scenario_id,
         started=CREATED_TIMESTAMP,
     )
-    manager.run_evaluation("evaluation-beta", secondary_scenario, ensemble_size=2)
+    execution_manager.execute_evaluation(
+        manager.read_evaluation("evaluation-beta"),
+        secondary_scenario,
+        ensemble_size=2,
+    )
+    manager.save_evaluation(manager.read_evaluation("evaluation-beta"))
 
     manager.delete_evaluations_for_scenario(primary_scenario.scenario_id)
 
@@ -285,7 +336,7 @@ def test_duplicate_and_missing_evaluation_operations_raise_clear_errors(
     problem_payload,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, _ = _make_manager(sql_store, fake_model, fake_model_evaluator)
 
     scenario = _make_scenario(tenant, "scenario-alpha", 9)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
@@ -311,10 +362,14 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, execution_manager = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
 
     monkeypatch.setattr(
-        evaluation_manager_module,
+        execution_registry_module,
         "get_timestamp",
         lambda: FINISHED_TIMESTAMP,
     )
@@ -330,10 +385,18 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
     def _boom(*args, **kwargs):
         raise RuntimeError("evaluation failed")
 
-    monkeypatch.setattr(manager.executor, "execute", _boom)
+    monkeypatch.setattr(execution_manager.executor, "execute", _boom)
+
+    running = manager.read_evaluation("evaluation-failure")
 
     with pytest.raises(RuntimeError, match="evaluation failed"):
-        manager.run_evaluation("evaluation-failure", scenario, ensemble_size=3)
+        execution_manager.execute_evaluation(
+            running,
+            scenario,
+            ensemble_size=3,
+        )
+
+    manager.save_evaluation(running)
 
     failed = manager.read_evaluation("evaluation-failure")
     assert failed.state is EvaluationState.FAILED
@@ -341,7 +404,7 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
     assert failed.version == 2
 
     with pytest.raises(ValueError, match="must be RUNNING"):
-        manager.execute_evaluation(failed, scenario)
+        execution_manager.execute_evaluation(failed, scenario)
 
 
 def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
@@ -352,7 +415,11 @@ def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
     monkeypatch,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, execution_manager = _make_manager(
+        sql_store,
+        fake_model,
+        fake_model_evaluator,
+    )
 
     scenario = _make_scenario(tenant, "scenario-alpha", 5)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
@@ -362,7 +429,12 @@ def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
         scenario.scenario_id,
         started=CREATED_TIMESTAMP,
     )
-    manager.run_evaluation("evaluation-alpha", scenario, ensemble_size=2)
+    execution_manager.execute_evaluation(
+        manager.read_evaluation("evaluation-alpha"),
+        scenario,
+        ensemble_size=2,
+    )
+    manager.save_evaluation(manager.read_evaluation("evaluation-alpha"))
 
     original_delete = manager.store.delete_evaluation
 
@@ -388,7 +460,7 @@ def test_build_evaluation_preserves_none_results_without_rebuilding_them(
     problem_payload,
 ) -> None:
     tenant = problem_payload["tenant"]
-    manager = _make_manager(sql_store, fake_model, fake_model_evaluator)
+    manager, _ = _make_manager(sql_store, fake_model, fake_model_evaluator)
 
     sql_store.save_problem(problem_payload)
     sql_store.save_scenario(_make_scenario(tenant, "scenario-alpha", 2).to_dict())

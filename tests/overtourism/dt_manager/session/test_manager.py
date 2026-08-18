@@ -6,11 +6,16 @@ from types import SimpleNamespace
 
 import pytest
 
+from overtourism.overtourism.bootstrap import bootstrap_default_graph
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.overtourism.registry import (
+    ExecutionManagerRegistry,
+    ModelExecutionService,
+)
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
@@ -19,23 +24,29 @@ def _make_manager(
     *,
     evaluator: FakeModelEvaluator | None = None,
     names_cfg: BaseConfig | None = None,
-) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
+) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace, ModelExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
     manager = Manager(
-        model=model,
-        model_evaluator=evaluator,
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         names_cfg=names_cfg,
     )
-    return manager, evaluator, model
+    execution_registry = ExecutionManagerRegistry()
+    execution_manager = ModelExecutionService(
+        tenant=manager.name_cfg.tenant,
+        model=model,
+        model_evaluator=evaluator,
+    )
+    execution_registry.register(execution_manager)
+    bootstrap_default_graph(manager, execution_registry)
+    return manager, evaluator, model, execution_manager
 
 
 def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
+    manager, evaluator, model, execution_manager = _make_manager(tmp_path)
     tenant = manager.name_cfg.tenant
 
     problem = manager.problem_manager.create_problem(
@@ -61,11 +72,10 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.execute_evaluation(
+    completed = execution_manager.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=5,
-        persist=False,
     )
     session_evaluation = manager.session_manager.create_session_evaluation(
         session.session_id,
@@ -99,7 +109,7 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
 
 
 def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> None:
-    manager, _evaluator, _model = _make_manager(tmp_path)
+    manager, _evaluator, _model, execution_manager = _make_manager(tmp_path)
     tenant = manager.name_cfg.tenant
 
     manager.problem_manager.create_problem(
@@ -124,11 +134,10 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.execute_evaluation(
+    completed = execution_manager.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=4,
-        persist=False,
     )
     manager.session_manager.create_session_evaluation(
         session.session_id,

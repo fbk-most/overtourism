@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Annotated
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -335,11 +336,21 @@ async def create_session_evaluation(
             session_id,
             data.scenario_id,
         )
-        evaluation = handler.manager.create_session_evaluation(
-            session_id,
-            data.scenario_id,
+        scenario = handler.manager.read_session_scenario(session_id, data.scenario_id)
+        evaluation = handler.manager.build_running_evaluation(
+            uuid4().hex,
+            scenario_id=data.scenario_id,
+        )
+        evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
+            evaluation,
+            scenario,
             ensemble_size=data.ensemble_size,
             **data.kwargs,
+        )
+        handler.manager.create_session_evaluation(
+            session_id,
+            data.scenario_id,
+            evaluation,
         )
         logger.info("Evaluation created")
         return EvaluationData.from_domain(evaluation)

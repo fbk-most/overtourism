@@ -208,13 +208,23 @@ def test_session_evaluation_can_be_updated_and_deleted(
 
 def test_evaluation_data_returns_arranged_data(
     client,
+    handler,
     manager: Manager,
     tenant: str,
     problem_id: str,
 ) -> None:
     base_scenario_id = f"{tenant}_base_scenario"
     manager.update_scenario(base_scenario_id, values={"visits": 9})
-    evaluation = manager.evaluate_scenario(base_scenario_id, ensemble_size=3)
+    evaluation = handler.manager.evaluation_manager.create_evaluation(
+        "evaluation-alpha",
+        base_scenario_id,
+    )
+    evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
+        evaluation,
+        manager.read_scenario(base_scenario_id),
+        ensemble_size=3,
+    )
+    manager.evaluation_manager.save_evaluation(evaluation)
 
     response = client.get(
         f"/api/v2/{tenant}/evaluations/{evaluation.evaluation_id}/data",

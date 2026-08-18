@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import typing
 from uuid import uuid4
 
 from overtourism.dt_manager.scenario.scenario import Scenario
@@ -14,10 +13,6 @@ from overtourism.dt_manager.utils.exception import (
 )
 from overtourism.dt_manager.utils.utils import get_timestamp
 
-if typing.TYPE_CHECKING:
-    from civic_digital_twins.dt_model.model import Model
-    from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
-
 
 class ScenarioManager:
     """Manage scenario entities for a single problem."""
@@ -25,14 +20,10 @@ class ScenarioManager:
     def __init__(
         self,
         base_scenario_id: str,
-        model: Model,
-        model_evaluator: ModelEvaluator,
         store: Store,
     ) -> None:
         """Create a scenario manager bound to a problem."""
         self.base_scenario_id = base_scenario_id
-        self.model = model
-        self.model_evaluator = model_evaluator
         self.store = store
 
     # ───────────────────────────────────────────────────────────

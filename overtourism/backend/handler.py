@@ -59,6 +59,7 @@ class Handler:
         get_widget_ids_by_groups_fn: GetWidgetIdsByGroupsFnLike | None = None,
         arrange_data_fn: ArrangeDataFnLike | None = None,
         prepare_values_fn: Callable[..., dict] | None = None,
+        execution_manager_registry: Any | None = None,
         session_ownership_store: SessionOwnershipStore | None = None,
     ) -> None:
         self.manager = manager
@@ -68,4 +69,5 @@ class Handler:
         self.get_widget_ids_by_groups_fn = get_widget_ids_by_groups_fn
         self.arrange_data_fn = arrange_data_fn
         self.prepare_values_fn = prepare_values_fn
+        self.execution_manager_registry = execution_manager_registry
         self.session_ownership_store = session_ownership_store

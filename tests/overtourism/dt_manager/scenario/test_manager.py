@@ -28,8 +28,6 @@ def test_create_update_save_load_and_delete_scenario(
     tenant = problem_payload["tenant"]
     manager = ScenarioManager(
         f"{tenant}_base_scenario",
-        fake_model,
-        fake_model_evaluator,
         sql_store,
     )
     sql_store.save_problem(problem_payload)
@@ -112,8 +110,6 @@ def test_update_scenario_preserves_existing_values_when_overriding_subset(
     tenant = problem_payload["tenant"]
     manager = ScenarioManager(
         f"{tenant}_base_scenario",
-        fake_model,
-        fake_model_evaluator,
         sql_store,
     )
     sql_store.save_problem(problem_payload)
@@ -153,8 +149,6 @@ def test_scenario_manager_exposes_only_stateless_scenario_operations(
     tenant = problem_payload["tenant"]
     manager = ScenarioManager(
         f"{tenant}_base_scenario",
-        fake_model,
-        fake_model_evaluator,
         sql_store,
     )
 
@@ -177,8 +171,6 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     tenant = problem_payload["tenant"]
     manager = ScenarioManager(
         f"{tenant}_base_scenario",
-        fake_model,
-        fake_model_evaluator,
         sql_store,
     )
     sql_store.save_problem(problem_payload)
@@ -245,8 +237,6 @@ def test_detach_scenario_preserves_existing_values_when_overriding_subset(
     tenant = problem_payload["tenant"]
     manager = ScenarioManager(
         f"{tenant}_base_scenario",
-        fake_model,
-        fake_model_evaluator,
         sql_store,
     )
     sql_store.save_problem(problem_payload)

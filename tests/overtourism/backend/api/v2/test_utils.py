@@ -104,7 +104,16 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_scenario_or_404(handler, base_scenario_id).scenario_id == base_scenario_id
     )
     assert get_proposal_or_404(handler, proposal_id).proposal_id == proposal_id
-    evaluation = manager.evaluate_scenario(base_scenario_id)
+    evaluation = handler.manager.evaluation_manager.create_evaluation(
+        "evaluation-alpha",
+        base_scenario_id,
+    )
+    scenario = handler.manager.read_scenario(base_scenario_id)
+    evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
+        evaluation,
+        scenario,
+    )
+    handler.manager.evaluation_manager.save_evaluation(evaluation)
     assert (
         get_evaluation_or_404(handler, evaluation.evaluation_id).scenario_id
         == base_scenario_id
@@ -126,11 +135,15 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         base_scenario_id,
         values={"visits": 8},
     )
-    evaluation = manager.create_session_evaluation(
-        session.session_id,
-        draft.scenario_id,
+    evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
+        manager.evaluation_manager.build_running_evaluation(
+            "session-evaluation",
+            scenario_id=draft.scenario_id,
+        ),
+        draft,
         ensemble_size=4,
     )
+    manager.create_session_evaluation(session.session_id, draft.scenario_id, evaluation)
 
     assert (
         get_session_or_404(handler, session.session_id).session_id == session.session_id
@@ -176,6 +189,7 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
 def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
     handler,
     manager: Manager,
+    tenant: str,
     problem_id: str,
     monkeypatch,
 ) -> None:
@@ -226,18 +240,19 @@ def test_version_and_cdt_helpers_cover_validation_and_model_bridges(
     manager.update_scenario(scenario.scenario_id, values={"visits": 9})
     scenario = manager.read_scenario(scenario.scenario_id)
 
+    execution_manager = handler.execution_manager_registry.get(tenant)
     monkeypatch.setattr(
-        handler.manager.scenario_manager.model_evaluator,
+        execution_manager.model_evaluator,
         "_values_to_overrides",
         lambda model, values: {"visits": values["visits"]},
     )
     monkeypatch.setattr(
-        handler.manager.scenario_manager.model_evaluator,
+        execution_manager.model_evaluator,
         "get_index_diffs",
         lambda cdt_scenario: {"visits": f"+{cdt_scenario.overrides['visits']}"},
     )
     monkeypatch.setattr(
-        handler.manager.scenario_manager.model_evaluator,
+        execution_manager.model_evaluator,
         "get_model_values",
         lambda cdt_scenario: {"model": cdt_scenario.model.name},
     )

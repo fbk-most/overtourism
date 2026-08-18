@@ -14,10 +14,15 @@ from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
+from overtourism.overtourism.bootstrap import bootstrap_default_graph
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.overtourism.registry import (
+    ExecutionManagerRegistry,
+    ModelExecutionService,
+)
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
@@ -74,17 +79,31 @@ def session_ownership_store(tmp_path) -> SessionOwnershipStore:
 
 @pytest.fixture
 def manager(tmp_path, tenant: str) -> Manager:
-    model = SimpleNamespace(name="fake-model", indexes=[])
-    evaluator = FakeModelEvaluator(model)
     return Manager(
-        model=model,
-        model_evaluator=evaluator,
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         names_cfg=BaseConfig(tenant=tenant),
     )
+
+
+@pytest.fixture
+def execution_manager_registry(
+    manager: Manager, tenant: str
+) -> ExecutionManagerRegistry:
+    model = SimpleNamespace(name="fake-model", indexes=[])
+    evaluator = FakeModelEvaluator(model)
+    registry = ExecutionManagerRegistry()
+    registry.register(
+        ModelExecutionService(
+            tenant=tenant,
+            model=model,
+            model_evaluator=evaluator,
+        )
+    )
+    bootstrap_default_graph(manager, registry)
+    return registry
 
 
 @pytest.fixture
@@ -105,11 +124,13 @@ def proposal_id(manager: Manager) -> str:
 @pytest.fixture
 def handler(
     manager: Manager,
+    execution_manager_registry: ExecutionManagerRegistry,
     viewer: RecordingViewer,
     session_ownership_store: SessionOwnershipStore,
 ) -> Handler:
     return Handler(
         manager=manager,
+        execution_manager_registry=execution_manager_registry,
         viewer=viewer,
         get_widgets_fn=viewer.get_widgets,
         get_widget_ids_by_groups_fn=viewer.get_widget_ids_by_groups,

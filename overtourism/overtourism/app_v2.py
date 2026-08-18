@@ -13,7 +13,7 @@ from overtourism.overtourism.backend_extension.api.v2.problem import problem_rou
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
 from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from overtourism.overtourism.molveno.setup import build_handler
-from overtourism.overtourism.platform import download_index_data, download_index_data_v2
+from overtourism.overtourism.platform import download_index_data_v2
 
 
 def build_app() -> FastAPI:

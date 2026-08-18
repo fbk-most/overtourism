@@ -7,10 +7,15 @@ from pathlib import Path
 
 from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.handler import Handler
+from overtourism.overtourism.bootstrap import bootstrap_default_graph
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
+from overtourism.overtourism.registry import (
+    ExecutionManagerRegistry,
+    ModelExecutionService,
+)
 from overtourism.overtourism.backend_extension.data import (
     MOLVENO_SIM_INDEXES,
     OvertourismIndexesLoader,
@@ -149,12 +154,21 @@ session_ownership_store = SessionOwnershipStore(data_dir / "session_ownership.sq
 # Manager
 # ──────────────────────────────────────────────
 manager_molveno = Manager(
-    model=M_Base,
-    model_evaluator=model_evaluator,
     store_config=store_conf,
     extras_config=extras_config,
     names_cfg=names_cfg,
 )
+
+execution_manager_registry = ExecutionManagerRegistry()
+execution_manager_registry.register(
+    ModelExecutionService(
+        tenant=names_cfg.tenant,
+        model=M_Base,
+        model_evaluator=model_evaluator,
+    )
+)
+
+bootstrap_default_graph(manager_molveno, execution_manager_registry)
 
 MOLVENO_TENANT = names_cfg.tenant
 viewer = ModelViewer(MOLVENO_SIM_INDEXES)
@@ -165,6 +179,7 @@ def build_handler() -> Handler:
     """Build the molveno backend handler and its collaborators."""
     return Handler(
         manager=manager_molveno,
+        execution_manager_registry=execution_manager_registry,
         get_widgets_fn=viewer.get_widgets,
         get_widget_ids_by_groups_fn=viewer.get_widget_ids_by_groups,
         arrange_data_fn=lambda data, params=None, as_snapshot=True: arrange_data(

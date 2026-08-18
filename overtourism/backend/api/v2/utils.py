@@ -10,7 +10,6 @@ from overtourism.backend.handler import Handler
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
-from overtourism.dt_manager.scenario.values import values_as_scipy
 from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationDoesNotExist,
@@ -178,6 +177,13 @@ def arrange_data(
     params: list[str] | None = None,
 ) -> dict:
     """Convert model output to API dict using arrange_data_fn if available."""
+    if isinstance(data, dict) and handler.execution_manager_registry is not None:
+        tenant = handler.execution_manager_registry.default_tenant
+        if tenant is None:
+            tenant = handler.manager.name_cfg.tenant
+        data = handler.execution_manager_registry.get(
+            tenant
+        ).model_evaluator.build_output(data)
     if handler.arrange_data_fn is not None:
         return handler.arrange_data_fn(
             data,
@@ -199,27 +205,20 @@ def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.An
 
 def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]:
     """Compute the model index differences for a scenario on demand."""
-    from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
-
-    evaluator = handler.manager.scenario_manager.model_evaluator
-    raw_values = values_as_scipy(scenario)
-    overrides = evaluator._values_to_overrides(
-        handler.manager.scenario_manager.model, raw_values
-    )
-    cdt_scenario = CDTScenario(
-        handler.manager.scenario_manager.model, overrides=overrides
-    )
-    return evaluator.get_index_diffs(cdt_scenario)
+    if handler.execution_manager_registry is None:
+        return {}
+    execution_manager = handler.execution_manager_registry.get(scenario.tenant)
+    return execution_manager.scenario_index_diffs(scenario)
 
 
 def model_values(handler: Handler) -> dict[str, typing.Any]:
     """Return the base model values exposed by the facade manager."""
-    from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
-
-    cdt_scenario = CDTScenario(handler.manager.scenario_manager.model)
-    return handler.manager.scenario_manager.model_evaluator.get_model_values(
-        cdt_scenario
-    )
+    if handler.execution_manager_registry is None:
+        return {}
+    tenant = handler.execution_manager_registry.default_tenant
+    if tenant is None:
+        tenant = handler.manager.name_cfg.tenant
+    return handler.execution_manager_registry.get(tenant).model_values()
 
 
 # ──────────────────────────────────────────────

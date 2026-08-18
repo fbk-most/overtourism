@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from overtourism.overtourism.bootstrap import bootstrap_default_graph
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
-from overtourism.dt_manager.evaluation import manager as evaluation_manager_module
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
@@ -15,6 +15,11 @@ from overtourism.dt_manager.scenario import manager as scenario_manager_module
 from overtourism.dt_manager.scenario import values as scenario_values_module
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
+from overtourism.overtourism import registry as execution_registry_module
+from overtourism.overtourism.registry import (
+    ExecutionManagerRegistry,
+    ModelExecutionService,
+)
 from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
@@ -26,23 +31,29 @@ def _make_manager(
     *,
     evaluator: FakeModelEvaluator | None = None,
     names_cfg: BaseConfig | None = None,
-) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
+) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace, ModelExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
     manager = Manager(
-        model=model,
-        model_evaluator=evaluator,
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         names_cfg=names_cfg,
     )
-    return manager, evaluator, model
+    execution_registry = ExecutionManagerRegistry()
+    execution_manager = ModelExecutionService(
+        tenant=manager.name_cfg.tenant,
+        model=model,
+        model_evaluator=evaluator,
+    )
+    execution_registry.register(execution_manager)
+    bootstrap_default_graph(manager, execution_registry)
+    return manager, evaluator, model, execution_manager
 
 
 def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
+    manager, evaluator, model, _ = _make_manager(tmp_path)
     default_config = BaseConfig()
 
     assert [problem.problem_id for problem in manager.list_problems()] == [
@@ -73,19 +84,25 @@ def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> Non
     evaluation = evaluations[0]
     assert evaluation.state is EvaluationState.COMPLETED
     assert evaluation.scenario_id == default_config.scenario_id
-    assert evaluation.result.to_dict() == {"ensemble_size": 20, "values": {}}
+    assert (
+        evaluation.result.to_dict()
+        if hasattr(evaluation.result, "to_dict")
+        else evaluation.result
+    ) == {"ensemble_size": 20, "values": {}}
 
     assert evaluator.evaluate_calls == [
         {"model": model, "ensemble_size": 20, "values": {}}
     ]
-    assert manager.read_scenario_data(default_config.scenario_id).to_dict() == {
+    assert manager.evaluation_manager.read_latest_evaluation(
+        default_config.scenario_id
+    ).result == {
         "ensemble_size": 20,
         "values": {},
     }
 
 
 def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
+    manager, evaluator, model, execution_manager = _make_manager(tmp_path)
 
     monkeypatch.setattr(proposal_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
@@ -99,7 +116,7 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
     )
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        evaluation_manager_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
+        execution_registry_module, "get_timestamp", lambda: UPDATED_TIMESTAMP
     )
 
     problem = manager.problem_manager.create_problem(
@@ -134,11 +151,12 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
         "evaluation-alpha",
         scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.run_evaluation(
-        evaluation.evaluation_id,
+    completed = execution_manager.execute_evaluation(
+        evaluation,
         scenario,
         ensemble_size=4,
     )
+    manager.evaluation_manager.save_evaluation(completed)
 
     assert problem.problem_id == "problem-alpha"
     assert scenario.scenario_id == "scenario-alpha"
@@ -172,14 +190,16 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
     assert manager.relationship_manager.get_related_scenario_ids(
         proposal.proposal_id,
     ) == [scenario.scenario_id]
-    assert manager.read_scenario_data(scenario.scenario_id).to_dict() == {
+    assert manager.evaluation_manager.read_latest_evaluation(
+        scenario.scenario_id
+    ).result == {
         "ensemble_size": 4,
         "values": {"visits": 7},
     }
 
 
 def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
+    manager, evaluator, model, execution_manager = _make_manager(tmp_path)
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
@@ -205,13 +225,12 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
         "evaluation-session",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.execute_evaluation(
+    completed = execution_manager.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=5,
-        persist=False,
     )
-    session_evaluation = manager.session_manager.create_session_evaluation(
+    session_evaluation = manager.create_session_evaluation(
         session.session_id,
         session_scenario.scenario_id,
         completed,
@@ -245,7 +264,7 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
 
 
 def test_manager_read_scenario_data_reuses_persisted_results(tmp_path) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
+    manager, evaluator, model, execution_manager = _make_manager(tmp_path)
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
@@ -265,14 +284,15 @@ def test_manager_read_scenario_data_reuses_persisted_results(tmp_path) -> None:
         "evaluation-alpha",
         scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.run_evaluation(
-        evaluation.evaluation_id,
+    completed = execution_manager.execute_evaluation(
+        evaluation,
         scenario,
         ensemble_size=3,
     )
+    manager.evaluation_manager.save_evaluation(completed)
 
     assert (
-        manager.read_scenario_data(scenario.scenario_id).to_dict()
+        manager.evaluation_manager.read_latest_evaluation(scenario.scenario_id).result
         == completed.result.to_dict()
     )
     assert evaluator.evaluate_calls[-1] == {
