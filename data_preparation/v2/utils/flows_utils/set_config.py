@@ -9,7 +9,8 @@ NOTE: Change here the paths to the data and output folders, the names of the dat
 
 import os
 import polars as pl
-from data_preparation.v2.diffusion.constant_names_variables import *
+from data_preparation.v2.utils.flows_utils.constant_names_variables import *
+from data_preparation.v2.utils.utils import TEMP_FOLDER_DIR
 
 ### ---------------------------- CONFIGURATION ---------------------------- ###
 from collections import defaultdict
@@ -17,7 +18,6 @@ from collections import defaultdict
 
 def set_config(
     str_name_project,  # NAME PROJECT
-    str_dir_data_path,  # PATH DATA
     str_dir_output_path,  # PATH OUTPUT
     complete_path_Istat_population,  # PATH ISTAT DATA
     str_prefix_complete_path,  # PREFIX COMPLETE PATH
@@ -56,7 +56,6 @@ def set_config(
     config["name_project"] = str_name_project  # name of the project
 
     # Paths
-    config[str_dir_data] = str_dir_data_path  # path to the data folder
     config[str_dir_output] = str_dir_output_path  # path to the output folder
     config[str_dir_plots] = str_dir_plots_path  # path to the plots folder
     os.makedirs(
@@ -65,9 +64,6 @@ def set_config(
     os.makedirs(
         str_dir_output_path, exist_ok=True
     )  # Create the output folder if it does not exist
-    os.makedirs(
-        str_dir_data_path, exist_ok=True
-    )  # Create the data folder if it does not exist
     # Bounding Box
     config["south"] = 45.994481  # south bound of the bounding box -> longitude coords
     config["north"] = 46.249579  # north bound of the bounding box -> longitude coords
@@ -105,8 +101,8 @@ def set_config(
     )
 
     # Output variables
-    config[f"{str_prefix_complete_path}_{str_name_dataset_gtfs}"] = os.path.join(
-        config[str_dir_data], str_name_file_gtfs_zip
+    config[f"{str_prefix_complete_path}_{str_name_dataset_gtfs}"] = (
+        TEMP_FOLDER_DIR / str_name_file_gtfs_zip
     )  # full path GTFS file
     config[f"{str_prefix_complete_path}_{str_name_grid}"] = os.path.join(
         config[str_dir_output], f"{str_name_grid}_boundary_Lx_{Lx}_Ly_{Ly}.geojson"

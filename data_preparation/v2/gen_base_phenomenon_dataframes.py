@@ -21,7 +21,7 @@ import logging
 
 import pandas as pd
 import geopandas as geopd
-from utils import (
+from data_preparation.v2.utils.utils import (
     save_computed_dfs,
     get_dataframe,
     get_s3,
@@ -32,10 +32,9 @@ from utils import (
     customize_unidecode,
     resolve_id_comune,
     get_mapping_comuni,
-    save_temp_df,
     COMUNE_NAME_OVERRIDES,
 )
-from disaggregation import disaggregate
+from data_preparation.v2.utils.disaggregation import disaggregate
 
 logging.basicConfig(level=logging.INFO)
 
@@ -358,7 +357,6 @@ def compute_phenomenon_dataframes(local=False):
     strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)
     arrivi_trentino = compute_arrivi_trentino()
     vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
-    save_temp_df(vodafone_attendences_df, "vodafone_attendences.parquet")
     presenze_df = compute_presenze_trentino(
         mapping_comuni, how="distributional", distribution=vodafone_attendences_df
     )

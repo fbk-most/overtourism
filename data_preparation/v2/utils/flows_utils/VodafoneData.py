@@ -3,10 +3,12 @@ import polars as pl
 import pandas as pd
 from datetime import timedelta, date
 
-from data_preparation.v2.diffusion.OsAndFileHandling import (
+from data_preparation.v2.utils.flows_utils.OsAndFileHandling import (
     extract_od_vodafone_from_bucket,
 )
-from data_preparation.v2.diffusion.constant_names_variables import date_in_file_2_skip
+from data_preparation.v2.utils.flows_utils.constant_names_variables import (
+    date_in_file_2_skip,
+)
 
 ## Diffusione 1,2 -> extract days ###############
 

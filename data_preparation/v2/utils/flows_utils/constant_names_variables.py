@@ -1,7 +1,7 @@
 import os
-from data_preparation.v2.diffusion.default_parameters import *
+from data_preparation.v2.utils.flows_utils.default_parameters import *
 
-from data_preparation.v2.utils import DATA_PREFIX, BASE_DIR
+from data_preparation.v2.utils.utils import DATA_PREFIX, BASE_DIR, TEMP_FOLDER_DIR
 
 ## ---------- ERROR VARIABLES ---------- ##
 date_in_file_2_skip = {
@@ -25,10 +25,7 @@ str_dir_plots = "dir_plots"  # name of the plots folder
 base_dir_output = BASE_DIR  # Get the current working directory
 base_dir_data = BASE_DIR  # Get the current working directory
 # name paths
-str_dir_data_path = os.path.join(base_dir_data, "Data")  # path to the data folder
-str_dir_output_path = os.path.join(
-    base_dir_output, "Output", str_name_project
-)  # path to the output folder
+str_dir_output_path = TEMP_FOLDER_DIR / str_name_project  # path to the output folder
 str_dir_plots_path = os.path.join(
     str_dir_output_path, "Plots"
 )  # path to the plots folder
@@ -100,7 +97,7 @@ str_name_distance_matrix = (
 # Istat data
 str_name_istat_data_file = "POSAS_2024_it_022_Trento.csv"
 complete_path_Istat_population = os.path.join(
-    str_dir_data_path, str_name_istat_data_file
+    TEMP_FOLDER_DIR, str_name_istat_data_file
 )  # complete path to the Istat data file
 
 

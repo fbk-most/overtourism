@@ -18,10 +18,14 @@ logging.basicConfig(level=logging.INFO)
 
 PROJECT = os.environ.get("PROJECT_NAME", "overtourism")
 DATA_PREFIX = os.environ.get("DATA_PREFIX", "overtourism/inputdata/")
-BASE_DIR = os.environ.get("BASE_DIR", os.getcwd())
-PATH_SAVE = Path(__file__).resolve().parent / "processed_data_trentino"
+BASE_DIR = os.environ.get("BASE_DIR", str(Path.cwd()))
 
-PATH_OVERTOURISM = Path(__file__).parents[3].resolve()
+TEMP_FOLDER_DIR = Path(__file__).resolve().parents[1] / "Output"
+TEMP_FOLDER_DIR.mkdir(parents=True, exist_ok=True)
+
+PATH_SAVE = TEMP_FOLDER_DIR / "processed_data_trentino"
+
+PATH_OVERTOURISM = Path(__file__).parents[4].resolve()
 PATH_AIXPA_INDEX_DFS = (
     PATH_OVERTOURISM
     / "overtourism"
@@ -33,11 +37,8 @@ PATH_AIXPA_INDEX_DFS = (
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 
-TEMP_FOLDER_DIR = Path(__file__).resolve().parent / "temp_Output"
-TEMP_FOLDER_DIR.mkdir(parents=True, exist_ok=True)
-
 MAPPING_COMUNI_FILE = (
-    Path(__file__).resolve().parents[1] / "mapping" / "mapping_comuni_ISTAT.json"
+    Path(__file__).resolve().parents[2] / "mapping" / "mapping_comuni_ISTAT.json"
 )
 
 # Explicit overrides for comuni whose official Italian name differs from
@@ -63,14 +64,6 @@ COMUNE_NAME_OVERRIDES = {
 def get_mapping_comuni():
     with MAPPING_COMUNI_FILE.open("r", encoding="utf-8") as f:
         return json.load(f)
-
-
-def save_temp_df(df, file_name):
-    df.to_parquet(TEMP_FOLDER_DIR / file_name)
-
-
-def get_temp_df(file_name):
-    return pd.read_parquet(TEMP_FOLDER_DIR / file_name)
 
 
 def customize_unidecode(x):
