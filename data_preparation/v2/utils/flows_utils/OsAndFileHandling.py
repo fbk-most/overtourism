@@ -3,7 +3,7 @@ import geopandas as gpd
 import io
 import polars as pl
 
-from data_preparation.v2.utils import DATA_PREFIX, BASE_DIR
+from data_preparation.v2.utils.utils import DATA_PREFIX, BASE_DIR
 
 ## ------------- JSON Interface for Data Lake ------------- ##
 import numpy as np

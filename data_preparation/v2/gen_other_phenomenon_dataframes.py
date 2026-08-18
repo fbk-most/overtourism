@@ -20,15 +20,17 @@ zero-padded string form right before it's returned, via `pad_id_comune()`.
 import logging
 import pandas as pd
 
-from diffusion.main_generate_flows_and_grids import main_generate_flows_and_grids
-from utils import (
+from utils.flows_utils.main_generate_flows_and_grids import (
+    main_generate_flows_and_grids,
+)
+from data_preparation.v2.utils.utils import (
     get_s3,
     get_json_s3,
     pad_id_comune,
     get_mapping_comuni,
     save_computed_dfs,
 )
-from disaggregation import disaggregate
+from data_preparation.v2.utils.disaggregation import disaggregate
 
 logging.basicConfig(level=logging.INFO)
 

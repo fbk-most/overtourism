@@ -501,12 +501,12 @@ def concat_df_od_and_add_columns(
     Output: pl.DataFrame with the concatenated OD data and the added columns.
 
     """
-    from data_preparation.v2.diffusion.VodafoneData import (
+    from data_preparation.v2.utils.flows_utils.VodafoneData import (
         extract_od_vodafone_from_bucket,
         add_column_is_week_and_str_day,
     )
     from tqdm import tqdm
-    from data_preparation.v2.utils import DATA_PREFIX
+    from data_preparation.v2.utils.utils import DATA_PREFIX
 
     for i, file in tqdm(
         enumerate(list_files_od), desc="Files OD Vodafone"

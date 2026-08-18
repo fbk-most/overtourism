@@ -2,7 +2,7 @@ import branca.colormap as cm
 import folium
 
 #
-from data_preparation.v2.diffusion.OD import *
+from data_preparation.v2.utils.flows_utils.OD import *
 
 #### ---------------- DEBUG GEOMETRIES ------------------ ####
 
