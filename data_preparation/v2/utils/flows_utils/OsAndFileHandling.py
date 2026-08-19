@@ -1,12 +1,9 @@
-import pandas as pd
 import geopandas as gpd
 import io
+import pandas as pd
 import polars as pl
-
-from data_preparation.v2.utils.utils import DATA_PREFIX, BASE_DIR
-
-## ------------- JSON Interface for Data Lake ------------- ##
-import numpy as np
+from data_preparation.v2.utils.utils import DATA_PREFIX
+from typing import List
 
 ## ---------- DHCLI Interface for Data Lake ---------- ##
 
@@ -100,12 +97,6 @@ def extract_od_vodafone_from_bucket(
     object_od.download_fileobj(buffer)
     df_od = pl.read_parquet(buffer)
     return df_od
-
-
-## -------------------- PRESENZE MARKOWITZ -------------------- ##
-
-
-from typing import List
 
 
 def merge_flows_and_grid_with_global_to_obtain_unique_dfs(

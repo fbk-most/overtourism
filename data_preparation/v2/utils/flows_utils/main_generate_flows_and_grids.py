@@ -1,10 +1,15 @@
-import os
-from pathlib import Path
 import gc
-import itertools
-import polars as pl
 import geopandas as gpd
-
+import itertools
+import os
+import polars as pl
+from data_preparation.v2.utils.utils import (
+    TEMP_FOLDER_DIR,
+    init_s3,
+    log_dataframe,
+    read_shapefile_s3,
+)
+from pathlib import Path
 from data_preparation.v2.utils.flows_utils.GenerateFakeFluxes import (
     add_column_area_and_fraction,
     add_suffix_to_repeated_values,
@@ -63,46 +68,19 @@ from data_preparation.v2.utils.flows_utils.constant_names_variables import (
     str_destination_od,
     str_dir_output,
     str_dir_output_path,
-    str_dir_plots_path,
     str_grid_idx,
     str_hotspot_prefix,
-    str_name_centroid_city,
-    str_name_dataset_gtfs,
     str_name_distance_matrix,
-    str_name_file_gtfs_zip,
-    str_name_gdf_transport,
-    str_name_graph_2_route,
-    str_name_graph_transport,
-    str_name_grid,
-    str_name_grid_2_city,
-    str_name_grid_2_route,
-    str_name_grid_2_stop,
-    str_name_project,
-    str_name_route_2_graph,
-    str_name_shape_city,
-    str_name_stop_2_route,
-    str_name_stop_2_trip,
     str_origin_od,
     str_period_id_presenze,
     str_population_col_grid,
-    str_prefix_complete_path,
-    str_route_idx,
-    str_stop_idx,
-    str_transport_idx,
-    str_trip_idx,
     str_trip_type_od,
 )
 from data_preparation.v2.utils.flows_utils.default_parameters import (
-    Lx,
-    Ly,
-    int_min_aggregation_OD,
-    int_number_people_per_bus,
     list_time_intervals,
-    str_end_time_window_interest,
-    str_start_time_window_interest,
     week_days,
 )
-from data_preparation.v2.utils.flows_utils.gtfs_routines import Preprocessing_gtfs
+
 from data_preparation.v2.utils.flows_utils.pipeline_diffusione_1_2 import (
     default_initial_preparation_common_to_all_cases_df_flows_not_baseline,
     define_columns_to_hold_and_merge_both_for_grid_and_flows_OD_analysis,
@@ -110,58 +88,20 @@ from data_preparation.v2.utils.flows_utils.pipeline_diffusione_1_2 import (
     prepare_flow_dataframe_for_hierarchical_prcedure,
 )
 from data_preparation.v2.utils.flows_utils.set_config import set_config
-from data_preparation.v2.utils.utils import (
-    TEMP_FOLDER_DIR,
-    init_s3,
-    log_dataframe,
-    read_shapefile_s3,
-)
-
-
-def get_Gtfs_data(config, str_prefix_complete_path, str_name_dataset_gtfs):
-    """
-    Load GTFS data from the specified path.
-        Returns:
-            gdf_transport: GeoDataFrame containing transport data
-            graph_transport: Graph object representing the transport network
-    """
-    if os.path.exists(
-        config[f"{str_prefix_complete_path}_{str_name_dataset_gtfs}"]
-    ):  # NOTE: check if the gtfs file exists
-        print("GTFS file exists, loading it")  # NOTE: load gtfs file
-        feed = Preprocessing_gtfs(
-            config[f"{str_prefix_complete_path}_{str_name_dataset_gtfs}"]
-        )  # NOTE: load gtfs file from the directory set -> feed object is typical of gtfs_kit
-        is_gtfs_available = False
-    else:
-        print("GTFS file does not exist, downloading it")  # NOTE: download gtfs file
-        is_gtfs_available = False
-        feed = None
-    return feed, is_gtfs_available
 
 
 def initialize_geodataframe_polygons(
-    config,
     complete_path_Istat_population=complete_path_Istat_population,
-    str_prefix_complete_path=str_prefix_complete_path,
-    str_name_shape_city=str_name_shape_city,
-    str_name_centroid_city=str_name_centroid_city,
     local=False,
 ):
-    # ------------------  Extract Cities of interest from Vodafone ------------------ #                                                                                 # NOTE: here you can define what is the list of comuni you want to consider
-    print("Compute comuni polygons...")
-
-    # attendences_foreigners = data_handler.vodafone_attendences_df.join(data_handler.vodafone_aree_df, on='locId', how='left',coalesce=True)                                                 # joining dataframes (just to have the needed columns)
-    # names_zones_to_consider = attendences_foreigners.filter(pl.col("locName").is_in(["comune"])).unique("locDescr")["locDescr"].to_list()                               # pick the comune
-    complete_path_shape_gdf = config[
-        f"{str_prefix_complete_path}_{str_name_shape_city}"
-    ]  # path to the shape file of the cities
-    complete_path_centroid_gdf = config[
-        f"{str_prefix_complete_path}_{str_name_centroid_city}"
-    ]  # path to the centroids associated to the cities
-    # centroids_gdf,cities_gdf = pipeline_extract_boundary_and_centroid_gdf_from_name_comuni(names_zones_to_consider,                                                     # list of the comuni to consider
-    #                                                                                       complete_path_shape_gdf,                                                     #
-    #                                                                                       complete_path_centroid_gdf)
+    """
+    NOTE (cleanup): this used to be called with extra keyword arguments
+    (config, str_prefix_complete_path, str_name_shape_city,
+    str_name_centroid_city) that this function does not accept and does not
+    use in its body -- that call would have raised a TypeError. The call
+    site has been fixed to only pass what's actually used here
+    (complete_path_Istat_population, local).
+    """
 
     # ---------------- Extrct Population From Istat ------------------ #
     print("Upload Istat data...")
@@ -218,7 +158,7 @@ def initialize_geodataframe_polygons(
     # UserProfiles = attendences_foreigners[str_user_profile_vodafone_col].unique().to_list()                                                                             # list of the user profiles ['VISITOR', 'TOURIST', 'COMMUTER', 'INHABITANT']
     # UserProfiles.append("AGGREGATED")                                                                                                                                   # add the aggregated user profile -> NOTE: the analysis for fluxes will be done on all these.
 
-    return cities_gdf, Istat_obj
+    return cities_gdf
 
 
 def init_distance_matrix_associated_to_polygons(
@@ -458,7 +398,6 @@ def level_aggregation_concat_od_dataframe_and_null_days(
             df_od_with_just_in_in_out_in_trips=df_od_with_just_in_in_out_in_trips,
             Tij_dist_baseline_init=df_od_null_days,
             case=case_pipeline,
-            user_profile=user_profile,
         )
     )
     return (
@@ -494,10 +433,7 @@ def main_diffusione_1_2_by_case_pipeline(
     str_population_col_grid,
     str_col_comuni_name,
     str_hotspot_prefix,
-    str_centroid_lat,
-    str_centroid_lon,  # Variables needed for the hierarchical analysis
     cities_gdf,
-    str_dir_output_date,
 ):
     idx_case = 0
     for suffix_in, is_in_flows in case_2_is_in_flow.items():
@@ -592,14 +528,8 @@ def main_diffusione_1_2_by_case_pipeline(
             str_col_n_trips=str_col_n_trips,
             str_col_total_flows_grid=str_col_total_flows_grid,
             str_hotspot_prefix=str_hotspot_prefix,
-            str_centroid_lat=str_centroid_lat,
-            str_centroid_lon=str_centroid_lon,
             str_grid_idx=str_grid_idx,
-            user_profile=user_profile,
-            str_t=str_t,
-            str_t1=str_t1,
             is_in_flows=is_in_flows,  # NOTE: is_in_flows = True means that we are considering the incoming fluxes to the hotspot
-            columns_2_hold_geopandas=columns_2_hold_geopandas_for_flows_plot,
             int_levels=7,
         )
 
@@ -685,38 +615,9 @@ TARGET_CASE_PIPELINES = ["_", "user"]
 
 
 def main_generate_flows_and_grids(
-    str_name_project=str_name_project,
-    TEMP_FOLDER_DIR=TEMP_FOLDER_DIR,
     str_dir_output_path=str_dir_output_path,
     complete_path_Istat_population=complete_path_Istat_population,
-    str_prefix_complete_path=str_prefix_complete_path,
-    str_start_time_window_interest=str_start_time_window_interest,
-    str_end_time_window_interest=str_end_time_window_interest,
-    int_number_people_per_bus=int_number_people_per_bus,
-    str_name_dataset_gtfs=str_name_dataset_gtfs,
-    str_name_gdf_transport=str_name_gdf_transport,
-    str_name_graph_transport=str_name_graph_transport,
-    str_name_grid=str_name_grid,
-    str_name_grid_2_city=str_name_grid_2_city,
-    str_name_shape_city=str_name_shape_city,
-    str_name_centroid_city=str_name_centroid_city,
-    str_route_idx=str_route_idx,
-    str_trip_idx=str_trip_idx,
-    str_stop_idx=str_stop_idx,
-    str_transport_idx=str_transport_idx,
     str_grid_idx=str_grid_idx,
-    str_name_stop_2_trip=str_name_stop_2_trip,
-    str_name_stop_2_route=str_name_stop_2_route,
-    str_name_grid_2_stop=str_name_grid_2_stop,
-    str_name_grid_2_route=str_name_grid_2_route,
-    str_name_graph_2_route=str_name_graph_2_route,
-    str_name_route_2_graph=str_name_route_2_graph,
-    str_dir_plots_path=str_dir_plots_path,
-    int_hour_start_window_interest=7,
-    int_hour_end_window_interest=8,
-    int_min_aggregation_OD=int_min_aggregation_OD,
-    Lx=Lx,
-    Ly=Ly,
     col_str_day_od=col_str_day_od,
     str_period_id_presenze=str_period_id_presenze,
     col_str_is_week=col_str_is_week,
@@ -729,57 +630,33 @@ def main_generate_flows_and_grids(
     """
     Main function to perform overtourism analysis using hierarchical classification of flows.
     Steps:
+
+    NOTE (cleanup): this signature used to also accept str_name_project,
+    str_prefix_complete_path, str_start_time_window_interest,
+    str_end_time_window_interest, int_number_people_per_bus,
+    str_name_gdf_transport, str_name_graph_transport, str_name_grid,
+    str_name_grid_2_city, str_name_shape_city, str_name_centroid_city,
+    str_name_stop_2_trip, str_name_stop_2_route, str_name_grid_2_stop,
+    str_name_grid_2_route, int_hour_start_window_interest,
+    int_hour_end_window_interest, int_min_aggregation_OD, Lx and Ly. All of
+    these were only ever forwarded into `set_config`, whose output was never
+    read back for those keys (see set_config.py), or -- for
+    int_hour_start_window_interest -- immediately overwritten inside the
+    main loop before use. They carried no effect on the computed
+    dataframes/grids and were removed. The underlying constants are left
+    defined in constant_names_variables.py / default_parameters.py in case
+    other code outside this pipeline still imports them.
     """
     # NOTE: Activate the project and connect to s3 bucket
     s3, bucket = init_s3()
-    # NOTE: Set configuration parameters -> names and so on
-    config = set_config(
-        str_name_project=str_name_project,
-        str_dir_output_path=str_dir_output_path,
-        complete_path_Istat_population=complete_path_Istat_population,
-        str_prefix_complete_path=str_prefix_complete_path,
-        str_start_time_window_interest=str_start_time_window_interest,
-        str_end_time_window_interest=str_end_time_window_interest,
-        int_number_people_per_bus=int_number_people_per_bus,
-        str_name_file_gtfs_zip=str_name_file_gtfs_zip,
-        str_name_dataset_gtfs=str_name_dataset_gtfs,
-        str_name_gdf_transport=str_name_gdf_transport,
-        str_name_graph_transport=str_name_graph_transport,
-        str_name_grid=str_name_grid,
-        str_name_grid_2_city=str_name_grid_2_city,
-        str_name_shape_city=str_name_shape_city,
-        str_name_centroid_city=str_name_centroid_city,
-        str_route_idx=str_route_idx,
-        str_trip_idx=str_trip_idx,
-        str_stop_idx=str_stop_idx,
-        str_transport_idx=str_transport_idx,
-        str_grid_idx=str_grid_idx,
-        str_name_stop_2_trip=str_name_stop_2_trip,
-        str_name_stop_2_route=str_name_stop_2_route,
-        str_name_grid_2_stop=str_name_grid_2_stop,
-        str_name_grid_2_route=str_name_grid_2_route,
-        str_name_graph_2_route=str_name_graph_2_route,
-        str_name_route_2_graph=str_name_route_2_graph,
-        str_dir_plots_path=str_dir_plots_path,
-        int_hour_start_window_interest=int_hour_start_window_interest,
-        int_hour_end_window_interest=int_hour_end_window_interest,
-        int_min_aggregation_OD=int_min_aggregation_OD,
-        Lx=Lx,
-        Ly=Ly,
-    )
-    # NOTE: Load GTFS data (bus data) -> by default now it is deactivated since the version for the study of buses is deprecated due to new versioning of the project (CAN BE RESTORED WITHOUT MANY PROBLEMS)
-    feed, is_gtfs_available = get_Gtfs_data(
-        config=config,
-        str_prefix_complete_path=str_prefix_complete_path,
-        str_name_dataset_gtfs=str_name_dataset_gtfs,
-    )
+    # NOTE: Set configuration parameters (only the output dir is actually
+    # consumed downstream -- see set_config.py docstring for details).
+    config = set_config(str_dir_output_path=str_dir_output_path)
+
     # NOTE: Initialize the geodataframe of the cities and the population data from Istat
-    cities_gdf, Istat_obj = initialize_geodataframe_polygons(
-        config=config,
+    cities_gdf = initialize_geodataframe_polygons(
         complete_path_Istat_population=complete_path_Istat_population,
-        str_prefix_complete_path=str_prefix_complete_path,
-        str_name_shape_city=str_name_shape_city,
-        str_name_centroid_city=str_name_centroid_city,
+        local=local,
     )
     # NOTE: Initialize distance matrix associated to the polygons of the cities
     df_distance_matrix, config = init_distance_matrix_associated_to_polygons(
@@ -927,10 +804,7 @@ def main_generate_flows_and_grids(
                 str_population_col_grid=str_population_col_grid,
                 str_col_comuni_name=str_col_comuni_name,
                 str_hotspot_prefix=str_hotspot_prefix,
-                str_centroid_lat=str_centroid_lat,
-                str_centroid_lon=str_centroid_lon,
                 cities_gdf=cities_gdf,
-                str_dir_output_date=str_dir_output_date,
             )
 
         if local:
@@ -949,7 +823,3 @@ def main_generate_flows_and_grids(
                 type="parquet",
             )
             print(f"Uploaded: grid_all_columns_{case_pipeline}")
-
-
-if __name__ == "__main__":
-    main_generate_flows_and_grids(local=False)

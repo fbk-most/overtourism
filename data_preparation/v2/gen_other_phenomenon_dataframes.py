@@ -257,4 +257,4 @@ def compute_phenomenon_dataframes(local=False):
 
 
 if __name__ == "__main__":
-    compute_phenomenon_dataframes(local=True)
+    compute_phenomenon_dataframes(local=False)

@@ -17,16 +17,28 @@ If it is AGGREGATED then the function applies first the aggregation over user pr
 
 """
 
+import polars as pl
+from data_preparation.v2.utils.flows_utils.OD import (
+    aggregate_flows,
+    filter_flows_by_conditions,
+    join_Tij_Vodafone_with_distance_matrix,
+    pipeline_initial_df_flows_aggregation_on_dat_hour_user_weekday,
+)
+from data_preparation.v2.utils.flows_utils.OD_pipeline import (
+    define_columns_to_hold_OD_analysis,
+    set_columns_to_hold_for_OD_analysis,
+    set_dict_column_names_flows_OD_analysis,
+    set_dict_column_names_grid_OD_analysis,
+)
 from data_preparation.v2.utils.flows_utils.constant_names_variables import (
     UserProfile2IndexVodafone,
+    col_str_day_od,
+    col_str_is_week,
+    conditioning_2_columns_to_hold_when_aggregating,
+    conditioning_2_columns_to_hold_when_aggregating_baseline,
+    str_departure_hour_od,
+    str_origin_visitor_class_id_od,
 )
-from data_preparation.v2.utils.flows_utils.constant_names_variables import *
-from data_preparation.v2.utils.flows_utils.default_parameters import *
-import polars as pl
-from data_preparation.v2.utils.flows_utils.OD import *
-from data_preparation.v2.utils.flows_utils.OD_pipeline import *
-from data_preparation.v2.utils.flows_utils.set_config import *
-from data_preparation.v2.utils.flows_utils.VodafoneData import *
 
 
 ### DEFAULT INITIAL CONFIGURATION FLOW DATAFRAME ###
@@ -88,7 +100,6 @@ def prepare_flow_dataframe_for_hierarchical_prcedure(
     df_od_with_just_in_in_out_in_trips: pl.DataFrame,
     Tij_dist_baseline_init: pl.DataFrame,
     case: str,
-    user_profile: str,
 ) -> (pl.DataFrame, pl.DataFrame):
     """
     Prepare the flow dataframe T_ij_dist for hierarchical procedure by applying differentiated aggregations based on the case analysis starting df_od_with_just_in_in_out_in_trips that contains all informations about Vodafone dataset.
