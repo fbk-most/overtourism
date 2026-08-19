@@ -81,31 +81,13 @@ Use Cases: Transit analysis, tourism flow modeling, accessibility studies
 Author: Alberto Amaduzzi
 """
 
-from os.path import exists
-from pandas import DataFrame, read_parquet
 import pandas as pd
 import polars as pl
-from numpy import (
-    array,
-    fill_diagonal,
-    errstate,
-    sqrt,
-)
 from haversine import haversine, haversine_vector
-
+from numpy import array, errstate, fill_diagonal, sqrt
+from os.path import exists
+from pandas import DataFrame, read_parquet
 from tqdm import tqdm
-
-# from VodafoneData import add_column_is_week_and_str_day,extract_date_info
-
-
-# Pipeline dictionaries
-
-
-### GRID TO ROUTE ###
-
-
-# TRANSPORT NETWORK TO ROUTE (public transport) #
-
 
 ####################### DIRECTION MATRIX ###########################
 
@@ -354,30 +336,7 @@ def add_column_area_code_OD_df_distance(
 ) -> pd.DataFrame:
     """
     Add the area code to the origin and destination columns of the distance matrix.
-
-    """
-    df_distance_matrix[str_area_code_origin_col] = df_distance_matrix[
-        str_col_origin
-    ].map(map_idx_cities_gdf_2_area_code)
-    df_distance_matrix[str_area_code_destination_col] = df_distance_matrix[
-        str_col_destination
-    ].map(map_idx_cities_gdf_2_area_code)
-    return df_distance_matrix
-
-
-# Check that the OD be with the distance.
-
-
-def add_column_area_code_OD_df_distance(
-    df_distance_matrix,
-    map_idx_cities_gdf_2_area_code: dict[int, str],
-    str_col_origin: str,
-    str_col_destination: str,
-    str_area_code_origin_col: str = "AREA_CODE_ORIGIN",
-    str_area_code_destination_col: str = "AREA_CODE_DESTINATION",
-) -> pd.DataFrame:
-    """
-    Add the area code to the origin and destination columns of the distance matrix.
+    Check that the OD be with the distance.
     """
     # Convert to Polars if it's pandas
     if isinstance(df_distance_matrix, pd.DataFrame):

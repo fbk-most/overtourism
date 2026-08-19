@@ -251,6 +251,3 @@ def redistribute_population_by_fraction(
         )
 
     return result_gdf
-
-
-# ---------------- GENERATE FAKE FLUXES GIVEN POPULATION DISTRIBUTION ---------------- #

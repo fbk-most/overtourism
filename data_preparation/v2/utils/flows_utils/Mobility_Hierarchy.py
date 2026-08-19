@@ -30,15 +30,16 @@ Dependencies: numpy, polars, geopandas, folium, matplotlib
 Author: Alberto Amaduzzi
 """
 
+import geopandas as gpd
 import numpy as np
 import polars as pl
-import matplotlib.pyplot as plt
-import geopandas as gpd
-import folium
 from typing import Dict, List
+from data_preparation.v2.utils.flows_utils.Mobility_Hierarchy_functions import (
+    extract_hotspot_levels,
+    get_critical_fluxes_per_hotspot_level,
+    get_lorenz_curve,
+)
 from data_preparation.v2.utils.flows_utils.OD import compute_total_flows_from_flow
-from data_preparation.v2.utils.flows_utils.Plots import *
-from data_preparation.v2.utils.flows_utils.Mobility_Hierarchy_functions import *
 
 
 class MobilityHierarchy:
@@ -116,9 +117,6 @@ class MobilityHierarchy:
         self.annotate_grid_with_levels(
             str_col_total_flows_grid=str_col_total_flows_grid,
         )
-        # NOTE: Plot
-        self.plot_lorenz_levels(str_col_total_flows_grid, y_label)
-        self.folium_visualization_hierarchy(str_col_total_flows_grid, colormap="YlOrRd")
         return self.hotspot_levels
 
     ############ FLOWS ANALYSIS METHODS ############
@@ -178,62 +176,6 @@ class MobilityHierarchy:
             .astype(int)
         )
 
-    def plot_lorenz_levels(self, str_col_total_flows_grid, y_label):
-        # Handle case where no hotspots were found
-        if not self.hotspot_levels or all(
-            len(indices) == 0 for indices in self.hotspot_levels.values()
-        ):
-            print("Warning: No hotspots to plot!")
-            return
-
-        remaining = self.grid.copy()
-        fig, ax = plt.subplots(figsize=(8, 6))  # Use subplots for better control
-        colors = plt.cm.Blues(np.linspace(0.3, 1, max(1, len(self.hotspot_levels))))
-
-        try:
-            for i, (level, indices) in enumerate(self.hotspot_levels.items()):
-                if len(indices) == 0:  # Skip empty levels
-                    continue
-
-                x, y, _ = self.get_lorenz_curve(
-                    remaining[str_col_total_flows_grid].to_numpy()
-                )
-                selected_idces, Fstar, angle = get_loubar_threshold(
-                    remaining, str_col_total_flows_grid
-                )
-
-                ax.plot(x, y, color=colors[i], label=f"Level {level}")
-                if len(selected_idces) > 0 and Fstar < len(x) and Fstar >= 0:
-                    ax.plot([x[Fstar], 1], [0, y[-1]], color=colors[i], label="")
-                remaining = remaining.loc[~remaining.index.isin(selected_idces)]
-
-            ax.plot([0, 1], [0, 1], "k--", label="Equality line")
-            ax.set_title("Lorenz Curve per Level")
-            ax.set_xlabel("Fraction of cells")
-            ax.set_ylabel(y_label)
-            ax.legend()
-            ax.grid(True)
-            plt.tight_layout()
-            plt.show()
-        finally:
-            # Always close the figure to prevent memory leaks
-            plt.close(fig)
-
-    def folium_visualization_hierarchy(
-        self, str_col_total_flows_grid, colormap="YlOrRd"
-    ) -> folium.Map:
-        """
-        Visualize the hierarchy of hotspots on a Folium map.
-        """
-        self.fmap = folium_visualization_hierarchy(
-            self.grid,
-            self.hotspot_levels,
-            self.str_hotspot_prefix,
-            self.str_col_comuni_name,
-            str_col_total_flows_grid,
-            colormap=colormap,
-        )
-
 
 ## ---------------------- PIPELINE SPECIFIC Main_diffusion_1_2 ---------------------- ##
 
@@ -248,14 +190,8 @@ def pipeline_mobility_hierarchy_time_day_type_trips(
     str_col_n_trips,
     str_col_total_flows_grid,
     str_hotspot_prefix,
-    str_centroid_lat,
-    str_centroid_lon,
     str_grid_idx,
-    user_profile,
-    str_t,
-    str_t1,
     is_in_flows,
-    columns_2_hold_geopandas,
     int_levels=5,
 ):
     """
@@ -343,55 +279,4 @@ def pipeline_mobility_hierarchy_time_day_type_trips(
         hotspot_2_origin_idx_2_crit_dest_idx,
         hotspot_dict,
         list_indices_all_fluxes_for_colormap,
-    )
-
-
-## ---------------------- END PIPELINE SPECIFIC Main_diffusion_1_2 ---------------------- ##
-
-# USAGE
-if __name__ == "__main__":
-    cities_gdf = gpd.read_file(
-        "path_to_your_grid_file.geojson"
-    )  # Load your grid GeoDataFrame
-    Tij_dist_fit_gravity = pl.read_csv(
-        "path_to_your_flows_file.csv"
-    )  # Load your flows DataFrame
-    str_population_col_grid = "Popolazione_Totale"  # Column in the grid GeoDataFrame that contains the population data
-    str_col_comuni_name = "city_name"  # Column in the grid GeoDataFrame that contains the name of the city
-    str_col_origin = "i"  # Origin column in the flows DataFrame
-    str_col_destination = "j"  # Destination column in the flows DataFrame
-    str_col_n_trips = (
-        "n_trips"  # Column in the flows DataFrame that contains the number of trips
-    )
-    str_col_total_in_flows_grid = (
-        "total_in_flows"  # Column in the grid GeoDataFrame for total in flows
-    )
-    str_col_total_out_flows_grid = (
-        "total_out_flows"  # Column in the grid GeoDataFrame for total out flows
-    )
-    str_col_n_trips_flows = (
-        "n_trips"  # Column in the flows DataFrame that contains the number of trips
-    )
-    mh = MobilityHierarchy(
-        grid=cities_gdf,
-        flows=Tij_dist_fit_gravity,
-        int_levels=5,  # NOTE: This is the number of levels to extract from the hierarchy
-        str_population_col=str_population_col_grid,  # NOTE: This is the column in the grid GeoDataFrame that contains the population data
-        str_col_comuni_name=str_col_comuni_name,  # NOTE: This is the column in the grid GeoDataFrame that contains the name of the city (or the identifier that does not correspond with numerical order.)
-        str_col_origin=str_col_origin,  # NOTE: "i" is the origin column in the flows DataFrame and coincides with the index of the grid GeoDataFrame
-        str_col_destination=str_col_destination,  # NOTE: "j" is the destination column in the flows DataFrame and coincides with the index of the grid GeoDataFrame
-        str_col_n_trips=str_col_n_trips,  # NOTE: "n_trips" is the column in the flows DataFrame that contains the number of trips
-    )
-    mh._hierarchical_routine(
-        is_in_flows=True,
-        str_col_total_flows_grid=str_col_total_in_flows_grid,
-        y_label="in flows",
-        str_col_n_trips_flows=str_col_n_trips,
-    )
-
-    mh._hierarchical_routine(
-        is_in_flows=False,
-        str_col_total_flows_grid=str_col_total_out_flows_grid,
-        y_label="out flows",
-        str_col_n_trips_flows=str_col_n_trips,
     )
