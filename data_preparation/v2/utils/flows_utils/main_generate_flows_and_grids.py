@@ -67,7 +67,6 @@ from data_preparation.v2.utils.flows_utils.constant_names_variables import (
     str_col_tot_area,
     str_destination_od,
     str_dir_output,
-    str_dir_output_path,
     str_grid_idx,
     str_hotspot_prefix,
     str_name_distance_matrix,
@@ -75,6 +74,7 @@ from data_preparation.v2.utils.flows_utils.constant_names_variables import (
     str_period_id_presenze,
     str_population_col_grid,
     str_trip_type_od,
+    str_dir_output_path,
 )
 from data_preparation.v2.utils.flows_utils.default_parameters import (
     list_time_intervals,
@@ -87,7 +87,6 @@ from data_preparation.v2.utils.flows_utils.pipeline_diffusione_1_2 import (
     filter_flows_by_conditions_from_cases,
     prepare_flow_dataframe_for_hierarchical_prcedure,
 )
-from data_preparation.v2.utils.flows_utils.set_config import set_config
 
 
 def initialize_geodataframe_polygons(
@@ -163,11 +162,9 @@ def initialize_geodataframe_polygons(
 
 def init_distance_matrix_associated_to_polygons(
     cities_gdf,
-    config,
     str_name_distance_matrix=str_name_distance_matrix,
     str_centroid_lat=str_centroid_lat,
     str_centroid_lon=str_centroid_lon,
-    str_dir_output=str_dir_output,
 ):
     """
     Initialize the distance matrix associated to the polygons of the cities.
@@ -177,26 +174,23 @@ def init_distance_matrix_associated_to_polygons(
     NOTE: The naming of the string of the directory is not completely consistent, pay attention at how you structure it.
     """
     # ---------- Distance and Direction Matrix ------------ #
-    config[str_name_distance_matrix] = os.path.join(
-        config[str_dir_output], f"{str_name_distance_matrix}.parquet"
+    str_name_distance_matrix_path = os.path.join(
+        str_dir_output_path, f"{str_name_distance_matrix}.parquet"
     )  # path to the distance matrix file
-    complete_path_direction_distance_df = config[
-        str_name_distance_matrix
-    ]  # path to the distance matrix file
     print(
-        f"Compute distance and direction matrix: {complete_path_direction_distance_df}"
+        f"Compute distance and direction matrix: {str_name_distance_matrix_path}"
     )  # path to the distance matrix file
     direction_matrix, distance_matrix = compute_direction_matrix_optimized(
         cities_gdf,  #
         str_centroid_x_col=str_centroid_lat,  #
         str_centroid_y_col=str_centroid_lon,  #
-        complete_path_direction_distance_df=complete_path_direction_distance_df,
+        complete_path_direction_distance_df=str_name_distance_matrix_path,
     )  # compute the distance and direction matrix, save it in the output folder
     df_distance_matrix = direction_distance_2_df(
-        direction_matrix, distance_matrix, complete_path_direction_distance_df  #  #
+        direction_matrix, distance_matrix, str_name_distance_matrix_path  #  #
     )
 
-    return df_distance_matrix, config
+    return df_distance_matrix
 
 
 def get_informations_about_available_dates_from_files(
@@ -615,7 +609,6 @@ TARGET_CASE_PIPELINES = ["_", "user"]
 
 
 def main_generate_flows_and_grids(
-    str_dir_output_path=str_dir_output_path,
     complete_path_Istat_population=complete_path_Istat_population,
     str_grid_idx=str_grid_idx,
     col_str_day_od=col_str_day_od,
@@ -649,9 +642,6 @@ def main_generate_flows_and_grids(
     """
     # NOTE: Activate the project and connect to s3 bucket
     s3, bucket = init_s3()
-    # NOTE: Set configuration parameters (only the output dir is actually
-    # consumed downstream -- see set_config.py docstring for details).
-    config = set_config(str_dir_output_path=str_dir_output_path)
 
     # NOTE: Initialize the geodataframe of the cities and the population data from Istat
     cities_gdf = initialize_geodataframe_polygons(
@@ -659,9 +649,7 @@ def main_generate_flows_and_grids(
         local=local,
     )
     # NOTE: Initialize distance matrix associated to the polygons of the cities
-    df_distance_matrix, config = init_distance_matrix_associated_to_polygons(
-        cities_gdf, config
-    )
+    df_distance_matrix = init_distance_matrix_associated_to_polygons(cities_gdf)
     # NOTE: Extract the list of files from the bucket and the available dates
     (
         list_files_od,
@@ -754,7 +742,7 @@ def main_generate_flows_and_grids(
                 for var in pipeline_vars
                 if var in loop_context
             ]
-            str_dir_output_date = os.path.join(config[str_dir_output], *dir_components)
+            str_dir_output_date = os.path.join(str_dir_output_path, *dir_components)
             Path(str_dir_output_date).mkdir(parents=True, exist_ok=True)
             print("🔄 Iteration context:", loop_context)
 
@@ -810,11 +798,11 @@ def main_generate_flows_and_grids(
         if local:
             grid_global.write_parquet(
                 os.path.join(
-                    config[str_dir_output], f"grid_all_columns_{case_pipeline}.parquet"
+                    str_dir_output_path, f"grid_all_columns_{case_pipeline}.parquet"
                 )
             )
             print(
-                f"Saved: {os.path.join(config[str_dir_output],f"grid_all_columns_{case_pipeline}.parquet")}"
+                f"Saved: {os.path.join(str_dir_output_path,f"grid_all_columns_{case_pipeline}.parquet")}"
             )
         else:
             log_dataframe(
