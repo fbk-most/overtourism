@@ -10,12 +10,10 @@ router covers both.
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, HTTPException
 
 from overtourism.api.registry import BACKEND_REGISTRY, MODEL_TITLES, get_backend
-from overtourism.api.schemas import EvaluateRequest, ModelInfo
+from overtourism.api.schemas import EvaluateRequest, EvaluateResponse, ModelInfo
 from overtourism.model.common.sustainability_field import OvertourismParameterMeta
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -43,13 +41,9 @@ def get_schema(model_key: str) -> list[OvertourismParameterMeta]:
     return backend.parameter_schema()
 
 
-@router.post("/{model_key}/evaluate", response_model=dict[str, Any])
-def evaluate(model_key: str, body: EvaluateRequest) -> dict[str, Any]:
-    """Evaluate the model and return `SustainabilityFieldOutput.to_snapshot()` verbatim.
-
-    See `overtourism.api.schemas` for why this is the raw snapshot rather
-    than a hand-rolled response shape.
-    """
+@router.post("/{model_key}/evaluate", response_model=EvaluateResponse)
+def evaluate(model_key: str, body: EvaluateRequest) -> EvaluateResponse:
+    """Evaluate the model under the given string-keyed parameter overrides."""
     backend = _get_backend_or_404(model_key)
     output = backend.evaluate(body.param_overrides)
-    return output.to_snapshot()
+    return EvaluateResponse.from_output(output)

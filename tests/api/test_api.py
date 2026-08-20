@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Smoke tests for the overtourism.api REST layer — catches wiring/schema breakage."""
 
-import numpy as np
 from fastapi.testclient import TestClient
 from overtourism.api.main import app
-from overtourism.cdt_ext.codec import decode_array
 
 client = TestClient(app)
 
@@ -34,23 +32,53 @@ class TestSchema:
 
 
 class TestEvaluate:
-    def _check_snapshot(self, body: dict) -> None:
-        field = decode_array(body["field"])
-        assert field.shape == (101, 101)
-        assert np.isfinite(field).all()
-        assert ((field >= -1e-9) & (field <= 1.0 + 1e-9)).all()
-        assert "value" in body["sustainability_index"]
-        assert "ci" in body["sustainability_index"]
+    _EXPECTED_KEYS = {
+        "field",
+        "field_elements",
+        "x_values",
+        "y_values",
+        "x_axis_name",
+        "y_axis_name",
+        "samples_x",
+        "samples_y",
+        "confidence",
+        "sustainable_area",
+        "sustainability_index",
+        "sustainability_by_constraint",
+        "modal_lines",
+        "x_max",
+        "y_max",
+        "uncertainty",
+        "uncertainty_by_constraint",
+        "usage",
+        "usage_by_constraint",
+        "usage_uncertainty",
+        "usage_uncertainty_by_constraint",
+        "capacity_mean",
+        "capacity_mean_by_constraint",
+        "kpis",
+        "constraint_curves",
+    }
+
+    def _check_response(self, body: dict) -> None:
+        assert set(body.keys()) == self._EXPECTED_KEYS
+        # Plain JSON, not base64: field is a nested list of numbers.
+        assert len(body["field"]) == 101
+        assert len(body["field"][0]) == 101
+        assert all(-1e-9 <= v <= 1.0 + 1e-9 for row in body["field"] for v in row)
+        assert len(body["usage"]) == len(body["samples_x"])
+        assert body["capacity_mean"] == 100.0
+        assert "overtourism_level" in body["kpis"]
 
     def test_fazzon_default_scenario(self):
         resp = client.post("/models/fazzon/evaluate", json={"param_overrides": {}})
         assert resp.status_code == 200
-        self._check_snapshot(resp.json())
+        self._check_response(resp.json())
 
     def test_molveno_default_scenario(self):
         resp = client.post("/models/molveno/evaluate", json={"param_overrides": {}})
         assert resp.status_code == 200
-        self._check_snapshot(resp.json())
+        self._check_response(resp.json())
 
     def test_unknown_model_is_404(self):
         resp = client.post("/models/bogus/evaluate", json={"param_overrides": {}})

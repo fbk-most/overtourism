@@ -89,8 +89,13 @@ def compute_sustainability_field(
     x_param: Any,
     y_param: Any,
     scenario: Any = None,
-) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """Compute the sustainability field and per-constraint field elements.
+) -> tuple[
+    np.ndarray,
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+    dict[str, dict[str, float]],
+]:
+    """Compute the sustainability field, field elements, usage fields, and capacity distributions.
 
     Shape is ``(N_x, N_y)`` matching the ``x_param``/``y_param`` parameter
     axes passed to the evaluation.
@@ -114,6 +119,24 @@ def compute_sustainability_field(
         scenario overrides of distribution-backed capacities are correctly
         reflected in the field. When ``None`` the index's built-in default
         distribution is used.
+
+    Returns
+    -------
+    field : np.ndarray
+        Sustainability probability field.
+    field_elements : dict[str, np.ndarray]
+        Per-constraint probability fields (same shape as ``field``).
+    usage_fields : dict[str, np.ndarray]
+        Per-constraint weighted-average *usage value* (same shape as
+        ``field``) — the expected resource consumption at each ``(x, y)``
+        presence, as opposed to ``field_elements``'s probability of staying
+        under capacity. Weighted-averaged over the categorical ensemble the
+        same way ``field_elements`` is (``tensordot`` against
+        ``result.weights``) — the equivalent of the older
+        ``EvaluationResult.marginalize()`` call, which no longer exists in
+        the pinned ``civic_digital_twins`` version.
+    capacity_distributions : dict[str, dict[str, float]]
+        ``{"loc": mean, "scale": std}`` per constraint.
     """
     field = np.ones(
         (
@@ -122,23 +145,65 @@ def compute_sustainability_field(
         )
     )
     field_elements: dict[str, np.ndarray] = {}
+    usage_fields: dict[str, np.ndarray] = {}
+    capacity_distributions: dict[str, dict[str, float]] = {}
     for c in constraints:
         usage = np.broadcast_to(result[c.usage], result.full_shape)
+        usage_fields[c.name] = np.tensordot(usage, result.weights, axes=([-1], [0]))
         if isinstance(c.capacity, DistributionIndex):
             dist = (
-                scenario.effective_distribution(c.capacity) if scenario is not None else c.capacity.frozen_distribution
+                scenario.effective_distribution(c.capacity)
+                if scenario is not None
+                else c.capacity.frozen_distribution
             )
             mask = (1.0 - dist.cdf(usage)).astype(float)
+            capacity_distributions[c.name] = {
+                "loc": float(dist.mean()),
+                "scale": float(dist.std()),
+            }
         else:
             cap = np.broadcast_to(result[c.capacity], result.full_shape)
             mask = (usage <= cap).astype(float)
+            capacity_distributions[c.name] = {
+                "loc": float(np.mean(result[c.capacity])),
+                "scale": 0.0,
+            }
         field_elem = np.tensordot(mask, result.weights, axes=([-1], [0]))
         field_elements[c.name] = field_elem
         field *= field_elem
-    return field, field_elements
+    return field, field_elements, usage_fields, capacity_distributions
 
 
-def compute_sustainable_area(field: np.ndarray, x_values: np.ndarray, y_values: np.ndarray) -> float:
+def _usage_uncertainty_from_params(
+    params: dict[str, float], usage: list[int]
+) -> list[float]:
+    """Compute per-sample usage uncertainty from capacity normal params.
+
+    `params["scale"] == 0` means a deterministic (non-distribution)
+    capacity — e.g. Fazzon's `road`/`food` constraints, which aren't
+    distribution-backed. `scipy.stats.norm(scale=0).cdf()` is undefined
+    (NaN) there, so it's handled as the exact step-function limit instead:
+    0.0 (no exceedance) at or below `loc`, 1.0 (exceeded) above it — the
+    same `usage <= capacity` convention `compute_sustainability_field` uses.
+    """
+    loc, scale = params["loc"], params["scale"]
+    if scale <= 0:
+        return [1.0 if u > loc else 0.0 for u in usage]
+    capacity = scipy_stats.norm(loc=loc, scale=scale)
+    capacity_mean = float(capacity.mean())
+    y_max = max(1, int(max(max(usage, default=0), capacity_mean) * 1.2))
+    cap_cdf = [float(capacity.cdf(y)) for y in range(y_max)]
+    heatmap_y = np.linspace(0, y_max, len(cap_cdf))
+    result = []
+    for u in usage:
+        idx = int(np.abs(heatmap_y - u).argmin())
+        result.append(float(f"{cap_cdf[idx]:.4f}"))
+    return result
+
+
+def compute_sustainable_area(
+    field: np.ndarray, x_values: np.ndarray, y_values: np.ndarray
+) -> float:
     """Integral approximation of the sustainable area under the field."""
     return field.sum() * functools.reduce(
         lambda a, b: a * b,
@@ -154,7 +219,13 @@ def compute_sustainability_index_with_ci(
     confidence: float = 0.8,
 ) -> tuple[float, float]:
     """Return ``(sustainability_index, ci_half_width)`` over the sampled presences."""
-    index = interpolate.interpn((x_values, y_values), field, np.array(presences), bounds_error=False, fill_value=0.0)
+    index = interpolate.interpn(
+        (x_values, y_values),
+        field,
+        np.array(presences),
+        bounds_error=False,
+        fill_value=0.0,
+    )
     m, se = np.mean(index), scipy_stats.sem(index)
     h = float(se * scipy_stats.t.ppf((1 + confidence) / 2.0, index.size - 1))
     return float(m), h
@@ -170,7 +241,13 @@ def compute_sustainability_by_constraint(
     """Return ``(index, ci_half_width)`` per constraint name."""
     result: dict[str, tuple[float, float]] = {}
     for name, fe in field_elements.items():
-        index = interpolate.interpn((x_values, y_values), fe, np.array(presences), bounds_error=False, fill_value=0.0)
+        index = interpolate.interpn(
+            (x_values, y_values),
+            fe,
+            np.array(presences),
+            bounds_error=False,
+            fill_value=0.0,
+        )
         m, se = np.mean(index), scipy_stats.sem(index)
         h = float(se * scipy_stats.t.ppf((1 + confidence) / 2.0, index.size - 1))
         result[name] = (float(m), h)
@@ -241,6 +318,11 @@ class SustainabilityFieldOutput(ModelOutput):
         Human-readable axis labels (domain metadata, not rendering config).
     samples_x, samples_y : list[float]
         Raw presence samples for the scatter overlay.
+    usage_fields : dict[str, np.ndarray]
+        Per-constraint weighted-average usage value, same shape as
+        ``field`` — see `compute_sustainability_field`.
+    capacity_distributions : dict[str, dict[str, float]]
+        ``{"loc": mean, "scale": std}`` per constraint.
     confidence : float
         Confidence level for the sustainability CI (default 0.8).
     """
@@ -253,6 +335,8 @@ class SustainabilityFieldOutput(ModelOutput):
     y_axis_name: str
     samples_x: list[float]
     samples_y: list[float]
+    usage_fields: dict[str, np.ndarray]
+    capacity_distributions: dict[str, dict[str, float]]
     confidence: float = 0.8
 
     def __post_init__(self) -> None:
@@ -280,13 +364,165 @@ class SustainabilityFieldOutput(ModelOutput):
     def sustainability_by_constraint(self) -> dict[str, tuple[float, float]]:
         """Return ``(index, ci_half_width)`` per constraint."""
         return compute_sustainability_by_constraint(
-            self.field_elements, self.x_values, self.y_values, self._zip_samples, self.confidence
+            self.field_elements,
+            self.x_values,
+            self.y_values,
+            self._zip_samples,
+            self.confidence,
         )
 
     @functools.cached_property
     def modal_lines(self) -> dict[str, tuple[np.ndarray, np.ndarray]]:
         """Per-constraint modal lines via orthogonal regression."""
         return compute_modal_lines(self.field_elements, self.x_values, self.y_values)
+
+    @functools.cached_property
+    def x_max(self) -> float:
+        """Maximum value of the x-axis grid."""
+        return float(self.x_values.max())
+
+    @functools.cached_property
+    def y_max(self) -> float:
+        """Maximum value of the y-axis grid."""
+        return float(self.y_values.max())
+
+    @functools.cached_property
+    def uncertainty(self) -> list[float]:
+        """Per-sample overall sustainability field value, interpolated at the presence samples."""
+        pts = np.array(self._zip_samples)
+        vals = interpolate.interpn(
+            (self.x_values, self.y_values),
+            self.field,
+            pts,
+            bounds_error=False,
+            fill_value=0.0,
+        )
+        return [float(f"{v:.4f}") for v in vals]
+
+    @functools.cached_property
+    def uncertainty_by_constraint(self) -> dict[str, list[float]]:
+        """Per-sample per-constraint sustainability field values."""
+        pts = np.array(self._zip_samples)
+        result: dict[str, list[float]] = {}
+        for name, fe in self.field_elements.items():
+            vals = interpolate.interpn(
+                (self.x_values, self.y_values),
+                fe,
+                pts,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+            result[name] = [float(f"{v:.4f}") for v in vals]
+        return result
+
+    @functools.cached_property
+    def usage_by_constraint(self) -> dict[str, list[int]]:
+        """Per-sample per-constraint usage, interpolated from `usage_fields`."""
+        pts = np.array(self._zip_samples)
+        result: dict[str, list[int]] = {}
+        for name, uf in self.usage_fields.items():
+            vals = interpolate.interpn(
+                (self.x_values, self.y_values),
+                uf,
+                pts,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+            vals = np.nan_to_num(vals, nan=0.0, posinf=0.0, neginf=0.0)
+            result[name] = [max(0, int(v)) for v in vals]
+        return result
+
+    @functools.cached_property
+    def usage(self) -> list[int]:
+        """Per-sample aggregate normalised usage (0-100 scale) across all constraints."""
+        pts = np.array(self._zip_samples)
+        n = len(self._zip_samples)
+        agg = np.ones(n)
+        for name, uf in self.usage_fields.items():
+            cap_loc = self.capacity_distributions[name]["loc"]
+            u_vals = interpolate.interpn(
+                (self.x_values, self.y_values),
+                uf,
+                pts,
+                bounds_error=False,
+                fill_value=0.0,
+            )
+            if np.isfinite(cap_loc) and cap_loc > 0:
+                agg += u_vals / cap_loc
+            else:
+                agg += np.inf
+        agg *= 100.0 / len(self.usage_fields)
+        agg = np.nan_to_num(agg, nan=0.0, posinf=100.0, neginf=0.0)
+        agg = np.clip(agg, 0.0, 100.0)
+        return [int(u) for u in agg]
+
+    @functools.cached_property
+    def capacity_mean_by_constraint(self) -> dict[str, float]:
+        """Mean capacity per constraint."""
+        return {
+            name: params["loc"] for name, params in self.capacity_distributions.items()
+        }
+
+    @functools.cached_property
+    def capacity_mean(self) -> float:
+        """Reference ceiling (always 100.0) for the normalised 0-100 `usage` scale — not an actual mean."""
+        return 100.0
+
+    @functools.cached_property
+    def usage_uncertainty(self) -> list[float]:
+        """Per-sample aggregate usage uncertainty via the aggregate capacity CDF."""
+        variance = sum(
+            (params["scale"] ** 2) / (params["loc"] ** 2)
+            for params in self.capacity_distributions.values()
+            if np.isfinite(params["loc"]) and params["loc"] > 0
+        )
+        n_c = len(self.capacity_distributions)
+        agg_scale = (variance**0.5) * 100.0 / n_c
+        return _usage_uncertainty_from_params(
+            {"loc": 100.0, "scale": agg_scale}, self.usage
+        )
+
+    @functools.cached_property
+    def usage_uncertainty_by_constraint(self) -> dict[str, list[float]]:
+        """Per-sample per-constraint usage uncertainty."""
+        return {
+            name: _usage_uncertainty_from_params(params, self.usage_by_constraint[name])
+            for name, params in self.capacity_distributions.items()
+        }
+
+    @functools.cached_property
+    def kpis(self) -> dict[str, Any]:
+        """KPI dict: overtourism level, critical constraint, per-constraint levels. English-only —
+        locale translation is a presentation-layer concern, not part of this computation.
+        """
+        idx, ci = self.sustainability_index
+        sbc = self.sustainability_by_constraint
+        kpis: dict[str, Any] = {}
+        kpis["overtourism_level"] = {
+            "level": round((1 - idx) * 100, 4),
+            "confidence": round(ci * 100, 4),
+        }
+        critical_name = min(sbc, key=lambda k: sbc[k][0])
+        c_mean, c_ci = sbc[critical_name]
+        kpis["critical constraint"] = {
+            "name": critical_name,
+            "level": round((1 - c_mean) * 100, 4),
+            "confidence": round(c_ci * 100, 4),
+        }
+        for name, (c_mean, c_ci) in sbc.items():
+            kpis["constraint level " + name] = {
+                "level": round((1 - c_mean) * 100, 4),
+                "confidence": round(c_ci * 100, 4),
+            }
+        return kpis
+
+    @functools.cached_property
+    def constraint_curves(self) -> dict[str, list[list[float]]]:
+        """Per-constraint modal line as `[x_coords, y_coords]` list pairs — same data as `modal_lines`, reshaped."""
+        return {
+            k: [list(x_coords), list(y_coords)]
+            for k, (x_coords, y_coords) in self.modal_lines.items()
+        }
 
     def to_snapshot(self) -> dict[str, Any]:
         """Serialise to a plain dict snapshot, including derived KPIs."""
@@ -295,9 +531,23 @@ class SustainabilityFieldOutput(ModelOutput):
         idx, ci = self.sustainability_index
         d["sustainability_index"] = {"value": float(idx), "ci": float(ci)}
         d["sustainability_by_constraint"] = {
-            k: {"value": float(v), "ci": float(c)} for k, (v, c) in self.sustainability_by_constraint.items()
+            k: {"value": float(v), "ci": float(c)}
+            for k, (v, c) in self.sustainability_by_constraint.items()
         }
         d["modal_lines"] = {
-            k: {"x": list(x_coords), "y": list(y_coords)} for k, (x_coords, y_coords) in self.modal_lines.items()
+            k: {"x": list(x_coords), "y": list(y_coords)}
+            for k, (x_coords, y_coords) in self.modal_lines.items()
         }
+        d["x_max"] = self.x_max
+        d["y_max"] = self.y_max
+        d["uncertainty"] = self.uncertainty
+        d["uncertainty_by_constraint"] = self.uncertainty_by_constraint
+        d["usage"] = self.usage
+        d["usage_by_constraint"] = self.usage_by_constraint
+        d["usage_uncertainty"] = self.usage_uncertainty
+        d["usage_uncertainty_by_constraint"] = self.usage_uncertainty_by_constraint
+        d["capacity_mean"] = self.capacity_mean
+        d["capacity_mean_by_constraint"] = self.capacity_mean_by_constraint
+        d["kpis"] = self.kpis
+        d["constraint_curves"] = self.constraint_curves
         return d

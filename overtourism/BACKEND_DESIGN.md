@@ -78,9 +78,8 @@ dependency pin with `overtourism.model.*`.
 
 ## Layer 2a — `overtourism.cdt_ext` (staged library extensions)
 
-**Location**: `overtourism/cdt_ext/runner_ext.py` (`ParameterMeta`,
-`EnsembleEvaluationConfig`, `build_scenario()`) and `overtourism/cdt_ext/codec.py`
-(`decode_array()`, kept in its own file — see below).
+**Location**: `overtourism/cdt_ext/runner_ext.py`, importable as
+`overtourism.cdt_ext.runner_ext`.
 
 Utilities that are genuinely domain-agnostic — useful to any `civic_digital_twins`
 model, not just the overtourism ones — but not yet part of the published
@@ -163,28 +162,6 @@ is a one-line call (`evaluator.evaluate(build_scenario(...), config)`), so a
 wrapping ABC would add no capability. Layer 3 backends (§Layer 3) are plain
 concrete classes.
 
-### `decode_array()`
-
-The inverse of the library's own (module-private) `ModelOutput._encode_array`
-— decodes one `{"data", "dtype", "shape", "encoding"?}` field from a
-`to_snapshot()` response back into a `np.ndarray`. Used by
-`overtourism.dt_studio.dashboard.http_adapter` to consume the Layer 5 REST
-API's `/evaluate` response (§Layer 5 — REST API). A staging placeholder like
-the rest of this module: the real fix is for the library to expose this
-itself, ideally via a plain-JSON output option on `_serialize()`/
-`to_snapshot()` rather than requiring every HTTP consumer to decode base64.
-
-Lives in its own file, `codec.py`, rather than alongside `ParameterMeta`/
-`build_scenario()` in `runner_ext.py`: it has no need for `scipy`/
-`civic_digital_twins` (only `base64`+`numpy`), and `runner_ext.py` imports
-both. Layers 1–3 and Layer 5 are slated to run in separate containers (see
-the Status note at the top of this document) — an HTTP-based Layer 5 client
-that only needs `decode_array()` would otherwise drag in the whole
-`civic_digital_twins`/`scipy` dependency chain just by importing the module
-it lives in. Same reasoning applies to `overtourism.dt_studio.dashboard`
-not importing `overtourism.model.common.sustainability_field.OvertourismParameterMeta`
-— see §Layer 5 — Streamlit dev/test tooling.
-
 ---
 
 ## Layer 2b — `overtourism.model.common` (overtourism-model-family code)
@@ -240,15 +217,28 @@ out), with no model-specific coupling, used by both `FazzonBackend` and
 `MolvenoBackend`:
 
 - `compute_sustainability_field` — builds the raw `field`/`field_elements`
-  arrays from an `EvaluationResult` and a model's `constraints` list. Takes
-  `constraints: Iterable[Any]` (structurally typed — `.name`/`.usage`/
+  arrays, plus `usage_fields` (per-constraint weighted-average *usage
+  value*, as opposed to `field_elements`'s probability of staying under
+  capacity) and `capacity_distributions` (`{"loc": mean, "scale": std}` per
+  constraint), from an `EvaluationResult` and a model's `constraints` list.
+  Takes `constraints: Iterable[Any]` (structurally typed — `.name`/`.usage`/
   `.capacity` — rather than a shared `Constraint` class, since each model
-  keeps its own) and the two axis indexes directly.
+  keeps its own) and the two axis indexes directly. `usage_fields` is
+  weighted-averaged over the categorical ensemble the same way
+  `field_elements` is (`tensordot` against `result.weights`) — the
+  replacement for the older `EvaluationResult.marginalize()` call, which no
+  longer exists in the pinned `civic_digital_twins` version.
 - `compute_sustainable_area`
 - `compute_sustainability_index_with_ci`
 - `compute_sustainability_by_constraint`
 - `compute_modal_lines` — per-constraint modal line via orthogonal regression
   (first principal component)
+- `_usage_uncertainty_from_params` — per-sample exceedance probability from
+  a constraint's capacity distribution (normal approximation). Handles
+  `scale == 0` (a deterministic, non-distribution capacity — e.g. Fazzon's
+  `road`/`food`) as the exact step-function limit rather than the
+  `scipy.stats.norm(scale=0)` NaN that would otherwise reach the API
+  response.
 
 ### `SustainabilityFieldOutput`
 
@@ -267,16 +257,29 @@ class SustainabilityFieldOutput(ModelOutput):
     y_axis_name: str
     samples_x: list[float]                 # presence samples, for scatter overlay
     samples_y: list[float]
+    usage_fields: dict[str, np.ndarray]         # per-constraint usage grids
+    capacity_distributions: dict[str, dict]     # {name: {"loc", "scale"}}
     confidence: float = 0.8
 
     # Derived, lazily via functools.cached_property:
-    #   sustainable_area, sustainability_index,
-    #   sustainability_by_constraint, modal_lines
+    #   sustainable_area, sustainability_index, sustainability_by_constraint,
+    #   modal_lines, x_max, y_max, uncertainty, uncertainty_by_constraint,
+    #   usage, usage_by_constraint, capacity_mean, capacity_mean_by_constraint,
+    #   usage_uncertainty, usage_uncertainty_by_constraint, kpis,
+    #   constraint_curves
 ```
 
-`to_snapshot()` returns a JSON-serialisable dict including the four derived
-values — the shape a future FastAPI `/evaluate` response would return
-directly (§[Next steps](#layer-5--fastapi-next)).
+The `usage`/`uncertainty`/`capacity_mean`/`kpis` family and `x_max`/`y_max`/
+`constraint_curves` were restored from the pre-reorg `MolvenoEvaluator`/
+`MolvenoOutput` (removed early on as "duplicating `MolvenoBackend`'s logic")
+after a Layer 4 integration surfaced that the removal had also dropped real,
+non-duplicate capability those fields provided. `kpis` stays English-only —
+locale translation was already a separate presentation-layer post-processing
+step in the pre-reorg code, not part of this computation.
+
+`to_snapshot()` returns a JSON-serialisable dict (base64-encoded array
+fields) including all of the above — see §Layer 5 — REST API for why the
+live `/evaluate` response uses a different, plain-JSON shape instead.
 
 ---
 
@@ -348,19 +351,18 @@ contract by convention (§Layer 3), so one generic route set parameterized by
 | `GET /models/{model_key}/schema` | `backend.parameter_schema()`, JSON-serialised. |
 | `POST /models/{model_key}/evaluate` | `{param_overrides: {...}}` → evaluation result. |
 
-`/evaluate` returns `SustainabilityFieldOutput.to_snapshot()` verbatim — the
-library's own `ModelOutput._serialize()` summary serializer, not a
-hand-rolled response shape. Array fields (`field`, `field_elements`,
-`x_values`, `y_values`) come back base64+dtype+shape-encoded rather than as
-plain JSON numbers; the only current consumer
-(`overtourism.dt_studio.dashboard.http_adapter.HttpOvertourismAdapter`) is
-code in this repo, so it decodes them with
-`overtourism.cdt_ext.codec.decode_array` (staged there — §Layer 2a —
-as a generic counterpart to the library's own, module-private
-`_decode_array`). If this API grows arbitrary third-party consumers, the
-right fix is for the library to expose a plain-JSON output option on
-`_serialize()`/`to_snapshot()` itself (e.g. an output-type parameter), not a
-parallel response schema maintained downstream here.
+`/evaluate` returns `overtourism.api.schemas.EvaluateResponse`
+(`EvaluateResponse.from_output()`), **not** `SustainabilityFieldOutput.to_snapshot()`
+— a plain-JSON shape (array fields flattened via `.tolist()`, no base64)
+covering every `SustainabilityFieldOutput` field, including the derived
+usage/uncertainty/KPI set. This was a deliberate reversal of an earlier
+decision to return `to_snapshot()` verbatim: that was reasonable when the
+only known consumer was code in this repo (`HttpOvertourismAdapter`, willing
+to decode base64); it stopped being reasonable once Layer 4 turned out to be
+a real external consumer needing plain JSON matching the shape of the
+model's previous (pre-reorg) evaluator output. `to_snapshot()` itself is
+unchanged and keeps its original purpose — Layer 4 persistence/resume,
+where base64 is the right tradeoff — `/evaluate` just no longer uses it.
 
 Not implemented yet: `GET /scenarios` and `GET /results/{id}` — both require
 Layer 4 (scenario catalogue / persistence), which does not exist for these

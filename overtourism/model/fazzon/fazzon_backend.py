@@ -43,7 +43,10 @@ class FazzonBackend:
         model = FazzonModel(inputs=FazzonModel.default_inputs())
         self._model = model
         self._index_map: dict[str, Any] = {idx.name: idx for idx in model.indexes}
-        self._parameter_axes = [model.inputs.pv_visitors_car, model.inputs.pv_visitors_other]
+        self._parameter_axes = [
+            model.inputs.pv_visitors_car,
+            model.inputs.pv_visitors_other,
+        ]
         # Grid-resolution: structural axis choices, not per-evaluation config.
         self._c_max, self._o_max = 2000, 1000
         self._c_sample, self._o_sample = 100, 100
@@ -72,7 +75,13 @@ class FazzonBackend:
 
     def evaluate(self, param_overrides: dict[str, Any]) -> SustainabilityFieldOutput:
         """Evaluate the model under the given string-keyed parameter overrides."""
-        scenario = build_scenario(self._model, param_overrides, self._index_map, self._schema, self._parameter_axes)
+        scenario = build_scenario(
+            self._model,
+            param_overrides,
+            self._index_map,
+            self._schema,
+            self._parameter_axes,
+        )
         return self._evaluate_scenario(scenario)
 
     # ------------------------------------------------------------------
@@ -178,10 +187,16 @@ class FazzonBackend:
 
         # Presence samples for the scatter overlay — seeded independently of the field.
         sampling_overrides = {
-            idx: ([val] if isinstance(idx, CategoricalIndex) and isinstance(val, str) else val)
+            idx: (
+                [val]
+                if isinstance(idx, CategoricalIndex) and isinstance(val, str)
+                else val
+            )
             for idx, val in scenario.overrides.items()
         }
-        sampling_scenario = Scenario(model, overrides=sampling_overrides, parameter_axes=[pv_car, pv_other])
+        sampling_scenario = Scenario(
+            model, overrides=sampling_overrides, parameter_axes=[pv_car, pv_other]
+        )
         sampling_ensemble = CrossProductEnsemble(
             sampling_scenario,
             max_categorical_size=config.ensemble_size,
@@ -207,8 +222,10 @@ class FazzonBackend:
             ensemble=field_ensemble,
             parameters={pv_car: cc, pv_other: oo},
         )
-        field, field_elements = compute_sustainability_field(
-            model.constraints, result, pv_car, pv_other, scenario=scenario
+        field, field_elements, usage_fields, capacity_distributions = (
+            compute_sustainability_field(
+                model.constraints, result, pv_car, pv_other, scenario=scenario
+            )
         )
 
         return SustainabilityFieldOutput(
@@ -220,5 +237,7 @@ class FazzonBackend:
             y_axis_name="Visitatori non-auto / giorno",
             samples_x=list(pv_samples[pv_car]),
             samples_y=list(pv_samples[pv_other]),
+            usage_fields=usage_fields,
+            capacity_distributions=capacity_distributions,
             confidence=config.confidence,
         )

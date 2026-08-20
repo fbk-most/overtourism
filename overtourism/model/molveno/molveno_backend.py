@@ -44,7 +44,11 @@ def _presence_transformation(
     that only exist on `MolvenoModel`.
     """
     tmp = presence * reduction_factor
-    return tmp * saturation_level / ((tmp**sharpness + saturation_level**sharpness) ** (1 / sharpness))
+    return (
+        tmp
+        * saturation_level
+        / ((tmp**sharpness + saturation_level**sharpness) ** (1 / sharpness))
+    )
 
 
 class MolvenoBackend:
@@ -87,7 +91,13 @@ class MolvenoBackend:
 
     def evaluate(self, param_overrides: dict[str, Any]) -> SustainabilityFieldOutput:
         """Evaluate the model under the given string-keyed parameter overrides."""
-        scenario = build_scenario(self._model, param_overrides, self._index_map, self._schema, self._parameter_axes)
+        scenario = build_scenario(
+            self._model,
+            param_overrides,
+            self._index_map,
+            self._schema,
+            self._parameter_axes,
+        )
         return self._evaluate_scenario(scenario)
 
     # ------------------------------------------------------------------
@@ -201,10 +211,16 @@ class MolvenoBackend:
         # Raw presence samples — seeded independently of the field. Transformed
         # below (after the field result is available) via _presence_transformation.
         sampling_overrides = {
-            idx: ([val] if isinstance(idx, CategoricalIndex) and isinstance(val, str) else val)
+            idx: (
+                [val]
+                if isinstance(idx, CategoricalIndex) and isinstance(val, str)
+                else val
+            )
             for idx, val in scenario.overrides.items()
         }
-        sampling_scenario = Scenario(model, overrides=sampling_overrides, parameter_axes=[pv_t, pv_e])
+        sampling_scenario = Scenario(
+            model, overrides=sampling_overrides, parameter_axes=[pv_t, pv_e]
+        )
         sampling_ensemble = CrossProductEnsemble(
             sampling_scenario,
             max_categorical_size=config.ensemble_size,
@@ -230,7 +246,11 @@ class MolvenoBackend:
             ensemble=field_ensemble,
             parameters={pv_t: tt, pv_e: ee},
         )
-        field, field_elements = compute_sustainability_field(model.constraints, result, pv_t, pv_e, scenario=scenario)
+        field, field_elements, usage_fields, capacity_distributions = (
+            compute_sustainability_field(
+                model.constraints, result, pv_t, pv_e, scenario=scenario
+            )
+        )
 
         # Presence-saturation transform: reduction/saturation factors are
         # derived indexes, read from the evaluated result (mean over the ensemble).
@@ -250,5 +270,7 @@ class MolvenoBackend:
             y_axis_name="Escursionisti / giorno",
             samples_x=samples_x,
             samples_y=samples_y,
+            usage_fields=usage_fields,
+            capacity_distributions=capacity_distributions,
             confidence=config.confidence,
         )

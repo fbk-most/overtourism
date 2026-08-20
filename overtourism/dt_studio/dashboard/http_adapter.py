@@ -13,6 +13,10 @@ structurally, built from the API's JSON response rather than sharing
 separate containers; an HTTP-based Layer 5 client shouldn't need Layers
 1-3's dependency chain just to get a schema type).
 
+`run()`'s `/evaluate` response is plain JSON (`overtourism.api.schemas.EvaluateResponse`
+— not `SustainabilityFieldOutput.to_snapshot()`), so array fields are
+`np.array(...)`-wrapped directly; no base64 decoding is involved.
+
 One adapter class serves every model in the API's registry (`model_key` is
 just a constructor argument), mirroring the API's own single generic router.
 """
@@ -24,7 +28,6 @@ from typing import Any
 
 import httpx
 import numpy as np
-from overtourism.cdt_ext.codec import decode_array
 from overtourism.dt_studio.dashboard.adapter import (
     OvertourismAdapter,
     ParameterSpec,
@@ -126,7 +129,7 @@ class HttpOvertourismAdapter(OvertourismAdapter):
         return []
 
     def run(self, param_overrides: dict[str, Any]) -> PlotData:
-        """Evaluate via `POST /models/{model_key}/evaluate` and decode the snapshot response."""
+        """Evaluate via `POST /models/{model_key}/evaluate` and reshape the plain-JSON response."""
         resp = self._client.post(
             f"/models/{self._model_key}/evaluate",
             json={"param_overrides": param_overrides},
@@ -135,12 +138,10 @@ class HttpOvertourismAdapter(OvertourismAdapter):
         data = resp.json()
 
         return PlotData(
-            field=decode_array(data["field"]),
-            field_elements={
-                k: decode_array(v) for k, v in data["field_elements"].items()
-            },
-            x_values=decode_array(data["x_values"]),
-            y_values=decode_array(data["y_values"]),
+            field=np.array(data["field"]),
+            field_elements={k: np.array(v) for k, v in data["field_elements"].items()},
+            x_values=np.array(data["x_values"]),
+            y_values=np.array(data["y_values"]),
             x_label=data["x_axis_name"],
             y_label=data["y_axis_name"],
             samples_x=data["samples_x"],
