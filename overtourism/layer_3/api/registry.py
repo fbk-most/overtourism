@@ -4,16 +4,17 @@
 `FazzonBackend` and `MolvenoBackend` share an identical public contract
 (`parameter_schema()`, `evaluate()`) by convention even though there is no
 shared base class (see `overtourism/BACKEND_DESIGN.md` §Layer 3) — this
-registry is what lets `overtourism.api.routes` expose one generic route set
-parameterized by `model_key` instead of duplicating routes per model.
+registry is what lets `overtourism.layer_3.api.routes` expose one generic
+route set parameterized by `model_key` instead of duplicating routes per
+model.
 """
 
 from __future__ import annotations
 
 import functools
 
-from overtourism.model.fazzon.fazzon_backend import FazzonBackend
-from overtourism.model.molveno.molveno_backend import MolvenoBackend
+from overtourism.layer_3.model.fazzon.fazzon_backend import FazzonBackend
+from overtourism.layer_3.model.molveno.molveno_backend import MolvenoBackend
 
 BACKEND_REGISTRY: dict[str, type[FazzonBackend | MolvenoBackend]] = {
     "fazzon": FazzonBackend,

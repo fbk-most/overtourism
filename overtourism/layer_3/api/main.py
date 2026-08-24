@@ -11,7 +11,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.api.routes import router
+from overtourism.layer_3.api.routes import router
 
 app = FastAPI(
     title="Overtourism Digital Twin API",

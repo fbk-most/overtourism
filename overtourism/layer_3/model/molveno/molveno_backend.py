@@ -21,14 +21,14 @@ from civic_digital_twins.dt_model import (
     sample_across,
 )
 
-from overtourism.cdt_ext.runner_ext import build_scenario
-from overtourism.model.common.sustainability_field import (
+from overtourism.layer_3.cdt_ext.runner_ext import build_scenario
+from overtourism.layer_3.model.common.sustainability_field import (
     OvertourismEvaluationConfig,
     OvertourismParameterMeta,
     SustainabilityFieldOutput,
     compute_sustainability_field,
 )
-from overtourism.model.molveno.molveno_model import MolvenoModel
+from overtourism.layer_3.model.molveno.molveno_model import MolvenoModel
 
 
 def _presence_transformation(

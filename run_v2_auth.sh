@@ -15,8 +15,22 @@ export AUTH_AUDIENCE="${AUTH_AUDIENCE:-c_50e8e205e30243588df8f1ad9425831a}"
 export AUTH_TENANT_CLAIM="${AUTH_TENANT_CLAIM:-tenant_id}"
 export AUTH_ALGORITHMS="${AUTH_ALGORITHMS:-RS256}"
 export AUTH_LEEWAY_SECONDS="${AUTH_LEEWAY_SECONDS:-30}"
+export MODEL_BACKEND_URL="${MODEL_BACKEND_URL:-http://localhost:8001}"
 
 HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-8001}"
+PORT="${PORT:-8000}"
+MAIN_PORT="${MAIN_PORT:-8001}"
+STARTUP_DELAY_SECONDS="${STARTUP_DELAY_SECONDS:-5}"
+
+fastapi run ./overtourism/layer_3/api/main.py --host "$HOST" --port "$MAIN_PORT" &
+MAIN_PID=$!
+
+sleep "$STARTUP_DELAY_SECONDS"
+
+cleanup() {
+	kill "$MAIN_PID" >/dev/null 2>&1 || true
+}
+
+trap cleanup EXIT INT TERM
 
 exec fastapi run ./overtourism/overtourism/app_v2.py --host "$HOST" --port "$PORT"

@@ -12,14 +12,16 @@ from typing import Any
 
 import streamlit as st
 
-from overtourism.dt_studio.dashboard.adapter import (
+from overtourism.layer_3.dt_studio.dashboard.adapter import (
     OvertourismAdapter,
     PlotData,
     ScenarioDef,
 )
-from overtourism.dt_studio.dashboard.app import run_dashboard
-from overtourism.model.common.sustainability_field import OvertourismParameterMeta
-from overtourism.model.molveno.molveno_backend import MolvenoBackend
+from overtourism.layer_3.dt_studio.dashboard.app import run_dashboard
+from overtourism.layer_3.model.common.sustainability_field import (
+    OvertourismParameterMeta,
+)
+from overtourism.layer_3.model.molveno.molveno_backend import MolvenoBackend
 
 # ---------------------------------------------------------------------------
 # Predefined scenarios

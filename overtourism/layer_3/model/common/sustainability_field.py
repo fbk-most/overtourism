@@ -21,7 +21,10 @@ from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 from scipy import interpolate, ndimage
 from scipy import stats as scipy_stats
 
-from overtourism.cdt_ext.runner_ext import EnsembleEvaluationConfig, ParameterMeta
+from overtourism.layer_3.cdt_ext.runner_ext import (
+    EnsembleEvaluationConfig,
+    ParameterMeta,
+)
 
 __all__ = [
     "OvertourismEvaluationConfig",

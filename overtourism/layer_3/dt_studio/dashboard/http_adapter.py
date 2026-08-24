@@ -29,7 +29,7 @@ from typing import Any
 import httpx
 import numpy as np
 
-from overtourism.dt_studio.dashboard.adapter import (
+from overtourism.layer_3.dt_studio.dashboard.adapter import (
     OvertourismAdapter,
     ParameterSpec,
     PlotData,

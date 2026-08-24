@@ -12,15 +12,17 @@ from typing import Any
 
 import streamlit as st
 
-from overtourism.dt_studio.dashboard.adapter import (
+from overtourism.layer_3.dt_studio.dashboard.adapter import (
     OvertourismAdapter,
     PlotData,
     ScenarioDef,
 )
-from overtourism.dt_studio.dashboard.app import run_dashboard
-from overtourism.model.common.sustainability_field import OvertourismParameterMeta
-from overtourism.model.fazzon.fazzon_backend import FazzonBackend
-from overtourism.model.fazzon.fazzon_scenarios import ALL_SCENARIOS
+from overtourism.layer_3.dt_studio.dashboard.app import run_dashboard
+from overtourism.layer_3.model.common.sustainability_field import (
+    OvertourismParameterMeta,
+)
+from overtourism.layer_3.model.fazzon.fazzon_backend import FazzonBackend
+from overtourism.layer_3.model.fazzon.fazzon_scenarios import ALL_SCENARIOS
 
 # ---------------------------------------------------------------------------
 # Distribution helpers

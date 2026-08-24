@@ -18,7 +18,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from overtourism.model.common.sustainability_field import SustainabilityFieldOutput
+from overtourism.layer_3.model.common.sustainability_field import (
+    SustainabilityFieldOutput,
+)
 
 
 class ModelInfo(BaseModel):

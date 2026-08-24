@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Trentino overtourism analysis and modeling"
 requires-python = ">=3.12"
 dependencies = [
-    "civic-digital-twins @ git+https://github.com/fbk-most/civic-digital-twins.git",
+    "civic-digital-twins==0.11.0",
     "digitalhub>=0.15.0",
     "fastapi[standard]",
     "geojson>=3.2.0",

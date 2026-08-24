@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 from scipy import stats
 
 if TYPE_CHECKING:
-    from overtourism.model.fazzon.fazzon_model import FazzonModel
+    from overtourism.layer_3.model.fazzon.fazzon_model import FazzonModel
 
 # ---------------------------------------------------------------------------
 # Data type

@@ -12,9 +12,19 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from overtourism.api.registry import BACKEND_REGISTRY, MODEL_TITLES, get_backend
-from overtourism.api.schemas import EvaluateRequest, EvaluateResponse, ModelInfo
-from overtourism.model.common.sustainability_field import OvertourismParameterMeta
+from overtourism.layer_3.api.registry import (
+    BACKEND_REGISTRY,
+    MODEL_TITLES,
+    get_backend,
+)
+from overtourism.layer_3.api.schemas import (
+    EvaluateRequest,
+    EvaluateResponse,
+    ModelInfo,
+)
+from overtourism.layer_3.model.common.sustainability_field import (
+    OvertourismParameterMeta,
+)
 
 router = APIRouter(prefix="/models", tags=["models"])
 

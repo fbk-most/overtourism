@@ -17,8 +17,10 @@ import os
 
 import streamlit as st
 
-from overtourism.dt_studio.dashboard.app import run_dashboard
-from overtourism.dt_studio.dashboard.http_adapter import HttpOvertourismAdapter
+from overtourism.layer_3.dt_studio.dashboard.app import run_dashboard
+from overtourism.layer_3.dt_studio.dashboard.http_adapter import (
+    HttpOvertourismAdapter,
+)
 
 _BASE_URL = os.environ.get("OVERTOURISM_API_BASE_URL", "http://localhost:8000")
 

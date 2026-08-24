@@ -4,7 +4,7 @@ import typing
 
 import requests
 
-model_backend_url = os.environ.get("MODEL_BACKEND_URL", "http://localhost:8000")
+model_backend_url = os.environ.get("MODEL_BACKEND_URL", "http://localhost:8001")
 
 
 def call_executor(
