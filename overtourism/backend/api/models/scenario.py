@@ -11,6 +11,7 @@ class ScenarioData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     scenario_id: str
+    session_id: str | None = None
     version: int = 0
     name: str | None = None
     description: str | None = None

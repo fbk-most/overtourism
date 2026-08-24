@@ -7,23 +7,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.executor_utils import call_executor
-from overtourism.backend.api.v2.models.common import VersionData
-from overtourism.backend.api.v2.models.evaluation import (
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.executor_utils import call_executor
+from overtourism.backend.api.models.common import VersionData
+from overtourism.backend.api.models.evaluation import (
     EvaluationData,
     EvaluationOutputData,
     PostEvaluationData,
     UpdateEvaluationData,
 )
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.utils import (
     check_version,
     get_evaluation_or_404,
     get_scenario_or_404,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.evaluation.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)

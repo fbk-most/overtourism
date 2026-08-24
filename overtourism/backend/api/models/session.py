@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from overtourism.backend.api.v2.models.evaluation import EvaluationData
-from overtourism.backend.api.v2.models.scenario import ScenarioData
+from overtourism.backend.api.models.evaluation import EvaluationData
+from overtourism.backend.api.models.scenario import ScenarioData
 
 
 class CreateSessionData(BaseModel):
@@ -20,6 +20,7 @@ class SessionSummaryData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     session_id: str
+    owner_id: str | None = None
     created: str
     updated: str
     metadata: dict[str, Any] = Field(default_factory=dict)

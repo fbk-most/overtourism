@@ -5,23 +5,23 @@ from __future__ import annotations
 import typing
 from typing import Any
 
-from overtourism.backend.api.v2.models.problem import (
+from overtourism.backend.api.models.problem import (
     PostProblemData as BasePostProblemData,
 )
-from overtourism.backend.api.v2.models.problem import (
+from overtourism.backend.api.models.problem import (
     UpdateProblemData as BaseUpdateProblemData,
 )
-from overtourism.backend.api.v2.models.proposal import (
+from overtourism.backend.api.models.proposal import (
     PostProposalData as BasePostProposalData,
 )
-from overtourism.backend.api.v2.models.proposal import (
+from overtourism.backend.api.models.proposal import (
     UpdateProposalData as BaseUpdateProposalData,
 )
-from overtourism.backend.handler import Handler
-from overtourism.overtourism.backend_extension.api.v2.models.problem import (
+from overtourism.backend.auth.dependencies import Handler
+from overtourism.overtourism.backend_extension.api.models.problem import (
     OvertourismProblemData,
 )
-from overtourism.overtourism.backend_extension.api.v2.models.proposal import (
+from overtourism.overtourism.backend_extension.api.models.proposal import (
     OvertourismProposalData,
 )
 

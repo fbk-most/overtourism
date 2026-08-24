@@ -8,7 +8,7 @@ from types import ModuleType
 import pytest
 from fastapi import HTTPException
 
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.utils import (
     arrange_data,
     check_version,
     get_evaluation_or_404,
@@ -25,7 +25,7 @@ from overtourism.backend.api.v2.utils import (
     prepare_values,
     scenario_index_diffs,
 )
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 

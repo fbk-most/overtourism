@@ -5,13 +5,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from overtourism.backend.api.v2.executor_utils import (
+from overtourism.backend.api.utils.executor_utils import (
     call_executor,
     call_schema,
     list_models,
 )
-from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.stores.config import StoreConfig
@@ -40,7 +39,6 @@ database_url = os.getenv(
     "OVERTOURISM_DATABASE", f"sqlite:///{data_dir / 'overtourism.sqlite'}"
 )
 store_conf = StoreConfig("sql", {"url": database_url})
-session_ownership_store = SessionOwnershipStore(data_dir / "session_ownership.sqlite")
 
 # ──────────────────────────────────────────────
 # Manager
@@ -118,7 +116,4 @@ for model in list_models():
 
 def build_handler() -> Handler:
     """Build the molveno backend handler and its collaborators."""
-    return Handler(
-        manager=crud_manager,
-        session_ownership_store=session_ownership_store,
-    )
+    return Handler(manager=crud_manager)

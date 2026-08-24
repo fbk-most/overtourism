@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from typing import Callable, Optional
 
-from overtourism.overtourism.backend_extension.models.phenomenon import Phenomenon
-from overtourism.overtourism.backend_extension.api.v2.utils.index_utils import (
+from overtourism.overtourism.backend_extension.api.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.api.utils.index_utils import (
     get_chart_labels,
     _italian_festivities,
 )

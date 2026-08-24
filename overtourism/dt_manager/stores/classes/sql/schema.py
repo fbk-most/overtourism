@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .orm import (
+    SessionORM,
     EvaluationORM,
     ProblemORM,
     ProposalORM,
@@ -15,6 +16,7 @@ from .orm import (
 
 @dataclass
 class SQLSchema:
+    sessions: type[SessionORM]
     problems: type[ProblemORM]
     proposals: type[ProposalORM]
     scenarios: type[ScenarioORM]
@@ -24,6 +26,7 @@ class SQLSchema:
 
 def build_sql_schema() -> SQLSchema:
     return SQLSchema(
+        sessions=SessionORM,
         problems=ProblemORM,
         proposals=ProposalORM,
         scenarios=ScenarioORM,

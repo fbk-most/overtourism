@@ -20,6 +20,7 @@ from overtourism.dt_manager.session.manager import SessionManager
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class Manager:
@@ -36,7 +37,7 @@ class Manager:
         self.scenario_manager = ScenarioManager(self.store)
         self.evaluation_manager = EvaluationManager(self.store)
         self.relationship_manager = RelationshipManager(self.store)
-        self.session_manager = SessionManager()
+        self.session_manager = SessionManager(self.store)
         self.extras_config = (
             extras_config if extras_config is not None else ExtrasConfig()
         )
@@ -314,9 +315,18 @@ class Manager:
     # Sessions
     # ───────────────────────────────────────────────────────────
 
-    def create_session(self, metadata: dict | None = None) -> str:
-        """Create an in-memory session."""
-        return self.session_manager.create_session(metadata)
+    def create_session(
+        self,
+        tenant: str | None = None,
+        owner_id: str | None = None,
+        metadata: dict | None = None,
+    ) -> SessionState:
+        """Create a persisted session."""
+        return self.session_manager.create_session(
+            tenant=self.name_cfg.tenant if tenant is None else tenant,
+            owner_id=owner_id,
+            metadata=metadata,
+        )
 
     def create_session_evaluation(
         self,
@@ -331,16 +341,16 @@ class Manager:
             evaluation,
         )
 
-    def read_session(self, session_id: str) -> dict:
-        """Return an in-memory session."""
+    def read_session(self, session_id: str) -> SessionState:
+        """Return a persisted session."""
         return self.session_manager.read_session(session_id)
 
-    def list_sessions(self) -> list[dict]:
-        """Return all in-memory sessions."""
+    def list_sessions(self) -> list[SessionState]:
+        """Return all persisted sessions."""
         return self.session_manager.list_sessions()
 
     def delete_session(self, session_id: str) -> None:
-        """Delete an in-memory session."""
+        """Delete a persisted session."""
         self.session_manager.delete_session(session_id)
 
     # ───────────────────────────────────────────────────────────
@@ -353,7 +363,7 @@ class Manager:
         scenario_id: str,
         param_overrides: dict | None = None,
     ) -> Scenario:
-        """Create a transient scenario for a session."""
+        """Create and persist a scenario for a session."""
         scenario = self.scenario_manager.detach_scenario(scenario_id, param_overrides)
         return self.session_manager.create_session_scenario(session_id, scenario)
 
@@ -377,7 +387,7 @@ class Manager:
         if description is not None:
             session_scenario.description = description
         if extras is not None:
-            session_scenario.extras = session_scenario.extras.update(extras)
+            session_scenario.extras = {**session_scenario.extras, **extras}
 
         self.store.save_scenario(session_scenario.to_dict())
 
@@ -395,7 +405,9 @@ class Manager:
         except Exception:
             pass
 
-        self.session_manager.delete_session(session_id)
+        session = self.session_manager.read_session(session_id)
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
         return self.read_scenario(scenario_id)
 
     def read_session_scenario(self, session_id: str, scenario_id: str) -> Scenario:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v2.main import create_app
+from overtourism.backend.api.main import create_app
 
 
 def test_create_app_includes_extra_routers_and_metadata(handler) -> None:

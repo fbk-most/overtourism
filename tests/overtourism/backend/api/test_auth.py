@@ -8,10 +8,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v2.main import create_app as create_app_v2
+from overtourism.backend.api.main import create_app as create_app_v2
 from overtourism.backend.auth import jwt as auth_jwt
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, status
 
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 
 _handler: Handler | None = None
 

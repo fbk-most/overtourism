@@ -98,7 +98,7 @@ def test_delete_problem_removes_it_from_the_store(
     )
 
 
-def test_delete_problem_removes_session_ownership_rows(
+def test_delete_problem_keeps_owned_sessions(
     client,
     handler,
     tenant: str,
@@ -112,15 +112,9 @@ def test_delete_problem_removes_session_ownership_rows(
 
     assert create_response.status_code == 200
     session_id = create_response.json()["session_id"]
-    assert handler.session_ownership_store.list_session_ids(
-        tenant,
-        "anonymous:tenant-alpha",
-    ) == [session_id]
+    assert handler.manager.read_session(session_id).owner_id == "anonymous:tenant-alpha"
 
     delete_response = client.delete(f"/api/v2/{tenant}/problems/{problem_id}")
 
     assert delete_response.status_code == 200
-    assert handler.session_ownership_store.list_session_ids(
-        tenant,
-        "anonymous:tenant-alpha",
-    ) == [session_id]
+    assert handler.manager.read_session(session_id).owner_id == "anonymous:tenant-alpha"

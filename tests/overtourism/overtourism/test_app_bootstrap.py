@@ -6,7 +6,7 @@ from importlib import import_module
 
 import pytest
 
-from overtourism.backend.api.shared.dependencies import get_handler
+from overtourism.backend.api.utils.dependencies import get_handler
 
 
 @pytest.mark.parametrize(

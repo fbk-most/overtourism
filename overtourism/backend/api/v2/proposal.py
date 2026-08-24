@@ -7,21 +7,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.proposal import (
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.models.proposal import (
     PostProposalData,
     ProposalData,
     UpdateProposalData,
 )
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.utils import (
     check_version,
     get_proposal_or_404,
     proposal_to_api,
     validate_related_scenario_ids,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 
 logger = logging.getLogger(__name__)
 

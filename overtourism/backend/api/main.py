@@ -8,9 +8,9 @@ import typing
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.shared.dependencies import init_handler
-from overtourism.backend.api.shared.exceptions import install_exception_handlers
-from overtourism.backend.api.v2.config import APP_VERSION, TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import init_handler
+from overtourism.backend.api.utils.exceptions import install_exception_handlers
+from overtourism.backend.api.utils.config import APP_VERSION, TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.evaluation import evaluation_router
 from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router
@@ -19,7 +19,7 @@ from overtourism.backend.api.v2.session import session_router
 from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
-    from overtourism.backend.handler import Handler
+    from overtourism.backend.auth.dependencies import Handler
 
 # Configure logging
 logging.basicConfig(

@@ -8,21 +8,21 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from overtourism.dt_manager.manager.config import BootstrapConfig
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.scenario import (
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.models.scenario import (
     CreateScenarioData,
     ScenarioData,
     UpdateScenarioData,
 )
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.utils import (
     check_version,
     get_scenario_or_404,
     raise_immutable_base_scenario_error,
     scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 
 logger = logging.getLogger(__name__)
 

@@ -8,18 +8,18 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from time import time
 
-from overtourism.overtourism.backend_extension.models.territorial_config import (
+from overtourism.overtourism.backend_extension.api.models.territorial_config import (
     TerritorialConfig,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils.index_utils import (
+from overtourism.overtourism.backend_extension.api.utils.index_utils import (
     _build_geodataframe,
     _to_map_response,
     _translate_columns,
     get_chart_labels,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.overtourism.backend_extension.models.trentino_indicators import (
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.overtourism.backend_extension.api.models.trentino_indicators import (
     _REGISTRY,
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
@@ -27,7 +27,7 @@ from overtourism.overtourism.backend_extension.models.trentino_indicators import
     PHENOMENON_LABELS_IT,
     get_indicator,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils.index_utils_trentino import (
+from overtourism.overtourism.backend_extension.api.utils.index_utils_trentino import (
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,

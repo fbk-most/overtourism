@@ -14,6 +14,7 @@ class Scenario(Dictable):
 
     scenario_id: str
     tenant: str
+    session_id: str | None = None
     version: int = 0
     name: str | None = None
     description: str | None = None
@@ -41,6 +42,7 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_id,
             tenant=tenant,
+            session_id=None,
             version=version,
             name=scenario_id if name is None else name,
             description=f"{scenario_id} scenario"
@@ -60,6 +62,7 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_dict["scenario_id"],
             tenant=scenario_dict["tenant"],
+            session_id=scenario_dict.get("session_id"),
             version=scenario_dict.get("version", 0),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),

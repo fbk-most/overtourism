@@ -7,8 +7,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.proposal import (
     create_proposal as base_create_proposal,
 )
@@ -25,13 +25,13 @@ from overtourism.backend.api.v2.proposal import (
     update_proposal as base_update_proposal,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
-from overtourism.overtourism.backend_extension.api.v2.models.proposal import (
+from overtourism.backend.auth.dependencies import Handler
+from overtourism.overtourism.backend_extension.api.models.proposal import (
     OvertourismPostProposalData,
     OvertourismProposalData,
     OvertourismUpdateProposalData,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils.utils import (
+from overtourism.overtourism.backend_extension.api.utils.utils import (
     prepare_proposal_payload,
     to_proposal_api_overtourism,
 )

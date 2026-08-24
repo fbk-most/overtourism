@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.backend.api.v2 import utils as api_utils
+from overtourism.backend.api.utils import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
 

@@ -7,12 +7,12 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from overtourism.backend.api.shared.dependencies import (
+from overtourism.backend.api.utils.dependencies import (
     get_handler,
     init_handler,
     register_handler,
 )
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 
 
 def _build_handler(tenant: str) -> Handler:

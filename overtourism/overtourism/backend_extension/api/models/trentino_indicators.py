@@ -6,8 +6,8 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from overtourism.overtourism.backend_extension.models.indicator import Indicator
-from overtourism.overtourism.backend_extension.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.api.models.indicator import Indicator
+from overtourism.overtourism.backend_extension.api.models.phenomenon import Phenomenon
 
 # ---------------------------------------------------------------------------
 # Source paths

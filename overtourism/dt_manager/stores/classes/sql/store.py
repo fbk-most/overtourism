@@ -12,6 +12,8 @@ from sqlalchemy.orm import sessionmaker
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
     SQLBase,
+    session_from_orm,
+    session_to_orm,
     evaluation_from_orm,
     evaluation_to_orm,
     problem_from_orm,
@@ -73,6 +75,45 @@ class SQLStore(Store):
     # ───────────────────────────────────────────────────────────
     # Problems
     # ───────────────────────────────────────────────────────────
+
+    # ───────────────────────────────────────────────────────────
+    # Sessions
+    # ───────────────────────────────────────────────────────────
+
+    def save_session(self, session_data: dict) -> None:
+        with self.session_factory.begin() as session:
+            session.merge(session_to_orm(session_data))
+
+    def load_session(self, session_id: str) -> dict:
+        with self.session_factory() as session:
+            stored_session = session.get(self.schema.sessions, session_id)
+            if stored_session is None:
+                raise EntityDoesNotExist(f"Session '{session_id}' not found")
+            return session_from_orm(stored_session)
+
+    def load_sessions(
+        self,
+        tenant: str | None = None,
+        owner_id: str | None = None,
+    ) -> list[dict]:
+        with self.session_factory() as session:
+            query = select(self.schema.sessions)
+            if tenant is not None:
+                query = query.where(self.schema.sessions.tenant == tenant)
+            if owner_id is not None:
+                query = query.where(self.schema.sessions.owner_id == owner_id)
+            query = query.order_by(
+                self.schema.sessions.created.desc(),
+                self.schema.sessions.session_id.asc(),
+            )
+            rows = session.scalars(query).all()
+            return [session_from_orm(row) for row in rows]
+
+    def delete_session(self, session_id: str) -> None:
+        with self.session_factory.begin() as session:
+            stored_session = session.get(self.schema.sessions, session_id)
+            if stored_session is not None:
+                session.delete(stored_session)
 
     def save_problem(self, problem_data: dict) -> None:
         with self.session_factory.begin() as session:
@@ -162,12 +203,17 @@ class SQLStore(Store):
             session.merge(scenario_to_orm(scenario_data))
 
     def load_scenarios(
-        self, tenant: str | None = None, proposal_id: str | None = None
+        self,
+        tenant: str | None = None,
+        proposal_id: str | None = None,
+        session_id: str | None = None,
     ) -> list[dict]:
         with self.session_factory() as session:
             query = select(self.schema.scenarios)
             if tenant is not None:
                 query = query.where(self.schema.scenarios.tenant == tenant)
+            if session_id is not None:
+                query = query.where(self.schema.scenarios.session_id == session_id)
             if proposal_id is not None:
                 query_scenario_ids = select(
                     self.schema.relationships.scenario_id
@@ -225,6 +271,19 @@ class SQLStore(Store):
             if evaluation is None:
                 raise EntityDoesNotExist(f"Evaluation '{evaluation_id}' not found")
             return evaluation_from_orm(evaluation)
+
+    def load_evaluations_for_session(self, session_id: str) -> list[dict]:
+        with self.session_factory() as session:
+            query = select(self.schema.evaluations).where(
+                self.schema.evaluations.session_id == session_id
+            )
+            rows = session.scalars(
+                query.order_by(
+                    self.schema.evaluations.started.desc(),
+                    self.schema.evaluations.evaluation_id.asc(),
+                )
+            ).all()
+            return [evaluation_from_orm(row) for row in rows]
 
     def delete_evaluation(self, evaluation_id: str) -> None:
         with self.session_factory.begin() as session:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from overtourism.backend.api.v2.main import create_app
+from overtourism.backend.api.main import create_app
 from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router

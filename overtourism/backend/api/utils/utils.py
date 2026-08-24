@@ -6,7 +6,7 @@ import typing
 
 from fastapi import HTTPException, status
 
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario

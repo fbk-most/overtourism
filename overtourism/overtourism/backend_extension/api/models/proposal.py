@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from overtourism.backend.api.v2.models.proposal import (
+from overtourism.backend.api.models.proposal import (
     PostProposalData,
     ProposalData,
     UpdateProposalData,
