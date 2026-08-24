@@ -119,9 +119,14 @@ class SQLStore(Store):
         with self.session_factory.begin() as session:
             session.merge(problem_to_orm(problem_data))
 
-    def load_problem(self, problem_id: str) -> dict:
+    def load_problem(self, problem_id: str, tenant: str | None = None) -> dict:
         with self.session_factory() as session:
-            problem = session.get(self.schema.problems, problem_id)
+            query = select(self.schema.problems).where(
+                self.schema.problems.problem_id == problem_id
+            )
+            if tenant is not None:
+                query = query.where(self.schema.problems.tenant == tenant)
+            problem = session.scalars(query).first()
             if problem is None:
                 raise EntityDoesNotExist(f"Problem '{problem_id}' not found")
             return problem_from_orm(problem)
@@ -159,6 +164,7 @@ class SQLStore(Store):
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[dict]:
         with self.session_factory() as session:
             query = select(self.schema.proposals)
@@ -171,6 +177,11 @@ class SQLStore(Store):
                 query = query.where(
                     self.schema.proposals.proposal_id.in_(query_proposal_ids)
                 )
+            if tenant is not None:
+                query = query.join(
+                    self.schema.problems,
+                    self.schema.proposals.problem_id == self.schema.problems.problem_id,
+                ).where(self.schema.problems.tenant == tenant)
             query = query.order_by(
                 self.schema.proposals.created.desc(),
                 self.schema.proposals.proposal_id.asc(),
@@ -178,9 +189,21 @@ class SQLStore(Store):
             rows = session.scalars(query).all()
             return [proposal_from_orm(row) for row in rows]
 
-    def load_proposal(self, proposal_id: str) -> dict:
+    def load_proposal(
+        self,
+        proposal_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         with self.session_factory() as session:
-            proposal = session.get(self.schema.proposals, proposal_id)
+            query = select(self.schema.proposals).where(
+                self.schema.proposals.proposal_id == proposal_id
+            )
+            if tenant is not None:
+                query = query.join(
+                    self.schema.problems,
+                    self.schema.proposals.problem_id == self.schema.problems.problem_id,
+                ).where(self.schema.problems.tenant == tenant)
+            proposal = session.scalars(query).first()
             if proposal is None:
                 raise EntityDoesNotExist(f"Proposal '{proposal_id}' not found")
             return proposal_from_orm(proposal)
@@ -228,9 +251,14 @@ class SQLStore(Store):
             rows = session.scalars(query).all()
             return [scenario_from_orm(row) for row in rows]
 
-    def load_scenario(self, scenario_id: str) -> dict:
+    def load_scenario(self, scenario_id: str, tenant: str | None = None) -> dict:
         with self.session_factory() as session:
-            scenario = session.get(self.schema.scenarios, scenario_id)
+            query = select(self.schema.scenarios).where(
+                self.schema.scenarios.scenario_id == scenario_id
+            )
+            if tenant is not None:
+                query = query.where(self.schema.scenarios.tenant == tenant)
+            scenario = session.scalars(query).first()
             if scenario is None:
                 raise EntityDoesNotExist(f"Scenario '{scenario_id}' not found")
             return scenario_from_orm(scenario)
@@ -252,11 +280,21 @@ class SQLStore(Store):
         with self.session_factory.begin() as session:
             session.merge(evaluation_to_orm(evaluation_data))
 
-    def load_evaluations(self, scenario_id: str | None = None) -> list[dict]:
+    def load_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[dict]:
         with self.session_factory() as session:
             query = select(self.schema.evaluations)
             if scenario_id is not None:
                 query = query.where(self.schema.evaluations.scenario_id == scenario_id)
+            if tenant is not None:
+                query = query.join(
+                    self.schema.scenarios,
+                    self.schema.evaluations.scenario_id
+                    == self.schema.scenarios.scenario_id,
+                ).where(self.schema.scenarios.tenant == tenant)
             rows = session.scalars(
                 query.order_by(
                     self.schema.evaluations.started.desc(),
@@ -265,9 +303,22 @@ class SQLStore(Store):
             ).all()
             return [evaluation_from_orm(row) for row in rows]
 
-    def load_evaluation(self, evaluation_id: str) -> dict:
+    def load_evaluation(
+        self,
+        evaluation_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         with self.session_factory() as session:
-            evaluation = session.get(self.schema.evaluations, evaluation_id)
+            query = select(self.schema.evaluations).where(
+                self.schema.evaluations.evaluation_id == evaluation_id
+            )
+            if tenant is not None:
+                query = query.join(
+                    self.schema.scenarios,
+                    self.schema.evaluations.scenario_id
+                    == self.schema.scenarios.scenario_id,
+                ).where(self.schema.scenarios.tenant == tenant)
+            evaluation = session.scalars(query).first()
             if evaluation is None:
                 raise EntityDoesNotExist(f"Evaluation '{evaluation_id}' not found")
             return evaluation_from_orm(evaluation)

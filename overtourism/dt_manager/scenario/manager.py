@@ -73,9 +73,9 @@ class ScenarioManager:
             tenant=origin.tenant,
         )
 
-    def read_scenario(self, scenario_id: str) -> Scenario:
+    def read_scenario(self, scenario_id: str, tenant: str | None = None) -> Scenario:
         """Return a persisted scenario."""
-        return Scenario.from_dict(self.store.load_scenario(scenario_id))
+        return Scenario.from_dict(self.store.load_scenario(scenario_id, tenant=tenant))
 
     def list_scenarios(
         self,

@@ -105,14 +105,12 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     )
 
     assert response.status_code == 200
-    assert response.json()["evaluations"] == {
-        draft_id: {
-            "evaluation_id": evaluation["evaluation_id"],
-            "scenario_id": draft_id,
-            "type": "default",
-            "version": 2,
-            "state": "COMPLETED",
-            "started": evaluation["started"],
-            "finished": evaluation["finished"],
-        }
-    }
+    evaluation_data = response.json()["evaluations"][draft_id]
+    assert evaluation_data["evaluation_id"] == evaluation["evaluation_id"]
+    assert evaluation_data["scenario_id"] == draft_id
+    assert evaluation_data["session_id"] == "session-detail"
+    assert evaluation_data["type"] == "default"
+    assert evaluation_data["version"] == evaluation["version"]
+    assert evaluation_data["state"] == "COMPLETED"
+    assert evaluation_data["started"] == evaluation["started"]
+    assert evaluation_data["finished"] == evaluation["finished"]

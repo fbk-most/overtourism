@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -10,27 +9,20 @@ from fastapi.testclient import TestClient
 
 from overtourism.backend.api.main import create_app as create_app_v2
 from overtourism.backend.auth import jwt as auth_jwt
-from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
 from overtourism.backend.auth.dependencies import Handler
-from overtourism.dt_manager.manager.config import BootstrapConfig
+from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
 @pytest.fixture
 def handler(tmp_path) -> Handler:
-    model = SimpleNamespace(name="fake-model", indexes=[])
-    evaluator = FakeModelEvaluator(model)
     manager = Manager(
-        model=model,
-        model_evaluator=evaluator,
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        names_cfg=BootstrapConfig(tenant="tenant-alpha"),
     )
     return Handler(manager=manager)
 

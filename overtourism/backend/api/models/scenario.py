@@ -18,7 +18,7 @@ class ScenarioData(BaseModel):
     created: str | None = None
     updated: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)
-    index_values: dict[str, Any] = Field(default_factory=dict)
+    index_values: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CreateScenarioData(BaseModel):

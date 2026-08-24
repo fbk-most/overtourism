@@ -50,7 +50,9 @@ async def list_proposals(
     """List all proposals for a problem."""
     try:
         proposals = handler.manager.list_proposals(
-            problem_id=problem_id, scenario_id=scenario_id
+            problem_id=problem_id,
+            scenario_id=scenario_id,
+            tenant=tenant,
         )
         return [proposal_to_api(handler, proposal) for proposal in proposals]
     except Exception as e:
@@ -76,6 +78,7 @@ async def create_proposal(
     try:
         proposal_payload = data.model_dump(exclude_unset=True)
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
+            tenant,
             handler,
             proposal_payload.get("related_scenario_ids"),
         )
@@ -103,7 +106,7 @@ async def read_proposal(
 ) -> ProposalData:
     """Read a proposal by identifier."""
     try:
-        proposal = get_proposal_or_404(handler, proposal_id)
+        proposal = get_proposal_or_404(tenant, handler, proposal_id)
         return proposal_to_api(handler, proposal)
     except Exception as e:
         logger.error(f"Error reading proposal {proposal_id}: {e}")
@@ -127,10 +130,11 @@ async def update_proposal(
 ) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
-        current_proposal = get_proposal_or_404(handler, proposal_id)
+        current_proposal = get_proposal_or_404(tenant, handler, proposal_id)
         check_version(current_proposal.version, data.version)
         proposal_payload = data.model_dump(exclude_unset=True, exclude={"version"})
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
+            tenant,
             handler,
             proposal_payload.get("related_scenario_ids"),
         )
@@ -158,7 +162,7 @@ async def delete_proposal(
 ) -> None:
     """Delete a proposal from a problem."""
     try:
-        get_proposal_or_404(handler, proposal_id)
+        get_proposal_or_404(tenant, handler, proposal_id)
         handler.manager.delete_proposal(proposal_id)
         logger.info(f"Proposal deleted: {proposal_id}")
     except Exception as e:

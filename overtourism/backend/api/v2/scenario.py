@@ -51,9 +51,11 @@ async def list_scenarios(
     try:
         if base_only:
             names_cfg = BootstrapConfig(tenant)
-            scenario = get_scenario_or_404(handler, names_cfg.scenario_id)
+            scenario = get_scenario_or_404(tenant, handler, names_cfg.scenario_id)
             return scenario_to_api(handler, scenario)
-        scenarios = handler.manager.list_scenarios(tenant, proposal_id)
+        scenarios = handler.manager.list_scenarios(
+            tenant=tenant, proposal_id=proposal_id
+        )
         return [scenario_to_api(handler, scenario) for scenario in scenarios]
     except Exception as e:
         logger.error(f"Error listing scenarios: {e}")
@@ -75,7 +77,7 @@ async def read_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        scenario = get_scenario_or_404(handler, scenario_id)
+        scenario = get_scenario_or_404(tenant, handler, scenario_id)
         return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
@@ -99,7 +101,7 @@ async def create_scenario(
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
         scenario_payload["param_overrides"] = scenario_payload.pop("values", {})
-        scenario = handler.manager.create_scenario(**scenario_payload)
+        scenario = handler.manager.create_scenario(tenant=tenant, **scenario_payload)
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:
@@ -124,8 +126,8 @@ async def update_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        raise_immutable_base_scenario_error(handler, scenario_id)
-        current_scenario = get_scenario_or_404(handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
+        current_scenario = get_scenario_or_404(tenant, handler, scenario_id)
         check_version(current_scenario.version, data.version)
         handler.manager.update_scenario(
             scenario_id,
@@ -157,8 +159,8 @@ async def delete_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
-        raise_immutable_base_scenario_error(handler, scenario_id)
-        get_scenario_or_404(handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
+        get_scenario_or_404(tenant, handler, scenario_id)
         handler.manager.delete_scenario(scenario_id)
         logger.info(f"Scenario deleted: {scenario_id}")
         return {"message": "Scenario deleted successfully"}

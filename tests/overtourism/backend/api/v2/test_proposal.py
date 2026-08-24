@@ -159,7 +159,9 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     )
 
     assert create_response.status_code == 404
-    assert create_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
+    assert create_response.json() == {
+        "detail": "Scenario 'missing-scenario' not found."
+    }
 
     proposal = manager.create_proposal(
         problem_id,
@@ -177,4 +179,6 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     )
 
     assert update_response.status_code == 404
-    assert update_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
+    assert update_response.json() == {
+        "detail": "Scenario 'missing-scenario' not found."
+    }

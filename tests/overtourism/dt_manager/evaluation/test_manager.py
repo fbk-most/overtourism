@@ -11,15 +11,13 @@ from overtourism.dt_manager.evaluation.evaluation import (
     EvaluationState,
 )
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
-from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
-from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationAlreadyExists,
 )
-from overtourism.overtourism import registry as execution_registry_module
-from overtourism.overtourism.registry import ModelExecutionService
+from tests.overtourism import test_support as execution_helper_module
+from tests.overtourism.test_support import FakeExecutionService
 
 CREATED_TIMESTAMP = "2026-05-15T08:00:00Z"
 FINISHED_TIMESTAMP = "2026-05-15T09:00:00Z"
@@ -27,21 +25,15 @@ SESSION_TIMESTAMP = "2026-05-15T10:00:00Z"
 
 
 def _make_scenario(tenant: str, scenario_id: str, visits: int) -> Scenario:
-    return Scenario(
-        scenario_id=scenario_id,
-        tenant=tenant,
+    return Scenario.create_default(
+        scenario_id,
+        tenant,
         name=f"{scenario_id} name",
         description=f"{scenario_id} description",
         created="2026-05-15T07:00:00Z",
         updated="2026-05-15T07:00:00Z",
         extras={"kind": "scenario"},
-        index_values=[
-            IndexEntry(
-                index_name="visits",
-                index_value=visits,
-                index_type=IndexType.CONSTANT.value,
-            )
-        ],
+        param_overrides={"visits": visits},
     )
 
 
@@ -49,13 +41,9 @@ def _make_manager(
     sql_store,
     fake_model,
     fake_model_evaluator,
-) -> tuple[EvaluationManager, ModelExecutionService]:
+) -> tuple[EvaluationManager, FakeExecutionService]:
     manager = EvaluationManager(sql_store)
-    execution_manager = ModelExecutionService(
-        tenant=BootstrapConfig().tenant,
-        model=fake_model,
-        model_evaluator=fake_model_evaluator,
-    )
+    execution_manager = FakeExecutionService(fake_model, fake_model_evaluator)
     return manager, execution_manager
 
 
@@ -83,7 +71,7 @@ def test_create_run_load_and_delete_evaluation(
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_helper_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
     scenario = _make_scenario(tenant, "scenario-alpha", 7)
@@ -181,7 +169,7 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        execution_registry_module, "get_timestamp", lambda: SESSION_TIMESTAMP
+        execution_helper_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
 
     scenario = _make_scenario(tenant, "scenario-alpha", 11)
@@ -223,7 +211,7 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     )
 
     monkeypatch.setattr(
-        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_helper_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
     restarted = Evaluation.create_default(
         completed.evaluation_id,
@@ -282,7 +270,7 @@ def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
 
     monkeypatch.setattr(evaluation_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     monkeypatch.setattr(
-        execution_registry_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
+        execution_helper_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
     primary_scenario = _make_scenario(tenant, "scenario-alpha", 5)
@@ -369,7 +357,7 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
     )
 
     monkeypatch.setattr(
-        execution_registry_module,
+        execution_helper_module,
         "get_timestamp",
         lambda: FINISHED_TIMESTAMP,
     )

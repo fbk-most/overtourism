@@ -70,8 +70,41 @@ def test_create_and_read_stored_evaluation(
     assert read_response.status_code == 200
     assert read_response.json()["evaluation_id"] == evaluation_id
     assert read_response.json()["scenario_id"] == base_scenario_id
-    assert read_response.json()["version"] == 2
+    assert read_response.json()["version"] == 1
     assert "result" not in read_response.json()
+
+
+def test_list_evaluations_filters_by_tenant(
+    client,
+    manager: Manager,
+    tenant: str,
+) -> None:
+    foreign_problem = manager.create_problem(
+        name="Foreign problem",
+        description="Not visible here",
+        extras={},
+        tenant="tenant-beta",
+    )
+    foreign_scenario = manager.create_scenario(
+        tenant="tenant-beta",
+        param_overrides={"visits": 4},
+        name="Foreign scenario",
+    )
+    foreign_evaluation = manager.evaluation_manager.create_evaluation(
+        "foreign-evaluation",
+        foreign_scenario.scenario_id,
+    )
+
+    response = client.get(
+        f"/api/v2/{tenant}/evaluations",
+        params={"problem_id": foreign_problem.problem_id},
+    )
+
+    assert response.status_code == 200
+    assert all(
+        item["evaluation_id"] != foreign_evaluation.evaluation_id
+        for item in response.json()
+    )
 
 
 def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
@@ -99,12 +132,12 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
     update_response = client.put(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
-        json={"version": 2, "ensemble_size": 5},
+        json={"version": 1, "ensemble_size": 5},
     )
 
     assert update_response.status_code == 200
     assert update_response.json()["evaluation_id"] == evaluation_id
-    assert update_response.json()["version"] == 3
+    assert update_response.json()["version"] == 2
 
     delete_missing_version = error_client.delete(
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
@@ -117,7 +150,7 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
         "DELETE",
         f"/api/v2/{tenant}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
-        json={"version": 3},
+        json={"version": 1},
     )
 
     assert delete_response.status_code == 200
@@ -152,7 +185,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     assert create_response.status_code == 200
-    assert create_response.json()["version"] == 2
+    assert create_response.json()["version"] == 3
     assert create_response.json()["scenario_id"] == draft_id
     assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
@@ -163,7 +196,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     assert read_response.status_code == 200
-    assert read_response.json()["version"] == 2
+    assert read_response.json()["version"] == 3
     assert read_response.json()["evaluation_id"] == evaluation_id
     assert "result" not in read_response.json()
 
@@ -214,7 +247,7 @@ def test_evaluation_data_returns_arranged_data(
     problem_id: str,
 ) -> None:
     base_scenario_id = f"{tenant}_base_scenario"
-    manager.update_scenario(base_scenario_id, values={"visits": 9})
+    manager.update_scenario(base_scenario_id, param_overrides={"visits": 9})
     evaluation = handler.manager.evaluation_manager.create_evaluation(
         "evaluation-alpha",
         base_scenario_id,
@@ -238,7 +271,7 @@ def test_evaluation_data_returns_arranged_data(
     assert response.json() == {
         "evaluation_id": evaluation.evaluation_id,
         "scenario_id": base_scenario_id,
-        "data": {"ensemble_size": 3},
+        "data": {"ensemble_size": 3, "values": {"visits": 9}},
     }
 
 
@@ -275,5 +308,5 @@ def test_session_evaluation_data_returns_arranged_data(
     assert response.json() == {
         "evaluation_id": evaluation_id,
         "scenario_id": draft_id,
-        "data": {"ensemble_size": 6},
+        "data": {"ensemble_size": 6, "values": {"visits": 12}},
     }

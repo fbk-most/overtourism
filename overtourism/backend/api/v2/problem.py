@@ -43,11 +43,7 @@ async def list_problems(
 ) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
-        return [
-            problem.to_dict()
-            for problem in handler.manager.list_problems()
-            if problem.tenant == tenant
-        ]
+        return [problem.to_dict() for problem in handler.manager.list_problems(tenant)]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise
@@ -98,7 +94,7 @@ async def read_problem(
 ) -> ProblemData:
     """Read a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(tenant, handler, problem_id)
         return problem.to_dict()
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
@@ -122,7 +118,7 @@ async def update_problem(
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(tenant, handler, problem_id)
         check_version(problem.version, data.version)
         updated_problem = handler.manager.update_problem(
             problem_id,
@@ -152,7 +148,7 @@ async def delete_problem(
 ) -> None:
     """Delete a problem from the store."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(tenant, handler, problem_id)
         handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:

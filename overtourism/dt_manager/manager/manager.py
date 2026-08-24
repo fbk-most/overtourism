@@ -63,13 +63,13 @@ class Manager:
             extras=extras,
         )
 
-    def read_problem(self, problem_id: str) -> Problem:
+    def read_problem(self, problem_id: str, *, tenant: str | None = None) -> Problem:
         """Return a stored problem."""
-        return self.problem_manager.read_problem(problem_id)
+        return self.problem_manager.read_problem(problem_id, tenant=tenant)
 
-    def list_problems(self) -> list[Problem]:
+    def list_problems(self, tenant: str | None = None) -> list[Problem]:
         """Return all stored problems."""
-        return self.problem_manager.list_problems()
+        return self.problem_manager.list_problems(tenant=tenant)
 
     def update_problem(self, problem_id: str, **kwargs) -> Problem:
         """Update a stored problem."""
@@ -116,17 +116,27 @@ class Manager:
             )
         return proposal
 
-    def read_proposal(self, proposal_id: str) -> Proposal:
+    def read_proposal(
+        self,
+        proposal_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Proposal:
         """Return a stored proposal."""
-        return self.proposal_manager.read_proposal(proposal_id)
+        return self.proposal_manager.read_proposal(proposal_id, tenant=tenant)
 
     def list_proposals(
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[Proposal]:
         """Return stored proposals filtered by problem or scenario."""
-        return self.proposal_manager.list_proposals(problem_id, scenario_id)
+        return self.proposal_manager.list_proposals(
+            problem_id,
+            scenario_id,
+            tenant=tenant,
+        )
 
     def update_proposal(
         self,
@@ -191,9 +201,14 @@ class Manager:
             )
         return scenario
 
-    def read_scenario(self, scenario_id: str) -> Scenario:
+    def read_scenario(
+        self,
+        scenario_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Scenario:
         """Return a stored scenario."""
-        return self.scenario_manager.read_scenario(scenario_id)
+        return self.scenario_manager.read_scenario(scenario_id, tenant=tenant)
 
     def list_scenarios(
         self,
@@ -240,13 +255,26 @@ class Manager:
     # Evaluations
     # ───────────────────────────────────────────────────────────
 
-    def read_evaluation(self, evaluation_id: str) -> Evaluation:
+    def read_evaluation(
+        self,
+        evaluation_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return a stored evaluation."""
-        return self.evaluation_manager.read_evaluation(evaluation_id)
+        return self.evaluation_manager.read_evaluation(
+            evaluation_id,
+            tenant=tenant,
+        )
 
-    def read_evaluation_data(self, evaluation_id: str) -> dict:
+    def read_evaluation_data(
+        self,
+        evaluation_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> dict:
         """Return the stored result payload for an evaluation."""
-        return self.read_evaluation(evaluation_id).result
+        return self.read_evaluation(evaluation_id, tenant=tenant).result
 
     def create_evaluation(
         self,
@@ -283,13 +311,28 @@ class Manager:
         """Persist an evaluation."""
         self.evaluation_manager.save_evaluation(evaluation)
 
-    def list_evaluations(self, scenario_id: str | None = None) -> list[Evaluation]:
+    def list_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[Evaluation]:
         """Return stored evaluations, optionally filtered by scenario."""
-        return self.evaluation_manager.list_evaluations(scenario_id)
+        return self.evaluation_manager.list_evaluations(
+            scenario_id,
+            tenant=tenant,
+        )
 
-    def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
+    def read_latest_evaluation(
+        self,
+        scenario_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return the most recent evaluation for a scenario."""
-        return self.evaluation_manager.read_latest_evaluation(scenario_id)
+        return self.evaluation_manager.read_latest_evaluation(
+            scenario_id,
+            tenant=tenant,
+        )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
         """Delete a stored evaluation."""

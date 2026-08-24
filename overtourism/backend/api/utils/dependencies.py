@@ -15,11 +15,11 @@ def init_handler(handler: Handler) -> None:
     _handler = handler
 
 
-def get_handler(tenant: str) -> Handler:
+def get_handler() -> Handler:
     """Return the current handler instance."""
     try:
         if _handler is None:
-            raise KeyError(tenant)
+            raise KeyError("handler not initialized")
         return _handler
     except KeyError as exc:
         raise HTTPException(

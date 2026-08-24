@@ -2,52 +2,45 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
-from overtourism.overtourism.setup.bootstrap import bootstrap_entities
-from overtourism.dt_manager.evaluation.evaluation import EvaluationState
-from overtourism.dt_manager.manager.config import BootstrapConfig
+from overtourism.dt_manager.evaluation.evaluation import Evaluation, EvaluationState
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.session import manager as session_manager_module
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-from overtourism.overtourism.registry import (
-    ExecutionManagerRegistry,
-    ModelExecutionService,
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+from tests.overtourism.test_support import (
+    DEFAULT_TENANT,
+    FakeExecutionService,
+    FakeModelEvaluator,
 )
-from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
 
 
 def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    names_cfg: BootstrapConfig | None = None,
-) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace, ModelExecutionService]:
+) -> tuple[Manager, FakeModelEvaluator, object, FakeExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
-    model = SimpleNamespace(name="fake-model")
+    model = object()
     manager = Manager(
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        names_cfg=names_cfg,
     )
-    execution_registry = ExecutionManagerRegistry()
-    execution_manager = ModelExecutionService(
-        tenant=manager.name_cfg.tenant,
-        model=model,
-        model_evaluator=evaluator,
-    )
-    execution_registry.register(execution_manager)
-    bootstrap_entities(manager, execution_registry)
-    return manager, evaluator, model, execution_manager
+    manager.name_cfg = type("NameCfg", (), {"tenant": DEFAULT_TENANT})()
+    execution_service = FakeExecutionService(model, evaluator)
+    return manager, evaluator, model, execution_service
 
 
 def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
-    manager, evaluator, model, execution_manager = _make_manager(tmp_path)
-    tenant = manager.name_cfg.tenant
+    session_manager_module.Scenario = Scenario
+    session_manager_module.Evaluation = Evaluation
+    manager, evaluator, model, execution_service = _make_manager(tmp_path)
+    tenant = DEFAULT_TENANT
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
@@ -72,7 +65,7 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = execution_manager.execute_evaluation(
+    completed = execution_service.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=5,
@@ -84,21 +77,30 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
     )
 
     assert session.metadata == {"source": "test"}
-    assert session.active_scenario_id == session_scenario.scenario_id
-    assert manager.session_manager.read_session(session.session_id) is session
+    assert (
+        manager.session_manager.read_session(session.session_id).active_scenario_id
+        == session_scenario.scenario_id
+    )
+    reloaded_session = manager.session_manager.read_session(session.session_id)
+    assert reloaded_session.metadata == session.metadata
+    expected_draft = {
+        key: value
+        for key, value in session_scenario.to_dict().items()
+        if not key.startswith("_")
+    }
     assert (
         manager.session_manager.read_session_scenario(
             session.session_id,
             session_scenario.scenario_id,
-        )
-        is session_scenario
+        ).to_dict()
+        == expected_draft
     )
     assert (
         manager.session_manager.read_session_evaluation(
             session.session_id,
             session_scenario.scenario_id,
-        )
-        is session_evaluation
+        ).to_dict()
+        == session_evaluation.to_dict()
     )
     assert session_evaluation.state is EvaluationState.COMPLETED
     assert evaluator.evaluate_calls[-1] == {
@@ -109,8 +111,10 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
 
 
 def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> None:
-    manager, _evaluator, _model, execution_manager = _make_manager(tmp_path)
-    tenant = manager.name_cfg.tenant
+    session_manager_module.Scenario = Scenario
+    session_manager_module.Evaluation = Evaluation
+    manager, _evaluator, _model, execution_service = _make_manager(tmp_path)
+    tenant = DEFAULT_TENANT
 
     manager.problem_manager.create_problem(
         "problem-alpha",
@@ -134,7 +138,7 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = execution_manager.execute_evaluation(
+    completed = execution_service.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=4,
@@ -157,12 +161,12 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
         is None
     )
 
-    with pytest.raises(KeyError):
+    with pytest.raises(EntityDoesNotExist):
         manager.session_manager.read_session_scenario(
             session.session_id,
             session_scenario.scenario_id,
         )
-    with pytest.raises(KeyError):
+    with pytest.raises(EntityDoesNotExist):
         manager.session_manager.read_session_evaluation(
             session.session_id,
             session_scenario.scenario_id,
@@ -170,5 +174,5 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
 
     manager.session_manager.delete_session(session.session_id)
     assert manager.session_manager.list_sessions() == []
-    with pytest.raises(KeyError):
+    with pytest.raises(EntityDoesNotExist):
         manager.session_manager.read_session(session.session_id)

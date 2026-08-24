@@ -54,6 +54,23 @@ def test_read_problem_returns_current_version(client, tenant: str) -> None:
     assert response.json()["tenant"] == tenant
 
 
+def test_read_problem_rejects_cross_tenant_access(
+    client,
+    manager: Manager,
+    tenant: str,
+) -> None:
+    foreign_problem = manager.create_problem(
+        name="Foreign problem",
+        description="Not visible here",
+        extras={},
+        tenant="tenant-beta",
+    )
+
+    response = client.get(f"/api/v2/{tenant}/problems/{foreign_problem.problem_id}")
+
+    assert response.status_code == 404
+
+
 def test_update_problem_requires_matching_version_in_entity(
     client, tenant: str
 ) -> None:

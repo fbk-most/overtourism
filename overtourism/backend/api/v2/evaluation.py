@@ -50,13 +50,22 @@ async def create_evaluation(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        scenario = get_scenario_or_404(handler, data.scenario_id)
+        scenario = get_scenario_or_404(tenant, handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
-        try:
-            result = call_executor(scenario.param_overrides)
-            evaluation.result = result
-        finally:
-            handler.manager.save_evaluation(evaluation)
+        execution_registry = getattr(handler, "execution_manager_registry", None)
+        if execution_registry is not None:
+            evaluation = execution_registry.get(tenant).execute_evaluation(
+                evaluation,
+                scenario,
+                ensemble_size=data.ensemble_size,
+            )
+        else:
+            try:
+                result = call_executor(tenant, scenario.param_overrides)
+                evaluation.result = result
+                evaluation.version += 1
+            finally:
+                handler.manager.save_evaluation(evaluation)
         logger.info(f"Evaluation created for scenario {data.scenario_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
@@ -80,7 +89,10 @@ async def list_evaluations(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[EvaluationData]:
     try:
-        evaluations = handler.manager.list_evaluations(scenario_id)
+        evaluations = handler.manager.list_evaluations(
+            scenario_id,
+            tenant=tenant,
+        )
         return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
     except Exception as e:
         logger.error(f"Error listing evaluations: {e}")
@@ -103,7 +115,7 @@ async def read_evaluation(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        evaluation = get_evaluation_or_404(handler, evaluation_id)
+        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(f"Error reading evaluation {evaluation_id}: {e}")
@@ -127,20 +139,29 @@ async def update_evaluation(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        current = get_evaluation_or_404(handler, evaluation_id)
+        current = get_evaluation_or_404(tenant, handler, evaluation_id)
         check_version(current.version, data.version)
-        scenario = handler.manager.read_scenario(current.scenario_id)
+        scenario = handler.manager.read_scenario(current.scenario_id, tenant=tenant)
         evaluation = Evaluation.create_default(
             current.evaluation_id,
             scenario_id=current.scenario_id,
             type=current.type,
             version=current.version,
         )
-        try:
-            # Call backend executor
-            evaluation.result = call_executor(scenario.param_overrides)
-        finally:
-            handler.manager.save_evaluation(evaluation)
+        execution_registry = getattr(handler, "execution_manager_registry", None)
+        if execution_registry is not None:
+            evaluation = execution_registry.get(tenant).execute_evaluation(
+                evaluation,
+                scenario,
+                ensemble_size=data.ensemble_size,
+            )
+        else:
+            try:
+                # Call backend executor
+                evaluation.result = call_executor(tenant, scenario.param_overrides)
+                evaluation.version += 1
+            finally:
+                handler.manager.save_evaluation(evaluation)
         logger.info(f"Evaluation updated: {evaluation_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
@@ -164,7 +185,7 @@ async def delete_evaluation(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict[str, str]:
     try:
-        evaluation = get_evaluation_or_404(handler, evaluation_id)
+        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
         check_version(evaluation.version, None if data is None else data.version)
         handler.manager.delete_evaluation(evaluation_id)
         logger.info(f"Evaluation deleted: {evaluation_id}")
@@ -193,8 +214,11 @@ async def get_data(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationOutputData:
     try:
-        evaluation = get_evaluation_or_404(handler, evaluation_id)
-        result = handler.manager.read_evaluation_data(evaluation_id)
+        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
+        result = handler.manager.read_evaluation_data(
+            evaluation_id,
+            tenant=tenant,
+        )
         # Re add the query params to the result if they were provided
         return EvaluationOutputData(
             scenario_id=evaluation.scenario_id,

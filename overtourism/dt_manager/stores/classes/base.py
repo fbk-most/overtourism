@@ -41,7 +41,7 @@ class Store(ABC):
         """Persist a problem document."""
 
     @abstractmethod
-    def load_problem(self, problem_id: str) -> dict:
+    def load_problem(self, problem_id: str, tenant: str | None = None) -> dict:
         """Load a problem document."""
 
     @abstractmethod
@@ -61,7 +61,11 @@ class Store(ABC):
         """Persist a proposal document."""
 
     @abstractmethod
-    def load_proposal(self, proposal_id: str) -> dict:
+    def load_proposal(
+        self,
+        proposal_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         """Load a single proposal."""
 
     @abstractmethod
@@ -69,6 +73,7 @@ class Store(ABC):
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[dict]:
         """Load all proposals for a problem."""
 
@@ -85,7 +90,7 @@ class Store(ABC):
         """Persist a scenario document."""
 
     @abstractmethod
-    def load_scenario(self, scenario_id: str) -> dict:
+    def load_scenario(self, scenario_id: str, tenant: str | None = None) -> dict:
         """Load a single scenario."""
 
     @abstractmethod
@@ -122,11 +127,19 @@ class Store(ABC):
         """Persist an evaluation document."""
 
     @abstractmethod
-    def load_evaluation(self, evaluation_id: str) -> dict:
+    def load_evaluation(
+        self,
+        evaluation_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         """Load a single evaluation."""
 
     @abstractmethod
-    def load_evaluations(self, scenario_id: str | None = None) -> list[dict]:
+    def load_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[dict]:
         """Load all evaluations for a scenario."""
 
     @abstractmethod

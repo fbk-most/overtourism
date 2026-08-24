@@ -142,7 +142,7 @@ def test_update_stored_scenario_requires_the_current_version(
 
     assert missing_version.status_code == 400
     assert missing_version.json() == {
-        "detail": "Base scenario cannot be modified or deleted"
+        "detail": "Base scenario cannot be modified or deleted."
     }
 
 
@@ -218,7 +218,9 @@ def test_session_scenario_can_be_created_updated_and_saved(
         manager.relationship_manager.get_related_scenario_ids(proposal_id)[-1]
         == draft_id
     )
-    assert session_id not in manager.session_manager.sessions
+    assert session_id in {
+        session.session_id for session in manager.session_manager.list_sessions()
+    }
 
 
 def test_session_scenario_routes_expose_index_diffs_in_extras(

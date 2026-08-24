@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import typing
 from uuid import uuid4
 
+from overtourism.dt_manager.evaluation.evaluation import Evaluation
+from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.session.session import SessionState
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.utils import get_timestamp
-
-if typing.TYPE_CHECKING:
-    from overtourism.dt_manager.evaluation.evaluation import Evaluation
-    from overtourism.dt_manager.scenario.scenario import Scenario
 
 
 class SessionManager:
@@ -139,6 +136,7 @@ class SessionManager:
             )
         evaluation.session_id = session_id
         evaluation.started = evaluation.started or get_timestamp()
+        evaluation.version += 1
         self.store.save_evaluation(evaluation.to_dict())
         session = self.read_session(session_id)
         session.active_scenario_id = scenario_id

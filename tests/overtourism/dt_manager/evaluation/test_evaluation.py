@@ -24,6 +24,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
     assert evaluation.to_dict() == {
         "evaluation_id": "evaluation-alpha",
         "scenario_id": "scenario-alpha",
+        "session_id": None,
         "type": DEFAULT_EVALUATION_TYPE,
         "version": 1,
         "state": EvaluationState.RUNNING.value,
@@ -48,7 +49,7 @@ def test_from_dict_converts_state_and_round_trips() -> None:
     evaluation = Evaluation.from_dict(payload)
 
     assert evaluation.state is EvaluationState.COMPLETED
-    assert evaluation.to_dict() == payload
+    assert evaluation.to_dict() == dict(payload, session_id=None)
 
 
 def test_from_dict_defaults_state_to_running() -> None:

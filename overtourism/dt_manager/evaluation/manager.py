@@ -51,20 +51,37 @@ class EvaluationManager:
         self.store.save_evaluation(evaluation.to_dict())
         return evaluation
 
-    def read_evaluation(self, evaluation_id: str) -> Evaluation:
+    def read_evaluation(
+        self,
+        evaluation_id: str,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return a persisted evaluation."""
-        return Evaluation.from_dict(self.store.load_evaluation(evaluation_id))
+        return Evaluation.from_dict(
+            self.store.load_evaluation(evaluation_id, tenant=tenant)
+        )
 
-    def list_evaluations(self, scenario_id: str | None = None) -> list[Evaluation]:
+    def list_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[Evaluation]:
         """Return persisted evaluations, optionally filtered by scenario."""
         return [
             Evaluation.from_dict(evaluation)
-            for evaluation in self.store.load_evaluations(scenario_id)
+            for evaluation in self.store.load_evaluations(
+                scenario_id,
+                tenant=tenant,
+            )
         ]
 
-    def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
+    def read_latest_evaluation(
+        self,
+        scenario_id: str,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return the most recently registered persisted evaluation."""
-        evaluations = self.list_evaluations(scenario_id)
+        evaluations = self.list_evaluations(scenario_id, tenant=tenant)
         if evaluations:
             return max(
                 evaluations,

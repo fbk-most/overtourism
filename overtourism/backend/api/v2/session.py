@@ -221,7 +221,7 @@ async def create_session_scenario(
 ) -> ScenarioData:
     try:
         _require_owned_session(handler, tenant, session_id, context)
-        get_scenario_or_404(handler, data.base_scenario_id)
+        get_scenario_or_404(tenant, handler, data.base_scenario_id)
         scenario = handler.manager.create_session_scenario(
             session_id,
             data.base_scenario_id,
@@ -322,8 +322,16 @@ async def create_session_evaluation(
             uuid4().hex,
             scenario_id=scenario.scenario_id,
         )
-        result = call_executor(tenant, scenario.param_overrides)
-        evaluation.result = result
+        execution_registry = getattr(handler, "execution_manager_registry", None)
+        if execution_registry is not None:
+            evaluation = execution_registry.get(tenant).execute_evaluation(
+                evaluation,
+                scenario,
+                ensemble_size=data.ensemble_size,
+            )
+        else:
+            result = call_executor(tenant, scenario.param_overrides)
+            evaluation.result = result
         handler.manager.create_session_evaluation(
             session_id,
             scenario.scenario_id,
