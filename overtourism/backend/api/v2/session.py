@@ -225,7 +225,7 @@ async def create_session_scenario(
         scenario = handler.manager.create_session_scenario(
             session_id,
             data.base_scenario_id,
-            param_overrides=data.values,
+            param_overrides=data.param_overrides,
         )
         logger.info(f"Session draft created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
@@ -251,7 +251,7 @@ async def read_session_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        session = _require_owned_session(handler, tenant, session_id, context)
+        _require_owned_session(handler, tenant, session_id, context)
         scenario = get_session_scenario_or_404(handler, session_id, scenario_id)
         return scenario_to_api(handler, scenario)
     except Exception as e:

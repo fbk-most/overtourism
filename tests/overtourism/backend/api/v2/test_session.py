@@ -84,7 +84,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": scenario_id,
-            "values": {"visits": 5},
+            "param_overrides": {"visits": 5},
             "name": "Session draft",
         },
     )

@@ -170,14 +170,14 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
         if not key.startswith("_")
     }
     assert (
-        manager.session_manager.read_session_scenario(
+        manager.read_session_scenario(
             session.session_id,
             session_scenario.scenario_id,
         ).to_dict()
         == expected_scenario
     )
     assert (
-        manager.session_manager.read_session_evaluation(
+        manager.read_session_evaluation(
             session.session_id,
             session_scenario.scenario_id,
         ).to_dict()

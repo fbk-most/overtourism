@@ -18,11 +18,11 @@ class ScenarioData(BaseModel):
     created: str | None = None
     updated: str | None = None
     extras: dict[str, Any] = Field(default_factory=dict)
-    index_values: list[dict[str, Any]] = Field(default_factory=list)
+    param_overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class CreateScenarioData(BaseModel):
-    values: dict[str, Any] | None = None
+    param_overrides: dict[str, Any] | None = None
     name: str | None = None
     description: str | None = None
     extras: dict[str, Any] | None = None
@@ -33,7 +33,7 @@ class PostScenarioData(BaseModel):
     base_scenario_id: str
     name: str | None = None
     description: str | None = None
-    values: dict[str, Any] | None = None
+    param_overrides: dict[str, Any] | None = None
     extras: dict[str, Any] | None = None
 
 
@@ -53,5 +53,5 @@ class UpdateScenarioData(BaseModel):
     version: int | None = None
     name: str | None = None
     description: str | None = None
-    values: dict[str, Any] | None = None
+    param_overrides: dict[str, Any] | None = None
     extras: dict[str, Any] | None = None

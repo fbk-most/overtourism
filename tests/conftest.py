@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
 import os
+import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -45,6 +47,21 @@ from tests.overtourism.test_support import (
 os.environ.setdefault(
     "OVERTOURISM_MOLVENO_DATABASE_URL",
     f"sqlite:///{Path(tempfile.gettempdir()) / f'overtourism-molveno-tests-{os.getpid()}.sqlite'}",
+)
+
+sys.modules.setdefault(
+    "data_preparation.utils",
+    importlib.import_module("data_preparation.v1.utils"),
+)
+diffusion_package = importlib.import_module("data_preparation.v1.diffusion")
+sys.modules.setdefault("data_preparation.diffusion", diffusion_package)
+sys.modules.setdefault(
+    "data_preparation.diffusion.OsAndFileHandling",
+    importlib.import_module("data_preparation.v1.diffusion.OsAndFileHandling"),
+)
+sys.modules.setdefault(
+    "data_preparation.diffusion.constant_names_variables",
+    importlib.import_module("data_preparation.v1.diffusion.constant_names_variables"),
 )
 
 TIMESTAMP = "2025-01-01T00:00:00Z"

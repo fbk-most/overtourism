@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from overtourism.dt_manager.indexes.index import IndexEntry
 from overtourism.dt_manager.utils.dictable import Dictable
 
 
@@ -28,11 +27,6 @@ def test_to_dict_recursively_converts_nested_values() -> None:
     item.numpy_array = np.array([1, 2], dtype=np.int64)
     item.mapping = {SampleEnum.ALPHA: np.int64(3)}
     item.sequence = (SampleEnum.ALPHA, np.int64(4))
-    item.nested = IndexEntry(
-        index_name="visits",
-        index_value=np.int64(5),
-        index_type="constant",
-    )
     item.namespace = SimpleNamespace(answer=np.int64(42))
 
     assert item.to_dict() == {
@@ -43,11 +37,6 @@ def test_to_dict_recursively_converts_nested_values() -> None:
         "numpy_array": [1, 2],
         "mapping": {"alpha": 3},
         "sequence": ["alpha", 4],
-        "nested": {
-            "index_name": "visits",
-            "index_value": 5,
-            "index_type": "constant",
-        },
         "namespace": {"answer": 42},
     }
 

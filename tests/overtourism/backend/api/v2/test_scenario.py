@@ -85,7 +85,7 @@ def test_create_stored_scenario_persists_values_and_metadata(
         json={
             "name": "Created through API",
             "description": "Stored scenario payload",
-            "values": {"visits": 12},
+            "param_overrides": {"visits": 12},
             "extras": {"channel": "api"},
         },
     )
@@ -96,9 +96,7 @@ def test_create_stored_scenario_persists_values_and_metadata(
     assert payload["name"] == "Created through API"
     assert payload["description"] == "Stored scenario payload"
     assert payload["extras"]["channel"] == "api"
-    assert payload["index_values"] == [
-        {"index_name": "visits", "index_value": 12, "index_type": "constant"}
-    ]
+    assert payload["param_overrides"] == {"visits": 12}
 
 
 def test_list_stored_scenarios_can_filter_by_related_proposal(
@@ -137,7 +135,7 @@ def test_update_stored_scenario_requires_the_current_version(
     missing_version = client.put(
         f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
         params={"problem_id": problem_id},
-        json={"name": "Updated default", "values": {"visits": 11}},
+        json={"name": "Updated default", "param_overrides": {"visits": 11}},
     )
 
     assert missing_version.status_code == 400
@@ -168,7 +166,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
             "base_scenario_id": base_scenario_id,
             "name": "Draft scenario",
             "description": "Scenario under discussion",
-            "values": {"visits": 7},
+            "param_overrides": {"visits": 7},
             "extras": {"stage": "draft"},
         },
     )
@@ -192,7 +190,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
         json={
             "version": 1,
             "name": "Draft scenario updated",
-            "values": {"visits": 9},
+            "param_overrides": {"visits": 9},
             "extras": {"stage": "review"},
         },
     )
@@ -249,7 +247,7 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
         json={
             "base_scenario_id": base_scenario_id,
             "name": "Draft scenario",
-            "values": {"visits": 7},
+            "param_overrides": {"visits": 7},
             "extras": {"stage": "draft"},
         },
     )
@@ -288,7 +286,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": base_scenario_id,
-            "values": {"visits": 3},
+            "param_overrides": {"visits": 3},
             "name": "Disposable draft",
         },
     )
@@ -304,8 +302,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
 
     assert delete_response.status_code == 405
     assert [
-        scenario.scenario_id
-        for scenario in manager.session_manager.list_session_scenarios(session_id)
+        scenario.scenario_id for scenario in manager.list_session_scenarios(session_id)
     ] == [draft_id]
 
 

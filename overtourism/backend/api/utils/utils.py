@@ -7,7 +7,6 @@ import typing
 from fastapi import HTTPException, status
 
 from overtourism.backend.auth.dependencies import Handler
-from overtourism.dt_manager.indexes.index import IndexType
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
@@ -20,7 +19,7 @@ from overtourism.dt_manager.utils.exception import (
 
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
-    from overtourism.dt_manager.session.session import SessionState
+    from overtourism.dt_manager.session.session import Session
 
 
 # ──────────────────────────────────────────────
@@ -76,17 +75,6 @@ def raise_immutable_base_scenario_error(
         )
 
 
-def _scenario_to_index_values(scenario: Scenario) -> list[dict[str, typing.Any]]:
-    return [
-        {
-            "index_name": index_name,
-            "index_value": index_value,
-            "index_type": IndexType.CONSTANT.value,
-        }
-        for index_name, index_value in scenario.param_overrides.items()
-    ]
-
-
 def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
     """Return the current scenario index diffs for API payloads.
 
@@ -98,7 +86,7 @@ def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, typi
 def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
     """Convert a scenario entity to the API response shape."""
     payload = scenario.to_dict()
-    payload["index_values"] = _scenario_to_index_values(scenario)
+    payload["param_overrides"] = dict(scenario.param_overrides)
     payload["extras"] = {
         **payload.get("extras", {}),
         "index_diffs": scenario_index_diffs(handler, scenario),
@@ -181,7 +169,7 @@ def get_evaluation_or_404(
 def get_session_or_404(
     handler: Handler,
     session_id: str,
-) -> SessionState:
+) -> Session:
     """Return an in-memory session or raise a not-found error."""
     try:
         return handler.manager.read_session(session_id)

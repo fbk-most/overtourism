@@ -100,7 +100,6 @@ async def create_scenario(
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
-        scenario_payload["param_overrides"] = scenario_payload.pop("values", {})
         scenario = handler.manager.create_scenario(tenant=tenant, **scenario_payload)
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
@@ -131,7 +130,7 @@ async def update_scenario(
         check_version(current_scenario.version, data.version)
         handler.manager.update_scenario(
             scenario_id,
-            param_overrides=data.values,
+            param_overrides=data.param_overrides,
             name=data.name,
             description=data.description,
             extras=data.extras,

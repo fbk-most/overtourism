@@ -17,8 +17,10 @@ from overtourism.dt_manager.relationship.manager import RelationshipManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.session.manager import SessionManager
+from overtourism.dt_manager.session.session import Session
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -363,7 +365,7 @@ class Manager:
         tenant: str | None = None,
         owner_id: str | None = None,
         metadata: dict | None = None,
-    ) -> SessionState:
+    ) -> Session:
         """Create a persisted session."""
         return self.session_manager.create_session(
             tenant=self.name_cfg.tenant if tenant is None else tenant,
@@ -377,18 +379,23 @@ class Manager:
         scenario_id: str,
         evaluation: Evaluation,
     ) -> Evaluation:
-        """Attach an evaluation to an in-memory session."""
-        return self.session_manager.create_session_evaluation(
-            session_id,
-            scenario_id,
-            evaluation,
-        )
+        """Attach an evaluation to a persisted session."""
+        scenario = self.read_session_scenario(session_id, scenario_id)
+        evaluation.session_id = session_id
+        evaluation.started = evaluation.started or get_timestamp()
+        evaluation.version += 1
+        self.store.save_evaluation(evaluation.to_dict())
+        session = self.session_manager.read_session(session_id)
+        session.active_scenario_id = scenario.scenario_id
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
+        return evaluation
 
-    def read_session(self, session_id: str) -> SessionState:
+    def read_session(self, session_id: str) -> Session:
         """Return a persisted session."""
         return self.session_manager.read_session(session_id)
 
-    def list_sessions(self) -> list[SessionState]:
+    def list_sessions(self) -> list[Session]:
         """Return all persisted sessions."""
         return self.session_manager.list_sessions()
 
@@ -408,7 +415,14 @@ class Manager:
     ) -> Scenario:
         """Create and persist a scenario for a session."""
         scenario = self.scenario_manager.detach_scenario(scenario_id, param_overrides)
-        return self.session_manager.create_session_scenario(session_id, scenario)
+        session = self.session_manager.read_session(session_id)
+        scenario.session_id = session_id
+        scenario.updated = get_timestamp()
+        self.store.save_scenario(scenario.to_dict())
+        session.active_scenario_id = scenario.scenario_id
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
+        return scenario
 
     def save_session_scenario(
         self,
@@ -421,10 +435,7 @@ class Manager:
         proposal_id: str | None = None,
     ) -> Scenario:
         """Persist a transient scenario back into the store."""
-        session_scenario = self.session_manager.read_session_scenario(
-            session_id,
-            scenario_id,
-        )
+        session_scenario = self.read_session_scenario(session_id, scenario_id)
         if name is not None:
             session_scenario.name = name
         if description is not None:
@@ -440,7 +451,7 @@ class Manager:
                 scenario_id=session_scenario.scenario_id,
             )
         try:
-            evaluations = self.session_manager.read_session_evaluation(
+            evaluations = self.read_session_evaluation(
                 session_id,
                 session_scenario.scenario_id,
             )
@@ -455,15 +466,32 @@ class Manager:
 
     def read_session_scenario(self, session_id: str, scenario_id: str) -> Scenario:
         """Return a transient scenario for a session."""
-        return self.session_manager.read_session_scenario(session_id, scenario_id)
+        scenario = Scenario.from_dict(self.store.load_scenario(scenario_id))
+        if scenario.session_id != session_id:
+            raise EntityDoesNotExist(
+                f"Scenario '{scenario_id}' does not exist in session '{session_id}'"
+            )
+        return scenario
 
     def list_session_scenarios(self, session_id: str) -> list[Scenario]:
         """Return all transient scenarios for a session."""
-        return self.session_manager.list_session_scenarios(session_id)
+        return [
+            Scenario.from_dict(scenario_data)
+            for scenario_data in self.store.load_scenarios(session_id=session_id)
+        ]
 
     def delete_session_scenario(self, session_id: str, scenario_id: str) -> None:
         """Delete a transient session scenario."""
-        self.session_manager.delete_session_scenario(session_id, scenario_id)
+        self.read_session_scenario(session_id, scenario_id)
+        self.store.delete_scenario(scenario_id)
+        session = self.session_manager.read_session(session_id)
+        remaining_scenarios = self.list_session_scenarios(session_id)
+        session.active_scenario_id = next(
+            (scenario.scenario_id for scenario in remaining_scenarios),
+            None,
+        )
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
 
     def read_session_evaluation(
         self,
@@ -471,9 +499,11 @@ class Manager:
         scenario_id: str,
     ) -> Evaluation:
         """Return a transient session evaluation."""
-        return self.session_manager.read_session_evaluation(
-            session_id,
-            scenario_id,
+        for evaluation in self.list_session_evaluations(session_id):
+            if evaluation.scenario_id == scenario_id:
+                return evaluation
+        raise EntityDoesNotExist(
+            f"Evaluation for scenario '{scenario_id}' does not exist in session '{session_id}'"
         )
 
     def read_session_evaluation_by_id(
@@ -482,7 +512,25 @@ class Manager:
         evaluation_id: str,
     ) -> Evaluation:
         """Return a transient session evaluation by evaluation identifier."""
-        return self.session_manager.read_session_evaluations_by_id(
-            session_id,
-            evaluation_id,
+        for evaluation in self.list_session_evaluations(session_id):
+            if evaluation.evaluation_id == evaluation_id:
+                return evaluation
+        raise EntityDoesNotExist(
+            f"Evaluation '{evaluation_id}' does not exist in session '{session_id}'"
         )
+
+    def delete_session_evaluation(
+        self,
+        session_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Delete a transient evaluation by scenario identifier."""
+        evaluation = self.read_session_evaluation(session_id, scenario_id)
+        self.store.delete_evaluation(evaluation.evaluation_id)
+
+    def list_session_evaluations(self, session_id: str) -> list[Evaluation]:
+        """Return all transient evaluations for a session."""
+        return [
+            Evaluation.from_dict(evaluation_data)
+            for evaluation_data in self.store.load_evaluations_for_session(session_id)
+        ]

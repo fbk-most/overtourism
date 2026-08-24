@@ -27,7 +27,7 @@ def _create_owned_session_and_draft(
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": f"{tenant}_base_scenario",
-            "values": values,
+            "param_overrides": values,
             "name": name,
         },
     )

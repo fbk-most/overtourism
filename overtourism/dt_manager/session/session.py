@@ -7,7 +7,7 @@ from overtourism.dt_manager.utils.dictable import Dictable
 
 
 @dataclass
-class SessionState(Dictable):
+class Session(Dictable):
     """In-memory working context for scenarios, evaluations, and later chats."""
 
     session_id: str
