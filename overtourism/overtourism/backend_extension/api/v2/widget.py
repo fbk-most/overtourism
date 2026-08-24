@@ -7,9 +7,9 @@ import logging
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
-from overtourism.overtourism.backend_extension.api.models.widgets import Widgets
-from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.api.utils.executor_utils import call_schema
+from overtourism.backend.auth.dependencies import get_auth_context
+from overtourism.overtourism.backend_extension.api.models.widgets import Widgets
 
 logger = logging.getLogger(__name__)
 

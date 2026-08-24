@@ -16,12 +16,12 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from overtourism.cdt_ext.runner_ext import EnsembleEvaluationConfig, ParameterMeta
+from civic_digital_twins.dt_model import DistributionIndex, EvaluationResult
+from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 from scipy import interpolate, ndimage
 from scipy import stats as scipy_stats
 
-from civic_digital_twins.dt_model import DistributionIndex, EvaluationResult
-from civic_digital_twins.dt_model.simulation.runner import ModelOutput
+from overtourism.cdt_ext.runner_ext import EnsembleEvaluationConfig, ParameterMeta
 
 __all__ = [
     "OvertourismEvaluationConfig",

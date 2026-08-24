@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
-from typing import Callable, Optional
 
 from overtourism.overtourism.backend_extension.api.models.phenomenon import Phenomenon
 from overtourism.overtourism.backend_extension.api.utils.index_utils import (
-    get_chart_labels,
     _italian_festivities,
+    get_chart_labels,
 )
 
 # ---------------------------------------------------------------------------
@@ -91,7 +92,7 @@ class Indicator:
 
     def __init__(
         self,
-        phenomena: list["Phenomenon | Indicator"],
+        phenomena: list[Phenomenon | Indicator],
         combinator: Callable[[pd.DataFrame], pd.Series],
     ):
         self.phenomena = phenomena
@@ -102,11 +103,11 @@ class Indicator:
         # at runtime, so caching by (start_date, end_date, ...) is safe.
         self._indicator_cache: dict = {}
         self._variation_cache: dict = {}
-        self._years_range: Optional[dict] = None
+        self._years_range: dict | None = None
 
         # Resolved daily × comune panel — only populated (via resolve()) if
         # this Indicator is used as a phenomenon inside another Indicator.
-        self._panel: Optional[pd.DataFrame] = None
+        self._panel: pd.DataFrame | None = None
 
     @staticmethod
     def _cache_key(*args, **kwargs) -> tuple:
@@ -215,7 +216,7 @@ class Indicator:
     def _apply_seasonality_filter(
         self,
         df: pd.DataFrame,
-        seasonality: Optional[str],
+        seasonality: str | None,
         start_date=None,
         end_date=None,
     ) -> pd.DataFrame:
@@ -261,7 +262,7 @@ class Indicator:
     # phenomenon inside another Indicator — see class docstring).
     # ------------------------------------------------------------------
 
-    def resolve(self) -> "Indicator":
+    def resolve(self) -> Indicator:
         """
         Materialise self._panel: [ID_COMUNE, DATA, self.name], one row per
         (comune, day), by merging every phenomenon's own resolved daily
@@ -317,7 +318,7 @@ class Indicator:
     def _filter_by_date(
         self,
         start_date=None,
-        end_date: Optional[str] = None,
+        end_date: str | None = None,
     ) -> pd.DataFrame:
         """Same contract as Phenomenon._filter_by_date(); requires resolve() first."""
         if self._panel is None:
@@ -349,10 +350,10 @@ class Indicator:
 
     def get_indicator(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         **extra,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         key = self._cache_key(start_date, end_date, **extra)
         if key in self._indicator_cache:
             cached = self._indicator_cache[key]
@@ -364,10 +365,10 @@ class Indicator:
 
     def _compute_indicator(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         **extra,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         self._ensure_resolved()
 
         seasonality = extra.pop("seasonality", None)
@@ -412,7 +413,7 @@ class Indicator:
         end_date,
         granularity: str,
         region_id: str = "-1",
-        seasonality: Optional[str] = None,
+        seasonality: str | None = None,
         **extra,
     ) -> list[dict]:
         key = self._cache_key(
@@ -472,8 +473,8 @@ class Indicator:
         return series
 
     def _compute_label_metrics(
-        self, start_date, end_date, seasonality: Optional[str] = None, **extra
-    ) -> Optional[tuple]:
+        self, start_date, end_date, seasonality: str | None = None, **extra
+    ) -> tuple | None:
         """
         Single-pass computation for one time-label window.
 

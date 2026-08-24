@@ -11,7 +11,12 @@ from __future__ import annotations
 from typing import Any
 
 import streamlit as st
-from overtourism.dt_studio.dashboard.adapter import OvertourismAdapter, PlotData, ScenarioDef
+
+from overtourism.dt_studio.dashboard.adapter import (
+    OvertourismAdapter,
+    PlotData,
+    ScenarioDef,
+)
 from overtourism.dt_studio.dashboard.app import run_dashboard
 from overtourism.model.common.sustainability_field import OvertourismParameterMeta
 from overtourism.model.fazzon.fazzon_backend import FazzonBackend
@@ -72,7 +77,9 @@ class FazzonAdapter(OvertourismAdapter):
 
     def __init__(self) -> None:
         self._backend = FazzonBackend()
-        self._spec_by_name: dict[str, OvertourismParameterMeta] = {s.name: s for s in self.parameter_specs()}
+        self._spec_by_name: dict[str, OvertourismParameterMeta] = {
+            s.name: s for s in self.parameter_specs()
+        }
 
     @property
     def title(self) -> str:

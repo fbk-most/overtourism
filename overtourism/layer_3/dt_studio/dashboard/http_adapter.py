@@ -28,6 +28,7 @@ from typing import Any
 
 import httpx
 import numpy as np
+
 from overtourism.dt_studio.dashboard.adapter import (
     OvertourismAdapter,
     ParameterSpec,

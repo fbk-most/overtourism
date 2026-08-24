@@ -12,8 +12,6 @@ from sqlalchemy.orm import sessionmaker
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
     SQLBase,
-    session_from_orm,
-    session_to_orm,
     evaluation_from_orm,
     evaluation_to_orm,
     problem_from_orm,
@@ -24,6 +22,8 @@ from overtourism.dt_manager.stores.classes.sql.orm import (
     relationship_to_orm,
     scenario_from_orm,
     scenario_to_orm,
+    session_from_orm,
+    session_to_orm,
 )
 from overtourism.dt_manager.stores.classes.sql.schema import build_sql_schema
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist

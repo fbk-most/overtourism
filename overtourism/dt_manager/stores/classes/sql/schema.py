@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .orm import (
-    SessionORM,
     EvaluationORM,
     ProblemORM,
     ProposalORM,
     RelationshipORM,
     ScenarioORM,
+    SessionORM,
 )
 
 

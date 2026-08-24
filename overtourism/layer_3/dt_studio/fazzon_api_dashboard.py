@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 
 import streamlit as st
+
 from overtourism.dt_studio.dashboard.app import run_dashboard
 from overtourism.dt_studio.dashboard.http_adapter import HttpOvertourismAdapter
 

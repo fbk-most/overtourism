@@ -95,8 +95,8 @@ A typed schema for describing one model parameter — the minimum needed to
 ```python
 @dataclass
 class ParameterMeta:
-    name: str                 # matches index.name exactly; the boundary key
-    kind: str                 # "scalar" | "categorical" | "distribution"
+    name: str  # matches index.name exactly; the boundary key
+    kind: str  # "scalar" | "categorical" | "distribution"
     distribution_family: str | None = None
     distribution_fixed_params: dict[str, Any] | None = None
     support: list[str] = field(default_factory=list)
@@ -249,16 +249,16 @@ shared, neither model has a field to add beyond the common set:
 ```python
 @dataclass(eq=False)
 class SustainabilityFieldOutput(ModelOutput):
-    field: np.ndarray                      # shape (N_x, N_y), values in [0, 1]
+    field: np.ndarray  # shape (N_x, N_y), values in [0, 1]
     field_elements: dict[str, np.ndarray]  # per-constraint fields, same shape
-    x_values: np.ndarray                   # 1-D, shape (N_x,)
-    y_values: np.ndarray                   # 1-D, shape (N_y,)
+    x_values: np.ndarray  # 1-D, shape (N_x,)
+    y_values: np.ndarray  # 1-D, shape (N_y,)
     x_axis_name: str
     y_axis_name: str
-    samples_x: list[float]                 # presence samples, for scatter overlay
+    samples_x: list[float]  # presence samples, for scatter overlay
     samples_y: list[float]
-    usage_fields: dict[str, np.ndarray]         # per-constraint usage grids
-    capacity_distributions: dict[str, dict]     # {name: {"loc", "scale"}}
+    usage_fields: dict[str, np.ndarray]  # per-constraint usage grids
+    capacity_distributions: dict[str, dict]  # {name: {"loc", "scale"}}
     confidence: float = 0.8
 
     # Derived, lazily via functools.cached_property:

@@ -11,7 +11,12 @@ from __future__ import annotations
 from typing import Any
 
 import streamlit as st
-from overtourism.dt_studio.dashboard.adapter import OvertourismAdapter, PlotData, ScenarioDef
+
+from overtourism.dt_studio.dashboard.adapter import (
+    OvertourismAdapter,
+    PlotData,
+    ScenarioDef,
+)
 from overtourism.dt_studio.dashboard.app import run_dashboard
 from overtourism.model.common.sustainability_field import OvertourismParameterMeta
 from overtourism.model.molveno.molveno_backend import MolvenoBackend
@@ -45,7 +50,9 @@ _MOLVENO_SCENARIOS: list[dict[str, Any]] = [
         "key": "rainy_day",
         "label": "Giornata di pioggia (estate)",
         "category": "Scenari estremi",
-        "description": ("Stagione 'very high', sabato, meteo 'bad'. La spiaggia si svuota e la ristorazione è satura."),
+        "description": (
+            "Stagione 'very high', sabato, meteo 'bad'. La spiaggia si svuota e la ristorazione è satura."
+        ),
         "overrides": {"season": "very high", "weekday": "saturday", "weather": "bad"},
     },
     {

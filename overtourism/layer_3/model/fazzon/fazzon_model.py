@@ -51,8 +51,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from scipy import stats
-
 from civic_digital_twins.dt_model import (
     CategoricalIndex,
     ConditionalDistributionIndex,
@@ -65,6 +63,7 @@ from civic_digital_twins.dt_model import (
     inputs,
     outputs,
 )
+from scipy import stats
 
 from .fazzon_presence_stats import (
     car_visitors_stats,
@@ -72,7 +71,6 @@ from .fazzon_presence_stats import (
     other_visitors_stats,
     season,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constraint
@@ -126,9 +124,13 @@ class ParkingModel(Model):
         """Compute simultaneous parking occupancy from daily car-mode visitors."""
         i_u_parking = Index(
             "parking usage",
-            inputs.pv_visitors_car / inputs.i_xa_persons_per_car * inputs.i_occupancy_ratio,
+            inputs.pv_visitors_car
+            / inputs.i_xa_persons_per_car
+            * inputs.i_occupancy_ratio,
         )
-        self.constraint = Constraint(name="parking", usage=i_u_parking, capacity=inputs.i_c_parking)
+        self.constraint = Constraint(
+            name="parking", usage=i_u_parking, capacity=inputs.i_c_parking
+        )
         return ParkingModel.Outputs(i_u_parking=i_u_parking)
 
 
@@ -201,12 +203,17 @@ class RoadModel(Model):
         cascade_road = Index(
             "road cascade factor",
             graph.piecewise(
-                (inputs.i_c_road / (_road_vehicle_demand + 1e-10), _road_vehicle_demand > inputs.i_c_road),
+                (
+                    inputs.i_c_road / (_road_vehicle_demand + 1e-10),
+                    _road_vehicle_demand > inputs.i_c_road,
+                ),
                 (1.0, True),
             ),
         )
 
-        self.constraint = Constraint(name="road", usage=i_u_road, capacity=inputs.i_c_road)
+        self.constraint = Constraint(
+            name="road", usage=i_u_road, capacity=inputs.i_c_road
+        )
         return RoadModel.Outputs(i_u_road=i_u_road, cascade_road=cascade_road)
 
 
@@ -248,12 +255,16 @@ class FoodModel(Model):
 
     def compute(self, inputs: Inputs) -> Outputs:
         """Compute peak simultaneous diners after road cascade."""
-        pv_visitors_at_lake = (inputs.pv_visitors_car + inputs.pv_visitors_other) * inputs.cascade_road
+        pv_visitors_at_lake = (
+            inputs.pv_visitors_car + inputs.pv_visitors_other
+        ) * inputs.cascade_road
         i_u_food = Index(
             "food usage",
             pv_visitors_at_lake * inputs.i_u_food_fraction / inputs.i_xo_food_sittings,
         )
-        self.constraint = Constraint(name="food", usage=i_u_food, capacity=inputs.i_c_seats)
+        self.constraint = Constraint(
+            name="food", usage=i_u_food, capacity=inputs.i_c_seats
+        )
         return FoodModel.Outputs(i_u_food=i_u_food)
 
 
@@ -296,12 +307,16 @@ class LakesideModel(Model):
 
     def compute(self, inputs: Inputs) -> Outputs:
         """Compute peak simultaneous lakeside occupancy after road cascade."""
-        pv_visitors_at_lake = (inputs.pv_visitors_car + inputs.pv_visitors_other) * inputs.cascade_road
+        pv_visitors_at_lake = (
+            inputs.pv_visitors_car + inputs.pv_visitors_other
+        ) * inputs.cascade_road
         i_u_lakeside = Index(
             "lakeside usage",
             pv_visitors_at_lake * inputs.i_dwell_fraction,
         )
-        self.constraint = Constraint(name="lakeside", usage=i_u_lakeside, capacity=inputs.i_c_lakeside)
+        self.constraint = Constraint(
+            name="lakeside", usage=i_u_lakeside, capacity=inputs.i_c_lakeside
+        )
         return LakesideModel.Outputs(i_u_lakeside=i_u_lakeside)
 
 
@@ -373,7 +388,7 @@ class FazzonModel(Model):
         usage_indexes: list[GenericIndex]
 
     @classmethod
-    def default_inputs(cls) -> "FazzonModel.Inputs":
+    def default_inputs(cls) -> FazzonModel.Inputs:
         """Return default domain inputs for the 2025 regulated season.
 
         All defaults are calibrated from 2025 Fazzon parking ticket data and
@@ -404,17 +419,29 @@ class FazzonModel(Model):
             pv_visitors_other=pv_visitors_other,
             # Conversion parameters
             i_xa_persons_per_car=Index("persons per car", 2.83),  # NetMobility 2021
-            i_occupancy_ratio=Index("parking occupancy ratio", 0.555),  # 4.44h/8h, 2021 calibration
-            i_xo_road_trips=Index("road round-trip multiplier", 2.0),  # in + out = 2 passages
-            i_car_mode_share=Index("car mode share", 0.69),  # ASSUMPTION: 2022 EETRA; scenario-overridable
+            i_occupancy_ratio=Index(
+                "parking occupancy ratio", 0.555
+            ),  # 4.44h/8h, 2021 calibration
+            i_xo_road_trips=Index(
+                "road round-trip multiplier", 2.0
+            ),  # in + out = 2 passages
+            i_car_mode_share=Index(
+                "car mode share", 0.69
+            ),  # ASSUMPTION: 2022 EETRA; scenario-overridable
             # Shuttle
             i_shuttle_daily_trips=Index("shuttle daily vehicle passages", 0.0),
             # NOTE: 0 = no shuttle (2025 baseline; shuttle data for 2025 contaminated).
             # Override in scenarios: 32 = 2 buses × 8 A/R trips × 2 directions.
             # Dwell and food
-            i_dwell_fraction=Index("visitor dwell fraction", 0.555),  # 4.4h/8h, ASSUMPTION proxy
-            i_u_food_fraction=Index("restaurant usage fraction", 0.55),  # ASSUMPTION: >50% (EETRA 2022)
-            i_xo_food_sittings=Index("food seat turnover", 2.0),  # ASSUMPTION: ~2 sittings/seat/day
+            i_dwell_fraction=Index(
+                "visitor dwell fraction", 0.555
+            ),  # 4.4h/8h, ASSUMPTION proxy
+            i_u_food_fraction=Index(
+                "restaurant usage fraction", 0.55
+            ),  # ASSUMPTION: >50% (EETRA 2022)
+            i_xo_food_sittings=Index(
+                "food seat turnover", 2.0
+            ),  # ASSUMPTION: ~2 sittings/seat/day
             # Capacities
             # Parking: policy cap is 150 simultaneous cars.  Triangular captures
             # uncertainty about whitelist slots (30 reserved), enforcement, and
@@ -429,7 +456,10 @@ class FazzonModel(Model):
             i_c_road=DistributionIndex(
                 "road capacity (vehicle passages/day)",
                 stats.uniform,
-                {"loc": 800.0, "scale": 600.0},  # ASSUMPTION uniform[800, 1400] veh passages/day
+                {
+                    "loc": 800.0,
+                    "scale": 600.0,
+                },  # ASSUMPTION uniform[800, 1400] veh passages/day
             ),
             # Restaurant seats: 4 venues, 520 total (from data — no uncertainty).
             i_c_seats=Index("restaurant seats", 520.0),
@@ -505,4 +535,3 @@ class FazzonModel(Model):
         self.i_cascade_road = road.outputs.cascade_road
 
         return FazzonModel.Outputs(usage_indexes=[c.usage for c in self.constraints])
-

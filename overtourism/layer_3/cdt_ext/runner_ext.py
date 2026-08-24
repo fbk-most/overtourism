@@ -13,10 +13,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from scipy import stats as scipy_stats
-
 from civic_digital_twins.dt_model import Scenario
 from civic_digital_twins.dt_model.simulation.runner import EvaluationConfig
+from scipy import stats as scipy_stats
 
 __all__ = ["EnsembleEvaluationConfig", "ParameterMeta", "build_scenario"]
 

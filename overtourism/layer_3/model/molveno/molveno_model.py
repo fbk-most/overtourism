@@ -71,8 +71,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from scipy import stats
-
 from civic_digital_twins.dt_model import (
     CategoricalIndex,
     ConditionalDistributionIndex,
@@ -86,6 +84,7 @@ from civic_digital_twins.dt_model import (
     inputs,
     outputs,
 )
+from scipy import stats
 
 from .molveno_presence_stats import (
     excursionist_presences_stats,
@@ -94,7 +93,6 @@ from .molveno_presence_stats import (
     weather,
     weekday,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constraint
@@ -174,10 +172,15 @@ class ParkingModel(Model):
             / (inputs.i_xa_tourists_per_vehicle * inputs.i_xo_tourists_parking)
             + inputs.pv_excursionists
             * inputs.i_u_excursionists_parking
-            / (inputs.i_xa_excursionists_per_vehicle * inputs.i_xo_excursionists_parking),
+            / (
+                inputs.i_xa_excursionists_per_vehicle
+                * inputs.i_xo_excursionists_parking
+            ),
         )
         # Constraint stored as a plain attribute — not a GenericIndex.
-        self.constraint = Constraint(name="parking", usage=i_u_parking, capacity=inputs.i_c_parking)
+        self.constraint = Constraint(
+            name="parking", usage=i_u_parking, capacity=inputs.i_c_parking
+        )
         return ParkingModel.Outputs(i_u_parking=i_u_parking)
 
 
@@ -226,10 +229,14 @@ class BeachModel(Model):
         i_u_beach = Index(
             "beach usage",
             inputs.pv_tourists * inputs.i_u_tourists_beach / inputs.i_xo_tourists_beach
-            + inputs.pv_excursionists * inputs.i_u_excursionists_beach / inputs.i_xo_excursionists_beach,
+            + inputs.pv_excursionists
+            * inputs.i_u_excursionists_beach
+            / inputs.i_xo_excursionists_beach,
         )
         # Constraint stored as a plain attribute — not a GenericIndex.
-        self.constraint = Constraint(name="beach", usage=i_u_beach, capacity=inputs.i_c_beach)
+        self.constraint = Constraint(
+            name="beach", usage=i_u_beach, capacity=inputs.i_c_beach
+        )
         return BeachModel.Outputs(i_u_beach=i_u_beach)
 
 
@@ -267,10 +274,16 @@ class AccommodationModel(Model):
         """Compute accommodation usage from inputs."""
         i_u_accommodation = Index(
             "accommodation usage",
-            inputs.pv_tourists * inputs.i_u_tourists_accommodation / inputs.i_xa_tourists_accommodation,
+            inputs.pv_tourists
+            * inputs.i_u_tourists_accommodation
+            / inputs.i_xa_tourists_accommodation,
         )
         # Constraint stored as a plain attribute — not a GenericIndex.
-        self.constraint = Constraint(name="accommodation", usage=i_u_accommodation, capacity=inputs.i_c_accommodation)
+        self.constraint = Constraint(
+            name="accommodation",
+            usage=i_u_accommodation,
+            capacity=inputs.i_c_accommodation,
+        )
         return AccommodationModel.Outputs(i_u_accommodation=i_u_accommodation)
 
 
@@ -312,11 +325,16 @@ class FoodModel(Model):
         """Compute food-service usage from inputs."""
         i_u_food = Index(
             "food usage",
-            (inputs.pv_tourists * inputs.i_u_tourists_food + inputs.pv_excursionists * inputs.i_u_excursionists_food)
+            (
+                inputs.pv_tourists * inputs.i_u_tourists_food
+                + inputs.pv_excursionists * inputs.i_u_excursionists_food
+            )
             / (inputs.i_xa_visitors_food * inputs.i_xo_visitors_food),
         )
         # Constraint stored as a plain attribute — not a GenericIndex.
-        self.constraint = Constraint(name="food", usage=i_u_food, capacity=inputs.i_c_food)
+        self.constraint = Constraint(
+            name="food", usage=i_u_food, capacity=inputs.i_c_food
+        )
         return FoodModel.Outputs(i_u_food=i_u_food)
 
 
@@ -402,7 +420,9 @@ class MolvenoModel(Model):
 
             m = MolvenoModel(inputs=MolvenoModel.default_inputs())
         """
-        cv_weekday = CategoricalIndex("weekday", {d: 1.0 / len(weekday) for d in weekday})
+        cv_weekday = CategoricalIndex(
+            "weekday", {d: 1.0 / len(weekday) for d in weekday}
+        )
         cv_season = CategoricalIndex("season", {v: season[v] for v in season})
         cv_weather = CategoricalIndex("weather", {v: weather[v] for v in weather})
         pv_tourists = ConditionalDistributionIndex(
@@ -422,8 +442,12 @@ class MolvenoModel(Model):
             pv_tourists=pv_tourists,
             pv_excursionists=pv_excursionists,
             # Distribution-backed uncertainty parameters
-            i_c_parking=DistributionIndex("parking capacity", stats.uniform, {"loc": 350.0, "scale": 100.0}),
-            i_c_beach=DistributionIndex("beach capacity", stats.uniform, {"loc": 6000.0, "scale": 1000.0}),
+            i_c_parking=DistributionIndex(
+                "parking capacity", stats.uniform, {"loc": 350.0, "scale": 100.0}
+            ),
+            i_c_beach=DistributionIndex(
+                "beach capacity", stats.uniform, {"loc": 6000.0, "scale": 1000.0}
+            ),
             i_c_accommodation=DistributionIndex(
                 "accommodation capacity",
                 stats.lognorm,
@@ -445,10 +469,16 @@ class MolvenoModel(Model):
                 "excursionist parking usage factor",
                 graph.piecewise((0.55, cv_weather == "bad"), (0.80, True)),
             ),
-            i_xa_tourists_per_vehicle=Index("tourists per vehicle allocation factor", 2.5),
-            i_xa_excursionists_per_vehicle=Index("excursionists per vehicle allocation factor", 2.5),
+            i_xa_tourists_per_vehicle=Index(
+                "tourists per vehicle allocation factor", 2.5
+            ),
+            i_xa_excursionists_per_vehicle=Index(
+                "excursionists per vehicle allocation factor", 2.5
+            ),
             i_xo_tourists_parking=Index("tourists in parking rotation factor", 1.02),
-            i_xo_excursionists_parking=Index("excursionists in parking rotation factor", 3.5),
+            i_xo_excursionists_parking=Index(
+                "excursionists in parking rotation factor", 3.5
+            ),
             # Beach parameters
             i_u_tourists_beach=Index(
                 "tourist beach usage factor",
@@ -458,10 +488,16 @@ class MolvenoModel(Model):
                 "excursionist beach usage factor",
                 graph.piecewise((0.35, cv_weather == "bad"), (0.80, True)),
             ),
-            i_xo_excursionists_beach=Index("excursionists on beach rotation factor", 1.02),
+            i_xo_excursionists_beach=Index(
+                "excursionists on beach rotation factor", 1.02
+            ),
             # Accommodation parameters
-            i_u_tourists_accommodation=Index("tourist accommodation usage factor", 0.90),
-            i_xa_tourists_accommodation=Index("tourists per accommodation allocation factor", 1.05),
+            i_u_tourists_accommodation=Index(
+                "tourist accommodation usage factor", 0.90
+            ),
+            i_xa_tourists_accommodation=Index(
+                "tourists per accommodation allocation factor", 1.05
+            ),
             # Food parameters
             i_u_tourists_food=Index("tourist food service usage factor", 0.20),
             i_u_excursionists_food=Index(
@@ -472,9 +508,13 @@ class MolvenoModel(Model):
             i_xo_visitors_food=Index("visitors in food service rotation factor", 2.0),
             # Presence-transformation parameters
             i_p_tourists_reduction_factor=Index("tourists reduction factor", 1.0),
-            i_p_excursionists_reduction_factor=Index("excursionists reduction factor", 1.0),
+            i_p_excursionists_reduction_factor=Index(
+                "excursionists reduction factor", 1.0
+            ),
             i_p_tourists_saturation_level=Index("tourists saturation level", 10000),
-            i_p_excursionists_saturation_level=Index("excursionists saturation level", 10000),
+            i_p_excursionists_saturation_level=Index(
+                "excursionists saturation level", 10000
+            ),
         )
 
     def compute(self, inputs: Inputs) -> tuple[Outputs, Expose]:

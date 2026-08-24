@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-from functools import lru_cache
-
 import json
+from functools import lru_cache
+from pathlib import Path
+
 import geopandas as gpd
 
 # ---------------------------------------------------------------------------
@@ -76,6 +76,7 @@ def _load_map_geometry_cached(map_shapefile: Path) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(map_shapefile).to_crs(epsg=4326)
     return gdf[gdf.COD_PROV == 22]
 
+
 @lru_cache(maxsize=1)
 def _load_vodafone_map_geometry_cached(geojson_file: Path) -> gpd.GeoDataFrame:
     """
@@ -83,7 +84,8 @@ def _load_vodafone_map_geometry_cached(geojson_file: Path) -> gpd.GeoDataFrame:
     used by flow-based indicators instead of the shapefile.
     """
     gdf = gpd.read_file(geojson_file).to_crs(epsg=4326)
-    return gdf[gdf['AREA_ID'].str.startswith('ITA.04.022')]
+    return gdf[gdf["AREA_ID"].str.startswith("ITA.04.022")]
+
 
 def get_map_geometry(map_shapefile: Path):
     """
@@ -92,9 +94,12 @@ def get_map_geometry(map_shapefile: Path):
     """
     return _load_map_geometry_cached(map_shapefile).copy()
 
+
 def get_vodafone_map_geometry(geojson_file: Path):
     """Return a copy of the cached Vodafone geometry (mutation-safe)."""
     return _load_vodafone_map_geometry_cached(geojson_file).copy()
+
+
 # ---------------------------------------------------------------------------
 # Macro-area geometry cache
 # ---------------------------------------------------------------------------
@@ -145,6 +150,7 @@ def _build_macro_area_geodataframe(
     )
 
     return gpd.GeoDataFrame(merged, geometry="geometry", crs=gdf_areas.crs)
+
 
 def _build_geodataframe_vodafone_ids(gdf_base, result, join_on="ID_COMUNE"):
     """

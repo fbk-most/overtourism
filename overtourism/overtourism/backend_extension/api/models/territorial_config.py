@@ -42,7 +42,7 @@ class TerritorialConfig:
         spatial_granularity: str = "comune",
         allowed_comuni: set[str] | None = None,
         macro_area_agg: str = "mean",
-    ) -> "TerritorialConfig":
+    ) -> TerritorialConfig:
         """Validated constructor used by all endpoints."""
 
         if spatial_granularity not in ("comune", "macro_area"):
@@ -53,8 +53,7 @@ class TerritorialConfig:
 
         if macro_area_agg not in ("mean", "sum"):
             raise ValueError(
-                f"Unknown macro_area_agg={macro_area_agg!r}. "
-                "Expected 'mean' or 'sum'."
+                f"Unknown macro_area_agg={macro_area_agg!r}. Expected 'mean' or 'sum'."
             )
 
         return cls(

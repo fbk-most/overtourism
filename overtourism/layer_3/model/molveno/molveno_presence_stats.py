@@ -48,7 +48,13 @@ weather_stats = pd.DataFrame(
         [0.20, 128.32142857, 319.20470369, 31.10714286, 824.51775728],
         [0.65, 72.86263736, 406.09163233, 282.91208791, 839.91419686],
     ],
-    columns=["freq_rel", "mean_tourists", "std_tourists", "mean_excursionists", "std_excursionists"],
+    columns=[
+        "freq_rel",
+        "mean_tourists",
+        "std_tourists",
+        "mean_excursionists",
+        "std_excursionists",
+    ],
     index=["bad", "unsettled", "good"],
 )
 
@@ -62,8 +68,21 @@ weekday_stats = pd.DataFrame(
         [320.46938776, 204.41996226, 590.98979592, 797.28902804],
         [-278.93406593, 193.01797188, 1240.27472527, 1149.59709071],
     ],
-    columns=["mean_tourists", "std_tourists", "mean_excursionists", "std_excursionists"],
-    index=["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+    columns=[
+        "mean_tourists",
+        "std_tourists",
+        "mean_excursionists",
+        "std_excursionists",
+    ],
+    index=[
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    ],
 )
 
 season = {s: season_stats.loc[s, "freq_rel"] for s in season_stats.index}

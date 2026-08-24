@@ -8,9 +8,9 @@ import typing
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from overtourism.backend.api.utils.config import APP_VERSION, TENANT_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import init_handler
 from overtourism.backend.api.utils.exceptions import install_exception_handlers
-from overtourism.backend.api.utils.config import APP_VERSION, TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.evaluation import evaluation_router
 from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router

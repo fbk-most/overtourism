@@ -19,8 +19,9 @@ a :data:`ALL_SCENARIOS`.  La dashboard recepisce la modifica automaticamente.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from scipy import stats
 
@@ -40,7 +41,9 @@ class WhatIfScenario:
     label: str
     category: str
     description: str
-    overrides_fn: Callable[["FazzonModel"], dict] = field(default=lambda m: {}, compare=False, hash=False)
+    overrides_fn: Callable[[FazzonModel], dict] = field(
+        default=lambda m: {}, compare=False, hash=False
+    )
 
 
 # ---------------------------------------------------------------------------

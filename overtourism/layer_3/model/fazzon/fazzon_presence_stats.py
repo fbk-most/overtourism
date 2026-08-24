@@ -295,4 +295,6 @@ def make_presence_factories(
 
 
 # Default module-level factories (2025 calibrated stats)
-car_visitors_stats, other_visitors_stats = make_presence_factories(season_stats, day_type_stats)
+car_visitors_stats, other_visitors_stats = make_presence_factories(
+    season_stats, day_type_stats
+)

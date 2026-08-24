@@ -13,6 +13,14 @@ import functools
 from typing import Any
 
 import numpy as np
+from civic_digital_twins.dt_model import (
+    CategoricalIndex,
+    CrossProductEnsemble,
+    Evaluation,
+    Scenario,
+    sample_across,
+)
+
 from overtourism.cdt_ext.runner_ext import build_scenario
 from overtourism.model.common.sustainability_field import (
     OvertourismEvaluationConfig,
@@ -21,14 +29,6 @@ from overtourism.model.common.sustainability_field import (
     compute_sustainability_field,
 )
 from overtourism.model.fazzon.fazzon_model import FazzonModel
-
-from civic_digital_twins.dt_model import (
-    CategoricalIndex,
-    CrossProductEnsemble,
-    Evaluation,
-    Scenario,
-    sample_across,
-)
 
 
 class FazzonBackend:

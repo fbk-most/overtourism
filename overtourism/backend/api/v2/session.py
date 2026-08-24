@@ -8,9 +8,6 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from overtourism.backend.api.utils.dependencies import get_handler
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.models.evaluation import (
     EvaluationData,
     EvaluationOutputData,
@@ -26,6 +23,9 @@ from overtourism.backend.api.models.session import (
     SessionData,
     SessionSummaryData,
 )
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
     get_scenario_or_404,
     get_session_evaluation_by_id_or_404,
@@ -34,9 +34,8 @@ from overtourism.backend.api.utils.utils import (
     get_session_scenario_or_404,
     scenario_to_api,
 )
-from overtourism.backend.auth.dependencies import get_auth_context
+from overtourism.backend.auth.dependencies import Handler, get_auth_context
 from overtourism.backend.auth.models import AuthContext, resolve_session_owner_id
-from overtourism.backend.auth.dependencies import Handler
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +57,7 @@ def _require_owned_session(
     if session.tenant != tenant or session.owner_id != owner_id:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     return session
+
 
 # ───────────────────────────────────────────────────────────
 # Sessions
@@ -402,7 +402,9 @@ async def get_session_data(
 ) -> EvaluationOutputData:
     try:
         _require_owned_session(handler, tenant, session_id, context)
-        evaluation = get_session_evaluation_by_id_or_404(handler, session_id, evaluation_id)
+        evaluation = get_session_evaluation_by_id_or_404(
+            handler, session_id, evaluation_id
+        )
         return EvaluationOutputData(
             scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,

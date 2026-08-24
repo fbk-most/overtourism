@@ -7,19 +7,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.dependencies import get_handler
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.models.problem import (
     PostProblemData,
     ProblemData,
     UpdateProblemData,
 )
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
     get_problem_or_404,
 )
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.auth.dependencies import Handler
+from overtourism.backend.auth.dependencies import Handler, get_auth_context
 
 logger = logging.getLogger(__name__)
 

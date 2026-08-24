@@ -11,8 +11,8 @@ from overtourism.backend.api.utils.executor_utils import (
     list_models,
 )
 from overtourism.backend.auth.dependencies import Handler
-from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.manager.config import BootstrapConfig
+from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig

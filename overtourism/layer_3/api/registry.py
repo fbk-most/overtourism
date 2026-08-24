@@ -26,7 +26,7 @@ MODEL_TITLES: dict[str, str] = {
 }
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_backend(model_key: str) -> FazzonBackend | MolvenoBackend:
     """Return the (process-wide, lazily-built) backend instance for `model_key`.
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -118,29 +118,29 @@ class Phenomenon:
     spatial_resolution: str = "comune"  # 'comune' | 'provincia' | 'regione'
     spatial_strategy: str = "identity"  # 'identity' | 'constant' | 'weighted'
 
-    support_temporal: Optional["Phenomenon"] = None
-    support_spatial: Optional["Phenomenon"] = None
-    assign_temporal_fn: Optional[Callable] = None
-    assign_spatial_fn: Optional[Callable] = None
+    support_temporal: Phenomenon | None = None
+    support_spatial: Phenomenon | None = None
+    assign_temporal_fn: Callable | None = None
+    assign_spatial_fn: Callable | None = None
 
     def __init__(
         self,
         source: str | Path,
         col: str,
         agg: str = "sum",
-        municipality_id_col: Optional[str] = None,
-        date_col: Optional[str] = None,
-        temporal_resolution: Optional[str] = None,
-        temporal_strategy: Optional[str] = None,
-        spatial_resolution: Optional[str] = None,
-        spatial_strategy: Optional[str] = None,
-        support_temporal: Optional["Phenomenon"] = None,
-        support_spatial: Optional["Phenomenon"] = None,
-        assign_temporal_fn: Optional[Callable] = None,
-        assign_spatial_fn: Optional[Callable] = None,
-        all_comuni: Optional[list[str]] = None,
+        municipality_id_col: str | None = None,
+        date_col: str | None = None,
+        temporal_resolution: str | None = None,
+        temporal_strategy: str | None = None,
+        spatial_resolution: str | None = None,
+        spatial_strategy: str | None = None,
+        support_temporal: Phenomenon | None = None,
+        support_spatial: Phenomenon | None = None,
+        assign_temporal_fn: Callable | None = None,
+        assign_spatial_fn: Callable | None = None,
+        all_comuni: list[str] | None = None,
         sep: str = ";",
-        dtype: Optional[dict] = None,
+        dtype: dict | None = None,
     ):
         self.source = source
         self.col = col
@@ -169,13 +169,13 @@ class Phenomenon:
             self.assign_spatial_fn = assign_spatial_fn
 
         # Resolved daily × comune panel — populated once by resolve()
-        self._panel: Optional[pd.DataFrame] = None
+        self._panel: pd.DataFrame | None = None
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def resolve(self) -> "Phenomenon":
+    def resolve(self) -> Phenomenon:
         """
         Materialise self._panel: the full daily × comune DataFrame.
 
@@ -215,13 +215,13 @@ class Phenomenon:
         return self
 
     # Keep load() as an alias so existing call-sites don't break.
-    def load(self) -> "Phenomenon":
+    def load(self) -> Phenomenon:
         return self.resolve()
 
     def _filter_by_date(
         self,
         start_date=None,
-        end_date: Optional[str] = None,
+        end_date: str | None = None,
     ) -> pd.DataFrame:
         """
         Return the slice of self._panel within [start_date, end_date].
