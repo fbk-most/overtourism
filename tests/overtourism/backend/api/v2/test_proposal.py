@@ -59,7 +59,7 @@ def test_list_proposals_can_filter_by_related_scenario(
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-linked",
         tenant,
-        values={"visits": 8},
+        param_overrides={"visits": 8},
         name="Linked scenario",
     )
     proposal = manager.create_proposal(
@@ -159,7 +159,9 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     )
 
     assert create_response.status_code == 404
-    assert create_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
+    assert create_response.json() == {
+        "detail": "Scenario 'missing-scenario' not found."
+    }
 
     proposal = manager.create_proposal(
         problem_id,
@@ -177,4 +179,6 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     )
 
     assert update_response.status_code == 404
-    assert update_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
+    assert update_response.json() == {
+        "detail": "Scenario 'missing-scenario' not found."
+    }

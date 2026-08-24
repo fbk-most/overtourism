@@ -2,111 +2,46 @@
 
 from __future__ import annotations
 
-import typing
 from uuid import uuid4
 
-from civic_digital_twins.dt_model.model import Model
-from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
-
+from overtourism.dt_manager.evaluation.evaluation import (
+    DEFAULT_EVALUATION_TYPE,
+    Evaluation,
+)
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
-from overtourism.dt_manager.executor.executor import Executor
-from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.problem.manager import ProblemManager
+from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.manager import ProposalManager
+from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.relationship.manager import RelationshipManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
+from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.session.manager import SessionManager
+from overtourism.dt_manager.session.session import Session
 from overtourism.dt_manager.stores.builder import create_store
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
-
-if typing.TYPE_CHECKING:
-    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
-
-    from overtourism.dt_manager.evaluation.evaluation import Evaluation
-    from overtourism.dt_manager.problem.problem import Problem
-    from overtourism.dt_manager.proposal.proposal import Proposal
-    from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class Manager:
-    """
-    Coordinator exposing problem, scenario, proposal, and relationship manager.
-    """
+    """CRUD manager for problems, proposals, scenarios, evaluations, and sessions."""
 
     def __init__(
         self,
-        model: Model,
-        model_evaluator: ModelEvaluator,
         store_config: StoreConfig,
         extras_config: ExtrasConfig | None = None,
-        names_cfg: BaseConfig | None = None,
     ) -> None:
-        """Create the high-level manager facade."""
         self.store = create_store(store_config.store_type, **store_config.config)
-        self.name_cfg = names_cfg if names_cfg is not None else BaseConfig()
         self.problem_manager = ProblemManager(self.store)
         self.proposal_manager = ProposalManager(self.store)
-        self.scenario_manager = ScenarioManager(
-            self.name_cfg.scenario_id,
-            model,
-            model_evaluator,
-            self.store,
-        )
-        self.evaluation_manager = EvaluationManager(
-            self.store,
-            Executor(model, model_evaluator),
-        )
+        self.scenario_manager = ScenarioManager(self.store)
+        self.evaluation_manager = EvaluationManager(self.store)
         self.relationship_manager = RelationshipManager(self.store)
-        self.session_manager = SessionManager()
-
+        self.session_manager = SessionManager(self.store)
         self.extras_config = (
             extras_config if extras_config is not None else ExtrasConfig()
-        )
-
-        self._setup()
-
-    # ───────────────────────────────────────────────────────────
-    # Setup
-    # ───────────────────────────────────────────────────────────
-
-    def _setup(self) -> None:
-        """
-        Bootstrap the default problem when the store is empty.
-        """
-        try:
-            self.scenario_manager.read_scenario(self.name_cfg.scenario_id)
-            return
-        except EntityDoesNotExist:
-            pass
-
-        self.problem_manager.create_problem(
-            problem_id=self.name_cfg.problem_id,
-            tenant=self.name_cfg.tenant,
-            name=self.name_cfg.problem_name,
-            description=self.name_cfg.problem_description,
-            extras=self.name_cfg.problem_extras,
-        )
-        self.scenario_manager.create_scenario(
-            scenario_id=self.name_cfg.scenario_id,
-            tenant=self.name_cfg.tenant,
-            name=self.name_cfg.scenario_name,
-            description=self.name_cfg.scenario_description,
-            extras=self.name_cfg.scenario_extras,
-        )
-        self.evaluate_scenario(scenario_id=self.name_cfg.scenario_id)
-        self.proposal_manager.create_proposal(
-            proposal_id=self.name_cfg.proposal_id,
-            problem_id=self.name_cfg.problem_id,
-            name=self.name_cfg.proposal_name,
-            description=self.name_cfg.proposal_description,
-            status=self.name_cfg.proposal_status,
-            extras=self.name_cfg.proposal_extras,
-        )
-        self.relationship_manager.link_scenario_proposal(
-            proposal_id=self.name_cfg.proposal_id,
-            scenario_id=self.name_cfg.scenario_id,
         )
 
     # ───────────────────────────────────────────────────────────
@@ -121,7 +56,7 @@ class Manager:
         description: str | None = None,
         extras: dict | None = None,
     ) -> Problem:
-        """Create a problem."""
+        """Create and persist a new problem."""
         return self.problem_manager.create_problem(
             uuid4().hex,
             tenant=tenant,
@@ -130,20 +65,20 @@ class Manager:
             extras=extras,
         )
 
-    def read_problem(self, problem_id: str) -> Problem:
-        """Return a problem."""
-        return self.problem_manager.read_problem(problem_id)
+    def read_problem(self, problem_id: str, *, tenant: str | None = None) -> Problem:
+        """Return a stored problem."""
+        return self.problem_manager.read_problem(problem_id, tenant=tenant)
 
-    def list_problems(self) -> list[Problem]:
-        """Return all problems."""
-        return self.problem_manager.list_problems()
+    def list_problems(self, tenant: str | None = None) -> list[Problem]:
+        """Return all stored problems."""
+        return self.problem_manager.list_problems(tenant=tenant)
 
     def update_problem(self, problem_id: str, **kwargs) -> Problem:
-        """Update a problem's attributes."""
+        """Update a stored problem."""
         return self.problem_manager.update_problem(problem_id, **kwargs)
 
     def delete_problem(self, problem_id: str) -> None:
-        """Delete a problem and clear its child manager."""
+        """Delete a problem and its proposals."""
         self.problem_manager.delete_problem(problem_id)
         for proposal in self.proposal_manager.list_proposals():
             if proposal.problem_id == problem_id:
@@ -167,7 +102,7 @@ class Manager:
         extras: dict | None = None,
         related_scenario_ids: list[str] | None = None,
     ) -> Proposal:
-        """Create a proposal and persist any requested scenario links."""
+        """Create and persist a new proposal."""
         proposal = self.proposal_manager.create_proposal(
             proposal_id=uuid4().hex,
             problem_id=problem_id,
@@ -183,17 +118,27 @@ class Manager:
             )
         return proposal
 
-    def read_proposal(self, proposal_id: str) -> Proposal:
-        """Return a proposal."""
-        return self.proposal_manager.read_proposal(proposal_id)
+    def read_proposal(
+        self,
+        proposal_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Proposal:
+        """Return a stored proposal."""
+        return self.proposal_manager.read_proposal(proposal_id, tenant=tenant)
 
     def list_proposals(
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[Proposal]:
-        """Return all proposals."""
-        return self.proposal_manager.list_proposals(problem_id, scenario_id)
+        """Return stored proposals filtered by problem or scenario."""
+        return self.proposal_manager.list_proposals(
+            problem_id,
+            scenario_id,
+            tenant=tenant,
+        )
 
     def update_proposal(
         self,
@@ -205,7 +150,7 @@ class Manager:
         extras: dict | None = None,
         related_scenario_ids: list[str] | None = None,
     ) -> Proposal:
-        """Update a proposal and persist any requested scenario links."""
+        """Update a stored proposal and its links."""
         proposal = self.proposal_manager.update_proposal(
             proposal_id=proposal_id,
             name=name,
@@ -221,7 +166,7 @@ class Manager:
         return proposal
 
     def delete_proposal(self, proposal_id: str) -> None:
-        """Delete a proposal and persist the resulting aggregate."""
+        """Delete a stored proposal."""
         self.proposal_manager.delete_proposal(proposal_id)
 
     def proposal_extras_from_dict(self, proposal_dict: dict) -> dict:
@@ -235,17 +180,18 @@ class Manager:
     def create_scenario(
         self,
         *,
-        values: dict | None = None,
+        tenant: str,
+        param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
         proposal_id: str | None = None,
     ) -> Scenario:
-        """Create a scenario and persist it."""
+        """Create and persist a new scenario."""
         scenario = self.scenario_manager.create_scenario(
             scenario_id=uuid4().hex,
-            tenant=self.name_cfg.tenant,
-            values=values,
+            tenant=tenant,
+            param_overrides=param_overrides,
             name=name,
             description=description,
             extras=extras,
@@ -257,16 +203,21 @@ class Manager:
             )
         return scenario
 
-    def read_scenario(self, scenario_id: str) -> Scenario:
+    def read_scenario(
+        self,
+        scenario_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Scenario:
         """Return a stored scenario."""
-        return self.scenario_manager.read_scenario(scenario_id)
+        return self.scenario_manager.read_scenario(scenario_id, tenant=tenant)
 
     def list_scenarios(
         self,
         tenant: str | None = None,
         proposal_id: str | None = None,
     ) -> list[Scenario]:
-        """Return all stored scenarios for a problem."""
+        """Return stored scenarios filtered by tenant or proposal."""
         return self.scenario_manager.list_scenarios(
             tenant=tenant,
             proposal_id=proposal_id,
@@ -276,15 +227,15 @@ class Manager:
         self,
         scenario_id: str,
         *,
-        values: dict | None = None,
+        param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
     ) -> Scenario:
-        """Update a scenario's attributes."""
+        """Update a stored scenario."""
         scenario = self.scenario_manager.update_scenario(
             scenario_id=scenario_id,
-            values=values,
+            param_overrides=param_overrides,
             name=name,
             description=description,
             extras=extras,
@@ -294,7 +245,7 @@ class Manager:
         return scenario
 
     def delete_scenario(self, scenario_id: str) -> None:
-        """Delete a scenario and persist the resulting aggregate."""
+        """Delete a scenario and its evaluations."""
         self.scenario_manager.delete_scenario(scenario_id)
         self.evaluation_manager.delete_evaluations_for_scenario(scenario_id)
 
@@ -306,81 +257,87 @@ class Manager:
     # Evaluations
     # ───────────────────────────────────────────────────────────
 
-    def evaluate_scenario(
+    def read_evaluation(
+        self,
+        evaluation_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> Evaluation:
+        """Return a stored evaluation."""
+        return self.evaluation_manager.read_evaluation(
+            evaluation_id,
+            tenant=tenant,
+        )
+
+    def read_evaluation_data(
+        self,
+        evaluation_id: str,
+        *,
+        tenant: str | None = None,
+    ) -> dict:
+        """Return the stored result payload for an evaluation."""
+        return self.read_evaluation(evaluation_id, tenant=tenant).result
+
+    def create_evaluation(
         self,
         scenario_id: str,
-        ensemble_size: int = 20,
-        **kwargs,
+        type: str = DEFAULT_EVALUATION_TYPE,
+        *,
+        started: str | None = None,
     ) -> Evaluation:
-        """Evaluate a stored scenario and persist the evaluation state."""
-        try:
-            scenario = self.scenario_manager.read_scenario(scenario_id)
-        except EntityDoesNotExist:
-            scenario = self.scenario_manager.create_scenario(scenario_id)
-
-        evaluation = self.evaluation_manager.create_evaluation(
+        """Create and persist a new evaluation with an internal ID."""
+        return self.evaluation_manager.create_evaluation(
             uuid4().hex,
-            scenario.scenario_id,
-        )
-        return self.evaluation_manager.run_evaluation(
-            evaluation.evaluation_id,
-            scenario,
-            ensemble_size=ensemble_size,
-            **kwargs,
+            scenario_id,
+            type=type,
+            started=started,
         )
 
-    def read_scenario_data(self, scenario_id: str) -> ModelOutput:
-        """Return the latest stored evaluation result for a scenario.
+    def build_running_evaluation(
+        self,
+        evaluation_id: str,
+        *,
+        scenario_id: str,
+        type: str = DEFAULT_EVALUATION_TYPE,
+        started: str | None = None,
+    ) -> Evaluation:
+        """Build a running evaluation object without persisting it."""
+        return self.evaluation_manager.build_running_evaluation(
+            evaluation_id,
+            scenario_id=scenario_id,
+            type=type,
+            started=started,
+        )
 
-        If no evaluation exists yet, create one on demand and return its result.
-        """
-        try:
-            result = self.evaluation_manager.read_latest_evaluation(scenario_id).result
-        except EntityDoesNotExist:
-            return self.evaluate_scenario(scenario_id).result
-
-        if hasattr(result, "to_snapshot"):
-            return result
-        if isinstance(result, dict):
-            try:
-                return self.model_evaluator.build_output(result)
-            except (AttributeError, KeyError, TypeError, ValueError):
-                return self.evaluate_scenario(scenario_id).result
-        return self.evaluate_scenario(scenario_id).result
-
-    def read_evaluation(self, evaluation_id: str) -> Evaluation:
-        """Return a stored evaluation by identifier."""
-        return self.evaluation_manager.read_evaluation(evaluation_id)
+    def save_evaluation(self, evaluation: Evaluation) -> None:
+        """Persist an evaluation."""
+        self.evaluation_manager.save_evaluation(evaluation)
 
     def list_evaluations(
         self,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[Evaluation]:
-        """Return stored evaluations for a scenario."""
-        return self.evaluation_manager.list_evaluations(scenario_id)
+        """Return stored evaluations, optionally filtered by scenario."""
+        return self.evaluation_manager.list_evaluations(
+            scenario_id,
+            tenant=tenant,
+        )
 
-    def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
-        """Return the latest evaluation for a scenario."""
-        return self.evaluation_manager.read_latest_evaluation(scenario_id)
-
-    def update_evaluation(
+    def read_latest_evaluation(
         self,
-        evaluation_id: str,
-        ensemble_size: int = 20,
-        **kwargs,
+        scenario_id: str,
+        *,
+        tenant: str | None = None,
     ) -> Evaluation:
-        """Re-run a stored evaluation for its current scenario."""
-        evaluation = self.read_evaluation(evaluation_id)
-        scenario = self.read_scenario(evaluation.scenario_id)
-        return self.evaluation_manager.rerun_evaluation(
-            evaluation_id,
-            scenario,
-            ensemble_size=ensemble_size,
-            **kwargs,
+        """Return the most recent evaluation for a scenario."""
+        return self.evaluation_manager.read_latest_evaluation(
+            scenario_id,
+            tenant=tenant,
         )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
-        """Delete a stored evaluation by identifier."""
+        """Delete a stored evaluation."""
         self.evaluation_manager.delete_evaluation(evaluation_id)
 
     # ───────────────────────────────────────────────────────────
@@ -403,20 +360,47 @@ class Manager:
     # Sessions
     # ───────────────────────────────────────────────────────────
 
-    def create_session(self, metadata: dict | None = None) -> str:
-        """Create a session and return its identifier."""
-        return self.session_manager.create_session(metadata)
+    def create_session(
+        self,
+        tenant: str | None = None,
+        owner_id: str | None = None,
+        metadata: dict | None = None,
+    ) -> Session:
+        """Create a persisted session."""
+        return self.session_manager.create_session(
+            tenant=self.name_cfg.tenant if tenant is None else tenant,
+            owner_id=owner_id,
+            metadata=metadata,
+        )
 
-    def read_session(self, session_id: str) -> dict:
-        """Return a session's metadata."""
+    def create_session_evaluation(
+        self,
+        session_id: str,
+        scenario_id: str,
+        evaluation: Evaluation,
+    ) -> Evaluation:
+        """Attach an evaluation to a persisted session."""
+        scenario = self.read_session_scenario(session_id, scenario_id)
+        evaluation.session_id = session_id
+        evaluation.started = evaluation.started or get_timestamp()
+        evaluation.version += 1
+        self.store.save_evaluation(evaluation.to_dict())
+        session = self.session_manager.read_session(session_id)
+        session.active_scenario_id = scenario.scenario_id
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
+        return evaluation
+
+    def read_session(self, session_id: str) -> Session:
+        """Return a persisted session."""
         return self.session_manager.read_session(session_id)
 
-    def list_sessions(self) -> list[dict]:
-        """Return all sessions' metadata."""
+    def list_sessions(self) -> list[Session]:
+        """Return all persisted sessions."""
         return self.session_manager.list_sessions()
 
     def delete_session(self, session_id: str) -> None:
-        """Delete a session and all its related scenarios and evaluations."""
+        """Delete a persisted session."""
         self.session_manager.delete_session(session_id)
 
     # ───────────────────────────────────────────────────────────
@@ -427,11 +411,18 @@ class Manager:
         self,
         session_id: str,
         scenario_id: str,
-        values: dict | None = None,
+        param_overrides: dict | None = None,
     ) -> Scenario:
-        """Create a transient scenario for a session."""
-        scenario = self.scenario_manager.detach_scenario(scenario_id, values)
-        return self.session_manager.create_session_scenario(session_id, scenario)
+        """Create and persist a scenario for a session."""
+        scenario = self.scenario_manager.detach_scenario(scenario_id, param_overrides)
+        session = self.session_manager.read_session(session_id)
+        scenario.session_id = session_id
+        scenario.updated = get_timestamp()
+        self.store.save_scenario(scenario.to_dict())
+        session.active_scenario_id = scenario.scenario_id
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
+        return scenario
 
     def save_session_scenario(
         self,
@@ -443,17 +434,14 @@ class Manager:
         extras: dict | None = None,
         proposal_id: str | None = None,
     ) -> Scenario:
-        """Promote a transient session scenario to persistent storage."""
-        session_scenario = self.session_manager.read_session_scenario(
-            session_id,
-            scenario_id,
-        )
+        """Persist a transient scenario back into the store."""
+        session_scenario = self.read_session_scenario(session_id, scenario_id)
         if name is not None:
             session_scenario.name = name
         if description is not None:
             session_scenario.description = description
         if extras is not None:
-            session_scenario.extras = session_scenario.extras.update(extras)
+            session_scenario.extras = {**session_scenario.extras, **extras}
 
         self.store.save_scenario(session_scenario.to_dict())
 
@@ -463,66 +451,59 @@ class Manager:
                 scenario_id=session_scenario.scenario_id,
             )
         try:
-            evaluations = self.session_manager.read_session_evaluation(
+            evaluations = self.read_session_evaluation(
                 session_id,
                 session_scenario.scenario_id,
             )
             self.evaluation_manager.save_evaluation(evaluations)
-        except (EntityDoesNotExist, KeyError):
+        except Exception:
             pass
-        self.session_manager.delete_session(session_id)
+
+        session = self.session_manager.read_session(session_id)
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
         return self.read_scenario(scenario_id)
 
     def read_session_scenario(self, session_id: str, scenario_id: str) -> Scenario:
-        """Return an in-memory session scenario."""
-        return self.session_manager.read_session_scenario(session_id, scenario_id)
+        """Return a transient scenario for a session."""
+        scenario = Scenario.from_dict(self.store.load_scenario(scenario_id))
+        if scenario.session_id != session_id:
+            raise EntityDoesNotExist(
+                f"Scenario '{scenario_id}' does not exist in session '{session_id}'"
+            )
+        return scenario
 
     def list_session_scenarios(self, session_id: str) -> list[Scenario]:
-        """Return all in-memory session scenarios."""
-        return self.session_manager.list_session_scenarios(session_id)
+        """Return all transient scenarios for a session."""
+        return [
+            Scenario.from_dict(scenario_data)
+            for scenario_data in self.store.load_scenarios(session_id=session_id)
+        ]
 
     def delete_session_scenario(self, session_id: str, scenario_id: str) -> None:
         """Delete a transient session scenario."""
-        self.session_manager.delete_session_scenario(session_id, scenario_id)
-
-    # ───────────────────────────────────────────────────────────
-    # Session Evaluations
-    # ───────────────────────────────────────────────────────────
-
-    def create_session_evaluation(
-        self,
-        session_id: str,
-        scenario_id: str,
-        **kwargs,
-    ) -> Evaluation:
-        """Evaluate an existing transient session scenario."""
-        scenario = self.session_manager.read_session_scenario(session_id, scenario_id)
-        evaluation_id = uuid4().hex
-        evaluation = self.evaluation_manager.build_running_evaluation(
-            evaluation_id,
-            scenario_id=scenario_id,
+        self.read_session_scenario(session_id, scenario_id)
+        self.store.delete_scenario(scenario_id)
+        session = self.session_manager.read_session(session_id)
+        remaining_scenarios = self.list_session_scenarios(session_id)
+        session.active_scenario_id = next(
+            (scenario.scenario_id for scenario in remaining_scenarios),
+            None,
         )
-        evaluation = self.evaluation_manager.execute_evaluation(
-            evaluation,
-            scenario,
-            **kwargs,
-        )
-        self.session_manager.create_session_evaluation(
-            session_id,
-            scenario_id,
-            evaluation,
-        )
-        return evaluation
+        session.updated = get_timestamp()
+        self.session_manager.store.save_session(session.to_dict())
 
     def read_session_evaluation(
         self,
         session_id: str,
         scenario_id: str,
     ) -> Evaluation:
-        """Return an in-memory session evaluation."""
-        return self.session_manager.read_session_evaluation(
-            session_id,
-            scenario_id,
+        """Return a transient session evaluation."""
+        for evaluation in self.list_session_evaluations(session_id):
+            if evaluation.scenario_id == scenario_id:
+                return evaluation
+        raise EntityDoesNotExist(
+            f"Evaluation for scenario '{scenario_id}' does not exist in session '{session_id}'"
         )
 
     def read_session_evaluation_by_id(
@@ -530,8 +511,26 @@ class Manager:
         session_id: str,
         evaluation_id: str,
     ) -> Evaluation:
-        """Return an in-memory session evaluation by identifier."""
-        return self.session_manager.read_session_evaluations_by_id(
-            session_id,
-            evaluation_id,
+        """Return a transient session evaluation by evaluation identifier."""
+        for evaluation in self.list_session_evaluations(session_id):
+            if evaluation.evaluation_id == evaluation_id:
+                return evaluation
+        raise EntityDoesNotExist(
+            f"Evaluation '{evaluation_id}' does not exist in session '{session_id}'"
         )
+
+    def delete_session_evaluation(
+        self,
+        session_id: str,
+        scenario_id: str,
+    ) -> None:
+        """Delete a transient evaluation by scenario identifier."""
+        evaluation = self.read_session_evaluation(session_id, scenario_id)
+        self.store.delete_evaluation(evaluation.evaluation_id)
+
+    def list_session_evaluations(self, session_id: str) -> list[Evaluation]:
+        """Return all transient evaluations for a session."""
+        return [
+            Evaluation.from_dict(evaluation_data)
+            for evaluation_data in self.store.load_evaluations_for_session(session_id)
+        ]

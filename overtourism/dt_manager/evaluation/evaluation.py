@@ -35,6 +35,7 @@ class Evaluation(Dictable):
 
     evaluation_id: str
     scenario_id: str
+    session_id: str | None = None
     type: str = DEFAULT_EVALUATION_TYPE
     version: int = 0
     state: EvaluationState = EvaluationState.RUNNING
@@ -59,6 +60,7 @@ class Evaluation(Dictable):
         return cls(
             evaluation_id=evaluation_id,
             scenario_id=scenario_id,
+            session_id=None,
             type=type,
             version=version,
             state=state,
@@ -76,6 +78,7 @@ class Evaluation(Dictable):
         return cls(
             evaluation_id=evaluation_dict["evaluation_id"],
             scenario_id=evaluation_dict["scenario_id"],
+            session_id=evaluation_dict.get("session_id"),
             type=evaluation_dict.get("type", DEFAULT_EVALUATION_TYPE),
             version=evaluation_dict.get("version", 0),
             state=state,

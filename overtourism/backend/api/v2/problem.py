@@ -7,19 +7,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.problem import (
+from overtourism.backend.api.models.problem import (
     PostProblemData,
     ProblemData,
     UpdateProblemData,
 )
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.utils import (
     check_version,
     get_problem_or_404,
 )
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
+from overtourism.backend.auth.dependencies import Handler, get_auth_context
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +43,7 @@ async def list_problems(
 ) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
-        return [
-            problem.to_dict()
-            for problem in handler.manager.list_problems()
-            if problem.tenant == tenant
-        ]
+        return [problem.to_dict() for problem in handler.manager.list_problems(tenant)]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise
@@ -99,7 +94,7 @@ async def read_problem(
 ) -> ProblemData:
     """Read a problem."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(tenant, handler, problem_id)
         return problem.to_dict()
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
@@ -123,7 +118,7 @@ async def update_problem(
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
-        problem = get_problem_or_404(handler, problem_id)
+        problem = get_problem_or_404(tenant, handler, problem_id)
         check_version(problem.version, data.version)
         updated_problem = handler.manager.update_problem(
             problem_id,
@@ -153,7 +148,7 @@ async def delete_problem(
 ) -> None:
     """Delete a problem from the store."""
     try:
-        get_problem_or_404(handler, problem_id)
+        get_problem_or_404(tenant, handler, problem_id)
         handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:

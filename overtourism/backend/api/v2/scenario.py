@@ -7,23 +7,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.scenario import (
+from overtourism.backend.api.models.scenario import (
     CreateScenarioData,
     ScenarioData,
     UpdateScenarioData,
 )
-from overtourism.backend.api.v2.utils import (
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
+from overtourism.backend.api.utils.utils import (
     check_version,
     get_scenario_or_404,
-    prepare_values,
     raise_immutable_base_scenario_error,
     scenario_to_api,
 )
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
-from overtourism.dt_manager.scenario.values import values_as_scipy
+from overtourism.backend.auth.dependencies import Handler, get_auth_context
+from overtourism.dt_manager.manager.config import BootstrapConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +50,12 @@ async def list_scenarios(
 ) -> ScenarioData | list[ScenarioData]:
     try:
         if base_only:
-            base_scenario_id = handler.manager.scenario_manager.base_scenario_id
-            scenario = get_scenario_or_404(handler, base_scenario_id)
+            names_cfg = BootstrapConfig(tenant)
+            scenario = get_scenario_or_404(tenant, handler, names_cfg.scenario_id)
             return scenario_to_api(handler, scenario)
-        scenarios = handler.manager.list_scenarios(tenant, proposal_id)
+        scenarios = handler.manager.list_scenarios(
+            tenant=tenant, proposal_id=proposal_id
+        )
         return [scenario_to_api(handler, scenario) for scenario in scenarios]
     except Exception as e:
         logger.error(f"Error listing scenarios: {e}")
@@ -77,7 +77,7 @@ async def read_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        scenario = get_scenario_or_404(handler, scenario_id)
+        scenario = get_scenario_or_404(tenant, handler, scenario_id)
         return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
@@ -100,10 +100,7 @@ async def create_scenario(
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
-        scenario_payload["values"] = prepare_values(
-            handler, scenario_payload.get("values")
-        )
-        scenario = handler.manager.create_scenario(**scenario_payload)
+        scenario = handler.manager.create_scenario(tenant=tenant, **scenario_payload)
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:
@@ -128,17 +125,12 @@ async def update_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        raise_immutable_base_scenario_error(handler, scenario_id)
-        current_scenario = get_scenario_or_404(handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
+        current_scenario = get_scenario_or_404(tenant, handler, scenario_id)
         check_version(current_scenario.version, data.version)
-        updated_values = (
-            values_as_scipy(current_scenario)
-            if data.values is None
-            else prepare_values(handler, data.values)
-        )
         handler.manager.update_scenario(
             scenario_id,
-            values=updated_values,
+            param_overrides=data.param_overrides,
             name=data.name,
             description=data.description,
             extras=data.extras,
@@ -166,8 +158,8 @@ async def delete_scenario(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
-        raise_immutable_base_scenario_error(handler, scenario_id)
-        get_scenario_or_404(handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
+        get_scenario_or_404(tenant, handler, scenario_id)
         handler.manager.delete_scenario(scenario_id)
         logger.info(f"Scenario deleted: {scenario_id}")
         return {"message": "Scenario deleted successfully"}

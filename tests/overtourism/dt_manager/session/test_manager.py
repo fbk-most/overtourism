@@ -2,41 +2,41 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
-from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-from tests.overtourism.dt_manager.conftest import FakeModelEvaluator
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+from tests.overtourism.test_support import (
+    DEFAULT_TENANT,
+    FakeExecutionService,
+    FakeModelEvaluator,
+)
 
 
 def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    names_cfg: BaseConfig | None = None,
-) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace]:
+) -> tuple[Manager, FakeModelEvaluator, object, FakeExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
-    model = SimpleNamespace(name="fake-model")
+    model = object()
     manager = Manager(
-        model=model,
-        model_evaluator=evaluator,
         store_config=StoreConfig(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        names_cfg=names_cfg,
     )
-    return manager, evaluator, model
+    manager.name_cfg = type("NameCfg", (), {"tenant": DEFAULT_TENANT})()
+    execution_service = FakeExecutionService(model, evaluator)
+    return manager, evaluator, model, execution_service
 
 
 def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
-    manager, evaluator, model = _make_manager(tmp_path)
-    tenant = manager.name_cfg.tenant
+    manager, evaluator, model, execution_service = _make_manager(tmp_path)
+    tenant = DEFAULT_TENANT
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
@@ -48,47 +48,56 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=problem.tenant,
-        values={"visits": 8},
+        param_overrides={"visits": 8},
         name="Draft Scenario",
         description="Transient scenario",
     )
 
-    session_scenario = manager.session_manager.create_session_scenario(
+    session_scenario = manager.create_session_scenario(
         session.session_id,
-        draft,
+        draft.scenario_id,
+        param_overrides=draft.param_overrides,
     )
     running = manager.evaluation_manager.build_running_evaluation(
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.execute_evaluation(
+    completed = execution_service.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=5,
-        persist=False,
     )
-    session_evaluation = manager.session_manager.create_session_evaluation(
+    session_evaluation = manager.create_session_evaluation(
         session.session_id,
         session_scenario.scenario_id,
         completed,
     )
 
     assert session.metadata == {"source": "test"}
-    assert session.active_scenario_id == session_scenario.scenario_id
-    assert manager.session_manager.read_session(session.session_id) is session
     assert (
-        manager.session_manager.read_session_scenario(
+        manager.session_manager.read_session(session.session_id).active_scenario_id
+        == session_scenario.scenario_id
+    )
+    reloaded_session = manager.session_manager.read_session(session.session_id)
+    assert reloaded_session.metadata == session.metadata
+    expected_draft = {
+        key: value
+        for key, value in session_scenario.to_dict().items()
+        if not key.startswith("_")
+    }
+    assert (
+        manager.read_session_scenario(
             session.session_id,
             session_scenario.scenario_id,
-        )
-        is session_scenario
+        ).to_dict()
+        == expected_draft
     )
     assert (
-        manager.session_manager.read_session_evaluation(
+        manager.read_session_evaluation(
             session.session_id,
             session_scenario.scenario_id,
-        )
-        is session_evaluation
+        ).to_dict()
+        == session_evaluation.to_dict()
     )
     assert session_evaluation.state is EvaluationState.COMPLETED
     assert evaluator.evaluate_calls[-1] == {
@@ -99,8 +108,8 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
 
 
 def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> None:
-    manager, _evaluator, _model = _make_manager(tmp_path)
-    tenant = manager.name_cfg.tenant
+    manager, _evaluator, _model, execution_service = _make_manager(tmp_path)
+    tenant = DEFAULT_TENANT
 
     manager.problem_manager.create_problem(
         "problem-alpha",
@@ -112,54 +121,51 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=tenant,
-        values={"visits": 11},
+        param_overrides={"visits": 11},
         name="Draft Scenario",
         description="Transient scenario",
     )
-    session_scenario = manager.session_manager.create_session_scenario(
+    session_scenario = manager.create_session_scenario(
         session.session_id,
-        draft,
+        draft.scenario_id,
+        param_overrides=draft.param_overrides,
     )
     running = manager.evaluation_manager.build_running_evaluation(
         "evaluation-alpha",
         scenario_id=session_scenario.scenario_id,
     )
-    completed = manager.evaluation_manager.execute_evaluation(
+    completed = execution_service.execute_evaluation(
         running,
         session_scenario,
         ensemble_size=4,
-        persist=False,
     )
-    manager.session_manager.create_session_evaluation(
+    manager.create_session_evaluation(
         session.session_id,
         session_scenario.scenario_id,
         completed,
     )
 
-    manager.session_manager.delete_session_scenario(
+    manager.delete_session_scenario(
         session.session_id,
         session_scenario.scenario_id,
     )
 
-    assert manager.session_manager.read_session(session.session_id).scenarios == {}
-    assert manager.session_manager.read_session(session.session_id).evaluations == {}
-    assert (
-        manager.session_manager.read_session(session.session_id).active_scenario_id
-        is None
-    )
+    assert manager.read_session(session.session_id).scenarios == {}
+    assert manager.read_session(session.session_id).evaluations == {}
+    assert manager.read_session(session.session_id).active_scenario_id is None
 
-    with pytest.raises(KeyError):
-        manager.session_manager.read_session_scenario(
+    with pytest.raises(EntityDoesNotExist):
+        manager.read_session_scenario(
             session.session_id,
             session_scenario.scenario_id,
         )
-    with pytest.raises(KeyError):
-        manager.session_manager.read_session_evaluation(
+    with pytest.raises(EntityDoesNotExist):
+        manager.read_session_evaluation(
             session.session_id,
             session_scenario.scenario_id,
         )
 
-    manager.session_manager.delete_session(session.session_id)
-    assert manager.session_manager.list_sessions() == []
-    with pytest.raises(KeyError):
-        manager.session_manager.read_session(session.session_id)
+    manager.delete_session(session.session_id)
+    assert manager.list_sessions() == []
+    with pytest.raises(EntityDoesNotExist):
+        manager.read_session(session.session_id)

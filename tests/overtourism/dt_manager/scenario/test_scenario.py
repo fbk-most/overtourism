@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
 from overtourism.dt_manager.scenario import scenario as scenario_module
 from overtourism.dt_manager.scenario.scenario import Scenario
 
@@ -17,39 +16,35 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
         "tenant": "tenant-alpha",
+        "session_id": None,
         "version": 1,
         "name": "scenario-alpha",
         "description": "scenario-alpha scenario",
         "created": FIXED_TIMESTAMP,
         "updated": FIXED_TIMESTAMP,
         "extras": {},
-        "index_values": [],
+        "param_overrides": {},
     }
 
 
-def test_from_dict_round_trip_with_nested_index_values() -> None:
+def test_from_dict_round_trip_with_param_overrides() -> None:
     payload = {
         "scenario_id": "scenario-alpha",
         "tenant": "tenant-alpha",
+        "session_id": "session-1",
         "version": 1,
         "name": "Scenario Alpha",
         "description": "Primary scenario",
         "created": "2026-05-15T10:00:00Z",
         "updated": "2026-05-15T11:00:00Z",
         "extras": {"kind": "scenario"},
-        "index_values": [
-            {
-                "index_name": "visits",
-                "index_value": {"mean": 12.5},
-                "index_type": IndexType.CONSTANT.value,
-            }
-        ],
+        "param_overrides": {"visits": 12.5, "population": 7},
     }
 
     scenario = Scenario.from_dict(payload)
 
-    assert isinstance(scenario.index_values[0], IndexEntry)
-    assert scenario.index_values[0].to_dict() == payload["index_values"][0]
+    assert scenario.session_id == "session-1"
+    assert scenario.param_overrides == payload["param_overrides"]
     assert scenario.to_dict() == payload
 
 
@@ -64,11 +59,11 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
             "name": "Scenario Beta",
             "description": "Secondary scenario",
             "extras": {},
-            "index_values": [],
+            "param_overrides": {},
         }
     )
 
     assert scenario.tenant == "tenant-beta"
     assert scenario.created == FIXED_TIMESTAMP
     assert scenario.updated == FIXED_TIMESTAMP
-    assert scenario.index_values == []
+    assert scenario.param_overrides == {}

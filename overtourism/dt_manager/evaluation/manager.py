@@ -2,39 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-from civic_digital_twins.dt_model.simulation.runner import EvaluationConfig
-
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
     EvaluationState,
 )
-from overtourism.dt_manager.executor.executor import Executor
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationAlreadyExists,
 )
-from overtourism.dt_manager.utils.utils import get_timestamp
-
-if TYPE_CHECKING:
-    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
-
-    from overtourism.dt_manager.scenario.scenario import Scenario
 
 
 class EvaluationManager:
     """Manage evaluation entities and their lifecycle."""
 
-    def __init__(
-        self,
-        store: Store,
-        executor: Executor,
-    ) -> None:
-        """Create an evaluation manager bound to an executor."""
-        self.executor = executor
+    def __init__(self, store: Store) -> None:
         self.store = store
 
     # ───────────────────────────────────────────────────────────
@@ -49,7 +32,7 @@ class EvaluationManager:
         *,
         started: str | None = None,
     ) -> Evaluation:
-        """Create and persist a new running evaluation."""
+        """Create and persist a new evaluation."""
         try:
             self.store.load_evaluation(evaluation_id)
         except EntityDoesNotExist:
@@ -68,29 +51,45 @@ class EvaluationManager:
         self.store.save_evaluation(evaluation.to_dict())
         return evaluation
 
-    def read_evaluation(self, evaluation_id: str) -> Evaluation:
+    def read_evaluation(
+        self,
+        evaluation_id: str,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return a persisted evaluation."""
-        return self._build_evaluation(self.store.load_evaluation(evaluation_id))
+        return Evaluation.from_dict(
+            self.store.load_evaluation(evaluation_id, tenant=tenant)
+        )
 
-    def list_evaluations(self, scenario_id: str | None = None) -> list[Evaluation]:
+    def list_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[Evaluation]:
         """Return persisted evaluations, optionally filtered by scenario."""
         return [
-            self._build_evaluation(evaluation)
-            for evaluation in self.store.load_evaluations(scenario_id)
+            Evaluation.from_dict(evaluation)
+            for evaluation in self.store.load_evaluations(
+                scenario_id,
+                tenant=tenant,
+            )
         ]
 
-    def read_latest_evaluation(self, scenario_id: str) -> Evaluation:
+    def read_latest_evaluation(
+        self,
+        scenario_id: str,
+        tenant: str | None = None,
+    ) -> Evaluation:
         """Return the most recently registered persisted evaluation."""
-        evaluations = self.list_evaluations(scenario_id)
+        evaluations = self.list_evaluations(scenario_id, tenant=tenant)
         if evaluations:
-            latest = max(
+            return max(
                 evaluations,
                 key=lambda evaluation: (
                     evaluation.started or "",
                     evaluation.evaluation_id,
                 ),
             )
-            return latest
         raise EntityDoesNotExist(
             f"Evaluation for scenario {scenario_id} does not exist"
         )
@@ -113,6 +112,7 @@ class EvaluationManager:
     # ───────────────────────────────────────────────────────────
 
     def save_evaluation(self, evaluation: Evaluation) -> None:
+        """Persist an evaluation entity."""
         self.store.save_evaluation(evaluation.to_dict())
 
     def build_running_evaluation(
@@ -123,7 +123,7 @@ class EvaluationManager:
         type: str = DEFAULT_EVALUATION_TYPE,
         started: str | None = None,
     ) -> Evaluation:
-        """Build a running evaluation without persisting it."""
+        """Build a running evaluation without writing it to the store."""
         return Evaluation.create_default(
             evaluation_id,
             scenario_id=scenario_id,
@@ -131,119 +131,3 @@ class EvaluationManager:
             started=started,
             state=EvaluationState.RUNNING,
         )
-
-    # ───────────────────────────────────────────────────────────
-    # Execution
-    # ───────────────────────────────────────────────────────────
-
-    def run_evaluation(
-        self,
-        evaluation_id: str,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Execute an evaluation and persist the final state in memory."""
-        evaluation = self.read_evaluation(evaluation_id)
-        return self.execute_evaluation(
-            evaluation,
-            scenario,
-            evaluation_config=evaluation_config,
-            persist=True,
-            **kwargs,
-        )
-
-    def rerun_evaluation(
-        self,
-        evaluation_id: str,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Re-execute a persisted evaluation in place."""
-        evaluation = self.read_evaluation(evaluation_id)
-        restarted = Evaluation.create_default(
-            evaluation.evaluation_id,
-            scenario_id=evaluation.scenario_id,
-            type=evaluation.type,
-            version=evaluation.version,
-        )
-        return self.execute_evaluation(
-            restarted,
-            scenario,
-            evaluation_config=evaluation_config,
-            persist=True,
-            **kwargs,
-        )
-
-    def execute_evaluation(
-        self,
-        evaluation: Evaluation,
-        scenario: Scenario,
-        *,
-        evaluation_config: type[EvaluationConfig] = EvaluationConfig,
-        persist: bool = False,
-        **kwargs: Any,
-    ) -> Evaluation:
-        """Execute an evaluation object and optionally persist the result."""
-        try:
-            result = self.executor.execute(
-                scenario,
-                evaluation_config=evaluation_config,
-                **kwargs,
-            )
-        except Exception:
-            self._finish_evaluation_object(
-                evaluation,
-                state=EvaluationState.FAILED,
-                persist=persist,
-            )
-            raise
-        return self._finish_evaluation_object(
-            evaluation,
-            state=EvaluationState.COMPLETED,
-            result=result,
-            persist=persist,
-        )
-
-    def _finish_evaluation_object(
-        self,
-        evaluation: Evaluation,
-        state: EvaluationState,
-        result: ModelOutput | None = None,
-        *,
-        persist: bool = False,
-    ) -> Evaluation:
-        # Only allow finishing evaluations that are currently running,
-        # to prevent accidental state changes on completed or failed evaluations.
-        if evaluation.state != EvaluationState.RUNNING:
-            raise ValueError(
-                f"Evaluation {evaluation.evaluation_id} must be {EvaluationState.RUNNING} to finish"
-            )
-
-        # Update the evaluation state and timestamps, then persist the changes.
-        evaluation.state = state
-        evaluation.finished = get_timestamp()
-        evaluation.result = result
-        evaluation.version += 1
-
-        if persist:
-            self.store.save_evaluation(evaluation.to_dict())
-
-        return evaluation
-
-    # ───────────────────────────────────────────────────────────
-    # Internal
-    # ───────────────────────────────────────────────────────────
-
-    def _build_evaluation(self, evaluation_data: dict) -> Evaluation:
-        evaluation = Evaluation.from_dict(evaluation_data)
-        if isinstance(evaluation.result, dict) and hasattr(
-            self.executor.model_evaluator, "build_output"
-        ):
-            evaluation.result = self.executor.model_evaluator.build_output(
-                evaluation.result
-            )
-        return evaluation

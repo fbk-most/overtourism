@@ -17,6 +17,7 @@ from overtourism.backend.auth.enums import (
 from overtourism.backend.auth.jwt import decode_jwt
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
+from overtourism.dt_manager.manager.manager import Manager
 
 bearer_auth_scheme = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
 
@@ -138,3 +139,15 @@ def get_auth_context(
         token=token,
         claims=claims,
     )
+
+
+class Handler:
+    """
+    Container for backend singletons.
+    """
+
+    def __init__(
+        self,
+        manager: Manager,
+    ) -> None:
+        self.manager = manager

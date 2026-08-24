@@ -7,8 +7,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.v2.problem import (
     create_problem as base_create_problem,
 )
@@ -24,14 +24,13 @@ from overtourism.backend.api.v2.problem import (
 from overtourism.backend.api.v2.problem import (
     update_problem as base_update_problem,
 )
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
-from overtourism.overtourism.backend_extension.api.v2.models.problem import (
+from overtourism.backend.auth.dependencies import Handler, get_auth_context
+from overtourism.overtourism.backend_extension.api.models.problem import (
     OvertourismPostProblemData,
     OvertourismProblemData,
     OvertourismUpdateProblemData,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils import (
+from overtourism.overtourism.backend_extension.api.utils.utils import (
     prepare_problem_payload,
     to_problem_api_overtourism,
 )

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from overtourism.dt_manager.indexes.index import IndexEntry
 from overtourism.dt_manager.utils.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -15,13 +14,14 @@ class Scenario(Dictable):
 
     scenario_id: str
     tenant: str
+    session_id: str | None = None
     version: int = 0
     name: str | None = None
     description: str | None = None
     created: str | None = None
     updated: str | None = None
     extras: dict = field(default_factory=dict)
-    index_values: list[IndexEntry] = field(default_factory=list)
+    param_overrides: dict = field(default_factory=dict)
 
     @classmethod
     def create_default(
@@ -35,13 +35,14 @@ class Scenario(Dictable):
         created: str | None = None,
         updated: str | None = None,
         extras: dict | None = None,
-        index_values: list[IndexEntry] | None = None,
+        param_overrides: dict | None = None,
     ) -> Scenario:
         """Create a scenario with default values."""
         now = get_timestamp()
         return cls(
             scenario_id=scenario_id,
             tenant=tenant,
+            session_id=None,
             version=version,
             name=scenario_id if name is None else name,
             description=f"{scenario_id} scenario"
@@ -50,7 +51,7 @@ class Scenario(Dictable):
             created=now if created is None else created,
             updated=now if updated is None else updated,
             extras={} if extras is None else extras,
-            index_values=[] if index_values is None else index_values,
+            param_overrides={} if param_overrides is None else param_overrides,
         )
 
     @classmethod
@@ -61,14 +62,12 @@ class Scenario(Dictable):
         return cls(
             scenario_id=scenario_dict["scenario_id"],
             tenant=scenario_dict["tenant"],
+            session_id=scenario_dict.get("session_id"),
             version=scenario_dict.get("version", 0),
             name=scenario_dict.get("name"),
             description=scenario_dict.get("description"),
             created=created,
             updated=updated,
             extras=scenario_dict.get("extras", {}),
-            index_values=[
-                IndexEntry.from_dict(item)
-                for item in scenario_dict.get("index_values", [])
-            ],
+            param_overrides=scenario_dict.get("param_overrides", []),
         )

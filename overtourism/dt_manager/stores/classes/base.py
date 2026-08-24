@@ -9,6 +9,30 @@ class Store(ABC):
     """Abstract base for problem, scenario, and proposal persistence."""
 
     # ───────────────────────────────────────────────────────────
+    # Sessions
+    # ───────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def save_session(self, session_data: dict) -> None:
+        """Persist a session document."""
+
+    @abstractmethod
+    def load_session(self, session_id: str) -> dict:
+        """Load a single session."""
+
+    @abstractmethod
+    def load_sessions(
+        self,
+        tenant: str | None = None,
+        owner_id: str | None = None,
+    ) -> list[dict]:
+        """Load all sessions."""
+
+    @abstractmethod
+    def delete_session(self, session_id: str) -> None:
+        """Delete a session document."""
+
+    # ───────────────────────────────────────────────────────────
     # Problems
     # ───────────────────────────────────────────────────────────
 
@@ -17,7 +41,7 @@ class Store(ABC):
         """Persist a problem document."""
 
     @abstractmethod
-    def load_problem(self, problem_id: str) -> dict:
+    def load_problem(self, problem_id: str, tenant: str | None = None) -> dict:
         """Load a problem document."""
 
     @abstractmethod
@@ -37,7 +61,11 @@ class Store(ABC):
         """Persist a proposal document."""
 
     @abstractmethod
-    def load_proposal(self, proposal_id: str) -> dict:
+    def load_proposal(
+        self,
+        proposal_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         """Load a single proposal."""
 
     @abstractmethod
@@ -45,6 +73,7 @@ class Store(ABC):
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
+        tenant: str | None = None,
     ) -> list[dict]:
         """Load all proposals for a problem."""
 
@@ -61,12 +90,15 @@ class Store(ABC):
         """Persist a scenario document."""
 
     @abstractmethod
-    def load_scenario(self, scenario_id: str) -> dict:
+    def load_scenario(self, scenario_id: str, tenant: str | None = None) -> dict:
         """Load a single scenario."""
 
     @abstractmethod
     def load_scenarios(
-        self, tenant: str | None = None, proposal_id: str | None = None
+        self,
+        tenant: str | None = None,
+        proposal_id: str | None = None,
+        session_id: str | None = None,
     ) -> list[dict]:
         """Load all scenarios for a tenant."""
 
@@ -95,12 +127,27 @@ class Store(ABC):
         """Persist an evaluation document."""
 
     @abstractmethod
-    def load_evaluation(self, evaluation_id: str) -> dict:
+    def load_evaluation(
+        self,
+        evaluation_id: str,
+        tenant: str | None = None,
+    ) -> dict:
         """Load a single evaluation."""
 
     @abstractmethod
-    def load_evaluations(self, scenario_id: str | None = None) -> list[dict]:
+    def load_evaluations(
+        self,
+        scenario_id: str | None = None,
+        tenant: str | None = None,
+    ) -> list[dict]:
         """Load all evaluations for a scenario."""
+
+    @abstractmethod
+    def load_evaluations_for_session(
+        self,
+        session_id: str,
+    ) -> list[dict]:
+        """Load all evaluations for a session."""
 
     @abstractmethod
     def delete_evaluation(self, evaluation_id: str) -> None:
