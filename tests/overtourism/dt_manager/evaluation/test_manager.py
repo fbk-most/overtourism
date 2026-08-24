@@ -12,7 +12,7 @@ from overtourism.dt_manager.evaluation.evaluation import (
 )
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
 from overtourism.dt_manager.indexes.index import IndexEntry, IndexType
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
@@ -52,7 +52,7 @@ def _make_manager(
 ) -> tuple[EvaluationManager, ModelExecutionService]:
     manager = EvaluationManager(sql_store)
     execution_manager = ModelExecutionService(
-        tenant=BaseConfig().tenant,
+        tenant=BootstrapConfig().tenant,
         model=fake_model,
         model_evaluator=fake_model_evaluator,
     )

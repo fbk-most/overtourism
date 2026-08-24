@@ -42,7 +42,7 @@ def test_create_update_save_load_and_delete_scenario(
     scenario = manager.create_scenario(
         "scenario-alpha",
         tenant,
-        values={"visits": 7, "ignored": "skip"},
+        param_overrides={"visits": 7, "ignored": "skip"},
         name="Scenario Alpha",
         description="Primary scenario",
         extras={"kind": "scenario"},
@@ -65,7 +65,7 @@ def test_create_update_save_load_and_delete_scenario(
     with pytest.raises(ScenarioAlreadyExists):
         manager.create_scenario("scenario-alpha", tenant)
 
-    manager.update_scenario("scenario-alpha", values={"visits": 11})
+    manager.update_scenario("scenario-alpha", param_overrides={"visits": 11})
     updated = manager.read_scenario("scenario-alpha")
 
     assert updated.updated == UPDATED_TIMESTAMP
@@ -124,12 +124,12 @@ def test_update_scenario_preserves_existing_values_when_overriding_subset(
     manager.create_scenario(
         "scenario-alpha",
         tenant,
-        values={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
+        param_overrides={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
     )
 
     manager.update_scenario(
         "scenario-alpha",
-        values={"tourists_parking_percentage": 0.61},
+        param_overrides={"tourists_parking_percentage": 0.61},
     )
     updated = manager.read_scenario("scenario-alpha")
 
@@ -181,7 +181,7 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     base_scenario = manager.create_scenario(
         "scenario-alpha",
         tenant,
-        values={"visits": 5},
+        param_overrides={"visits": 5},
         name="Scenario Alpha",
         description="Primary scenario",
     )
@@ -213,7 +213,7 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     )
     updated_session_scenario = manager.update_detached_scenario(
         session_scenario,
-        values={"visits": 12},
+        param_overrides={"visits": 12},
     )
     assert updated_session_scenario.scenario_id == session_scenario.scenario_id
     assert updated_session_scenario.updated == UPDATED_TIMESTAMP
@@ -247,7 +247,7 @@ def test_detach_scenario_preserves_existing_values_when_overriding_subset(
     manager.create_scenario(
         "scenario-alpha",
         tenant,
-        values={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
+        param_overrides={"tourists_parking_percentage": 0.02, "tourists_per_vehicle": 2.5},
     )
 
     monkeypatch.setattr(

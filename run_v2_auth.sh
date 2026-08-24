@@ -17,6 +17,6 @@ export AUTH_ALGORITHMS="${AUTH_ALGORITHMS:-RS256}"
 export AUTH_LEEWAY_SECONDS="${AUTH_LEEWAY_SECONDS:-30}"
 
 HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-8001}"
 
 exec fastapi run ./overtourism/overtourism/app_v2.py --host "$HOST" --port "$PORT"

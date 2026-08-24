@@ -39,7 +39,7 @@ def get_macro_areas(codici_comuni_file: Path) -> list[any]:
 
     Result is cached for the process lifetime.
     """
-    from ...models.territorial_config import MacroArea
+    from ....models.territorial_config import MacroArea
 
     with open(codici_comuni_file, "r", encoding="utf-8") as fh:
         data: dict[str, list[str]] = json.load(fh)

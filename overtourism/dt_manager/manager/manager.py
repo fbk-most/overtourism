@@ -9,7 +9,6 @@ from overtourism.dt_manager.evaluation.evaluation import (
     Evaluation,
 )
 from overtourism.dt_manager.evaluation.manager import EvaluationManager
-from overtourism.dt_manager.manager.config import BaseConfig
 from overtourism.dt_manager.problem.manager import ProblemManager
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.manager import ProposalManager
@@ -30,13 +29,11 @@ class Manager:
         self,
         store_config: StoreConfig,
         extras_config: ExtrasConfig | None = None,
-        names_cfg: BaseConfig | None = None,
     ) -> None:
         self.store = create_store(store_config.store_type, **store_config.config)
-        self.name_cfg = names_cfg if names_cfg is not None else BaseConfig()
         self.problem_manager = ProblemManager(self.store)
         self.proposal_manager = ProposalManager(self.store)
-        self.scenario_manager = ScenarioManager(self.name_cfg.scenario_id, self.store)
+        self.scenario_manager = ScenarioManager(self.store)
         self.evaluation_manager = EvaluationManager(self.store)
         self.relationship_manager = RelationshipManager(self.store)
         self.session_manager = SessionManager()
@@ -170,7 +167,8 @@ class Manager:
     def create_scenario(
         self,
         *,
-        values: dict | None = None,
+        tenant: str,
+        param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
@@ -179,8 +177,8 @@ class Manager:
         """Create and persist a new scenario."""
         scenario = self.scenario_manager.create_scenario(
             scenario_id=uuid4().hex,
-            tenant=self.name_cfg.tenant,
-            values=values,
+            tenant=tenant,
+            param_overrides=param_overrides,
             name=name,
             description=description,
             extras=extras,
@@ -211,7 +209,7 @@ class Manager:
         self,
         scenario_id: str,
         *,
-        values: dict | None = None,
+        param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
@@ -219,7 +217,7 @@ class Manager:
         """Update a stored scenario."""
         scenario = self.scenario_manager.update_scenario(
             scenario_id=scenario_id,
-            values=values,
+            param_overrides=param_overrides,
             name=name,
             description=description,
             extras=extras,
@@ -245,7 +243,7 @@ class Manager:
         """Return a stored evaluation."""
         return self.evaluation_manager.read_evaluation(evaluation_id)
 
-    def read_evaluation_data(self, evaluation_id: str):
+    def read_evaluation_data(self, evaluation_id: str) -> dict:
         """Return the stored result payload for an evaluation."""
         return self.read_evaluation(evaluation_id).result
 
@@ -353,10 +351,10 @@ class Manager:
         self,
         session_id: str,
         scenario_id: str,
-        values: dict | None = None,
+        param_overrides: dict | None = None,
     ) -> Scenario:
         """Create a transient scenario for a session."""
-        scenario = self.scenario_manager.detach_scenario(scenario_id, values)
+        scenario = self.scenario_manager.detach_scenario(scenario_id, param_overrides)
         return self.session_manager.create_session_scenario(session_id, scenario)
 
     def save_session_scenario(
@@ -396,6 +394,7 @@ class Manager:
             self.evaluation_manager.save_evaluation(evaluations)
         except Exception:
             pass
+
         self.session_manager.delete_session(session_id)
         return self.read_scenario(scenario_id)
 

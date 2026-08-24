@@ -59,7 +59,7 @@ def test_list_proposals_can_filter_by_related_scenario(
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-linked",
         tenant,
-        values={"visits": 8},
+        param_overrides={"visits": 8},
         name="Linked scenario",
     )
     proposal = manager.create_proposal(

@@ -31,7 +31,7 @@ from overtourism.overtourism.backend_extension.api.v2.models.problem import (
     OvertourismProblemData,
     OvertourismUpdateProblemData,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils import (
+from overtourism.overtourism.backend_extension.api.v2.utils.utils import (
     prepare_problem_payload,
     to_problem_api_overtourism,
 )

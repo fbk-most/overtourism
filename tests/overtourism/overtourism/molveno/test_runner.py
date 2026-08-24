@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from civic_digital_twins.dt_model.simulation.scenario import Scenario as CDTScenario
 
-from overtourism.overtourism.molveno.setup import model_evaluator
+from overtourism.overtourism.setup import model_evaluator
 
 
 def test_get_index_diffs_formats_percentage_widgets_on_ui_scale() -> None:

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v2.executor_utils import call_executor
 from overtourism.backend.api.v2.models.evaluation import (
     EvaluationData,
     EvaluationOutputData,
@@ -33,13 +34,11 @@ from overtourism.backend.api.v2.session_ownership import (
     require_session_ownership,
 )
 from overtourism.backend.api.v2.utils import (
-    arrange_data,
     get_scenario_or_404,
     get_session_evaluation_by_id_or_404,
     get_session_evaluation_or_404,
     get_session_or_404,
     get_session_scenario_or_404,
-    prepare_values,
     scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
@@ -223,11 +222,10 @@ async def create_session_scenario(
             session_id,
             context,
         )
-        values = prepare_values(handler, data.values)
         scenario = handler.manager.create_session_scenario(
             session_id,
             data.base_scenario_id,
-            values=values,
+            param_overrides=data.values,
         )
         try:
             claim_session_ownership(handler, tenant, session_id, context)
@@ -339,17 +337,13 @@ async def create_session_evaluation(
         scenario = handler.manager.read_session_scenario(session_id, data.scenario_id)
         evaluation = handler.manager.build_running_evaluation(
             uuid4().hex,
-            scenario_id=data.scenario_id,
+            scenario_id=scenario.scenario_id,
         )
-        evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
-            evaluation,
-            scenario,
-            ensemble_size=data.ensemble_size,
-            **data.kwargs,
-        )
+        result = call_executor(tenant, scenario.param_overrides)
+        evaluation.result = result
         handler.manager.create_session_evaluation(
             session_id,
-            data.scenario_id,
+            scenario.scenario_id,
             evaluation,
         )
         logger.info("Evaluation created")
@@ -430,16 +424,10 @@ async def get_session_data(
             session_id,
             evaluation_id,
         )
-        result = arrange_data(
-            handler,
-            evaluation.result,
-            params=params,
-            as_snapshot=as_snapshot,
-        )
         return EvaluationOutputData(
             scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,
-            data=result,
+            data=evaluation.result,
         )
     except Exception as e:
         logger.error(

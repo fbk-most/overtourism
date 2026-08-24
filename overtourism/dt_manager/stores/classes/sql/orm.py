@@ -16,7 +16,7 @@ from sqlalchemy import (
     Text,
     inspect,
 )
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import LargeBinary, TypeDecorator
 
@@ -127,10 +127,10 @@ class ScenarioORM(SQLBase):
         nullable=False,
         default=dict,
     )
-    index_values: Mapped[list[dict[str, Any]]] = mapped_column(
-        MutableList.as_mutable(JSON),
+    param_overrides: Mapped[dict[str, Any]] = mapped_column(
+        MutableDict.as_mutable(JSON),
         nullable=False,
-        default=list,
+        default=dict,
     )
 
     relationships: Mapped[list[RelationshipORM]] = relationship(
@@ -223,7 +223,6 @@ def proposal_from_orm(proposal: ProposalORM) -> dict[str, Any]:
 
 
 def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
-    index_values = scenario.get("index_values", [])
     return ScenarioORM(
         scenario_id=scenario["scenario_id"],
         tenant=scenario["tenant"],
@@ -233,10 +232,7 @@ def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
         created=scenario.get("created"),
         updated=scenario.get("updated"),
         extras=scenario.get("extras", {}),
-        index_values=[
-            item.to_dict() if hasattr(item, "to_dict") else item
-            for item in index_values
-        ],
+        param_overrides=scenario.get("param_overrides", {}),
     )
 
 

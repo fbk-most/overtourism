@@ -34,7 +34,7 @@ def test_list_scenarios_can_return_only_the_base_scenario(
     extra_scenario = manager.scenario_manager.create_scenario(
         "scenario-extra",
         tenant,
-        values={"visits": 3},
+        param_overrides={"visits": 3},
         name="Extra scenario",
     )
 
@@ -111,7 +111,7 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-related",
         tenant,
-        values={"visits": 4},
+        param_overrides={"visits": 4},
         name="Related scenario",
     )
     manager.link_scenario_to_proposal(proposal_id, related_scenario.scenario_id)
@@ -317,7 +317,7 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
     scenario = manager.scenario_manager.create_scenario(
         "scenario-delete",
         tenant,
-        values={"visits": 5},
+        param_overrides={"visits": 5},
         name="Scenario delete",
     )
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from overtourism.overtourism.bootstrap import bootstrap_default_graph
+from overtourism.overtourism.setup.bootstrap import bootstrap_entities
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.proposal import manager as proposal_manager_module
 from overtourism.dt_manager.proposal import proposal as proposal_module
@@ -30,7 +30,7 @@ def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    names_cfg: BaseConfig | None = None,
+    names_cfg: BootstrapConfig | None = None,
 ) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace, ModelExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
@@ -48,13 +48,13 @@ def _make_manager(
         model_evaluator=evaluator,
     )
     execution_registry.register(execution_manager)
-    bootstrap_default_graph(manager, execution_registry)
+    bootstrap_entities(manager, execution_registry)
     return manager, evaluator, model, execution_manager
 
 
 def test_manager_bootstraps_default_problem_when_store_is_empty(tmp_path) -> None:
     manager, evaluator, model, _ = _make_manager(tmp_path)
-    default_config = BaseConfig()
+    default_config = BootstrapConfig()
 
     assert [problem.problem_id for problem in manager.list_problems()] == [
         default_config.problem_id
@@ -129,7 +129,7 @@ def test_manager_submanagers_persist_explicit_graph(tmp_path, monkeypatch) -> No
     scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=problem.tenant,
-        values={"visits": 7},
+        param_overrides={"visits": 7},
         name="Scenario Alpha",
         description="Primary scenario",
         extras={"kind": "scenario"},
@@ -210,7 +210,7 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
     base_scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=problem.tenant,
-        values={"visits": 9},
+        param_overrides={"visits": 9},
         name="Draft Scenario",
         description="Transient scenario",
     )
@@ -219,7 +219,7 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
     session_scenario = manager.create_session_scenario(
         session.session_id,
         base_scenario.scenario_id,
-        values={"visits": 11},
+        param_overrides={"visits": 11},
     )
     running = manager.evaluation_manager.build_running_evaluation(
         "evaluation-session",
@@ -275,7 +275,7 @@ def test_manager_read_scenario_data_reuses_persisted_results(tmp_path) -> None:
     scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=problem.tenant,
-        values={"visits": 13},
+        param_overrides={"visits": 13},
         name="Scenario Alpha",
         description="Primary scenario",
     )

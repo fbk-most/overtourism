@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from overtourism.dt_manager.indexes.index import IndexEntry
 from overtourism.dt_manager.utils.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -21,7 +20,7 @@ class Scenario(Dictable):
     created: str | None = None
     updated: str | None = None
     extras: dict = field(default_factory=dict)
-    index_values: list[IndexEntry] = field(default_factory=list)
+    param_overrides: dict = field(default_factory=dict)
 
     @classmethod
     def create_default(
@@ -35,7 +34,7 @@ class Scenario(Dictable):
         created: str | None = None,
         updated: str | None = None,
         extras: dict | None = None,
-        index_values: list[IndexEntry] | None = None,
+        param_overrides: dict | None = None,
     ) -> Scenario:
         """Create a scenario with default values."""
         now = get_timestamp()
@@ -50,7 +49,7 @@ class Scenario(Dictable):
             created=now if created is None else created,
             updated=now if updated is None else updated,
             extras={} if extras is None else extras,
-            index_values=[] if index_values is None else index_values,
+            param_overrides={} if param_overrides is None else param_overrides,
         )
 
     @classmethod
@@ -67,8 +66,5 @@ class Scenario(Dictable):
             created=created,
             updated=updated,
             extras=scenario_dict.get("extras", {}),
-            index_values=[
-                IndexEntry.from_dict(item)
-                for item in scenario_dict.get("index_values", [])
-            ],
+            param_overrides=scenario_dict.get("param_overrides", []),
         )

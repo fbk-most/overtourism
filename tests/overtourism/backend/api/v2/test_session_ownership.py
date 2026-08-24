@@ -17,7 +17,7 @@ from overtourism.backend.api.v2.session_ownership import (
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
@@ -40,7 +40,7 @@ def handler(tmp_path, ownership_store: SessionOwnershipStore) -> Handler:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        names_cfg=BaseConfig(tenant="tenant-alpha"),
+        names_cfg=BootstrapConfig(tenant="tenant-alpha"),
     )
     return Handler(manager=manager, session_ownership_store=ownership_store)
 

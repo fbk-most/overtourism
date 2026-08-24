@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import MetaData, Table, create_engine, event, inspect, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker
 
 from overtourism.dt_manager.stores.classes.base import Store
 from overtourism.dt_manager.stores.classes.sql.orm import (
-    EvaluationORM,
     SQLBase,
     evaluation_from_orm,
     evaluation_to_orm,
@@ -45,51 +44,6 @@ class SQLStore(Store):
             expire_on_commit=False,
         )
         SQLBase.metadata.create_all(self.engine)
-        self._migrate_evaluation_result_column_if_needed()
-
-    def _migrate_evaluation_result_column_if_needed(self) -> None:
-        if self.engine.dialect.name not in {"sqlite", "postgresql"}:
-            return
-
-        with self.engine.begin() as connection:
-            inspector = inspect(connection)
-            column_info = next(
-                (
-                    column
-                    for column in inspector.get_columns("evaluations")
-                    if column["name"] == "result"
-                ),
-                None,
-            )
-
-            if column_info is None:
-                return
-
-            column_type_name = column_info["type"].__class__.__name__.lower()
-            if column_type_name in {"largebinary", "blob", "bytea"}:
-                return
-
-            connection.exec_driver_sql("DROP TABLE IF EXISTS evaluations_legacy")
-            connection.exec_driver_sql(
-                "ALTER TABLE evaluations RENAME TO evaluations_legacy"
-            )
-            connection.exec_driver_sql(
-                "DROP INDEX IF EXISTS ix_evaluations_scenario_id_started"
-            )
-            EvaluationORM.__table__.create(connection)
-
-            legacy_table = Table(
-                "evaluations_legacy",
-                MetaData(),
-                autoload_with=connection,
-            )
-            rows = connection.execute(select(legacy_table)).mappings().all()
-            if rows:
-                connection.execute(
-                    EvaluationORM.__table__.insert(), [dict(row) for row in rows]
-                )
-
-            connection.exec_driver_sql("DROP TABLE evaluations_legacy")
 
     def _ensure_sqlite_parent_dirs(self, url: str) -> None:
         parsed_url = make_url(url)

@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.v2.models.scenario import (
@@ -17,13 +18,11 @@ from overtourism.backend.api.v2.models.scenario import (
 from overtourism.backend.api.v2.utils import (
     check_version,
     get_scenario_or_404,
-    prepare_values,
     raise_immutable_base_scenario_error,
     scenario_to_api,
 )
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
-from overtourism.dt_manager.scenario.values import values_as_scipy
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +51,8 @@ async def list_scenarios(
 ) -> ScenarioData | list[ScenarioData]:
     try:
         if base_only:
-            base_scenario_id = handler.manager.scenario_manager.base_scenario_id
-            scenario = get_scenario_or_404(handler, base_scenario_id)
+            names_cfg = BootstrapConfig(tenant)
+            scenario = get_scenario_or_404(handler, names_cfg.scenario_id)
             return scenario_to_api(handler, scenario)
         scenarios = handler.manager.list_scenarios(tenant, proposal_id)
         return [scenario_to_api(handler, scenario) for scenario in scenarios]
@@ -100,9 +99,7 @@ async def create_scenario(
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
-        scenario_payload["values"] = prepare_values(
-            handler, scenario_payload.get("values")
-        )
+        scenario_payload["param_overrides"] = scenario_payload.pop("values", {})
         scenario = handler.manager.create_scenario(**scenario_payload)
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
@@ -131,14 +128,9 @@ async def update_scenario(
         raise_immutable_base_scenario_error(handler, scenario_id)
         current_scenario = get_scenario_or_404(handler, scenario_id)
         check_version(current_scenario.version, data.version)
-        updated_values = (
-            values_as_scipy(current_scenario)
-            if data.values is None
-            else prepare_values(handler, data.values)
-        )
         handler.manager.update_scenario(
             scenario_id,
-            values=updated_values,
+            param_overrides=data.values,
             name=data.name,
             description=data.description,
             extras=data.extras,

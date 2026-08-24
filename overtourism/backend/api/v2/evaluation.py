@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query
 
 from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.v2.executor_utils import call_executor
 from overtourism.backend.api.v2.models.common import VersionData
 from overtourism.backend.api.v2.models.evaluation import (
     EvaluationData,
@@ -17,7 +18,6 @@ from overtourism.backend.api.v2.models.evaluation import (
     UpdateEvaluationData,
 )
 from overtourism.backend.api.v2.utils import (
-    arrange_data,
     check_version,
     get_evaluation_or_404,
     get_scenario_or_404,
@@ -54,14 +54,8 @@ async def create_evaluation(
         scenario = get_scenario_or_404(handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
         try:
-            evaluation = handler.execution_manager_registry.get(
-                tenant
-            ).execute_evaluation(
-                evaluation,
-                scenario,
-                ensemble_size=data.ensemble_size,
-                **data.kwargs,
-            )
+            result = call_executor(scenario.param_overrides)
+            evaluation.result = result
         finally:
             handler.manager.save_evaluation(evaluation)
         logger.info(f"Evaluation created for scenario {data.scenario_id}")
@@ -144,14 +138,8 @@ async def update_evaluation(
             version=current.version,
         )
         try:
-            evaluation = handler.execution_manager_registry.get(
-                tenant
-            ).execute_evaluation(
-                evaluation,
-                scenario,
-                ensemble_size=data.ensemble_size,
-                **data.kwargs,
-            )
+            # Call backend executor
+            evaluation.result = call_executor(scenario.param_overrides)
         finally:
             handler.manager.save_evaluation(evaluation)
         logger.info(f"Evaluation updated: {evaluation_id}")
@@ -208,12 +196,7 @@ async def get_data(
     try:
         evaluation = get_evaluation_or_404(handler, evaluation_id)
         result = handler.manager.read_evaluation_data(evaluation_id)
-        result = arrange_data(
-            handler,
-            result,
-            params=params,
-            as_snapshot=as_snapshot,
-        )
+        # Re add the query params to the result if they were provided
         return EvaluationOutputData(
             scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,

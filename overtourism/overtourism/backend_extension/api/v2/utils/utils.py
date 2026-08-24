@@ -24,7 +24,6 @@ from overtourism.overtourism.backend_extension.api.v2.models.problem import (
 from overtourism.overtourism.backend_extension.api.v2.models.proposal import (
     OvertourismProposalData,
 )
-from overtourism.overtourism.backend_extension.viewer import WidgetViewerLike
 
 if typing.TYPE_CHECKING:
     from pydantic import BaseModel
@@ -59,12 +58,9 @@ def prepare_problem_payload(
         extras["links"] = payload.pop("links", None)
 
     extras = handler.manager.problem_extras_from_dict(extras)
-    groups = extras.get("groups", [])
 
-    viewer: WidgetViewerLike | None = handler.viewer
-    if viewer is not None and groups:
-        editable_indexes = viewer.get_widget_ids_by_groups(groups)
-        extras["editable_indexes"] = [str(item) for item in editable_indexes]
+    editable_indexes = extras.get("editable_indexes", [])
+    extras["editable_indexes"] = [str(item) for item in editable_indexes]
 
     payload["extras"] = extras
     payload["tenant"] = tenant

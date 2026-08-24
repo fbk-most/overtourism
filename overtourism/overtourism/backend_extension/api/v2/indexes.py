@@ -11,7 +11,7 @@ from time import time
 from overtourism.overtourism.backend_extension.models.territorial_config import (
     TerritorialConfig,
 )
-from overtourism.overtourism.backend_extension.api.v2.index_utils import (
+from overtourism.overtourism.backend_extension.api.v2.utils.index_utils import (
     _build_geodataframe,
     _to_map_response,
     _translate_columns,
@@ -27,7 +27,7 @@ from overtourism.overtourism.backend_extension.models.trentino_indicators import
     PHENOMENON_LABELS_IT,
     get_indicator,
 )
-from overtourism.overtourism.backend_extension.api.v2.index_utils_trentino import (
+from overtourism.overtourism.backend_extension.api.v2.utils.index_utils_trentino import (
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,

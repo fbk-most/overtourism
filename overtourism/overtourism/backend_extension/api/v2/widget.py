@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.shared.dependencies import get_handler
 from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.backend.api.v2.models.widgets import Widgets
+from overtourism.overtourism.backend_extension.api.v2.models.widgets import Widgets
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.handler import Handler
+from overtourism.backend.api.v2.executor_utils import call_schema
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,7 @@ widget_router = APIRouter(
 
 @widget_router.get(
     "/widgets",
-    response_model=Widgets,
+    response_model=list[Widgets],
     responses={
         500: {"description": "View manager error"},
         200: {"description": "Widget list"},
@@ -31,16 +29,10 @@ widget_router = APIRouter(
 )
 async def list_widgets(
     tenant: str,
-    language: Literal["it", "en"] = "it",
-    *,
-    handler: Annotated[Handler, Depends(get_handler)],
-) -> Widgets:
-    del tenant
-
+) -> list[dict]:
+    """List all available widgets for the given tenant."""
     try:
-        if handler.get_widgets_fn is not None:
-            return Widgets(widgets=handler.get_widgets_fn({}, language=language))
-        return Widgets(widgets={})
+        return call_schema(tenant)
     except Exception as exc:
         logger.error(f"Error listing widgets: {exc}")
         raise

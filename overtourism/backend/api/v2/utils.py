@@ -65,6 +65,16 @@ def raise_immutable_base_scenario_error(
         )
 
 
+def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
+    """Convert a scenario entity to the API response shape."""
+    payload = scenario.to_dict()
+    payload["extras"] = {
+        **payload.get("extras", {}),
+        "index_diffs": "",  # scenario_index_diffs(handler, scenario),
+    }
+    return payload
+
+
 # ──────────────────────────────────────────────
 # Proposal
 # ──────────────────────────────────────────────
@@ -124,101 +134,6 @@ def get_evaluation_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=detail,
         ) from exc
-
-
-# ──────────────────────────────────────────────
-# Widget
-# ──────────────────────────────────────────────
-
-
-def get_widgets(
-    handler: Handler,
-    values: dict[str, typing.Any],
-    language: str = "it",
-) -> dict[str, typing.Any] | None:
-    """Get widgets from viewer if available, otherwise None."""
-    if handler.get_widgets_fn is not None:
-        return handler.get_widgets_fn(values, language=language)
-    if handler.viewer is not None:
-        return handler.viewer.get_widgets(values, language=language)
-    return None
-
-
-def get_widget_by_group(handler: Handler, groups: list[str]) -> list[str]:
-    """Get widget IDs by group from the viewer if available."""
-    if handler.get_widget_ids_by_groups_fn is not None and groups:
-        return handler.get_widget_ids_by_groups_fn(groups)
-    if handler.viewer is not None and groups:
-        return handler.viewer.get_widget_ids_by_groups(groups)
-    return []
-
-
-# ──────────────────────────────────────────────
-# Data
-# ──────────────────────────────────────────────
-
-
-def prepare_values(
-    handler: Handler,
-    values: dict[str, typing.Any] | None,
-) -> dict[str, typing.Any] | None:
-    """Prepare values for evaluation using the viewer if available."""
-    if values is None:
-        return
-    if handler.prepare_values_fn is not None:
-        return handler.prepare_values_fn(values)
-    return values
-
-
-def arrange_data(
-    handler: Handler,
-    data: typing.Any,
-    as_snapshot: bool = True,
-    params: list[str] | None = None,
-) -> dict:
-    """Convert model output to API dict using arrange_data_fn if available."""
-    if isinstance(data, dict) and handler.execution_manager_registry is not None:
-        tenant = handler.execution_manager_registry.default_tenant
-        if tenant is None:
-            tenant = handler.manager.name_cfg.tenant
-        data = handler.execution_manager_registry.get(
-            tenant
-        ).model_evaluator.build_output(data)
-    if handler.arrange_data_fn is not None:
-        return handler.arrange_data_fn(
-            data,
-            as_snapshot=as_snapshot,
-            params=params,
-        )
-    return data
-
-
-def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
-    """Convert a scenario entity to the API response shape."""
-    payload = scenario.to_dict()
-    payload["extras"] = {
-        **payload.get("extras", {}),
-        "index_diffs": scenario_index_diffs(handler, scenario),
-    }
-    return payload
-
-
-def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, str]:
-    """Compute the model index differences for a scenario on demand."""
-    if handler.execution_manager_registry is None:
-        return {}
-    execution_manager = handler.execution_manager_registry.get(scenario.tenant)
-    return execution_manager.scenario_index_diffs(scenario)
-
-
-def model_values(handler: Handler) -> dict[str, typing.Any]:
-    """Return the base model values exposed by the facade manager."""
-    if handler.execution_manager_registry is None:
-        return {}
-    tenant = handler.execution_manager_registry.default_tenant
-    if tenant is None:
-        tenant = handler.manager.name_cfg.tenant
-    return handler.execution_manager_registry.get(tenant).model_values()
 
 
 # ──────────────────────────────────────────────

@@ -31,7 +31,7 @@ from overtourism.overtourism.backend_extension.api.v2.models.proposal import (
     OvertourismProposalData,
     OvertourismUpdateProposalData,
 )
-from overtourism.overtourism.backend_extension.api.v2.utils import (
+from overtourism.overtourism.backend_extension.api.v2.utils.utils import (
     prepare_proposal_payload,
     to_proposal_api_overtourism,
 )

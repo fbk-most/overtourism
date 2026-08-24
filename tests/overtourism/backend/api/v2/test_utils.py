@@ -133,7 +133,7 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
     draft = manager.create_session_scenario(
         session.session_id,
         base_scenario_id,
-        values={"visits": 8},
+        param_overrides={"visits": 8},
     )
     evaluation = handler.execution_manager_registry.get(tenant).execute_evaluation(
         manager.evaluation_manager.build_running_evaluation(

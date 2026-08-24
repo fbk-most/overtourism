@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from overtourism.overtourism.bootstrap import bootstrap_default_graph
+from overtourism.overtourism.setup.bootstrap import bootstrap_entities
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
@@ -23,7 +23,7 @@ def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
-    names_cfg: BaseConfig | None = None,
+    names_cfg: BootstrapConfig | None = None,
 ) -> tuple[Manager, FakeModelEvaluator, SimpleNamespace, ModelExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = SimpleNamespace(name="fake-model")
@@ -41,7 +41,7 @@ def _make_manager(
         model_evaluator=evaluator,
     )
     execution_registry.register(execution_manager)
-    bootstrap_default_graph(manager, execution_registry)
+    bootstrap_entities(manager, execution_registry)
     return manager, evaluator, model, execution_manager
 
 
@@ -59,7 +59,7 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=problem.tenant,
-        values={"visits": 8},
+        param_overrides={"visits": 8},
         name="Draft Scenario",
         description="Transient scenario",
     )
@@ -122,7 +122,7 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
         tenant=tenant,
-        values={"visits": 11},
+        param_overrides={"visits": 11},
         name="Draft Scenario",
         description="Transient scenario",
     )

@@ -15,8 +15,8 @@ from overtourism.backend.api.v2.session_ownership import SessionOwnershipStore
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.models import AuthContext
 from overtourism.backend.handler import Handler
-from overtourism.overtourism.bootstrap import bootstrap_default_graph
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.overtourism.setup.bootstrap import bootstrap_entities
+from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
@@ -116,7 +116,7 @@ def manager(tmp_path, tenant: str) -> Manager:
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
-        names_cfg=BaseConfig(tenant=tenant),
+        names_cfg=BootstrapConfig(tenant=tenant),
         extras_config=ExtrasConfig(
             problem_keys=frozenset({"objective", "groups", "links"}),
         ),
@@ -137,7 +137,7 @@ def execution_manager_registry(
             model_evaluator=evaluator,
         )
     )
-    bootstrap_default_graph(manager, registry)
+    bootstrap_entities(manager, registry)
     return registry
 
 

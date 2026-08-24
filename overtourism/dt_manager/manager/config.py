@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class BaseConfig:
+class BootstrapConfig:
     """Default problem configuration for manager initialization."""
 
     tenant: str = "default"
