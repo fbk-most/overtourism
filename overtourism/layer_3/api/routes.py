@@ -10,6 +10,8 @@ router covers both.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from overtourism.layer_3.api.registry import (
@@ -51,9 +53,15 @@ def get_schema(model_key: str) -> list[OvertourismParameterMeta]:
     return backend.parameter_schema()
 
 
-@router.post("/{model_key}/evaluate", response_model=EvaluateResponse)
-def evaluate(model_key: str, body: EvaluateRequest) -> EvaluateResponse:
+@router.post("/{model_key}/evaluate", response_model=Any)
+def evaluate(
+    model_key: str,
+    body: EvaluateRequest,
+    as_snapshot: bool = True,
+) -> Any:
     """Evaluate the model under the given string-keyed parameter overrides."""
     backend = _get_backend_or_404(model_key)
     output = backend.evaluate(body.param_overrides)
-    return EvaluateResponse.from_output(output)
+    if as_snapshot:
+        return EvaluateResponse.from_output(output)
+    return backend.arrange_data(output)

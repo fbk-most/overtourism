@@ -36,6 +36,7 @@ from overtourism.backend.api.utils.utils import (
 )
 from overtourism.backend.auth.dependencies import Handler, get_auth_context
 from overtourism.backend.auth.models import AuthContext, resolve_session_owner_id
+from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 
 logger = logging.getLogger(__name__)
 
@@ -322,21 +323,20 @@ async def create_session_evaluation(
             uuid4().hex,
             scenario_id=scenario.scenario_id,
         )
-        execution_registry = getattr(handler, "execution_manager_registry", None)
-        if execution_registry is not None:
-            evaluation = execution_registry.get(tenant).execute_evaluation(
-                evaluation,
-                scenario,
-                ensemble_size=data.ensemble_size,
-            )
-        else:
+
+        try:
             result = call_executor(tenant, scenario.param_overrides)
             evaluation.result = result
-        handler.manager.create_session_evaluation(
-            session_id,
-            scenario.scenario_id,
-            evaluation,
-        )
+            evaluation.status = EvaluationState.COMPLETED
+        except Exception as e:
+            evaluation.status = EvaluationState.FAILED
+            logger.error(f"Error during evaluation execution: {e}")
+        finally:
+            handler.manager.create_session_evaluation(
+                session_id,
+                scenario.scenario_id,
+                evaluation,
+            )
         logger.info("Evaluation created")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:

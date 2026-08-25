@@ -26,6 +26,7 @@ from overtourism.layer_3.model.common.sustainability_field import (
     OvertourismEvaluationConfig,
     OvertourismParameterMeta,
     SustainabilityFieldOutput,
+    arrange_frontend_data,
     compute_sustainability_field,
 )
 from overtourism.layer_3.model.molveno.molveno_model import MolvenoModel
@@ -99,6 +100,10 @@ class MolvenoBackend:
             self._parameter_axes,
         )
         return self._evaluate_scenario(scenario)
+
+    def arrange_data(self, output: SustainabilityFieldOutput) -> dict[str, Any]:
+        """Arrange Molveno output for the frontend presentation format."""
+        return arrange_frontend_data(output)
 
     # ------------------------------------------------------------------
     # internals

@@ -554,3 +554,96 @@ class SustainabilityFieldOutput(ModelOutput):
         d["kpis"] = self.kpis
         d["constraint_curves"] = self.constraint_curves
         return d
+
+
+_CONSTRAINT_NAME_IT = {
+    "parking": "parcheggi",
+    "beach": "spiaggia",
+    "accommodation": "alberghi",
+    "food": "ristoranti",
+}
+
+
+def arrange_frontend_data(output: SustainabilityFieldOutput) -> dict[str, Any]:
+    """Return the legacy frontend payload from a field evaluation output."""
+    snapshot = output.to_snapshot()
+
+    def translate_keys(values: dict[str, Any]) -> dict[str, Any]:
+        return {
+            _CONSTRAINT_NAME_IT.get(key, key): value for key, value in values.items()
+        }
+
+    for name in (
+        "uncertainty_by_constraint",
+        "usage_by_constraint",
+        "usage_uncertainty_by_constraint",
+        "capacity_mean_by_constraint",
+        "constraint_curves",
+    ):
+        snapshot[name] = translate_keys(snapshot[name])
+
+    translated_kpis: dict[str, Any] = {}
+    for key, value in snapshot["kpis"].items():
+        if key == "critical constraint" and isinstance(value, dict):
+            translated_kpis[key] = {
+                **value,
+                "name": _CONSTRAINT_NAME_IT.get(value["name"], value["name"]),
+            }
+        elif key.startswith("constraint level "):
+            constraint = key.removeprefix("constraint level ")
+            translated_kpis[
+                f"constraint level {_CONSTRAINT_NAME_IT.get(constraint, constraint)}"
+            ] = value
+        else:
+            translated_kpis[key] = value
+
+    points = {
+        "uncertainty": [],
+        "uncertainty_by_constraint": {
+            key: [] for key in snapshot["uncertainty_by_constraint"]
+        },
+    }
+    for tourists, excursionists, index, usage, usage_uncertainty in zip(
+        snapshot["samples_x"],
+        snapshot["samples_y"],
+        snapshot["uncertainty"],
+        snapshot["usage"],
+        snapshot["usage_uncertainty"],
+    ):
+        points["uncertainty"].append(
+            {
+                "tourists": tourists,
+                "excursionists": excursionists,
+                "index": index,
+                "usage": usage,
+                "usage_uncertainty": usage_uncertainty,
+            }
+        )
+
+    for constraint, indices in snapshot["uncertainty_by_constraint"].items():
+        for tourists, excursionists, index, usage, usage_uncertainty in zip(
+            snapshot["samples_x"],
+            snapshot["samples_y"],
+            indices,
+            snapshot["usage_by_constraint"][constraint],
+            snapshot["usage_uncertainty_by_constraint"][constraint],
+        ):
+            points["uncertainty_by_constraint"][constraint].append(
+                {
+                    "tourists": tourists,
+                    "excursionists": excursionists,
+                    "index": index,
+                    "usage": usage,
+                    "usage_uncertainty": usage_uncertainty,
+                }
+            )
+
+    return {
+        "points": points,
+        "kpis": translated_kpis,
+        "x_max": snapshot["x_max"],
+        "y_max": snapshot["y_max"],
+        "capacity_mean": snapshot["capacity_mean"],
+        "capacity_mean_by_constraint": snapshot["capacity_mean_by_constraint"],
+        "constraint_curves": snapshot["constraint_curves"],
+    }
