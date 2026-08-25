@@ -43,7 +43,7 @@ class ProblemManager:
         self.store.save_problem(problem.to_dict())
         return problem
 
-    def read_problem(self, problem_id: str) -> Problem:
+    def read_problem(self, problem_id: str, tenant: str | None = None) -> Problem:
         """Return a problem loaded from the store.
 
         Parameters
@@ -56,7 +56,7 @@ class ProblemManager:
         Problem
             Persisted problem instance.
         """
-        return Problem.from_dict(self.store.load_problem(problem_id))
+        return Problem.from_dict(self.store.load_problem(problem_id, tenant=tenant))
 
     def list_problems(self, tenant: str | None = None) -> list[Problem]:
         """Return all persisted problems."""

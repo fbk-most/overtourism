@@ -47,7 +47,7 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 ) -> None:
     read_response = client.get(f"/api/v2/{tenant}/problems/missing-problem")
     assert read_response.status_code == 404
-    assert read_response.json() == {"detail": "Problem 'missing-problem' not found"}
+    assert read_response.json() == {"detail": "Problem 'missing-problem' not found."}
 
     update_response = client.put(
         f"/api/v2/{tenant}/problems/missing-problem",
@@ -133,7 +133,7 @@ def test_scenario_routes_return_404_for_missing_entities(
         json={"base_scenario_id": "missing-scenario"},
     )
     assert create_response.status_code == 404
-    assert create_response.json() == {"detail": "Session 'session-404' not found"}
+    assert create_response.json() == {"detail": "Session 'session-404' not found."}
 
     read_response = client.get(
         f"/api/v2/{tenant}/scenarios/missing-scenario",
@@ -208,7 +208,9 @@ def test_evaluation_routes_return_404_for_missing_entities(
         json={"scenario_id": "missing-scenario"},
     )
     assert create_response.status_code == 404
-    assert create_response.json() == {"detail": "Scenario 'missing-scenario' not found"}
+    assert create_response.json() == {
+        "detail": "Scenario 'missing-scenario' not found."
+    }
 
     read_response = error_client.get(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",

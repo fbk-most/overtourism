@@ -3,15 +3,18 @@ from pandas.core.interchange.dataframe_protocol import DataFrame
 import digitalhub as dh
 import os
 from pathlib import Path
-import pandas as pd 
+import pandas as pd
 import geopandas as gpd
 import tempfile
 import io
 import boto3
 import configparser
-import json 
+import json
 from unidecode import unidecode
-import logging 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 PROJECT = os.environ.get("PROJECT_NAME", "overtourism")
 DATA_PREFIX = os.environ.get("DATA_PREFIX", "overtourism/inputdata/")
@@ -110,12 +113,14 @@ def _to_data_location(df, date_col, drop_cols=None):
     df = df.drop(columns=drop_cols) if drop_cols else df
     return df.rename(columns={date_col: "DATA", "comune": "LOCATION"})
 
+
 def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
     """Map a comune name to its ISTAT ID, falling back to the bilingual-name overrides."""
     id_comune = mapping_comuni.get(name)
     if id_comune is None and name in overrides:
         id_comune = mapping_comuni.get(overrides[name])
     return id_comune
+
 
 ## S3 utilities
 

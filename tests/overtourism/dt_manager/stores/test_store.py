@@ -246,7 +246,7 @@ def test_evaluation_results_are_compressed_at_rest_and_restored_on_read(
         "finished": "2026-05-15T08:11:00Z",
         "result": result,
     }
-    expected_evaluation = dict(evaluation, version=0)
+    expected_evaluation = dict(evaluation, version=0, session_id=None)
 
     sql_store.save_evaluation(evaluation)
 

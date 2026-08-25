@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from overtourism.backend.api.v2 import utils as api_utils
+from overtourism.backend.api.utils import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -34,7 +34,7 @@ def test_list_scenarios_can_return_only_the_base_scenario(
     extra_scenario = manager.scenario_manager.create_scenario(
         "scenario-extra",
         tenant,
-        values={"visits": 3},
+        param_overrides={"visits": 3},
         name="Extra scenario",
     )
 
@@ -85,7 +85,7 @@ def test_create_stored_scenario_persists_values_and_metadata(
         json={
             "name": "Created through API",
             "description": "Stored scenario payload",
-            "values": {"visits": 12},
+            "param_overrides": {"visits": 12},
             "extras": {"channel": "api"},
         },
     )
@@ -96,9 +96,7 @@ def test_create_stored_scenario_persists_values_and_metadata(
     assert payload["name"] == "Created through API"
     assert payload["description"] == "Stored scenario payload"
     assert payload["extras"]["channel"] == "api"
-    assert payload["index_values"] == [
-        {"index_name": "visits", "index_value": 12, "index_type": "constant"}
-    ]
+    assert payload["param_overrides"] == {"visits": 12}
 
 
 def test_list_stored_scenarios_can_filter_by_related_proposal(
@@ -111,7 +109,7 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-related",
         tenant,
-        values={"visits": 4},
+        param_overrides={"visits": 4},
         name="Related scenario",
     )
     manager.link_scenario_to_proposal(proposal_id, related_scenario.scenario_id)
@@ -137,12 +135,12 @@ def test_update_stored_scenario_requires_the_current_version(
     missing_version = client.put(
         f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
         params={"problem_id": problem_id},
-        json={"name": "Updated default", "values": {"visits": 11}},
+        json={"name": "Updated default", "param_overrides": {"visits": 11}},
     )
 
     assert missing_version.status_code == 400
     assert missing_version.json() == {
-        "detail": "Base scenario cannot be modified or deleted"
+        "detail": "Base scenario cannot be modified or deleted."
     }
 
 
@@ -168,7 +166,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
             "base_scenario_id": base_scenario_id,
             "name": "Draft scenario",
             "description": "Scenario under discussion",
-            "values": {"visits": 7},
+            "param_overrides": {"visits": 7},
             "extras": {"stage": "draft"},
         },
     )
@@ -192,7 +190,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
         json={
             "version": 1,
             "name": "Draft scenario updated",
-            "values": {"visits": 9},
+            "param_overrides": {"visits": 9},
             "extras": {"stage": "review"},
         },
     )
@@ -218,7 +216,9 @@ def test_session_scenario_can_be_created_updated_and_saved(
         manager.relationship_manager.get_related_scenario_ids(proposal_id)[-1]
         == draft_id
     )
-    assert session_id not in manager.session_manager.sessions
+    assert session_id in {
+        session.session_id for session in manager.session_manager.list_sessions()
+    }
 
 
 def test_session_scenario_routes_expose_index_diffs_in_extras(
@@ -247,7 +247,7 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
         json={
             "base_scenario_id": base_scenario_id,
             "name": "Draft scenario",
-            "values": {"visits": 7},
+            "param_overrides": {"visits": 7},
             "extras": {"stage": "draft"},
         },
     )
@@ -286,7 +286,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": base_scenario_id,
-            "values": {"visits": 3},
+            "param_overrides": {"visits": 3},
             "name": "Disposable draft",
         },
     )
@@ -302,8 +302,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
 
     assert delete_response.status_code == 405
     assert [
-        scenario.scenario_id
-        for scenario in manager.session_manager.list_session_scenarios(session_id)
+        scenario.scenario_id for scenario in manager.list_session_scenarios(session_id)
     ] == [draft_id]
 
 
@@ -317,7 +316,7 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
     scenario = manager.scenario_manager.create_scenario(
         "scenario-delete",
         tenant,
-        values={"visits": 5},
+        param_overrides={"visits": 5},
         name="Scenario delete",
     )
 

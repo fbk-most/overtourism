@@ -10,11 +10,13 @@ from .orm import (
     ProposalORM,
     RelationshipORM,
     ScenarioORM,
+    SessionORM,
 )
 
 
 @dataclass
 class SQLSchema:
+    sessions: type[SessionORM]
     problems: type[ProblemORM]
     proposals: type[ProposalORM]
     scenarios: type[ScenarioORM]
@@ -24,6 +26,7 @@ class SQLSchema:
 
 def build_sql_schema() -> SQLSchema:
     return SQLSchema(
+        sessions=SessionORM,
         problems=ProblemORM,
         proposals=ProposalORM,
         scenarios=ScenarioORM,

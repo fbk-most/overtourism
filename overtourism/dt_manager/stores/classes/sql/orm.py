@@ -16,7 +16,7 @@ from sqlalchemy import (
     Text,
     inspect,
 )
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import LargeBinary, TypeDecorator
 
@@ -82,6 +82,26 @@ class ProblemORM(SQLBase):
     )
 
 
+class SessionORM(SQLBase):
+    __tablename__ = "sessions"
+    __table_args__ = (
+        Index("ix_sessions_tenant_owner_created", "tenant", "owner_id", "created"),
+    )
+
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant: Mapped[str] = mapped_column(Text)
+    owner_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created: Mapped[str | None] = mapped_column(String)
+    updated: Mapped[str | None] = mapped_column(String)
+    session_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata",
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
+    )
+    active_scenario_id: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class ProposalORM(SQLBase):
     __tablename__ = "proposals"
     __table_args__ = (
@@ -117,6 +137,10 @@ class ScenarioORM(SQLBase):
 
     scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
     tenant: Mapped[str] = mapped_column(Text)
+    session_id: Mapped[str | None] = mapped_column(
+        ForeignKey("sessions.session_id", ondelete="CASCADE"),
+        nullable=True,
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
@@ -127,10 +151,10 @@ class ScenarioORM(SQLBase):
         nullable=False,
         default=dict,
     )
-    index_values: Mapped[list[dict[str, Any]]] = mapped_column(
-        MutableList.as_mutable(JSON),
+    param_overrides: Mapped[dict[str, Any]] = mapped_column(
+        MutableDict.as_mutable(JSON),
         nullable=False,
-        default=list,
+        default=dict,
     )
 
     relationships: Mapped[list[RelationshipORM]] = relationship(
@@ -164,12 +188,18 @@ class EvaluationORM(SQLBase):
             ["scenarios.scenario_id"],
             ondelete="CASCADE",
         ),
+        ForeignKeyConstraint(
+            ["session_id"],
+            ["sessions.session_id"],
+            ondelete="CASCADE",
+        ),
         Index("ix_evaluations_scenario_id_started", "scenario_id", "started"),
     )
 
     evaluation_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     scenario_id: Mapped[str] = mapped_column(String, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(String, nullable=True)
     type: Mapped[str] = mapped_column(String, nullable=False)
     state: Mapped[str] = mapped_column(String, nullable=False)
     started: Mapped[str | None] = mapped_column(String)
@@ -204,6 +234,30 @@ def problem_from_orm(problem: ProblemORM) -> dict[str, Any]:
     return orm_to_dict(problem)
 
 
+def session_to_orm(session: dict[str, Any]) -> SessionORM:
+    return SessionORM(
+        session_id=session["session_id"],
+        tenant=session["tenant"],
+        owner_id=session.get("owner_id"),
+        created=session.get("created"),
+        updated=session.get("updated"),
+        session_metadata=session.get("metadata", {}),
+        active_scenario_id=session.get("active_scenario_id"),
+    )
+
+
+def session_from_orm(session: SessionORM) -> dict[str, Any]:
+    return {
+        "session_id": session.session_id,
+        "tenant": session.tenant,
+        "owner_id": session.owner_id,
+        "created": session.created,
+        "updated": session.updated,
+        "metadata": session.session_metadata,
+        "active_scenario_id": session.active_scenario_id,
+    }
+
+
 def proposal_to_orm(proposal: dict[str, Any]) -> ProposalORM:
     return ProposalORM(
         problem_id=proposal.get("problem_id", ""),
@@ -223,20 +277,17 @@ def proposal_from_orm(proposal: ProposalORM) -> dict[str, Any]:
 
 
 def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
-    index_values = scenario.get("index_values", [])
     return ScenarioORM(
         scenario_id=scenario["scenario_id"],
         tenant=scenario["tenant"],
+        session_id=scenario.get("session_id"),
         version=scenario.get("version", 0),
         name=scenario.get("name"),
         description=scenario.get("description"),
         created=scenario.get("created"),
         updated=scenario.get("updated"),
         extras=scenario.get("extras", {}),
-        index_values=[
-            item.to_dict() if hasattr(item, "to_dict") else item
-            for item in index_values
-        ],
+        param_overrides=scenario.get("param_overrides", {}),
     )
 
 
@@ -273,6 +324,7 @@ def evaluation_to_orm(evaluation: dict[str, Any]) -> EvaluationORM:
         evaluation_id=evaluation["evaluation_id"],
         version=evaluation.get("version", 0),
         scenario_id=evaluation["scenario_id"],
+        session_id=evaluation.get("session_id"),
         type=evaluation["type"],
         state=state,
         started=evaluation.get("started"),

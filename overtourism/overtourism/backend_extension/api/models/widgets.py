@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel
+
+
+class Widgets(BaseModel):
+    name: str
+    kind: str
+    distribution_family: str | None
+    distribution_fixed_params: dict[str, Any] | None
+    support: list[Any] | None
+    default: Any | None
+    default_category: Any | None
+    label: str
+    description: str
+    unit: str
+    category: str
+    step: float | None
+    min_value: float | None
+    max_value: float | None
+    default_range: list[Any] | None

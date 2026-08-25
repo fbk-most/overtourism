@@ -1,35 +1,36 @@
 """API endpoints for data analysis functions."""
 
 import logging
-import numpy as np
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
-
 from datetime import datetime
-from typing import Optional, Dict, Any
-from time import time
+from typing import Any
 
-from overtourism.overtourism.backend_extension.models.territorial_config import (
+import numpy as np
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.auth.dependencies import get_auth_context
+from overtourism.overtourism.backend_extension.api.models.territorial_config import (
     TerritorialConfig,
 )
-from overtourism.backend.api.v2.index_utils import (
-    _build_geodataframe,
-    _to_map_response,
-    get_chart_labels,
-)
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.api.v2.config import TENANT_ROUTE_PREFIX
-from overtourism.overtourism.backend_extension.models.trentino_indicators import (
+from overtourism.overtourism.backend_extension.api.models.trentino_indicators import (
     _REGISTRY,
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
+    PHENOMENON_LABELS_IT,
     get_indicator,
 )
-from overtourism.backend.api.v2.index_utils_trentino import (
+from overtourism.overtourism.backend_extension.api.utils.index_utils import (
+    _build_geodataframe,
+    _to_map_response,
+    _translate_columns,
+    get_chart_labels,
+)
+from overtourism.overtourism.backend_extension.api.utils.index_utils_trentino import (
+    _build_macro_area_geodataframe,
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,
-    _build_macro_area_geodataframe,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ indexes_router = APIRouter(
 # ---------------------------------------------------------------------------
 
 # None = all comuni are visible (maximum permission).
-_DEFAULT_ALLOWED_COMUNI: Optional[set[str]] = None
+_DEFAULT_ALLOWED_COMUNI: set[str] | None = None
 
 # ---------------------------------------------------------------------------
 # Shared param: the only territorial input accepted from the frontend
@@ -72,7 +73,7 @@ _KNOWN_PARAMS = {
 def _build_tc(
     request: Request,
     *,
-    allowed_comuni: Optional[set[str]] = _DEFAULT_ALLOWED_COMUNI,
+    allowed_comuni: set[str] | None = _DEFAULT_ALLOWED_COMUNI,
     macro_area_agg: str = "mean",
 ) -> TerritorialConfig:
     """
@@ -113,7 +114,7 @@ def _extra_params(request: Request) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _parse_date(value: Optional[str], field_name: str) -> Optional[datetime]:
+def _parse_date(value: str | None, field_name: str) -> datetime | None:
     """Parse a YYYY-MM-DD date string, raising a 422 on bad input."""
     if value is None:
         return None
@@ -128,8 +129,8 @@ def _parse_date(value: Optional[str], field_name: str) -> Optional[datetime]:
 
 
 def _validate_date_order(
-    start_dt: Optional[datetime],
-    end_dt: Optional[datetime],
+    start_dt: datetime | None,
+    end_dt: datetime | None,
     start_field: str = "start_date",
     end_field: str = "end_date",
 ) -> None:
@@ -169,20 +170,13 @@ def _validate_map_values(min_value: Any, max_value: Any, *, context: str) -> Non
             f"(min_value={min_value}, max_value={max_value}).",
         )
 
-    if min_value <= 0 and max_value <= 0:
-        raise HTTPException(
-            status_code=422,
-            detail=f"[{context}] Computed value range is non-positive "
-            f"(min_value={min_value}, max_value={max_value}).",
-        )
-
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 
-@indexes_router.get("/get-index-list", response_model=Dict[str, Any])
+@indexes_router.get("/get-index-list", response_model=dict[str, Any])
 def get_indicators_list():
     """
     Get list of all available indices.
@@ -203,6 +197,7 @@ def get_indicators_list():
                         "value": key,
                         "label": indicator.name or key,
                         "index_description": indicator.description,
+                        "index_value_unit_description": indicator.index_value_unit_description,
                         "availableForVariation": indicator.availableForVariation,
                         "extraFields": indicator.extraFields,
                         "years_range": {
@@ -219,13 +214,10 @@ def get_indicators_list():
         ) from e
 
 
-@indexes_router.get("/get-comuni", response_model=Dict[str, Any])
-def get_comuni(request: Request):
+@indexes_router.get("/get-spatial-areas", response_model=dict[str, Any])
+def get_spatial_areas(request: Request):
     """
     Return the list of spatial units visible to the caller.
-
-    At "comune" granularity: the filtered list of individual comuni.
-    At "macro_area" granularity: the four province-level area names.
 
     The region aggregate ("-1") is always included first.
     """
@@ -233,9 +225,9 @@ def get_comuni(request: Request):
     try:
         tc = _build_tc(request)
 
-        if tc.spatial_granularity == "macro_area":
-            area_entries = [{"code": a.name, "name": a.name} for a in tc.areas]
-            return {"comuni": [{"code": "-1", "name": "Regione"}] + area_entries}
+        area_entries = [{"code": "-1", "name": "Regione"}] + [
+            {"code": a.name, "name": a.name} for a in tc.areas
+        ]
 
         # Comune granularity: filter by allowed_comuni
         all_comuni = get_list_comuni(CODICI_COMUNI_FILE)
@@ -248,7 +240,7 @@ def get_comuni(request: Request):
         else:
             comuni = all_comuni
 
-        return {"comuni": comuni}
+        return {"comuni": comuni, "areas": area_entries}
 
     except HTTPException:
         raise
@@ -267,12 +259,12 @@ def _extra_params(request: Request, indicator) -> dict:
     return {k: v for k, v in request.query_params.items() if k in allowed}
 
 
-@indexes_router.get("/get_index_data", response_model=Dict[str, Any])
+@indexes_router.get("/get_index_data", response_model=dict[str, Any])
 def get_index_data(
     request: Request,
     index: str,
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
 ):
     try:
         tc = _build_tc(request)
@@ -311,6 +303,12 @@ def get_index_data(
             #     gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
+
+            # Translate phenomenon keywords (e.g. "beds", "population") into
+            # Italian before serialising to GeoJSON. "AREA_NAME"/"INDICE" are
+            # left untouched since they aren't in PHENOMENON_LABELS_IT.
+            gdf_final = _translate_columns(gdf_final, PHENOMENON_LABELS_IT)
+
             geo_data = _to_map_response(gdf_final)
 
         _validate_map_values(
@@ -334,13 +332,13 @@ def get_index_data(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@indexes_router.get("/get-variation-data", response_model=Dict[str, Any])
+@indexes_router.get("/get-variation-data", response_model=dict[str, Any])
 def get_variation_data(
     request: Request,
     index: str,
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    granularity: Optional[str] = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
+    granularity: str | None = Query(None),
 ):
     """
     Time-series variation for the region and selected comuni / macro-areas.

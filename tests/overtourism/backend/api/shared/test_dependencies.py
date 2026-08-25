@@ -7,35 +7,28 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from overtourism.backend.api.shared.dependencies import (
-    get_handler,
-    init_handler,
-    register_handler,
-)
-from overtourism.backend.handler import Handler
+from overtourism.backend.api.utils import dependencies as dependencies_module
+from overtourism.backend.api.utils.dependencies import get_handler, init_handler
+from overtourism.backend.auth.dependencies import Handler
 
 
-def _build_handler(tenant: str) -> Handler:
-    manager = SimpleNamespace(name_cfg=SimpleNamespace(tenant=tenant))
-    return Handler(manager=manager)
+def _build_handler() -> Handler:
+    return Handler(manager=SimpleNamespace())
 
 
-def test_get_handler_resolves_registered_handler_by_tenant() -> None:
-    molveno_handler = _build_handler("molveno")
-    fazzon_handler = _build_handler("fazzon")
+def test_get_handler_returns_initialized_handler() -> None:
+    handler = _build_handler()
 
-    init_handler(molveno_handler)
-    register_handler("fazzon", fazzon_handler)
+    init_handler(handler)
 
-    assert get_handler("molveno") is molveno_handler
-    assert get_handler("fazzon") is fazzon_handler
+    assert get_handler() is handler
 
 
-def test_get_handler_raises_for_unknown_tenant() -> None:
-    init_handler(_build_handler("molveno"))
+def test_get_handler_raises_when_not_initialized(monkeypatch) -> None:
+    monkeypatch.setattr(dependencies_module, "_handler", None)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_handler("fazzon")
+        get_handler()
 
     assert exc_info.value.status_code == 404
-    assert exc_info.value.detail == "Tenant not found: fazzon."
+    assert exc_info.value.detail == "Handler not initialized."

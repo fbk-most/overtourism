@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from overtourism.dt_manager.manager.config import BaseConfig
+from overtourism.dt_manager.manager.config import BootstrapConfig
 
 
 def test_base_problem_config_defaults() -> None:
-    config = BaseConfig()
+    config = BootstrapConfig()
 
     assert config.problem_id == "default_base_problem"
     assert config.tenant == "default"
@@ -25,7 +25,7 @@ def test_base_problem_config_defaults() -> None:
 
 
 def test_base_problem_config_accepts_custom_values() -> None:
-    config = BaseConfig(
+    config = BootstrapConfig(
         tenant="tenant-alpha",
         problem_name="Problem Alpha",
         problem_description="Primary problem",

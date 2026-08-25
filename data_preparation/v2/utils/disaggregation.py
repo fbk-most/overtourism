@@ -43,15 +43,19 @@ def _lookup_weights(exp, weights, on, weight_col, time_col, freq=None):
 
 def _largest_remainder(groups, shares):
     """Round shares to integers preserving each group total (largest remainder)."""
-    t = pd.DataFrame({
-        "g": np.asarray(groups),
-        "s": pd.to_numeric(shares, errors="coerce").to_numpy(),
-    })
+    t = pd.DataFrame(
+        {
+            "g": np.asarray(groups),
+            "s": pd.to_numeric(shares, errors="coerce").to_numpy(),
+        }
+    )
     t["f"] = np.floor(t["s"].fillna(0))
     t["r"] = t["s"].fillna(0) - t["f"]
     rank = t.groupby("g")["r"].rank(method="first", ascending=False)
-    left = (t.groupby("g")["s"].transform("sum").round()
-            - t.groupby("g")["f"].transform("sum")).clip(lower=0)
+    left = (
+        t.groupby("g")["s"].transform("sum").round()
+        - t.groupby("g")["f"].transform("sum")
+    ).clip(lower=0)
     out = t["f"] + (rank <= left).astype(float)
     return pd.Series(np.where(t["s"].isna(), np.nan, out), index=shares.index)
 
@@ -86,9 +90,18 @@ def _close(exp, own_row):
 
 
 def disaggregate_space(
-    df, cols, *, id_col="ID_COMUNE", group_col="LOCATION", space_map=None,
-    weights=None, weight_col=None, time_col="DATA", time_freq=None,
-    id_to_name=None, integer=True,
+    df,
+    cols,
+    *,
+    id_col="ID_COMUNE",
+    group_col="LOCATION",
+    space_map=None,
+    weights=None,
+    weight_col=None,
+    time_col="DATA",
+    time_freq=None,
+    id_to_name=None,
+    integer=True,
 ):
     """Expand rows holding several target ids into one row per id.
 
@@ -114,18 +127,30 @@ def disaggregate_space(
 
 
 def disaggregate_time(
-    df, cols, *, freq_from="M", freq_to="D", time_col="DATA", id_col="ID_COMUNE",
-    weights=None, weight_col=None, integer=True,
+    df,
+    cols,
+    *,
+    freq_from="M",
+    freq_to="D",
+    time_col="DATA",
+    id_col="ID_COMUNE",
+    weights=None,
+    weight_col=None,
+    integer=True,
 ):
     """Expand each row into one row per child period (freq_from -> freq_to)."""
     exp, own_row = _open(df)
-    periods = pd.to_datetime(exp[time_col].astype(str), errors="coerce").dt.to_period(freq_from)
+    periods = pd.to_datetime(exp[time_col].astype(str), errors="coerce").dt.to_period(
+        freq_from
+    )
     exp[time_col] = [
         pd.period_range(p.start_time, p.end_time, freq=freq_to) if pd.notna(p) else []
         for p in periods
     ]
     exp = exp.explode(time_col)
-    exp[time_col] = exp[time_col].apply(lambda p: p.start_time if pd.notna(p) else pd.NaT)
+    exp[time_col] = exp[time_col].apply(
+        lambda p: p.start_time if pd.notna(p) else pd.NaT
+    )
 
     on = [time_col]
     if weights is not None and id_col in weights.columns and id_col in exp.columns:
@@ -137,11 +162,23 @@ def disaggregate_time(
 
 
 def disaggregate(
-    df, cols, axis="both", *,
-    space_weights=None, space_weight_col=None, space_map=None, space_time_freq=None,
-    time_weights=None, time_weight_col=None, freq_from="M", freq_to="D",
-    id_col="ID_COMUNE", group_col="LOCATION", time_col="DATA",
-    id_to_name=None, integer=True,
+    df,
+    cols,
+    axis="both",
+    *,
+    space_weights=None,
+    space_weight_col=None,
+    space_map=None,
+    space_time_freq=None,
+    time_weights=None,
+    time_weight_col=None,
+    freq_from="M",
+    freq_to="D",
+    id_col="ID_COMUNE",
+    group_col="LOCATION",
+    time_col="DATA",
+    id_to_name=None,
+    integer=True,
 ):
     """Disaggregate along axis in {"space", "time", "both"}."""
     if axis not in {"space", "time", "both"}:
@@ -154,16 +191,29 @@ def disaggregate(
 
     if axis in {"space", "both"}:
         df = disaggregate_space(
-            df, cols, id_col=id_col, group_col=group_col, space_map=space_map,
-            weights=space_weights, weight_col=space_weight_col,
-            time_col=time_col, time_freq=space_time_freq,
-            id_to_name=id_to_name, integer=integer and not both,
+            df,
+            cols,
+            id_col=id_col,
+            group_col=group_col,
+            space_map=space_map,
+            weights=space_weights,
+            weight_col=space_weight_col,
+            time_col=time_col,
+            time_freq=space_time_freq,
+            id_to_name=id_to_name,
+            integer=integer and not both,
         )
 
     if axis in {"time", "both"}:
         df = disaggregate_time(
-            df, cols, freq_from=freq_from, freq_to=freq_to, time_col=time_col,
-            id_col=id_col, weights=time_weights, weight_col=time_weight_col,
+            df,
+            cols,
+            freq_from=freq_from,
+            freq_to=freq_to,
+            time_col=time_col,
+            id_col=id_col,
+            weights=time_weights,
+            weight_col=time_weight_col,
             integer=integer,
         )
 
