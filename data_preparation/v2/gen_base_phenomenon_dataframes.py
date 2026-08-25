@@ -339,13 +339,6 @@ def compute_phenomenon_dataframes(local=False):
     presenze_df = compute_presenze_trentino(
         mapping_comuni, how="distributional", distribution=vodafone_attendences_df
     )
-    presenze_df = presenze_df.merge(
-        vodafone_attendences_df[["DATA", "LOCATION", "ID_COMUNE", "presenze"]].rename(
-            columns={"presenze": "presenze_vodafone"}
-        ),
-        on=["DATA", "LOCATION", "ID_COMUNE"],
-        how="left",
-    )
 
     dict_dfs = {
         "phen_popolazione": popolazione_df,
