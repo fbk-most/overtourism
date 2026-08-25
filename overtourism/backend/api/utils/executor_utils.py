@@ -18,7 +18,7 @@ def call_executor(
     return requests.post(base_url, json={"param_overrides": param_overrides}).json()
 
 
-def list_models() -> list[str]:
+def list_models() -> list[dict[str, typing.Any]]:
     """Call the backend model list endpoint."""
     base_url = f"{model_backend_url}/models"
     return requests.get(base_url).json()

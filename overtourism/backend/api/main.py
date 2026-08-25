@@ -16,6 +16,7 @@ from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router
 from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.api.v2.session import session_router
+from overtourism.backend.api.v2.tenant import tenant_router
 from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
@@ -55,6 +56,10 @@ OPENAPI_TAGS = [
     {
         "name": "Auth",
         "description": "Authentication and current user context.",
+    },
+    {
+        "name": "Tenants",
+        "description": "List tenants available to the current user.",
     },
 ]
 
@@ -97,6 +102,7 @@ def create_app(
         app.include_router(scenario_router)
     app.include_router(evaluation_router)
     app.include_router(session_router)
+    app.include_router(tenant_router)
     app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX, tags=["Auth"])
 
     if extra_routers:

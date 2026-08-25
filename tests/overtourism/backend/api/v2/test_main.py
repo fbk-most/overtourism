@@ -103,6 +103,10 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
             "name": "Auth",
             "description": "Authentication and current user context.",
         },
+        {
+            "name": "Tenants",
+            "description": "List tenants available to the current user.",
+        },
     ]
     assert openapi["paths"]["/api/v2/{tenant}/problems"]["get"]["tags"] == ["Problems"]
     assert openapi["paths"]["/api/v2/{tenant}/proposals"]["get"]["tags"] == [
