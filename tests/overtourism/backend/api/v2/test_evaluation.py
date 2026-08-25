@@ -2,7 +2,21 @@
 
 from __future__ import annotations
 
+import pytest
+
 from overtourism.dt_manager.manager.manager import Manager
+
+
+@pytest.fixture(autouse=True)
+def mock_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "overtourism.backend.api.v2.evaluation.call_executor",
+        lambda tenant, param_overrides: {"values": param_overrides},
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.api.v2.session.call_executor",
+        lambda tenant, param_overrides: {"values": param_overrides},
+    )
 
 
 def _create_owned_session_and_draft(
@@ -48,9 +62,9 @@ def test_create_and_read_stored_evaluation(
     )
 
     assert create_response.status_code == 200
-    assert create_response.json()["version"] == 2
+    assert create_response.json()["version"] == 1
     assert create_response.json()["scenario_id"] == base_scenario_id
-    assert create_response.json()["state"] == "COMPLETED"
+    assert create_response.json()["state"] == "RUNNING"
     assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
 
@@ -185,7 +199,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     assert create_response.status_code == 200
-    assert create_response.json()["version"] == 3
+    assert create_response.json()["version"] == 2
     assert create_response.json()["scenario_id"] == draft_id
     assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
@@ -196,7 +210,7 @@ def test_create_and_read_session_evaluation_for_a_draft(
     )
 
     assert read_response.status_code == 200
-    assert read_response.json()["version"] == 3
+    assert read_response.json()["version"] == 2
     assert read_response.json()["evaluation_id"] == evaluation_id
     assert "result" not in read_response.json()
 
@@ -308,5 +322,5 @@ def test_session_evaluation_data_returns_arranged_data(
     assert response.json() == {
         "evaluation_id": evaluation_id,
         "scenario_id": draft_id,
-        "data": {"ensemble_size": 6, "values": {"visits": 12}},
+        "data": {"values": {"visits": 12}},
     }

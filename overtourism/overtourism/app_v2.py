@@ -8,7 +8,6 @@ from overtourism.backend.api.main import create_app
 from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
-from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from overtourism.overtourism.setup import build_handler
 
 
@@ -23,7 +22,6 @@ def build_app() -> FastAPI:
         extra_routers=[
             problem_router,
             proposal_router,
-            widget_router,
             indexes_router,
         ],
     )

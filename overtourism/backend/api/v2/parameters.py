@@ -9,30 +9,30 @@ from fastapi import APIRouter, Depends
 from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.utils.executor_utils import call_schema
 from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.overtourism.backend_extension.api.models.widgets import Widgets
+from overtourism.layer_3.api.schemas import ModelSchema
 
 logger = logging.getLogger(__name__)
 
-widget_router = APIRouter(
+configuration_router = APIRouter(
     prefix=TENANT_ROUTE_PREFIX,
     dependencies=[Depends(get_auth_context)],
 )
 
 
-@widget_router.get(
-    "/widgets",
-    response_model=list[Widgets],
+@configuration_router.get(
+    "/configuration",
+    response_model=ModelSchema,
     responses={
         500: {"description": "View manager error"},
-        200: {"description": "Widget list"},
+        200: {"description": "Configuration api"},
     },
 )
-async def list_widgets(
+async def get_configuration(
     tenant: str,
-) -> list[dict]:
-    """List all available widgets for the given tenant."""
+) -> ModelSchema:
+    """List all available configuration for the given tenant."""
     try:
         return call_schema(tenant)
     except Exception as exc:
-        logger.error(f"Error listing widgets: {exc}")
+        logger.error(f"Error listing configuration: {exc}")
         raise

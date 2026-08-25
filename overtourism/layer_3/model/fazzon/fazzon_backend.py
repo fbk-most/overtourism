@@ -30,6 +30,10 @@ from overtourism.layer_3.model.common.sustainability_field import (
     compute_sustainability_field,
 )
 from overtourism.layer_3.model.fazzon.fazzon_model import FazzonModel
+from overtourism.layer_3.model.fazzon.schema_metadata import (
+    RISK_COLOR_SCALE,
+    SUBSYSTEM_MAPPER,
+)
 
 
 class FazzonBackend:
@@ -63,6 +67,13 @@ class FazzonBackend:
     def parameter_schema(self) -> list[OvertourismParameterMeta]:
         """Return the ordered, self-describing parameter schema."""
         return list(self._schema.values())
+
+    def schema(self) -> dict[str, Any]:
+        """Return Fazzon indexes and placeholder frontend metadata."""
+        return {
+            "metadata": {"mapper": SUBSYSTEM_MAPPER, "color_map": RISK_COLOR_SCALE},
+            "indexes": self.parameter_schema(),
+        }
 
     @property
     def model(self) -> FazzonModel:

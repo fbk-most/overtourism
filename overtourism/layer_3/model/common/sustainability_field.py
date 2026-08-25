@@ -556,46 +556,9 @@ class SustainabilityFieldOutput(ModelOutput):
         return d
 
 
-_CONSTRAINT_NAME_IT = {
-    "parking": "parcheggi",
-    "beach": "spiaggia",
-    "accommodation": "alberghi",
-    "food": "ristoranti",
-}
-
-
 def arrange_frontend_data(output: SustainabilityFieldOutput) -> dict[str, Any]:
     """Return the legacy frontend payload from a field evaluation output."""
     snapshot = output.to_snapshot()
-
-    def translate_keys(values: dict[str, Any]) -> dict[str, Any]:
-        return {
-            _CONSTRAINT_NAME_IT.get(key, key): value for key, value in values.items()
-        }
-
-    for name in (
-        "uncertainty_by_constraint",
-        "usage_by_constraint",
-        "usage_uncertainty_by_constraint",
-        "capacity_mean_by_constraint",
-        "constraint_curves",
-    ):
-        snapshot[name] = translate_keys(snapshot[name])
-
-    translated_kpis: dict[str, Any] = {}
-    for key, value in snapshot["kpis"].items():
-        if key == "critical constraint" and isinstance(value, dict):
-            translated_kpis[key] = {
-                **value,
-                "name": _CONSTRAINT_NAME_IT.get(value["name"], value["name"]),
-            }
-        elif key.startswith("constraint level "):
-            constraint = key.removeprefix("constraint level ")
-            translated_kpis[
-                f"constraint level {_CONSTRAINT_NAME_IT.get(constraint, constraint)}"
-            ] = value
-        else:
-            translated_kpis[key] = value
 
     points = {
         "uncertainty": [],
@@ -640,7 +603,7 @@ def arrange_frontend_data(output: SustainabilityFieldOutput) -> dict[str, Any]:
 
     return {
         "points": points,
-        "kpis": translated_kpis,
+        "kpis": snapshot["kpis"],
         "x_max": snapshot["x_max"],
         "y_max": snapshot["y_max"],
         "capacity_mean": snapshot["capacity_mean"],

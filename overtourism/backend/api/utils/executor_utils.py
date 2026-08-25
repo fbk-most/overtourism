@@ -30,7 +30,7 @@ def list_models() -> list[dict[str, typing.Any]]:
 
 def call_schema(
     tenant: str,
-) -> list[dict[str, typing.Any]]:
+) -> dict[str, typing.Any]:
     """Call the backend schema endpoint for the provided tenant."""
     base_url = f"{model_backend_url}/models/{tenant}/schema"
     r = requests.get(base_url)

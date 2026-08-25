@@ -12,6 +12,7 @@ from overtourism.backend.api.utils.config import APP_VERSION, TENANT_ROUTE_PREFI
 from overtourism.backend.api.utils.dependencies import init_handler
 from overtourism.backend.api.utils.exceptions import install_exception_handlers
 from overtourism.backend.api.v2.evaluation import evaluation_router
+from overtourism.backend.api.v2.parameters import configuration_router
 from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router
 from overtourism.backend.api.v2.scenario import scenario_router
@@ -101,6 +102,7 @@ def create_app(
     if include_scenario_router:
         app.include_router(scenario_router)
     app.include_router(evaluation_router)
+    app.include_router(configuration_router)
     app.include_router(session_router)
     app.include_router(tenant_router)
     app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX, tags=["Auth"])

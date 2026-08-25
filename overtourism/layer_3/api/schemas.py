@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from overtourism.layer_3.model.common.sustainability_field import (
+    OvertourismParameterMeta,
     SustainabilityFieldOutput,
 )
 
@@ -28,6 +29,20 @@ class ModelInfo(BaseModel):
 
     key: str
     title: str
+
+
+class SchemaMetadata(BaseModel):
+    """Presentation metadata shared by model schemas."""
+
+    mapper: dict[str, str]
+    color_map: list[tuple[float, str]]
+
+
+class ModelSchema(BaseModel):
+    """Model-aware parameter schema and frontend presentation metadata."""
+
+    metadata: SchemaMetadata
+    indexes: list[OvertourismParameterMeta]
 
 
 class EvaluateRequest(BaseModel):

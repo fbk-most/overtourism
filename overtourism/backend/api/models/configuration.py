@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class Widgets(BaseModel):
+class Index(BaseModel):
     name: str
     kind: str
     distribution_family: str | None
@@ -23,3 +23,13 @@ class Widgets(BaseModel):
     min_value: float | None
     max_value: float | None
     default_range: list[Any] | None
+
+
+class Metadata(BaseModel):
+    mapper: dict[str, str]
+    color_map: list[list[float, str]]
+
+
+class Configuration(BaseModel):
+    metadata: Metadata
+    indexes: list[Index]

@@ -75,7 +75,7 @@ def test_evaluate_returns_frontend_shape_when_snapshot_is_false(monkeypatch) -> 
                 }
             ],
             "uncertainty_by_constraint": {
-                "parcheggi": [
+                "parking": [
                     {
                         "tourists": 12.0,
                         "excursionists": 34.0,
@@ -86,12 +86,12 @@ def test_evaluate_returns_frontend_shape_when_snapshot_is_false(monkeypatch) -> 
                 ]
             },
         },
-        "kpis": {"critical constraint": {"name": "parcheggi"}},
+        "kpis": {"critical constraint": {"name": "parking"}},
         "x_max": 100.0,
         "y_max": 200.0,
         "capacity_mean": 50.0,
-        "capacity_mean_by_constraint": {"parcheggi": 40.0},
-        "constraint_curves": {"parcheggi": [[1.0], [2.0]]},
+        "capacity_mean_by_constraint": {"parking": 40.0},
+        "constraint_curves": {"parking": [[1.0], [2.0]]},
     }
 
 
@@ -115,3 +115,82 @@ def test_evaluate_returns_snapshot_when_snapshot_is_true(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"field": [[0.1]]}
+
+
+def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> None:
+    class FakeBackend:
+        def schema(self):
+            return {
+                "metadata": {
+                    "mapper": {
+                        "default": "Tutti",
+                        "parcheggi": "Parcheggi",
+                        "spiaggia": "Spiaggia",
+                        "alberghi": "Alberghi",
+                        "ristoranti": "Ristoranti",
+                    },
+                    "color_map": [
+                        [0.0, "rgb(5, 102, 8)"],
+                        [0.05, "rgb(100, 180, 90)"],
+                        [0.2, "rgb(180, 230, 170)"],
+                        [0.4, "rgb(230, 250, 225)"],
+                        [0.5, "yellow"],
+                        [0.6, "rgb(255, 242, 242)"],
+                        [0.8, "rgb(242, 204, 204)"],
+                        [0.95, "rgb(204, 76, 76)"],
+                        [1.0, "rgb(180, 4, 38)"],
+                    ],
+                },
+                "indexes": [{"name": "parking", "kind": "scalar"}],
+            }
+
+    monkeypatch.setattr(
+        "overtourism.layer_3.api.routes.get_backend", lambda model_key: FakeBackend()
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/models/molveno/schema")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metadata"] == {
+        "mapper": {
+            "default": "Tutti",
+            "parcheggi": "Parcheggi",
+            "spiaggia": "Spiaggia",
+            "alberghi": "Alberghi",
+            "ristoranti": "Ristoranti",
+        },
+        "color_map": [
+            [0.0, "rgb(5, 102, 8)"],
+            [0.05, "rgb(100, 180, 90)"],
+            [0.2, "rgb(180, 230, 170)"],
+            [0.4, "rgb(230, 250, 225)"],
+            [0.5, "yellow"],
+            [0.6, "rgb(255, 242, 242)"],
+            [0.8, "rgb(242, 204, 204)"],
+            [0.95, "rgb(204, 76, 76)"],
+            [1.0, "rgb(180, 4, 38)"],
+        ],
+    }
+    assert body["indexes"][0]["name"] == "parking"
+    assert body["indexes"][0]["kind"] == "scalar"
+
+
+def test_get_fazzon_schema_uses_placeholder_frontend_metadata(monkeypatch) -> None:
+    class FakeBackend:
+        def schema(self):
+            return {
+                "metadata": {"mapper": {}, "color_map": []},
+                "indexes": [{"name": "visitors", "kind": "scalar"}],
+            }
+
+    monkeypatch.setattr(
+        "overtourism.layer_3.api.routes.get_backend", lambda model_key: FakeBackend()
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/models/fazzon/schema")
+
+    assert response.status_code == 200
+    assert response.json()["metadata"] == {"mapper": {}, "color_map": []}

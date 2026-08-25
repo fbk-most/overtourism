@@ -24,9 +24,7 @@ from overtourism.layer_3.api.schemas import (
     EvaluateResponse,
     ModelInfo,
 )
-from overtourism.layer_3.model.common.sustainability_field import (
-    OvertourismParameterMeta,
-)
+from overtourism.layer_3.api.schemas import ModelSchema
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -46,11 +44,11 @@ def list_models() -> list[ModelInfo]:
     return [ModelInfo(key=key, title=MODEL_TITLES[key]) for key in BACKEND_REGISTRY]
 
 
-@router.get("/{model_key}/schema", response_model=list[OvertourismParameterMeta])
-def get_schema(model_key: str) -> list[OvertourismParameterMeta]:
+@router.get("/{model_key}/schema", response_model=ModelSchema)
+def get_schema(model_key: str) -> ModelSchema:
     """Return the model's ordered, self-describing parameter schema."""
     backend = _get_backend_or_404(model_key)
-    return backend.parameter_schema()
+    return ModelSchema.model_validate(backend.schema())
 
 
 @router.post("/{model_key}/evaluate", response_model=Any)

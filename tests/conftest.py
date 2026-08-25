@@ -32,7 +32,6 @@ from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
 from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
 from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
-from overtourism.overtourism.backend_extension.api.v2.widget import widget_router
 from tests.overtourism.test_support import (
     DEFAULT_PROBLEM_ID,
     DEFAULT_PROPOSAL_ID,
@@ -296,7 +295,6 @@ def _build_app(handler: Handler, suite_kind: str):
                 problem_router,
                 proposal_router,
                 scenario_router,
-                widget_router,
             ],
         )
     return create_app(handler)

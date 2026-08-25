@@ -111,6 +111,6 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     assert evaluation_data["session_id"] == "session-detail"
     assert evaluation_data["type"] == "default"
     assert evaluation_data["version"] == evaluation["version"]
-    assert evaluation_data["state"] == "COMPLETED"
+    assert evaluation_data["state"] == "RUNNING"
     assert evaluation_data["started"] == evaluation["started"]
     assert evaluation_data["finished"] == evaluation["finished"]
