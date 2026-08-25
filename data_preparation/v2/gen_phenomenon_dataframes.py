@@ -268,6 +268,11 @@ def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
     )
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    df = df.merge(
+        distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
+        on=["DATA", "ID_COMUNE"],
+        how="left",
+    )
     return df
 
 

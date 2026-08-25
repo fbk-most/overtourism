@@ -195,12 +195,12 @@ class HiddenTourismIndicator(Indicator):
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="presenze_alb_distributed",
+                    col="presenze_alb",
                     name="presenze_alb",
                 ),
                 PresencesPhenomenon(
                     source_file,
-                    col="presenze_xalb_distributed",
+                    col="presenze_xalb",
                     name="presenze_xalb",
                 ),
             ],
