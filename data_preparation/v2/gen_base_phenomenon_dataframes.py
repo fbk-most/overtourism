@@ -39,29 +39,46 @@ logging.basicConfig(level=logging.INFO)
 
 ## COMPUTATION 
 ## Functions to compute phenomena dataframes 
-def compute_arrivi_trentino(years = ["2021", "2022", "2023", "2024"]):
+def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
+                             years=["2021", "2022", "2023", "2024"]):
     logging.info("Downloading arrivi_trentino_ISPAT.csv from S3...")
     arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
     arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
     arrivi_trentino = pd.melt(
-        arrivi_trentino,
-        id_vars="comune",
-        value_vars=years,
-        value_name="arrivi",
-        var_name="anno",
+        arrivi_trentino, id_vars="comune", value_vars=years,
+        value_name="arrivi", var_name="anno",
     )
     arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
-    arrivi_trentino = arrivi_trentino.sort_values(by=["comune", "anno"]).reset_index(
-        drop=True
-    )
-
     arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
+
+    json_apt = get_json_s3("mapping_ids/map_comuni_into_apt.json")
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
+
+    arrivi_trentino["ID_COMUNE"] = arrivi_trentino["comune"].map(json_apt).apply(
+        lambda x: [int(i) for i in x] if isinstance(x, list) else x
+    )
     arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
 
-    return arrivi_trentino
+    kwargs = dict(axis="both", freq_from="Y", freq_to="D", id_to_name=id_to_comune)
+    if how == "distributional":
+        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        kwargs.update(
+            space_weights=distribution,
+            space_weight_col="presenze",
+            space_time_freq="Y",
+            time_weights=distribution,
+            time_weight_col="presenze",
+        )
+    elif how != "uniform":
+        raise ValueError(f"Unknown disaggregation method: {how}")
+
+    arrivi = disaggregate(arrivi_trentino, cols=["arrivi"], **kwargs)
+    arrivi["ID_COMUNE"] = pad_id_comune(arrivi["ID_COMUNE"])
+    arrivi["DATA"] = pd.to_datetime(arrivi["DATA"]).dt.strftime("%Y-%m-%d")
+    return arrivi
 
 
-def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
+def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, how="uniform"):
     logging.info("Downloading presenze_Trentino_ISPAT.csv from S3...")
     presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
     logging.info("Downloading presenze_Trentino_ISPAT_alb_xalb.csv from S3...")
@@ -119,12 +136,12 @@ def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
     ## Monthly x APT -> daily x comune
     kwargs = dict(axis="both", freq_from="M", freq_to="D", id_to_name=id_to_comune)
     if how == "distributional":
-        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        assert vodafone_presences_distribution is not None, "Distribution required for 'distributional' disaggregation"
         kwargs.update(
-            space_weights=distribution,
+            space_weights=vodafone_presences_distribution,
             space_weight_col="presenze",
             space_time_freq="M",
-            time_weights=distribution,
+            time_weights=vodafone_presences_distribution,
             time_weight_col="presenze",
         )
     elif how != "uniform":
@@ -145,7 +162,7 @@ def compute_presenze_trentino(mapping_comuni, how="uniform", distribution=None):
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     df = df.merge(
-        distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
+        vodafone_presences_distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
         on=["DATA", "ID_COMUNE"],
         how="left",
     )
@@ -332,13 +349,12 @@ def compute_phenomenon_dataframes(local=False):
     logging.info(f"## Computing phenomenon dataframes")
 
     mapping_comuni = get_mapping_comuni()
-    popolazione_df = compute_popolazione(mapping_comuni)
-    strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)
-    arrivi_trentino = compute_arrivi_trentino()
+    popolazione_df = compute_popolazione(mapping_comuni)   # comunale, annuale 
+    strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)   # comunale, annuale  
     vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
     presenze_df = compute_presenze_trentino(
-        mapping_comuni, how="distributional", distribution=vodafone_attendences_df
-    )
+        mapping_comuni, vodafone_attendences_df)  # , how="uniform") # now the merge with vodafone presences is managed inside compute_presenze
+    arrivi_trentino = compute_arrivi_trentino(mapping_comuni) #,  how="distributional", distribution=vodafone_attendences_df)  #for the future   # apt -> comunale
 
     dict_dfs = {
         "phen_popolazione": popolazione_df,
