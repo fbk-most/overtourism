@@ -260,7 +260,7 @@ class HiddenTourismIndicator(Indicator):
         df: pd.DataFrame,
         **extra,
     ) -> pd.Series:
-        return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
+        return (df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])).fillna(0)
 
 
 class RatioFlowsIndicator(Indicator):
