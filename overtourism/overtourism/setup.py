@@ -69,7 +69,7 @@ for model in list_models():
     schema = call_schema(names_cfg.tenant)
     editable_indexes = []
     groups = []
-    for i in schema:
+    for i in schema["indexes"]:
         editable_indexes.append(i["name"])
         groups.append(i["category"])
     problem_extras = {
