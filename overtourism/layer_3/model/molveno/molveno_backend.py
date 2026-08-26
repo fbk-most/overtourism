@@ -33,6 +33,7 @@ from overtourism.layer_3.model.molveno.molveno_model import MolvenoModel
 from overtourism.layer_3.model.molveno.schema_metadata import (
     RISK_COLOR_SCALE,
     SUBSYSTEM_MAPPER,
+    KPI_MAPPER,
 )
 
 
@@ -97,7 +98,7 @@ class MolvenoBackend:
     def schema(self) -> dict[str, Any]:
         """Return Molveno indexes and frontend presentation metadata."""
         return {
-            "metadata": {"mapper": SUBSYSTEM_MAPPER, "color_map": RISK_COLOR_SCALE},
+            "metadata": {"mapper": SUBSYSTEM_MAPPER, "color_map": RISK_COLOR_SCALE, "kpi_mapper": KPI_MAPPER},
             "indexes": self.parameter_schema(),
         }
 

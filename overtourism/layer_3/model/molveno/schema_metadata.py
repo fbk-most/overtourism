@@ -21,3 +21,14 @@ SUBSYSTEM_MAPPER: dict[str, str] = {
     "accommodation": "Alberghi",
     "food": "Ristoranti",
 }
+
+KPI_MAPPER: dict[str, str] = {
+    "title": "Indici",
+    "area": "Area Totale",
+    "overtourism_level": "Giorni di criticità complessiva",
+    "constraint level parking": "Giorni di criticità Parcheggi",
+    "constraint level beach": "Giorni di criticità Spiaggia",
+    "constraint level accommodation": "Giorni di criticità Alberghi",
+    "constraint level food": "Giorni di criticità Ristoranti",
+    "critical constraint": "Vincolo Critico"
+}
