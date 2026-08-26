@@ -64,7 +64,7 @@ def test_create_and_read_stored_evaluation(
     assert create_response.status_code == 200
     assert create_response.json()["version"] == 1
     assert create_response.json()["scenario_id"] == base_scenario_id
-    assert create_response.json()["state"] == "RUNNING"
+    assert create_response.json()["state"] == "COMPLETED"
     assert "result" not in create_response.json()
     evaluation_id = create_response.json()["evaluation_id"]
 

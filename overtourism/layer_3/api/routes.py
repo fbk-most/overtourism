@@ -23,8 +23,8 @@ from overtourism.layer_3.api.schemas import (
     EvaluateRequest,
     EvaluateResponse,
     ModelInfo,
+    ModelSchema,
 )
-from overtourism.layer_3.api.schemas import ModelSchema
 
 router = APIRouter(prefix="/models", tags=["models"])
 

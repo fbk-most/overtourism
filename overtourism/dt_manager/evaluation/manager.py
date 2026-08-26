@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
@@ -12,6 +15,7 @@ from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationAlreadyExists,
 )
+from overtourism.dt_manager.utils.utils import get_timestamp
 
 
 class EvaluationManager:
@@ -93,6 +97,32 @@ class EvaluationManager:
         raise EntityDoesNotExist(
             f"Evaluation for scenario {scenario_id} does not exist"
         )
+
+    def update_evaluation(self, evaluation: Evaluation) -> None:
+        """Update a persisted evaluation."""
+        self.read_evaluation(evaluation.evaluation_id)
+        self.store.save_evaluation(evaluation.to_dict())
+
+    def run_evaluation(
+        self,
+        evaluation: Evaluation,
+        executor: Callable[[], Any],
+    ) -> Evaluation:
+        """Run and persist a previously created evaluation."""
+        if evaluation.state is not EvaluationState.RUNNING:
+            raise ValueError("Evaluation must be RUNNING")
+
+        try:
+            evaluation.result = executor()
+        except Exception:
+            evaluation.state = EvaluationState.FAILED
+        else:
+            evaluation.state = EvaluationState.COMPLETED
+        finally:
+            evaluation.finished = get_timestamp()
+            self.update_evaluation(evaluation)
+
+        return evaluation
 
     def delete_evaluation(self, evaluation_id: str) -> None:
         """Delete a persisted evaluation."""

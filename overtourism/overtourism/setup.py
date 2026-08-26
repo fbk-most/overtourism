@@ -92,9 +92,10 @@ for model in list_models():
         extras=names_cfg.scenario_extras,
     )
     evaluation = crud_manager.create_evaluation(names_cfg.scenario_id)
-    result = call_executor(names_cfg.tenant)
-    evaluation.result = result
-    crud_manager.save_evaluation(evaluation)
+    crud_manager.run_evaluation(
+        evaluation,
+        lambda: call_executor(names_cfg.tenant),
+    )
     crud_manager.proposal_manager.create_proposal(
         proposal_id=names_cfg.proposal_id,
         problem_id=names_cfg.problem_id,

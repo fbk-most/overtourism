@@ -23,7 +23,7 @@ from overtourism.backend.api.utils.utils import (
     get_scenario_or_404,
 )
 from overtourism.backend.auth.dependencies import Handler, get_auth_context
-from overtourism.dt_manager.evaluation.evaluation import Evaluation, EvaluationState
+from overtourism.dt_manager.evaluation.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +52,10 @@ async def create_evaluation(
     try:
         scenario = get_scenario_or_404(tenant, handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
-        try:
-            result = call_executor(tenant, scenario.param_overrides)
-            evaluation.result = result
-            evaluation.status = EvaluationState.COMPLETED
-        except Exception as e:
-            evaluation.status = EvaluationState.FAILED
-            logger.error(f"Error during evaluation execution: {e}")
-        finally:
-            handler.manager.save_evaluation(evaluation)
+        evaluation = handler.manager.run_evaluation(
+            evaluation,
+            lambda: call_executor(tenant, scenario.param_overrides),
+        )
         logger.info(f"Evaluation created for scenario {data.scenario_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
@@ -151,12 +146,11 @@ async def update_evaluation(
                 ensemble_size=data.ensemble_size,
             )
         else:
-            try:
-                # Call backend executor
-                evaluation.result = call_executor(tenant, scenario.param_overrides)
-                evaluation.version += 1
-            finally:
-                handler.manager.save_evaluation(evaluation)
+            evaluation.version += 1
+            evaluation = handler.manager.run_evaluation(
+                evaluation,
+                lambda: call_executor(tenant, scenario.param_overrides),
+            )
         logger.info(f"Evaluation updated: {evaluation_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:

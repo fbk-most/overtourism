@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
 from uuid import uuid4
 
 from overtourism.dt_manager.evaluation.evaluation import (
@@ -312,6 +314,14 @@ class Manager:
     def save_evaluation(self, evaluation: Evaluation) -> None:
         """Persist an evaluation."""
         self.evaluation_manager.save_evaluation(evaluation)
+
+    def run_evaluation(
+        self,
+        evaluation: Evaluation,
+        executor: Callable[[], Any],
+    ) -> Evaluation:
+        """Run and persist an evaluation through the evaluation manager."""
+        return self.evaluation_manager.run_evaluation(evaluation, executor)
 
     def list_evaluations(
         self,

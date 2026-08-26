@@ -153,6 +153,55 @@ def test_evaluation_manager_exposes_only_persistent_and_object_lifecycle_operati
     assert not hasattr(manager, "close_session")
 
 
+def test_run_evaluation_persists_completed_result(
+    sql_store,
+    problem_payload,
+) -> None:
+    manager = EvaluationManager(sql_store)
+    scenario = _make_scenario(problem_payload["tenant"], "scenario-alpha", 7)
+    _persist_problem_scenarios(sql_store, problem_payload, scenario)
+    evaluation = manager.create_evaluation(
+        "evaluation-alpha",
+        scenario.scenario_id,
+    )
+
+    completed = manager.run_evaluation(
+        evaluation,
+        lambda: {"values": {"visits": 7}},
+    )
+
+    assert completed.state is EvaluationState.COMPLETED
+    assert completed.result == {"values": {"visits": 7}}
+    assert completed.finished is not None
+    assert manager.read_evaluation(evaluation.evaluation_id).to_dict() == (
+        completed.to_dict()
+    )
+
+
+def test_run_evaluation_persists_failed_state(
+    sql_store,
+    problem_payload,
+) -> None:
+    manager = EvaluationManager(sql_store)
+    scenario = _make_scenario(problem_payload["tenant"], "scenario-alpha", 7)
+    _persist_problem_scenarios(sql_store, problem_payload, scenario)
+    evaluation = manager.create_evaluation(
+        "evaluation-alpha",
+        scenario.scenario_id,
+    )
+
+    def fail() -> dict:
+        raise RuntimeError("evaluation failed")
+
+    failed = manager.run_evaluation(evaluation, fail)
+
+    assert failed.state is EvaluationState.FAILED
+    assert failed.finished is not None
+    assert manager.read_evaluation(evaluation.evaluation_id).state is (
+        EvaluationState.FAILED
+    )
+
+
 def test_evaluation_objects_can_be_executed_saved_and_rerun(
     sql_store,
     fake_model,

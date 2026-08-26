@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import typing
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
 from overtourism.dt_manager.utils.dictable import Dictable
 from overtourism.dt_manager.utils.utils import get_timestamp
-
-if typing.TYPE_CHECKING:
-    from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 
 DEFAULT_EVALUATION_TYPE = "default"
 
@@ -41,7 +37,7 @@ class Evaluation(Dictable):
     state: EvaluationState = EvaluationState.RUNNING
     started: str | None = None
     finished: str | None = None
-    result: ModelOutput | dict | None = None
+    result: dict | None = None
 
     @classmethod
     def create_default(
@@ -54,7 +50,7 @@ class Evaluation(Dictable):
         state: EvaluationState = EvaluationState.RUNNING,
         started: str | None = None,
         finished: str | None = None,
-        result: ModelOutput | dict | None = None,
+        result: dict | None = None,
     ) -> Evaluation:
         """Create a new evaluation with default timestamps."""
         return cls(
