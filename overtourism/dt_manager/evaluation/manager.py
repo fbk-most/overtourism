@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 from overtourism.dt_manager.evaluation.evaluation import (
@@ -103,25 +102,29 @@ class EvaluationManager:
         self.read_evaluation(evaluation.evaluation_id)
         self.store.save_evaluation(evaluation.to_dict())
 
-    def run_evaluation(
+    def complete_evaluation(
         self,
         evaluation: Evaluation,
-        executor: Callable[[], Any],
+        result: Any,
     ) -> Evaluation:
-        """Run and persist a previously created evaluation."""
+        """Mark a running evaluation as completed and persist its result."""
         if evaluation.state is not EvaluationState.RUNNING:
             raise ValueError("Evaluation must be RUNNING")
 
-        try:
-            evaluation.result = executor()
-        except Exception:
-            evaluation.state = EvaluationState.FAILED
-        else:
-            evaluation.state = EvaluationState.COMPLETED
-        finally:
-            evaluation.finished = get_timestamp()
-            self.update_evaluation(evaluation)
+        evaluation.result = result
+        evaluation.state = EvaluationState.COMPLETED
+        evaluation.finished = get_timestamp()
+        self.update_evaluation(evaluation)
+        return evaluation
 
+    def fail_evaluation(self, evaluation: Evaluation) -> Evaluation:
+        """Mark a running evaluation as failed and persist its state."""
+        if evaluation.state is not EvaluationState.RUNNING:
+            raise ValueError("Evaluation must be RUNNING")
+
+        evaluation.state = EvaluationState.FAILED
+        evaluation.finished = get_timestamp()
+        self.update_evaluation(evaluation)
         return evaluation
 
     def delete_evaluation(self, evaluation_id: str) -> None:

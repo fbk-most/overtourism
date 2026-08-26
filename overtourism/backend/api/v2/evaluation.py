@@ -52,10 +52,13 @@ async def create_evaluation(
     try:
         scenario = get_scenario_or_404(tenant, handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
-        evaluation = handler.manager.run_evaluation(
-            evaluation,
-            lambda: call_executor(tenant, scenario.param_overrides),
-        )
+        try:
+            result = call_executor(tenant, scenario.param_overrides)
+        except Exception as e:
+            logger.error(f"Error during evaluation execution: {e}")
+            evaluation = handler.manager.fail_evaluation(evaluation)
+        else:
+            evaluation = handler.manager.complete_evaluation(evaluation, result)
         logger.info(f"Evaluation created for scenario {data.scenario_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
@@ -147,10 +150,13 @@ async def update_evaluation(
             )
         else:
             evaluation.version += 1
-            evaluation = handler.manager.run_evaluation(
-                evaluation,
-                lambda: call_executor(tenant, scenario.param_overrides),
-            )
+            try:
+                result = call_executor(tenant, scenario.param_overrides)
+            except Exception as e:
+                logger.error(f"Error during evaluation execution: {e}")
+                evaluation = handler.manager.fail_evaluation(evaluation)
+            else:
+                evaluation = handler.manager.complete_evaluation(evaluation, result)
         logger.info(f"Evaluation updated: {evaluation_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:

@@ -150,10 +150,11 @@ def test_evaluation_manager_exposes_only_persistent_and_object_lifecycle_operati
     assert not hasattr(manager, "delete_session_evaluation")
     assert not hasattr(manager, "run_session_evaluation")
     assert not hasattr(manager, "rerun_session_evaluation")
+    assert not hasattr(manager, "run_evaluation")
     assert not hasattr(manager, "close_session")
 
 
-def test_run_evaluation_persists_completed_result(
+def test_complete_evaluation_persists_result_and_state(
     sql_store,
     problem_payload,
 ) -> None:
@@ -165,9 +166,9 @@ def test_run_evaluation_persists_completed_result(
         scenario.scenario_id,
     )
 
-    completed = manager.run_evaluation(
+    completed = manager.complete_evaluation(
         evaluation,
-        lambda: {"values": {"visits": 7}},
+        {"values": {"visits": 7}},
     )
 
     assert completed.state is EvaluationState.COMPLETED
@@ -178,7 +179,7 @@ def test_run_evaluation_persists_completed_result(
     )
 
 
-def test_run_evaluation_persists_failed_state(
+def test_fail_evaluation_persists_failed_state(
     sql_store,
     problem_payload,
 ) -> None:
@@ -190,10 +191,7 @@ def test_run_evaluation_persists_failed_state(
         scenario.scenario_id,
     )
 
-    def fail() -> dict:
-        raise RuntimeError("evaluation failed")
-
-    failed = manager.run_evaluation(evaluation, fail)
+    failed = manager.fail_evaluation(evaluation)
 
     assert failed.state is EvaluationState.FAILED
     assert failed.finished is not None

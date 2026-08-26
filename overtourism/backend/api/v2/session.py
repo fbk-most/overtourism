@@ -327,10 +327,13 @@ async def create_session_evaluation(
             scenario.scenario_id,
             evaluation,
         )
-        evaluation = handler.manager.run_evaluation(
-            evaluation,
-            lambda: call_executor(tenant, scenario.param_overrides),
-        )
+        try:
+            result = call_executor(tenant, scenario.param_overrides)
+        except Exception as e:
+            logger.error(f"Error during evaluation execution: {e}")
+            evaluation = handler.manager.fail_evaluation(evaluation)
+        else:
+            evaluation = handler.manager.complete_evaluation(evaluation, result)
         logger.info("Evaluation created")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
@@ -315,13 +314,17 @@ class Manager:
         """Persist an evaluation."""
         self.evaluation_manager.save_evaluation(evaluation)
 
-    def run_evaluation(
+    def complete_evaluation(
         self,
         evaluation: Evaluation,
-        executor: Callable[[], Any],
+        result: Any,
     ) -> Evaluation:
-        """Run and persist an evaluation through the evaluation manager."""
-        return self.evaluation_manager.run_evaluation(evaluation, executor)
+        """Mark an evaluation as completed through the evaluation manager."""
+        return self.evaluation_manager.complete_evaluation(evaluation, result)
+
+    def fail_evaluation(self, evaluation: Evaluation) -> Evaluation:
+        """Mark an evaluation as failed through the evaluation manager."""
+        return self.evaluation_manager.fail_evaluation(evaluation)
 
     def list_evaluations(
         self,

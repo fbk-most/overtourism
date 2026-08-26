@@ -92,10 +92,12 @@ for model in list_models():
         extras=names_cfg.scenario_extras,
     )
     evaluation = crud_manager.create_evaluation(names_cfg.scenario_id)
-    crud_manager.run_evaluation(
-        evaluation,
-        lambda: call_executor(names_cfg.tenant),
-    )
+    try:
+        result = call_executor(names_cfg.tenant)
+    except Exception:
+        crud_manager.fail_evaluation(evaluation)
+    else:
+        crud_manager.complete_evaluation(evaluation, result)
     crud_manager.proposal_manager.create_proposal(
         proposal_id=names_cfg.proposal_id,
         problem_id=names_cfg.problem_id,

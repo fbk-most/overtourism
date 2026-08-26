@@ -88,6 +88,39 @@ def test_create_and_read_stored_evaluation(
     assert "result" not in read_response.json()
 
 
+def test_create_evaluation_persists_failed_state_when_executor_fails(
+    client,
+    tenant: str,
+    problem_id: str,
+    monkeypatch,
+) -> None:
+    def fail_executor(tenant: str, param_overrides: dict) -> dict:
+        raise RuntimeError("executor failed")
+
+    monkeypatch.setattr(
+        "overtourism.backend.api.v2.evaluation.call_executor",
+        fail_executor,
+    )
+
+    response = client.post(
+        f"/api/v2/{tenant}/evaluations",
+        params={"problem_id": problem_id},
+        json={"scenario_id": f"{tenant}_base_scenario"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "FAILED"
+    evaluation_id = response.json()["evaluation_id"]
+
+    read_response = client.get(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
+    )
+
+    assert read_response.status_code == 200
+    assert read_response.json()["state"] == "FAILED"
+
+
 def test_list_evaluations_filters_by_tenant(
     client,
     manager: Manager,
