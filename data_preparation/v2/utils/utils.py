@@ -256,7 +256,7 @@ def save_computed_dfs(dict_dfs, local=False):
         logging.info(f"Uploading dataframe '{key}'...")
         put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
         if not local:
-            logging.info(f"Logging dataframe '{key}'...")
+            logging.info(f"Logging dataframe '{key}.parquet'...")
             log_dataframe(value, key, type="parquet")
     logging.info("## Saved.")
 
