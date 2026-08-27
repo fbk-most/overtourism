@@ -70,7 +70,7 @@ def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
             time_weight_col="presenze",
         )
     elif how != "uniform":
-        raise ValueError(f"Unknown disaggregation method: {how}")
+        raise ValueError(f"Unknown disaggregation method: {how}, choose one between 'uniform' and 'distributional'")
 
     arrivi = disaggregate(arrivi_trentino, cols=["arrivi"], **kwargs)
     arrivi["ID_COMUNE"] = pad_id_comune(arrivi["ID_COMUNE"])
@@ -164,7 +164,7 @@ def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, h
     df = df.merge(
         vodafone_presences_distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
         on=["DATA", "ID_COMUNE"],
-        how="left",
+        how="inner",
     )
     return df
 
@@ -353,7 +353,7 @@ def compute_phenomenon_dataframes(local=False):
     strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)   # comunale, annuale  
     vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
     presenze_df = compute_presenze_trentino(
-        mapping_comuni, vodafone_attendences_df)  # , how="uniform") # now the merge with vodafone presences is managed inside compute_presenze
+        mapping_comuni, vodafone_attendences_df, how = "distributional")  # now the merge with vodafone presences is managed inside compute_presenze
     arrivi_trentino = compute_arrivi_trentino(mapping_comuni) #,  how="distributional", distribution=vodafone_attendences_df)  #for the future   # apt -> comunale
 
     dict_dfs = {
