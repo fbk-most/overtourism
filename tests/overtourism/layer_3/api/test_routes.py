@@ -140,6 +140,20 @@ def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> 
                         [0.95, "rgb(204, 76, 76)"],
                         [1.0, "rgb(180, 4, 38)"],
                     ],
+                    "kpi_mapper": {"title": "Indici"},
+                    "plot_mapper": {
+                        "monodimensional": {
+                            "x": {"label": "Giorni"},
+                            "y": {"label": "Utilizzo", "field": "usage"},
+                        },
+                        "bidimensional": {
+                            "x": {"label": "Turisti", "field": "tourist"},
+                            "y": {
+                                "label": "Escursionisti",
+                                "field": "excursionist",
+                            },
+                        },
+                    },
                 },
                 "indexes": [{"name": "parking", "kind": "scalar"}],
             }
@@ -172,6 +186,17 @@ def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> 
             [0.95, "rgb(204, 76, 76)"],
             [1.0, "rgb(180, 4, 38)"],
         ],
+        "kpi_mapper": {"title": "Indici"},
+        "plot_mapper": {
+            "monodimensional": {
+                "x": {"label": "Giorni"},
+                "y": {"label": "Utilizzo", "field": "usage"},
+            },
+            "bidimensional": {
+                "x": {"label": "Turisti", "field": "tourist"},
+                "y": {"label": "Escursionisti", "field": "excursionist"},
+            },
+        },
     }
     assert body["indexes"][0]["name"] == "parking"
     assert body["indexes"][0]["kind"] == "scalar"
@@ -181,7 +206,15 @@ def test_get_fazzon_schema_uses_placeholder_frontend_metadata(monkeypatch) -> No
     class FakeBackend:
         def schema(self):
             return {
-                "metadata": {"mapper": {}, "color_map": []},
+                "metadata": {
+                    "mapper": {},
+                    "color_map": [],
+                    "kpi_mapper": {},
+                    "plot_mapper": {
+                        "monodimensional": {},
+                        "bidimensional": {},
+                    },
+                },
                 "indexes": [{"name": "visitors", "kind": "scalar"}],
             }
 
@@ -193,4 +226,9 @@ def test_get_fazzon_schema_uses_placeholder_frontend_metadata(monkeypatch) -> No
         response = client.get("/models/fazzon/schema")
 
     assert response.status_code == 200
-    assert response.json()["metadata"] == {"mapper": {}, "color_map": []}
+    assert response.json()["metadata"] == {
+        "mapper": {},
+        "color_map": [],
+        "kpi_mapper": {},
+        "plot_mapper": {"monodimensional": {}, "bidimensional": {}},
+    }

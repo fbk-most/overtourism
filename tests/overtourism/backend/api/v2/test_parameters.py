@@ -7,7 +7,12 @@ def test_configuration_returns_the_model_schema(monkeypatch, client, tenant) -> 
     monkeypatch.setattr(
         "overtourism.backend.api.v2.parameters.call_schema",
         lambda requested_tenant: {
-            "metadata": {"mapper": {}, "color_map": []},
+            "metadata": {
+                "mapper": {},
+                "color_map": [],
+                "kpi_mapper": {},
+                "plot_mapper": {"monodimensional": {}, "bidimensional": {}},
+            },
             "indexes": [{"name": "visitors", "kind": "scalar"}],
         },
     )
@@ -16,6 +21,11 @@ def test_configuration_returns_the_model_schema(monkeypatch, client, tenant) -> 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["metadata"] == {"mapper": {}, "color_map": []}
+    assert body["metadata"] == {
+        "mapper": {},
+        "color_map": [],
+        "kpi_mapper": {},
+        "plot_mapper": {"monodimensional": {}, "bidimensional": {}},
+    }
     assert body["indexes"][0]["name"] == "visitors"
     assert body["indexes"][0]["kind"] == "scalar"

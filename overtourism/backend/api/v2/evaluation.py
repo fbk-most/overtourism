@@ -86,7 +86,11 @@ async def list_evaluations(
             scenario_id,
             tenant=tenant,
         )
-        return [EvaluationData.from_domain(evaluation) for evaluation in evaluations]
+        return [
+            EvaluationData.from_domain(evaluation)
+            for evaluation in evaluations
+            if evaluation.session_id is None
+        ]
     except Exception as e:
         logger.error(f"Error listing evaluations: {e}")
         raise

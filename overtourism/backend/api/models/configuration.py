@@ -29,6 +29,7 @@ class Metadata(BaseModel):
     mapper: dict[str, str]
     color_map: list[list[float, str]]
     kpi_mapper: dict[str, str]
+    plot_mapper: dict[str, dict[str, Any]]
 
 
 class Configuration(BaseModel):

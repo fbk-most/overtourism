@@ -56,7 +56,11 @@ async def list_scenarios(
         scenarios = handler.manager.list_scenarios(
             tenant=tenant, proposal_id=proposal_id
         )
-        return [scenario_to_api(handler, scenario) for scenario in scenarios]
+        return [
+            scenario_to_api(handler, scenario)
+            for scenario in scenarios
+            if scenario.session_id is None
+        ]
     except Exception as e:
         logger.error(f"Error listing scenarios: {e}")
         raise

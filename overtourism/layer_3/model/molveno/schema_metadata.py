@@ -30,5 +30,25 @@ KPI_MAPPER: dict[str, str] = {
     "constraint level beach": "Giorni di criticità Spiaggia",
     "constraint level accommodation": "Giorni di criticità Alberghi",
     "constraint level food": "Giorni di criticità Ristoranti",
-    "critical constraint": "Vincolo Critico"
+    "critical constraint": "Vincolo Critico",
+}
+
+PLOT_MAPPER: dict[str, dict] = {
+    "monodimensional": {
+        "x": {
+            "label": "Giorni (ordinati per utilizzo)",
+        },
+        "y": {"label": "Livello di utilizzo della destinazione", "field": "usage"},
+    },
+    "bidimensional": {
+        "x": {"label": "Turisti", "field": "tourist"},
+        "y": {"label": "Escursionisti", "field": "excursionist"},
+    },
+}
+
+SCHEMA_METADATA: dict[str, object] = {
+    "mapper": SUBSYSTEM_MAPPER,
+    "color_map": RISK_COLOR_SCALE,
+    "kpi_mapper": KPI_MAPPER,
+    "plot_mapper": PLOT_MAPPER,
 }

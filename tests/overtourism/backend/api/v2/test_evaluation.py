@@ -154,6 +154,35 @@ def test_list_evaluations_filters_by_tenant(
     )
 
 
+def test_list_evaluations_excludes_session_evaluations(
+    client,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    session_id, draft_id = _create_owned_session_and_draft(
+        client,
+        tenant,
+        problem_id,
+        values={"visits": 5},
+        name="Session evaluation draft",
+    )
+
+    create_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
+        params={"problem_id": problem_id},
+        json={"scenario_id": draft_id},
+    )
+    assert create_response.status_code == 200
+    evaluation_id = create_response.json()["evaluation_id"]
+
+    response = client.get(f"/api/v2/{tenant}/evaluations")
+
+    assert response.status_code == 200
+    assert evaluation_id not in {
+        item["evaluation_id"] for item in response.json()
+    }
+
+
 def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
     client,
     error_client,

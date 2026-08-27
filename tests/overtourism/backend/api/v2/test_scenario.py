@@ -126,6 +126,35 @@ def test_list_stored_scenarios_can_filter_by_related_proposal(
     }
 
 
+def test_list_scenarios_excludes_session_scenarios(
+    client,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    base_scenario_id = f"{tenant}_base_scenario"
+    session_response = client.post(
+        f"/api/v2/{tenant}/sessions",
+        params={"problem_id": problem_id},
+        json={"metadata": {}},
+    )
+    assert session_response.status_code == 200
+    session_id = session_response.json()["session_id"]
+
+    draft_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        params={"problem_id": problem_id},
+        json={"base_scenario_id": base_scenario_id},
+    )
+    assert draft_response.status_code == 200
+    draft_id = draft_response.json()["scenario_id"]
+
+    response = client.get(f"/api/v2/{tenant}/scenarios")
+
+    assert response.status_code == 200
+    assert draft_id not in {item["scenario_id"] for item in response.json()}
+    assert base_scenario_id in {item["scenario_id"] for item in response.json()}
+
+
 def test_update_stored_scenario_requires_the_current_version(
     client,
     tenant: str,

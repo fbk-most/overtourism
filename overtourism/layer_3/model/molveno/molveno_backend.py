@@ -30,11 +30,7 @@ from overtourism.layer_3.model.common.sustainability_field import (
     compute_sustainability_field,
 )
 from overtourism.layer_3.model.molveno.molveno_model import MolvenoModel
-from overtourism.layer_3.model.molveno.schema_metadata import (
-    RISK_COLOR_SCALE,
-    SUBSYSTEM_MAPPER,
-    KPI_MAPPER,
-)
+from overtourism.layer_3.model.molveno.schema_metadata import SCHEMA_METADATA
 
 
 def _presence_transformation(
@@ -98,7 +94,7 @@ class MolvenoBackend:
     def schema(self) -> dict[str, Any]:
         """Return Molveno indexes and frontend presentation metadata."""
         return {
-            "metadata": {"mapper": SUBSYSTEM_MAPPER, "color_map": RISK_COLOR_SCALE, "kpi_mapper": KPI_MAPPER},
+            "metadata": SCHEMA_METADATA,
             "indexes": self.parameter_schema(),
         }
 

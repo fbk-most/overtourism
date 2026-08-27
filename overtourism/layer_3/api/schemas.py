@@ -37,6 +37,7 @@ class SchemaMetadata(BaseModel):
     mapper: dict[str, str]
     color_map: list[tuple[float, str]]
     kpi_mapper: dict[str, str]
+    plot_mapper: dict[str, dict[str, Any]]
 
 
 class ModelSchema(BaseModel):

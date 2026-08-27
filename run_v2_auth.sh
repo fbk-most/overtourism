@@ -21,6 +21,7 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 MAIN_PORT="${MAIN_PORT:-8001}"
 STARTUP_DELAY_SECONDS="${STARTUP_DELAY_SECONDS:-5}"
+kill -9 $(lsof -t -i:$MAIN_PORT) >/dev/null 2>&1 || true
 
 fastapi run ./overtourism/layer_3/api/main.py --host "$HOST" --port "$MAIN_PORT" &
 MAIN_PID=$!
