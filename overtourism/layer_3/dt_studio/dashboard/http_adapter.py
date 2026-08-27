@@ -102,7 +102,7 @@ class HttpOvertourismAdapter(OvertourismAdapter):
         Dashboard page title.
     base_url : str
         Base URL of the running `overtourism.api` service (e.g.
-        ``"http://localhost:8000"``).
+        ``"http://localhost:8001"``).
     timeout : float
         Per-request timeout, in seconds. Evaluation requests can take a few
         seconds (full ensemble evaluation), so this is generous by default.
@@ -123,7 +123,8 @@ class HttpOvertourismAdapter(OvertourismAdapter):
         """Fetch the parameter schema from `GET /models/{model_key}/schema`."""
         resp = self._client.get(f"/models/{self._model_key}/schema")
         resp.raise_for_status()
-        return [HttpParameterSpec.from_json(d) for d in resp.json()]
+        schema = resp.json()
+        return [HttpParameterSpec.from_json(d) for d in schema["indexes"]]
 
     def predefined_scenarios(self) -> list[ScenarioDef]:
         """No `/scenarios` endpoint in v1 — the scenario selector is simply absent."""

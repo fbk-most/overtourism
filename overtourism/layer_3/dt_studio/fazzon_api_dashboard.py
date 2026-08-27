@@ -5,8 +5,8 @@ Unlike `fazzon_dashboard.py`, this process never imports `FazzonBackend` or
 any other model/computation code — see `http_adapter.py`. Start the API
 first, then run this dashboard::
 
-    uv run fastapi dev overtourism/api/main.py
-    uv run streamlit run overtourism/dt_studio/fazzon_api_dashboard.py
+    uv run fastapi run overtourism/layer_3/api/main.py --port 8001
+    uv run streamlit run overtourism/layer_3/dt_studio/fazzon_api_dashboard.py
 
 Point at a non-default API host with the `OVERTOURISM_API_BASE_URL` env var.
 """
@@ -22,7 +22,7 @@ from overtourism.layer_3.dt_studio.dashboard.http_adapter import (
     HttpOvertourismAdapter,
 )
 
-_BASE_URL = os.environ.get("OVERTOURISM_API_BASE_URL", "http://localhost:8000")
+_BASE_URL = os.environ.get("OVERTOURISM_API_BASE_URL", "http://localhost:8001")
 
 
 @st.cache_resource
