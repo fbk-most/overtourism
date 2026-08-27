@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
 from overtourism.overtourism.backend_extension.api.models.indicator import Indicator
-from overtourism.overtourism.backend_extension.api.models.phenomenon import Phenomenon
+from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
+    PopulationPhenomenon,
+    PresencesPhenomenon,
+    BedsPhenomenon,
+    ExtraBedsPhenomenon,
+    ExtraFacilitiesPhenomenon,
+    FacilitiesTotalPhenomenon,
+)
 
 # ---------------------------------------------------------------------------
 # Source paths
@@ -16,17 +22,11 @@ data_dir = (
     Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
 )  # TODO: replace this with dataloader
 
-# _VODAFONE_ID_PREFIXES = [
-#     'ratio',
-#     'level',
-#     'flows'
-# ]
-
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"
 MAP_IDS = data_dir / "cities_gdf_base_columns.geojson"
 POPULATION_SOURCE = data_dir / "phen_popolazione.parquet"
 STRUCTURES_SOURCE = data_dir / "phen_strutture.parquet"
-ATTENDENCES_SOURCE = data_dir / "phen_presenze.parquet"
+PRESENCES_SOURCE = data_dir / "phen_presenze.parquet"
 FLOWS_SOURCE = data_dir / "phen_flussi.parquet"
 FLOWS_SOURCE_TEMP_2023 = data_dir / "phen_flussi_temp_2023.parquet"
 MACRO_AREAS_FILE = data_dir / "map_comuni_into_apt.json"
@@ -34,110 +34,44 @@ CODICI_COMUNI_FILE = data_dir / "mapping_comuni_ISTAT.json"
 INCLUDE_TEMP_REGISTRY = False
 
 # ---------------------------------------------------------------------------
+# Types definition
+# ---------------------------------------------------------------------------
+INDICATORS_TYPES = [
+    "Gestione della Sostenibilità",
+    "Impatti socio-economici",
+    "Impatti culturali",
+    "Impatti ambientali",
+]
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-
-"""
-TODO:
--flussi, con parametri aggiuntivi
-- livello di affollamento
-- ridistribuzione turisti
-- massima antropizzazione????
-- altri indici
-    # "indice-stagionalita":              lambda: SeasonalityIndicator(MAIN_DATA_SOURCE),
-    # "turismo-sommerso":                 lambda: HiddenTourismIndicator(MAIN_DATA_SOURCE, WIND_SOURCE, "TURISTI_TOTALI"),
-"""
 
 _VARIATION_RATE_KEY = "tasso-variazione"
 _PERIOD_PERCENTAGE_IMPACT_KEY = "incidenza-periodo"
 
 _REGISTRY: dict[str, Callable[[], Indicator]] = {
-    "tasso-ricettivita": lambda: AccommodationCapacityIndicator(
+    "ricettivita": lambda: AccommodationCapacityIndicator(
         STRUCTURES_SOURCE, POPULATION_SOURCE
     ),
-    "indice-turisticita": lambda: TourismIndexIndicator(
-        POPULATION_SOURCE, ATTENDENCES_SOURCE, "presenze_vodafone"
+    "turisticita": lambda: TourismIndexIndicator(
+        POPULATION_SOURCE, PRESENCES_SOURCE, "presenze_vodafone"
     ),
-    # "indice-stagionalita": lambda: SeasonalityIndicator(ATTENDENCES_SOURCE),
-    "indice-ospitalita-strutture": lambda: HospitalityIndexFacilitiesIndicator(
+    "ospitalita-strutture": lambda: HospitalityIndexFacilitiesIndicator(
         STRUCTURES_SOURCE
     ),
-    "indice-ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
-    "indice-turismo-sommerso": lambda: HiddenTourismIndicator(ATTENDENCES_SOURCE),
+    "ospitalita-letti": lambda: HospitalityIndexBedsIndicator(STRUCTURES_SOURCE),
+    "turismo-sommerso": lambda: HiddenTourismIndicator(PRESENCES_SOURCE),
     _VARIATION_RATE_KEY: lambda: VariationRateIndicator(),
     _PERIOD_PERCENTAGE_IMPACT_KEY: lambda: PeriodPercentageImpactIndicator(),
 }
-_REGISTRY_TEMP: dict[str, Callable[[], Indicator]] = {
-    "indice-affollamento": lambda: CrowdingIndicator(
-        STRUCTURES_SOURCE, POPULATION_SOURCE, ATTENDENCES_SOURCE, FLOWS_SOURCE_TEMP_2023
-    ),
-    "ratio-flussi-in-turisti": lambda: RatioFlowsIndicator(FLOWS_SOURCE),
-    "ratio-flussi-in-escursionisti": lambda: RatioFlowsIndicator(
-        FLOWS_SOURCE, flows_col="FLOWS_IN_VISITORS"
-    ),
-    "ratio-flussi-out-escursionisti": lambda: RatioFlowsIndicator(
-        FLOWS_SOURCE, flows_col="FLOWS_OUT_VISITORS", flows_col_tot="FLOWS_OUT"
-    ),
-    "ratio-flussi-out-tourists": lambda: RatioFlowsIndicator(
-        FLOWS_SOURCE, flows_col="FLOWS_OUT_TOURISTS", flows_col_tot="FLOWS_OUT"
-    ),
-    "flows-in-escursionisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"
-    ),
-    "flows-in-turisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, col="LEVEL_IN_TOURISTS", flow_col="FLOWS_IN_TOURISTS"
-    ),
-    "flows-out-escursionisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, col="LEVEL_OUT_VISITORS", flow_col="FLOWS_OUT_VISITORS"
-    ),
-    "flows-out-turisti": lambda: FlowsIndicatorLevel(
-        FLOWS_SOURCE, col="LEVEL_OUT_TOURISTS", flow_col="FLOWS_OUT_TOURISTS"
-    ),
-}
 
 if INCLUDE_TEMP_REGISTRY:
-    _REGISTRY.update(_REGISTRY_TEMP)
+    from overtourism.overtourism.backend_extension.api.models.trentino_indicators_temp import (
+        _REGISTRY_TEMP,
+    )
 
-# ---------------------------------------------------------------------------
-# Italian translations for phenomenon keywords returned in API responses
-# ---------------------------------------------------------------------------
-# The GeoJSON properties returned by /get_index_data carry one column per
-# phenomenon that makes up the requested indicator (e.g. "beds" and
-# "population" for "tasso-ricettivita"), plus "INDICE" itself. Those column
-# names come straight from each Phenomenon's `.name` (see the phenomenon
-# classes below) and are English by convention, since they're also used
-# internally as pandas/DataFrame keys throughout indicator.py.
-#
-# This dictionary is the single predefined mapping from those internal
-# keywords to the Italian labels exposed to the frontend. It's applied via
-# `index_utils._translate_columns()` right before a GeoDataFrame is
-# serialised to GeoJSON, so indicator/phenomenon internals never need to
-# know about it.
-#
-# Only keys listed here get renamed — "AREA_NAME", "INDICE", and "geometry"
-# are intentionally left out and pass through unchanged. Add an entry here
-# whenever a new Phenomenon (or a custom `name=...` override) is introduced
-# and should be human-readable in the API response.
-PHENOMENON_LABELS_IT: dict[str, str] = {
-    # AccommodationCapacityIndicator ("tasso-ricettivita")
-    "beds": "posti letto",
-    "population": "popolazione",
-    # TourismIndexIndicator ("indice-turisticita")
-    "presences": "presenze",
-    # HospitalityIndexFacilitiesIndicator ("indice-ospitalita-strutture")
-    "extra_Facilities": "strutture extra-alb.",
-    "Facilities_total": "strutture totali",
-    # HospitalityIndexBedsIndicator ("indice-ospitalita-letti")
-    "extra_beds": "posti letto extra-alb.",
-    # HiddenTourismIndicator ("indice-turismo-sommerso")
-    "presenze_vodafone": "presenze rete mobile",
-    "presenze_alb": "presenze alb.",
-    "presenze_xalb": "presenze extra-alb.",
-    # FlowPhenomenon-based indicators (RatioFlowsIndicator, FlowsIndicatorLevel;
-    # currently only reachable if INCLUDE_TEMP_REGISTRY is enabled)
-    "flows": "flussi",
-    "flow_value": "valore flusso",
-}
+    _REGISTRY.update(_REGISTRY_TEMP)
 
 _INDICATOR_CACHE: dict[str, Indicator] = {}
 
@@ -159,7 +93,7 @@ class AccommodationCapacityIndicator(Indicator):
     """Beds per resident: NUMLETTI_TOT / POPOLAZIONE."""
 
     name = "Indice di ricettività"
-
+    type = INDICATORS_TYPES[1]
     description = "L'indice di ricettività definisce il <strong>rapporto</strong> fra i <strong>letti presenti negli esercizi ricettivi</strong> e gli <strong>abitanti</strong> di una stessa area. L'indice è una misura della capacità turistica rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati ISPAT relativi alla popolazione residente e alla consistenza degli esercizi alberghieri e extra-alberghieri."
     index_value_unit_description = "Rapporto posti letto / popolazione"
 
@@ -177,6 +111,7 @@ class TourismIndexIndicator(Indicator):
     """Total presences per resident."""
 
     name = "Indice di turisticità"
+    type = INDICATORS_TYPES[1]
     description = "L'indice di turisticità definisce il <strong>rapporto</strong> fra il <strong>numero medio giornaliero di turisti negli esercizi ricettivi</strong> di una specifica area e il<strong>numero di abitanti</strong> della stessa area. L'indice fornisce una misura dell'effettiva incidenza del turismo rispetto alla dimensione, in termini di popolazione, di un'area. L'indice è calcolato partendo dai dati Vodafone per quanto riguarda le presenze turistiche e dai dati ISPAT relativi alla popolazione residente."
     index_value_unit_description = "Rapporto fra numero turisti e popolazione"
 
@@ -194,6 +129,7 @@ class HospitalityIndexFacilitiesIndicator(Indicator):
     """Share of non-hotel facilities over total facilities."""
 
     name = "Indice di incidenza ospitalità non convenzionale (strutture)"
+    type = INDICATORS_TYPES[1]
     description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto</strong> fra il  <strong>numero di strutture ricettive non convenzionali</strong> e il <strong>numero totale delle strutture</strong> presenti in un'area. L'indice è calcolato partendo dai dati ISPAT relativi al numero degli esercizi alberghieri e extra-alberghieri."
     index_value_unit_description = (
         "Percentuale strutture ricettive non conv. rispetto al totale"
@@ -213,6 +149,7 @@ class HospitalityIndexBedsIndicator(Indicator):
     """Share of non-hotel beds over total beds."""
 
     name = "Indice di incidenza ospitalità non convenzionale (posti letto)"
+    type = INDICATORS_TYPES[1]
     description = "Questo indice di incidenza dell'ospitalità non convenzionale misura il <strong>rapporto</strong> fra il <strong>numero di posti letto in strutture ricettive non convenzionali</strong> e il <strong>numero totale di posti letto</strong> in tutte le strutture di un'area. L'indice è calcolato partendo dai dati ISPAT al numero degli esercizi alberghieri e extra-alberghieri."
     index_value_unit_description = (
         "Percentuale letti in strututre ricettive non conv. rispetto al totale"
@@ -232,6 +169,7 @@ class HiddenTourismIndicator(Indicator):
     """Calculates the hidden tourism indicator as the ratio between Vodafone registered attendences and accomodancy ones"""
 
     name = "Indice di turismo sommerso"
+    type = INDICATORS_TYPES[0]
     description = "L'indice misura il <strong>rapporto</strong> fra le <strong>presenze di turisti misurate</strong> attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali</strong> di turisti in strutture alberghiere e extra-alberghiere. L'indice è stato calcolato partendo dai dati ISPAT sul movimento turistico e dai dati Vodafone relativi alle presenze misurate."
     index_value_unit_description = "Rapporto fra presenze misurate e ufficiali"
 
@@ -261,118 +199,6 @@ class HiddenTourismIndicator(Indicator):
         **extra,
     ) -> pd.Series:
         return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
-
-
-class RatioFlowsIndicator(Indicator):
-    """Calculates the flows indicator as the ratio between tourist/excursionist flows and total flows."""
-
-    def __init__(
-        self, source_file, flows_col="FLOWS_IN_TOURISTS", flows_col_tot="FLOWS_IN"
-    ):
-        phen_name = flows_col.lower()
-        phen_name_tot = f"{phen_name}_tot"
-        self.name = (
-            f"Rapporto di flussi {phen_name.removeprefix('flows_').replace('_', ' ')}"
-        )
-        super().__init__(
-            phenomena=[
-                FlowPhenomenon(
-                    source_file,
-                    col=flows_col,
-                    municipality_id_col="ID_COMUNE",
-                    name=phen_name,
-                ),
-                FlowPhenomenon(
-                    source_file,
-                    col=flows_col_tot,
-                    municipality_id_col="ID_COMUNE",
-                    name=phen_name_tot,
-                ),
-            ],
-            combinator=self.divide(phen_name, phen_name_tot),
-        )
-
-
-class FlowsIndicatorLevel(Indicator):
-    """
-    Calculates hotspot level, using 10 - val scale
-    """
-
-    def __init__(self, source_file, col="LEVEL_IN", flow_col="FLOWS_IN"):
-        self.col = col
-        self.name = (
-            f"Livello flussi{col.removeprefix('LEVEL').replace('_', ' ').lower()}"
-        )
-        super().__init__(
-            phenomena=[
-                FlowPhenomenon(
-                    source_file,
-                    col=col,
-                    municipality_id_col="ID_COMUNE",
-                    name=col,
-                ),
-                FlowPhenomenon(
-                    source_file,
-                    col=flow_col,
-                    municipality_id_col="ID_COMUNE",
-                    name="flow_value",
-                ),
-            ],
-            combinator=self.compute_hotspot_level,
-        )
-
-    def compute_hotspot_level(self, df: pd.DataFrame, **extra) -> pd.Series:
-        return pd.Series(np.where(df[self.col] == -1, 0, 10 - df[self.col]))
-
-
-class SeasonalityIndicator(Indicator):
-    """Sum of arrivals in a reference sub-period over total arrivals."""
-
-    name = "Indice di stagionalità delle presenze"
-    description = "L'indice di stagionalità definisce il <strong>rapporto</strong> fra le <strong>presenze di turisti ed escursionisti durante tra due periodi</strong> (es: anno completo ed alta stagione). L'indice è calcolato partendo dai dati Vodafone relativi alle presenze di turisti ed escursionisti."
-    availableForVariation = False
-    extraFields = ["seasonality"]
-    internal_only = True
-
-    def __init__(self, source_file):
-        self._phenom = PresencesPhenomenon(source_file, col="presenze_vodafone")
-        super().__init__(
-            phenomena=[self._phenom],
-            combinator=self.reference_period_over_total,
-        )
-
-    def reference_period_over_total(
-        self,
-        df: pd.DataFrame,
-        filtered_data: dict[str, pd.DataFrame],
-        start_date=None,
-        end_date=None,
-        seasonality: str = "high",
-        **extra,
-    ) -> pd.Series:
-        phenom = self._phenom
-        raw = filtered_data[phenom.name]  # already daily × comune panel slice
-
-        MONTHLY_PERIODS = {
-            "high": [7, 8],
-            "shoulder": [4, 5, 6, 9, 10],
-        }
-
-        if seasonality in MONTHLY_PERIODS:
-            months = MONTHLY_PERIODS[seasonality]
-            sub = raw[raw["DATA"].dt.month.isin(months)]
-        elif seasonality == "weekend":
-            all_days = pd.date_range(start=start_date, end=end_date)
-            reference_days = pd.to_datetime(all_days[all_days.weekday >= 5])
-            sub = raw[raw["DATA"].isin(reference_days)]
-        else:
-            raise ValueError(f"Unknown seasonality={seasonality!r}")
-
-        sub_agg = sub.groupby("ID_COMUNE")[phenom.name].agg(phenom.agg)
-        total_agg = df.set_index("ID_COMUNE")[phenom.name]
-        sub_agg = sub_agg.reindex(total_agg.index).fillna(0)
-
-        return (sub_agg / total_agg.replace(0, np.nan)).values
 
 
 class VariationRateIndicator(Indicator):
@@ -633,182 +459,3 @@ class PeriodPercentageImpactIndicator(Indicator):
         ) * 100
 
         return merged[["ID_COMUNE", "INDICE"]]
-
-
-class CrowdingIndicator(Indicator):
-    """Computes the crowding index as sum of scores calculated based on turisticita', ricettivita', stagionalita', flussi"""
-
-    name = "Indice di affollamento"
-    description = "L'indice complessivo di affollamento turistico estivo integra e aggrega diversi indici legati all'affollamento turistico (ricettività, turisticità, stagionalità e flussi di escursionisti)."
-
-    def __init__(
-        self, structures_source, population_source, attendences_source, flows_source
-    ):
-        self._top_indicators = [
-            AccommodationCapacityIndicator(structures_source, population_source),
-            TourismIndexIndicator(
-                population_source,
-                attendences_source,
-                presences_col_name="presenze_vodafone",
-            ),
-            SeasonalityIndicator(attendences_source),
-        ]
-        self._max_indicator = FlowsIndicatorLevel(
-            flows_source, col="LEVEL_IN_VISITORS", flow_col="FLOWS_IN_VISITORS"
-        )
-        super().__init__(
-            phenomena=[*self._top_indicators, self._max_indicator],
-            combinator=self.compute_score,
-        )
-
-    def _compute_top(self, df: pd.DataFrame, **_extra) -> pd.Series:
-        """Compute top quantile score"""
-        df["score"] = 0
-        for indicator in self._top_indicators:
-            for q in [0.75, 0.875, 0.9375]:
-                target_phen_name = indicator.name
-                thr = df[target_phen_name].quantile(q)
-                df["score"] += df[target_phen_name].ge(thr).fillna(False).astype(int)
-        return df
-
-    def _compute_max(self, df: pd.DataFrame, **_extra):
-        """Assingns 2 points to the places with max level of flows"""
-        col = self._max_indicator.name  # flussi
-        df.loc[df[col] == df[col].max(), "score"] += 2  # estrae il massimo
-        return df
-
-    def compute_score(self, df: pd.DataFrame, **_extra) -> pd.Series:
-        """Computes the total score of crowding index"""
-        df = self._compute_top(df)
-        df = self._compute_max(df)
-        return df["score"]
-
-
-# ---------------------------------------------------------------------------
-# Concrete phenomena
-# ---------------------------------------------------------------------------
-
-
-class PresencesPhenomenon(Phenomenon):
-    """Total presences (tourists, excursionists, or combined)."""
-
-    name = "presences"
-    # Native resolution: daily × comune  →  both axes are 'identity'
-    temporal_resolution = "daily"
-    temporal_strategy = "identity"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="presenze", name=None):
-        super().__init__(source, col, agg="mean")
-        if name is not None:
-            self.name = name
-
-
-# class ArrivalsPhenomenon(Phenomenon):
-#     """Total arrivals."""
-
-#     name = "arrivals"
-#     temporal_resolution = "daily"
-#     temporal_strategy = "identity"
-#     spatial_resolution = "comune"
-#     spatial_strategy = "identity"
-
-#     def __init__(self, source, col="NUMARRIVATI_TOT"):
-#         super().__init__(source, col, agg="sum")
-
-
-class BedsPhenomenon(Phenomenon):
-    """Total beds (all accommodation types)."""
-
-    name = "beds"
-    # Beds don't change day-to-day within a period; treat as constant daily.
-    # If the source is already daily, temporal_strategy='identity' is fine too.
-    temporal_resolution = "yearly"
-    temporal_strategy = "constant"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="tot_postiletto"):
-        super().__init__(source, col, agg="mean")
-
-
-class ExtraBedsPhenomenon(Phenomenon):
-    """Beds in non-hotel (extra-alberghiero) facilities."""
-
-    name = "extra_beds"
-    temporal_resolution = "yearly"
-    temporal_strategy = "constant"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="tot_postiletto_non_conv"):
-        super().__init__(source, col, agg="mean")
-
-
-class FacilitiesTotalPhenomenon(Phenomenon):
-    """Total accommodation facilities."""
-
-    name = "Facilities_total"
-    temporal_resolution = "yearly"
-    temporal_strategy = "constant"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="tot_strutture"):
-        super().__init__(source, col, agg="mean")
-
-
-class ExtraFacilitiesPhenomenon(Phenomenon):
-    """Non-hotel facilities."""
-
-    name = "extra_Facilities"
-    temporal_resolution = "yearly"
-    temporal_strategy = "constant"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="tot_strutture_non_conv"):
-        super().__init__(source, col, agg="mean")
-
-
-class PopulationPhenomenon(Phenomenon):
-    """
-    Resident population.
-    """
-
-    name = "population"
-    temporal_resolution = "yearly"
-    temporal_strategy = "constant"  # broadcast uniformly across days
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(self, source, col="popolazione"):
-        super().__init__(
-            source,
-            col,
-            agg="mean",
-            dtype={"LOCATION_ID": str},
-        )
-
-
-class FlowPhenomenon(Phenomenon):
-    """Flows in/out + users"""
-
-    name = "flows"
-    temporal_strategy = "constant"
-    temporal_resolution = "yearly"
-    spatial_resolution = "comune"
-    spatial_strategy = "identity"
-
-    def __init__(
-        self, source, col="flows", municipality_id_col="ID", name=None, agg="mean"
-    ):  # TODO: check why mean works and not sum
-        super().__init__(
-            source,
-            col,
-            agg=agg,
-            municipality_id_col=municipality_id_col,
-        )
-        if name is not None:
-            self.name = name

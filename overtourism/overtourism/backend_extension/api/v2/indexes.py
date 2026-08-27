@@ -17,8 +17,10 @@ from overtourism.overtourism.backend_extension.api.models.trentino_indicators im
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
-    PHENOMENON_LABELS_IT,
     get_indicator,
+)
+from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
+    PHENOMENON_LABELS_IT,
 )
 from overtourism.overtourism.backend_extension.api.utils.index_utils import (
     _build_geodataframe,
@@ -289,7 +291,7 @@ def get_index_data(
             end_date=end_date,
             **extra,
         )
-
+        print(computed_index)
         if computed_index is None:
             raise RuntimeError("It was not possible to compute the indicator")
 
@@ -299,8 +301,6 @@ def get_index_data(
                 gdf_final = _build_macro_area_geodataframe(
                     result, MACRO_AREAS_FILE, MAP_SHAPEFILE
                 )
-            # elif index.startswith(tuple(_VODAFONE_ID_PREFIXES)):
-            #     gdf_final = _build_geodataframe_vodafone_ids(gdf_base, result)
             else:
                 gdf_final = _build_geodataframe(gdf_base, result)
 
