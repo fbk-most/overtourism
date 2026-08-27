@@ -157,7 +157,7 @@ def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, h
     df = presenze.merge(
         presenze_prov[["DATA", "ID_COMUNE", "presenze_xalb"]],
         on=["DATA", "ID_COMUNE"],
-        how="outer",
+        how="inner",
     )
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
