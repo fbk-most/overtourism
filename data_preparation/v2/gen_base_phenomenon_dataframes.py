@@ -319,6 +319,8 @@ def compute_vodafone_attendences(
         )
     elif how != "uniform":
         raise ValueError(f"Unknown disaggregation method: {how}")
+    else:
+        assert distribution is None
 
     df = disaggregate(df, cols=["presenze"], **kwargs)
 
