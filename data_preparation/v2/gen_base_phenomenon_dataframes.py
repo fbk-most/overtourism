@@ -376,28 +376,38 @@ def compute_phenomenon_dataframes(local=False):
 
     strutture_df = compute_strutture(
         mapping_comuni
-    ) # comunale, annuale (o giornaliera se strutture_to_daily=True)
+    )
+    ### ---------------------------------- ### 
+    ## 1. UNIFORME :
+    ## Le presenze vodafone sono distribuite uniformemente sui comuni
+    ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite uniformemente sui comuni
+    vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni, how="uniform")
+    presenze_df = compute_presenze_trentino(mapping_comuni, vodafone_attendences_df, how="uniform")
 
-    ## UNIFORM :
-    # vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni, how="uniform")# vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni, how="uniform")
-    # presenze_df = compute_presenze_trentino(mapping_comuni, vodafone_attendences_df, how="uniform")
 
-    # VODAFONE PRESENZE, redistribuite uniformemente
+    ### -------------------------------------------------------------------- ### 
+    # 2. VODAFONE PRESENZE
+    ## Le presenze vodafone sono distribuite uniformemente sui comuni
+    ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite seguendo la distribuzione vodafone giornaliera
     # vodafone_attendences_df = compute_vodafone_attendences(
     #         mapping_comuni
-    # ) # how="distributional", distribution=popolazione_df, weight_col="popolazione", weight_freq="Y",
+    # )
 
     # presenze_df = compute_presenze_trentino(
     #     mapping_comuni, vodafone_attendences_df, how="distributional",
     # )  # weighting_distribution defaults to vodafone_distribution itself
 
 
-    ## PRESENZE 
-    vodafone_attendences_df = compute_vodafone_attendences(
-        mapping_comuni, how="distributional",
-        distribution=strutture_df, weight_col="tot_postiletto",
-        weight_freq="Y",
-    )
+    ### -------------------------------------------------------------------- ### 
+    # 3. DISAGGREGAZIONE DISTRIBUZIONALE, WRT POSTI LETTO  
+    ## Le presenze vodafone sono distribuite seguendo la distribuzione annuale dei posti letto totali, sui comuni
+    # Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite seguendo rispettivamente le distribuzioni dei posti letto alberghieri ed extra-alberghieri
+
+    # vodafone_attendences_df = compute_vodafone_attendences(
+    #     mapping_comuni, how="distributional",
+    #     distribution=strutture_df, weight_col="tot_postiletto",
+    #     weight_freq="Y",
+    # ) # distribution=popolazione_df, weight_col="popolazione", weight_freq="Y", se si volesse per esempio distribuire rispetto alla popolazione 
 
     # presenze_df = compute_presenze_trentino(
     #         mapping_comuni, vodafone_attendences_df, how="distributional",
@@ -407,6 +417,8 @@ def compute_phenomenon_dataframes(local=False):
     #         space_weight_freq="Y",
     #         time_weight_freq="Y",
     #     )
+
+    ### -------------------------------------------------------------------- ### 
 
     dict_dfs = {
         "phen_popolazione": popolazione_df,

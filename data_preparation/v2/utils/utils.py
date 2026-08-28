@@ -253,7 +253,7 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
 
 def save_computed_dfs(dict_dfs, local=False):
     for key, value in dict_dfs.items():
-        logging.info(f"Uploading dataframe '{key}'...")
+        logging.info(f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet...")
         put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
         if not local:
             logging.info(f"Logging dataframe '{key}.parquet'...")
@@ -265,4 +265,3 @@ if __name__ == "__main__":
     df = get_dataframe("popolazione_2020_2024")
     gjs = get_s3("TRENTINO-comuni_Vodafone_2023.geojson")
     print(df.head())
-    
