@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typing
 
+import requests
 from fastapi import HTTPException, status
 
 from overtourism.backend.auth.dependencies import Handler
@@ -16,6 +17,8 @@ from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
     ProposalDoesNotExist,
 )
+from overtourism.backend.api.utils.executor_utils import call_schema
+from overtourism.layer_3.model.common.sustainability_field import get_index_diffs
 
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
@@ -76,11 +79,14 @@ def raise_immutable_base_scenario_error(
 
 
 def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
-    """Return the current scenario index diffs for API payloads.
-
-    Tests may monkeypatch this hook to inject deterministic values.
-    """
-    return {}
+    """Return scenario parameter changes relative to the Layer 3 base model."""
+    if not scenario.param_overrides:
+        return {}
+    try:
+        schema = call_schema(scenario.tenant)
+    except requests.RequestException:
+        return {}
+    return get_index_diffs(schema, scenario.param_overrides)
 
 
 def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:

@@ -12,7 +12,9 @@ confidence in; tuple/dict out) with no model-specific coupling.
 from __future__ import annotations
 
 import functools
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from numbers import Real
 from typing import Any
 
 import numpy as np
@@ -35,6 +37,7 @@ __all__ = [
     "compute_sustainability_field",
     "compute_sustainability_index_with_ci",
     "compute_sustainable_area",
+    "get_index_diffs",
 ]
 
 
@@ -84,6 +87,92 @@ class OvertourismEvaluationConfig(EnsembleEvaluationConfig):
 # ---------------------------------------------------------------------------
 # Shared field math
 # ---------------------------------------------------------------------------
+
+
+def _format_index_value(value: Any) -> str:
+    """Format a scalar or categorical value for an index-diff label."""
+    if isinstance(value, Real) and not isinstance(value, bool):
+        if value == int(value):
+            return str(int(value))
+    return str(value)
+
+
+def _distribution_range(value: Any) -> tuple[Any, Any] | None:
+    """Return distribution endpoints from a schema range or loc/scale mapping."""
+    if isinstance(value, Mapping):
+        loc = value.get("loc")
+        scale = value.get("scale")
+        if loc is None or scale is None:
+            return None
+        return loc, loc + scale
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        if len(value) == 2:
+            return value[0], value[1]
+    return None
+
+
+def get_index_diffs(
+    schema: Mapping[str, Any],
+    param_overrides: Mapping[str, Any],
+) -> dict[str, str]:
+    """Return human-readable changes from Layer 3 defaults.
+
+    The schema is the response from a Layer 3 ``/models/{tenant}/schema``
+    endpoint. Only parameters present in ``param_overrides`` are considered;
+    unknown parameters and overrides without a usable base value are ignored.
+
+    Values are formatted according to their schema kind:
+
+    - categorical: ``"cat1 -> cat2"``;
+    - distribution: ``"x-y -> x1-y1"``;
+    - scalar: ``"x -> y"``.
+
+    A categorical schema without ``default_category`` represents the
+    unfiltered base scenario and is displayed as ``(tutte)``.
+    """
+    specs = {
+        spec.get("name"): spec
+        for spec in schema.get("indexes", [])
+        if isinstance(spec, Mapping) and spec.get("name")
+    }
+    diffs: dict[str, str] = {}
+
+    for name, new_value in param_overrides.items():
+        spec = specs.get(name)
+        if spec is None:
+            continue
+
+        kind = spec.get("kind")
+        if kind == "categorical":
+            old_value = spec.get("default_category", "(tutte)")
+            if old_value == new_value:
+                continue
+            diffs[name] = (
+                f"{_format_index_value(old_value)} -> "
+                f"{_format_index_value(new_value)}"
+            )
+            continue
+
+        if kind == "distribution":
+            old_range = _distribution_range(spec.get("default_range"))
+            new_range = _distribution_range(new_value)
+            if old_range is None or new_range is None or old_range == new_range:
+                continue
+            old_label = "-".join(_format_index_value(value) for value in old_range)
+            new_label = "-".join(_format_index_value(value) for value in new_range)
+            diffs[name] = f"{old_label} -> {new_label}"
+            continue
+
+        if kind == "scalar":
+            old_value = spec.get("default")
+            if old_value is None or old_value == new_value:
+                continue
+            diffs[name] = (
+                f"{_format_index_value(old_value)} -> "
+                f"{_format_index_value(new_value)}"
+            )
+
+    return diffs
 
 
 def compute_sustainability_field(

@@ -13,6 +13,7 @@ from overtourism.backend.api.utils.utils import (
     get_session_evaluation_or_404,
     get_session_or_404,
     get_session_scenario_or_404,
+    scenario_index_diffs,
 )
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
@@ -24,6 +25,50 @@ class SnapshotResult:
 
     def to_snapshot(self):
         return self.payload
+
+
+def test_scenario_index_diffs_uses_the_layer_3_schema(
+    handler,
+    manager: Manager,
+    tenant: str,
+    monkeypatch,
+) -> None:
+    scenario = manager.scenario_manager.create_scenario(
+        "scenario-diff",
+        tenant,
+        param_overrides={
+            "season": "peak",
+            "parking capacity": [120.0, 240.0],
+            "car mode share": 0.8,
+        },
+    )
+    schema_calls: list[str] = []
+    monkeypatch.setattr(
+        "overtourism.backend.api.utils.utils.call_schema",
+        lambda requested_tenant: schema_calls.append(requested_tenant)
+        or {
+            "indexes": [
+                {
+                    "name": "season",
+                    "kind": "categorical",
+                    "default_category": "base",
+                },
+                {
+                    "name": "parking capacity",
+                    "kind": "distribution",
+                    "default_range": [100.0, 200.0],
+                },
+                {"name": "car mode share", "kind": "scalar", "default": 0.69},
+            ]
+        },
+    )
+
+    assert scenario_index_diffs(handler, scenario) == {
+        "season": "base -> peak",
+        "parking capacity": "100-200 -> 120-240",
+        "car mode share": "0.69 -> 0.8",
+    }
+    assert schema_calls == [tenant]
 
 
 def test_not_found_helpers_translate_backend_errors_to_http_exceptions(
