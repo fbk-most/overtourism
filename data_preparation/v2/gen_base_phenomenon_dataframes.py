@@ -37,8 +37,16 @@ from data_preparation.v2.utils.disaggregation import disaggregate
 
 logging.basicConfig(level=logging.INFO)
 
-## COMPUTATION 
-## Functions to compute phenomena dataframes 
+STRUTTURE_VALUE_COLS = [
+    "tot_postiletto",
+    "tot_postiletto_non_conv",
+    "tot_postiletto_conv",
+    "tot_strutture",
+    "tot_strutture_non_conv",
+]
+
+## COMPUTATION
+## Functions to compute phenomena dataframes
 def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
                              years=["2021", "2022", "2023", "2024"]):
     logging.info("Downloading arrivi_trentino_ISPAT.csv from S3...")
@@ -78,7 +86,34 @@ def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
     return arrivi
 
 
-def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, how="uniform"):
+def compute_presenze_trentino(
+    mapping_comuni,
+    vodafone_distribution,
+    how="uniform",
+    weighting_distribution=None,
+    weight_col=None,
+    alb_weight_col=None,
+    xalb_weight_col=None,
+    space_weight_freq="M",
+    time_weight_freq=None,
+):
+    """Build the daily x comune ISPAT presenze dataframe (alb + xalb).
+
+    `weighting_distribution` / `weight_col` control *what* weights the
+    'distributional' disaggregation of the ISPAT presences:
+      - left as None (default): `vodafone_distribution` with
+        weight_col="presenze" — the original behaviour.
+      - pass e.g. a daily-disaggregated structures dataframe (see
+        `compute_strutture with weight_col="tot_postiletto" to weight by accommodation
+        instead of vodafone presences.
+
+    `space_weight_freq` / `time_weight_freq` control the granularity at
+    which the weighting distribution's DATA is compared against the ISPAT
+    row's DATA during, respectively, the comune-split step (still
+    monthly at that point) and the day-of-month split step (already daily
+    at that point). Defaults reproduce the original vodafone-weighted
+    behaviour (monthly match spatially, exact-date match temporally).
+    """
     logging.info("Downloading presenze_Trentino_ISPAT.csv from S3...")
     presenze_ispat = pd.read_csv(get_s3("presenze_Trentino_ISPAT.csv"))
     logging.info("Downloading presenze_Trentino_ISPAT_alb_xalb.csv from S3...")
@@ -135,21 +170,35 @@ def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, h
 
     ## Monthly x APT -> daily x comune
     kwargs = dict(axis="both", freq_from="M", freq_to="D", id_to_name=id_to_comune)
-    if how == "distributional":
-        assert vodafone_presences_distribution is not None, "Distribution required for 'distributional' disaggregation"
-        kwargs.update(
-            space_weights=vodafone_presences_distribution,
-            space_weight_col="presenze",
-            space_time_freq="M",
-            time_weights=vodafone_presences_distribution,
-            time_weight_col="presenze",
+
+    def _weighted_kwargs(col):
+        if how != "distributional":
+            return dict(kwargs)
+        source = weighting_distribution if weighting_distribution is not None else vodafone_distribution
+        assert source is not None, "A weighting distribution is required for 'distributional' disaggregation"
+        return dict(
+            kwargs,
+            space_weights=source,
+            space_weight_col=col,
+            space_time_freq=space_weight_freq,
+            time_weights=source,
+            time_weight_col=col,
+            time_weight_freq=time_weight_freq,
         )
-    elif how != "uniform":
+
+    if how not in ("distributional", "uniform"):
         raise ValueError(f"Unknown disaggregation method: {how}")
 
-    presenze = disaggregate(presenze_ispat, cols=["presenze_alb"], **kwargs)
+    default_col = weight_col if weight_col is not None else "presenze"
+    alb_col = alb_weight_col if alb_weight_col is not None else default_col
+    xalb_col = xalb_weight_col if xalb_weight_col is not None else default_col
+
+    # own _W column via its own disaggregate() call, since a single call applies one shared weight to every column passed in `cols`.
+    presenze = disaggregate(
+        presenze_ispat, cols=["presenze_alb"], **_weighted_kwargs(alb_col)
+    )
     presenze_prov = disaggregate(
-        presenze_alb_xalb, cols=["presenze_alb", "presenze_xalb"], **kwargs
+        presenze_alb_xalb, cols=["presenze_xalb"], **_weighted_kwargs(xalb_col)
     )
 
     # presenze_alb is kept at the finer (APT) granularity, only the
@@ -162,10 +211,11 @@ def compute_presenze_trentino(mapping_comuni, vodafone_presences_distribution, h
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     df = df.merge(
-        vodafone_presences_distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
+        vodafone_distribution[["DATA", "ID_COMUNE", "presenze"]].rename(columns={"presenze": "presenze_vodafone"}),
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
+    df = df.sort_values(by=["DATA", "LOCATION"]).reset_index(drop=True)
     return df
 
 
@@ -183,6 +233,7 @@ def compute_popolazione(mapping_comuni):
 
 
 def compute_strutture(mapping_comuni):
+    """Yearly comune accommodation-capacity dataframe."""
     logging.info("Downloading Annuario-TavXIII-per-comune-csv.csv from S3...")
     strutture_ospitalita_trentino_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
     strutture_ospitalita_from_2020 = strutture_ospitalita_trentino_df[
@@ -217,6 +268,10 @@ def compute_strutture(mapping_comuni):
     strutture_ospitalita_from_2020["tot_postiletto_non_conv"] = (
         strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
     )
+    # conventional-only beds (tot_postiletto minus the non-conv share) 
+    strutture_ospitalita_from_2020["tot_postiletto_conv"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI_LETTI]
+    )
 
     # Try direct match first, then fall back to the override table
     strutture_ospitalita_from_2020["ID_COMUNE"] = strutture_ospitalita_from_2020["LOCATION"].apply(
@@ -247,23 +302,17 @@ def compute_strutture(mapping_comuni):
             f"{len(still_missing)} comune(s): {sorted(still_missing)}"
         )
 
-    return strutture_ospitalita_from_2020[
-        [
-            "DATA",
-            "LOCATION",
-            "ID_COMUNE",
-            "tot_postiletto",
-            "tot_postiletto_non_conv",
-            "tot_strutture",
-            "tot_strutture_non_conv",
-        ]
+    result = strutture_ospitalita_from_2020[
+        ["DATA", "LOCATION", "ID_COMUNE"] + STRUTTURE_VALUE_COLS
     ]
+    return result
 
 
 def compute_vodafone_attendences(
     mapping_comuni, how="uniform", distribution=None,
     weight_col="popolazione", weight_freq="Y",
 ):
+    """Daily x comune vodafone tourist-presence dataframe."""
     logging.info("Downloading dataframe 'vodafone_attendences'...")
     vodafone_attendences_df = get_dataframe("vodafone_attendences")
 
@@ -351,16 +400,46 @@ def compute_phenomenon_dataframes(local=False):
     logging.info(f"## Computing phenomenon dataframes")
 
     mapping_comuni = get_mapping_comuni()
-    popolazione_df = compute_popolazione(mapping_comuni)   # comunale, annuale 
-    strutture_ospitalita_from_2020 = compute_strutture(mapping_comuni)   # comunale, annuale  
-    vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni)
+    popolazione_df = compute_popolazione(mapping_comuni)   # comunale, annuale
+
+    strutture_df = compute_strutture(
+        mapping_comuni
+    ) # comunale, annuale (o giornaliera se strutture_to_daily=True)
+
+    ## UNIFORM :
+    # vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni, how="uniform")# vodafone_attendences_df = compute_vodafone_attendences(mapping_comuni, how="uniform")
+    # presenze_df = compute_presenze_trentino(mapping_comuni, vodafone_attendences_df, how="uniform")
+
+    # VODAFONE PRESENZE, redistribuite uniformemente
+    # vodafone_attendences_df = compute_vodafone_attendences(
+    #         mapping_comuni
+    # ) # how="distributional", distribution=popolazione_df, weight_col="popolazione", weight_freq="Y",
+
+    # presenze_df = compute_presenze_trentino(
+    #     mapping_comuni, vodafone_attendences_df, how="distributional",
+    # )  # weighting_distribution defaults to vodafone_distribution itself
+
+
+    ## PRESENZE 
+    vodafone_attendences_df = compute_vodafone_attendences(
+        mapping_comuni, how="distributional",
+        distribution=strutture_df, weight_col="tot_postiletto",
+        weight_freq="Y",
+    )
+
     presenze_df = compute_presenze_trentino(
-        mapping_comuni, vodafone_attendences_df, how = "distributional")  # now the merge with vodafone presences is managed inside compute_presenze
-    arrivi_trentino = compute_arrivi_trentino(mapping_comuni) #,  how="distributional", distribution=vodafone_attendences_df)  #for the future   # apt -> comunale
+            mapping_comuni, vodafone_attendences_df, how="distributional",
+            weighting_distribution=strutture_df,
+            alb_weight_col="tot_postiletto_conv",
+            xalb_weight_col="tot_postiletto_non_conv",
+            space_weight_freq="Y",
+            time_weight_freq="Y",
+        )
+    arrivi_trentino = compute_arrivi_trentino(mapping_comuni)  # apt -> comunale
 
     dict_dfs = {
         "phen_popolazione": popolazione_df,
-        "phen_strutture": strutture_ospitalita_from_2020,
+        "phen_strutture": strutture_df,
         "phen_arrivi": arrivi_trentino,
         "phen_presenze": presenze_df,
     }
