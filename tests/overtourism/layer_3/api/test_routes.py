@@ -202,33 +202,57 @@ def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> 
     assert body["indexes"][0]["kind"] == "scalar"
 
 
-def test_get_fazzon_schema_uses_placeholder_frontend_metadata(monkeypatch) -> None:
-    class FakeBackend:
-        def schema(self):
-            return {
-                "metadata": {
-                    "mapper": {},
-                    "color_map": [],
-                    "kpi_mapper": {},
-                    "plot_mapper": {
-                        "monodimensional": {},
-                        "bidimensional": {},
-                    },
-                },
-                "indexes": [{"name": "visitors", "kind": "scalar"}],
-            }
-
-    monkeypatch.setattr(
-        "overtourism.layer_3.api.routes.get_backend", lambda model_key: FakeBackend()
-    )
-
+def test_get_fazzon_schema_returns_fazzon_frontend_metadata() -> None:
     with TestClient(app) as client:
         response = client.get("/models/fazzon/schema")
 
     assert response.status_code == 200
     assert response.json()["metadata"] == {
-        "mapper": {},
-        "color_map": [],
-        "kpi_mapper": {},
-        "plot_mapper": {"monodimensional": {}, "bidimensional": {}},
+        "mapper": {
+            "default": "Tutti",
+            "parking": "Parcheggi",
+            "road": "Viabilità",
+            "food": "Ristorazione",
+            "lakeside": "Lungolago",
+        },
+        "color_map": [
+            [0.0, "rgb(5, 102, 8)"],
+            [0.05, "rgb(100, 180, 90)"],
+            [0.2, "rgb(180, 230, 170)"],
+            [0.4, "rgb(230, 250, 225)"],
+            [0.5, "yellow"],
+            [0.6, "rgb(255, 242, 242)"],
+            [0.8, "rgb(242, 204, 204)"],
+            [0.95, "rgb(204, 76, 76)"],
+            [1.0, "rgb(180, 4, 38)"],
+        ],
+        "kpi_mapper": {
+            "title": "Indici",
+            "area": "Area Totale",
+            "overtourism_level": "Giorni di criticità complessiva",
+            "constraint level parking": "Giorni di criticità Parcheggi",
+            "constraint level road": "Giorni di criticità Viabilità",
+            "constraint level food": "Giorni di criticità Ristorazione",
+            "constraint level lakeside": "Giorni di criticità Lungolago",
+            "critical constraint": "Vincolo Critico",
+        },
+        "plot_mapper": {
+            "monodimensional": {
+                "x": {"label": "Giorni (ordinati per utilizzo)"},
+                "y": {
+                    "label": "Livello di utilizzo della destinazione",
+                    "field": "usage",
+                },
+            },
+            "bidimensional": {
+                "x": {
+                    "label": "Visitatori in auto / giorno",
+                    "field": "visitors_car",
+                },
+                "y": {
+                    "label": "Visitatori non-auto / giorno",
+                    "field": "visitors_other",
+                },
+            },
+        },
     }
