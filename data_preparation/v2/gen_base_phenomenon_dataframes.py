@@ -43,6 +43,8 @@ STRUTTURE_VALUE_COLS = [
     "tot_postiletto_conv",
     "tot_strutture",
     "tot_strutture_non_conv",
+    "tot_postiletto_alberghieri",
+    "tot_postiletto_extralberghieri"
 ]
 
 ## COMPUTATION
@@ -249,6 +251,8 @@ def compute_strutture(mapping_comuni):
         strutture_ospitalita_from_2020, date_col="anno"
     )
 
+    CATEGORIA_ALBERGHIERI_LETTI = "alberghieri posti_letto"
+    CATEGORIA_EXTRALBERGHIERI_LETTI = "extra alb. Posti_letto"
     CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
     CATEGORIA_ALLOGGI_PRIVATI = "all. privati numero"
     CATEGORIA_TOT_CONVENZIONALI_LETTI = "tot convenzionali posti_letto"
@@ -268,6 +272,13 @@ def compute_strutture(mapping_comuni):
     strutture_ospitalita_from_2020["tot_postiletto_non_conv"] = (
         strutture_ospitalita_from_2020[CATEGORIA_ALLOGGI_PRIVATI_LETTI]
     )
+    strutture_ospitalita_from_2020["tot_postiletto_alberghieri"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_ALBERGHIERI_LETTI]
+    )
+    strutture_ospitalita_from_2020["tot_postiletto_extralberghieri"] = (
+        strutture_ospitalita_from_2020[CATEGORIA_EXTRALBERGHIERI_LETTI]
+    )
+
     # conventional-only beds (tot_postiletto minus the non-conv share) 
     strutture_ospitalita_from_2020["tot_postiletto_conv"] = (
         strutture_ospitalita_from_2020[CATEGORIA_TOT_CONVENZIONALI_LETTI]
@@ -430,8 +441,8 @@ def compute_phenomenon_dataframes(local=False):
     presenze_df = compute_presenze_trentino(
             mapping_comuni, vodafone_attendences_df, how="distributional",
             weighting_distribution=strutture_df,
-            alb_weight_col="tot_postiletto_conv",
-            xalb_weight_col="tot_postiletto_non_conv",
+            alb_weight_col="tot_postiletto_alberghieri",
+            xalb_weight_col="tot_postiletto_extralberghieri",
             space_weight_freq="Y",
             time_weight_freq="Y",
         )
