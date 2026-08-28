@@ -8,6 +8,41 @@ from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session import manager as session_manager_module
 
 
+def test_delete_all_sessions_removes_only_owned_sessions(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    for _ in range(2):
+        response = client.post(
+            f"/api/v2/{tenant}/sessions",
+            params={"problem_id": problem_id},
+            json={"metadata": {}},
+        )
+        assert response.status_code == 200
+
+    foreign_session = manager.create_session(
+        tenant=tenant,
+        owner_id="other-owner",
+    )
+    other_tenant_session = manager.create_session(
+        tenant="tenant-beta",
+        owner_id=f"anonymous:{tenant}",
+    )
+
+    delete_response = client.delete(
+        f"/api/v2/{tenant}/sessions",
+        params={"problem_id": problem_id},
+    )
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"message": "All sessions deleted successfully"}
+    assert {
+        session.session_id for session in manager.session_manager.list_sessions()
+    } == {foreign_session.session_id, other_tenant_session.session_id}
+
+
 def test_session_routes_manage_the_full_session_lifecycle(
     client,
     manager: Manager,

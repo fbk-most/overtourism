@@ -239,8 +239,14 @@ def test_session_scenario_can_be_created_updated_and_saved(
 
     assert save_response.status_code == 200
     assert save_response.json()["scenario_id"] == draft_id
+    assert save_response.json()["session_id"] is None
     assert save_response.json()["version"] == 1
     assert save_response.json()["name"] == "Saved scenario"
+    public_scenarios_response = client.get(f"/api/v2/{tenant}/scenarios")
+    assert public_scenarios_response.status_code == 200
+    assert draft_id in {
+        item["scenario_id"] for item in public_scenarios_response.json()
+    }
     assert (
         manager.relationship_manager.get_related_scenario_ids(proposal_id)[-1]
         == draft_id

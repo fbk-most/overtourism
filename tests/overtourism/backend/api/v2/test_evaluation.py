@@ -277,6 +277,49 @@ def test_create_and_read_session_evaluation_for_a_draft(
     assert "result" not in read_response.json()
 
 
+def test_saving_session_scenario_publishes_its_evaluation(
+    client,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    session_id, draft_id = _create_owned_session_and_draft(
+        client,
+        tenant,
+        problem_id,
+        values={"visits": 5},
+        name="Session draft",
+    )
+
+    evaluation_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/evaluations",
+        params={"problem_id": problem_id},
+        json={"scenario_id": draft_id},
+    )
+    assert evaluation_response.status_code == 200
+    evaluation_id = evaluation_response.json()["evaluation_id"]
+
+    save_response = client.post(
+        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        params={"problem_id": problem_id},
+        json={"version": 2},
+    )
+
+    assert save_response.status_code == 200
+    assert save_response.json()["session_id"] is None
+
+    public_evaluations_response = client.get(
+        f"/api/v2/{tenant}/evaluations",
+        params={"problem_id": problem_id, "scenario_id": draft_id},
+    )
+    assert public_evaluations_response.status_code == 200
+    public_evaluation = next(
+        item
+        for item in public_evaluations_response.json()
+        if item["evaluation_id"] == evaluation_id
+    )
+    assert public_evaluation["session_id"] is None
+
+
 def test_session_evaluation_can_be_updated_and_deleted(
     client,
     manager: Manager,

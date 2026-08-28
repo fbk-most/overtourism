@@ -135,6 +135,34 @@ async def list_sessions(
         raise
 
 
+@session_router.delete(
+    "",
+    responses={
+        500: {"description": "Session manager error"},
+        200: {"description": "Sessions deleted"},
+    },
+)
+async def delete_sessions(
+    tenant: str,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
+) -> dict:
+    try:
+        owner_id = resolve_session_owner_id(context, tenant)
+        sessions = [
+            session
+            for session in handler.manager.list_sessions()
+            if session.tenant == tenant and session.owner_id == owner_id
+        ]
+        for session in sessions:
+            handler.manager.delete_session(session.session_id)
+        logger.info(f"Sessions deleted: {len(sessions)}")
+        return {"message": "All sessions deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting sessions: {e}")
+        raise
+
+
 @session_router.get(
     "/{session_id}",
     response_model=SessionData,

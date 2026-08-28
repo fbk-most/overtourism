@@ -447,7 +447,7 @@ class Manager:
         extras: dict | None = None,
         proposal_id: str | None = None,
     ) -> Scenario:
-        """Persist a transient scenario back into the store."""
+        """Publish a session scenario and its evaluation, if any."""
         session_scenario = self.read_session_scenario(session_id, scenario_id)
         if name is not None:
             session_scenario.name = name
@@ -456,6 +456,8 @@ class Manager:
         if extras is not None:
             session_scenario.extras = {**session_scenario.extras, **extras}
 
+        session_scenario.session_id = None
+        session_scenario.updated = get_timestamp()
         self.store.save_scenario(session_scenario.to_dict())
 
         if proposal_id is not None:
@@ -464,15 +466,24 @@ class Manager:
                 scenario_id=session_scenario.scenario_id,
             )
         try:
-            evaluations = self.read_session_evaluation(
+            evaluation = self.read_session_evaluation(
                 session_id,
                 session_scenario.scenario_id,
             )
-            self.evaluation_manager.save_evaluation(evaluations)
+            evaluation.session_id = None
+            self.evaluation_manager.save_evaluation(evaluation)
         except Exception:
             pass
 
         session = self.session_manager.read_session(session_id)
+        if session.active_scenario_id == session_scenario.scenario_id:
+            session.active_scenario_id = next(
+                (
+                    scenario.scenario_id
+                    for scenario in self.list_session_scenarios(session_id)
+                ),
+                None,
+            )
         session.updated = get_timestamp()
         self.session_manager.store.save_session(session.to_dict())
         return self.read_scenario(scenario_id)
