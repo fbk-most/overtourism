@@ -7,7 +7,6 @@ from pathlib import Path
 
 from overtourism.backend.api.utils.executor_utils import (
     call_executor,
-    call_schema,
     list_models,
 )
 from overtourism.backend.auth.dependencies import Handler
@@ -45,7 +44,7 @@ store_conf = StoreConfig("sql", {"url": database_url})
 # ──────────────────────────────────────────────
 
 extras_config = ExtrasConfig(
-    problem_keys=frozenset(("objective", "links", "groups", "editable_indexes")),
+    problem_keys=frozenset(("objective", "links")),
     proposal_keys=frozenset(("resources", "context", "impact")),
     scenario_keys=frozenset("index_diffs"),
 )
@@ -65,24 +64,11 @@ for model in list_models():
     except EntityDoesNotExist:
         pass
 
-    # Call schema
-    schema = call_schema(names_cfg.tenant)
-    editable_indexes = []
-    groups = []
-    for i in schema["indexes"]:
-        editable_indexes.append(i["name"])
-        groups.append(i["category"])
-    problem_extras = {
-        "editable_indexes": set(editable_indexes),
-        "groups": set(groups),
-    }
-
     crud_manager.problem_manager.create_problem(
         problem_id=names_cfg.problem_id,
         tenant=names_cfg.tenant,
         name=names_cfg.problem_name,
         description=names_cfg.problem_description,
-        extras=problem_extras,
     )
     crud_manager.scenario_manager.create_scenario(
         scenario_id=names_cfg.scenario_id,

@@ -34,7 +34,7 @@ def _make_manager(
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         extras_config=ExtrasConfig(
-            problem_keys=frozenset({"objective", "groups", "links"}),
+            problem_keys=frozenset({"objective", "links"}),
         ),
     )
     manager.name_cfg = SimpleNamespace(tenant=DEFAULT_TENANT)

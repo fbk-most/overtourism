@@ -54,13 +54,9 @@ def prepare_problem_payload(
     if extras is None:
         extras = {}
         extras["objective"] = payload.pop("objective", None)
-        extras["groups"] = payload.pop("groups", None)
         extras["links"] = payload.pop("links", None)
 
     extras = handler.manager.problem_extras_from_dict(extras)
-
-    editable_indexes = extras.get("editable_indexes", [])
-    extras["editable_indexes"] = [str(item) for item in editable_indexes]
 
     payload["extras"] = extras
     payload["tenant"] = tenant

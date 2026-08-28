@@ -3,6 +3,31 @@
 from __future__ import annotations
 
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.overtourism.backend_extension.api.models.problem import (
+    OvertourismPostProblemData,
+    OvertourismProblemData,
+    OvertourismUpdateProblemData,
+)
+
+
+def test_overtourism_problem_models_do_not_expose_group_metadata() -> None:
+    post_data = OvertourismPostProblemData(
+        name="Problem",
+        description="Problem description",
+        groups=["legacy-group"],
+    )
+    problem_data = OvertourismProblemData(
+        problem_id="problem",
+        tenant="tenant-alpha",
+        groups=["legacy-group"],
+        editable_indexes=["visits"],
+    )
+    update_data = OvertourismUpdateProblemData(groups=["legacy-group"])
+
+    assert "groups" not in post_data.model_dump()
+    assert "groups" not in problem_data.model_dump()
+    assert "editable_indexes" not in problem_data.model_dump()
+    assert "groups" not in update_data.model_dump()
 
 
 def test_list_problems_filters_by_tenant(client, manager: Manager, tenant: str) -> None:

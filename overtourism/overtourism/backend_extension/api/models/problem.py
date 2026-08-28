@@ -13,18 +13,14 @@ from overtourism.backend.api.models.problem import (
 
 class OvertourismProblemData(ProblemData):
     objective: str | None = None
-    groups: list[str] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
-    editable_indexes: list[str] = Field(default_factory=list)
 
 
 class OvertourismPostProblemData(PostProblemData):
     objective: str | None = None
-    groups: list[str] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
 
 
 class OvertourismUpdateProblemData(UpdateProblemData):
     objective: str | None = None
-    groups: list[str] | None = None
     links: list[str] | None = None

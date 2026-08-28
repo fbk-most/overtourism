@@ -249,7 +249,7 @@ def manager(tmp_path) -> Manager:
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
         extras_config=ExtrasConfig(
-            problem_keys=frozenset({"objective", "groups", "links"}),
+            problem_keys=frozenset({"objective", "links"}),
         ),
     )
     bootstrap_default_entities(manager, TENANT)
