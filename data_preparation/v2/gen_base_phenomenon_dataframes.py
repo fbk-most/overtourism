@@ -49,45 +49,6 @@ STRUTTURE_VALUE_COLS = [
 
 ## COMPUTATION
 ## Functions to compute phenomena dataframes
-def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
-                             years=["2021", "2022", "2023", "2024"]):
-    logging.info("Downloading arrivi_trentino_ISPAT.csv from S3...")
-    arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
-    arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
-    arrivi_trentino = pd.melt(
-        arrivi_trentino, id_vars="comune", value_vars=years,
-        value_name="arrivi", var_name="anno",
-    )
-    arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
-    arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
-
-    json_apt = get_json_s3("mapping_ids/map_comuni_into_apt.json")
-    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
-
-    arrivi_trentino["ID_COMUNE"] = arrivi_trentino["comune"].map(json_apt).apply(
-        lambda x: [int(i) for i in x] if isinstance(x, list) else x
-    )
-    arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
-
-    kwargs = dict(axis="both", freq_from="Y", freq_to="D", id_to_name=id_to_comune)
-    if how == "distributional":
-        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
-        kwargs.update(
-            space_weights=distribution,
-            space_weight_col="presenze",
-            space_time_freq="Y",
-            time_weights=distribution,
-            time_weight_col="presenze",
-        )
-    elif how != "uniform":
-        raise ValueError(f"Unknown disaggregation method: {how}, choose one between 'uniform' and 'distributional'")
-
-    arrivi = disaggregate(arrivi_trentino, cols=["arrivi"], **kwargs)
-    arrivi["ID_COMUNE"] = pad_id_comune(arrivi["ID_COMUNE"])
-    arrivi["DATA"] = pd.to_datetime(arrivi["DATA"]).dt.strftime("%Y-%m-%d")
-    return arrivi
-
-
 def compute_presenze_trentino(
     mapping_comuni,
     vodafone_distribution,
@@ -438,20 +399,18 @@ def compute_phenomenon_dataframes(local=False):
         weight_freq="Y",
     )
 
-    presenze_df = compute_presenze_trentino(
-            mapping_comuni, vodafone_attendences_df, how="distributional",
-            weighting_distribution=strutture_df,
-            alb_weight_col="tot_postiletto_alberghieri",
-            xalb_weight_col="tot_postiletto_extralberghieri",
-            space_weight_freq="Y",
-            time_weight_freq="Y",
-        )
-    arrivi_trentino = compute_arrivi_trentino(mapping_comuni)  # apt -> comunale
+    # presenze_df = compute_presenze_trentino(
+    #         mapping_comuni, vodafone_attendences_df, how="distributional",
+    #         weighting_distribution=strutture_df,
+    #         alb_weight_col="tot_postiletto_alberghieri",
+    #         xalb_weight_col="tot_postiletto_extralberghieri",
+    #         space_weight_freq="Y",
+    #         time_weight_freq="Y",
+    #     )
 
     dict_dfs = {
         "phen_popolazione": popolazione_df,
         "phen_strutture": strutture_df,
-        "phen_arrivi": arrivi_trentino,
         "phen_presenze": presenze_df,
     }
 
