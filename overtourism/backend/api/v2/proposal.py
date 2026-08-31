@@ -16,6 +16,7 @@ from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
+    ensure_base_scenario_id,
     get_proposal_or_404,
     proposal_to_api,
     validate_related_scenario_ids,
@@ -80,7 +81,10 @@ async def create_proposal(
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
             tenant,
             handler,
-            proposal_payload.get("related_scenario_ids"),
+            ensure_base_scenario_id(
+                tenant,
+                proposal_payload.get("related_scenario_ids"),
+            ),
         )
         proposal = handler.manager.create_proposal(**proposal_payload)
         logger.info(f"Proposal created: {proposal.proposal_id}")

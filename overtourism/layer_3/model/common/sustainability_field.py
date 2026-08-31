@@ -148,8 +148,7 @@ def get_index_diffs(
             if old_value == new_value:
                 continue
             diffs[name] = (
-                f"{_format_index_value(old_value)} -> "
-                f"{_format_index_value(new_value)}"
+                f"{_format_index_value(old_value)} -> {_format_index_value(new_value)}"
             )
             continue
 
@@ -168,8 +167,7 @@ def get_index_diffs(
             if old_value is None or old_value == new_value:
                 continue
             diffs[name] = (
-                f"{_format_index_value(old_value)} -> "
-                f"{_format_index_value(new_value)}"
+                f"{_format_index_value(old_value)} -> {_format_index_value(new_value)}"
             )
 
     return diffs

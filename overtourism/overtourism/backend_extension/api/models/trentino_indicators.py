@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 from overtourism.overtourism.backend_extension.api.models.indicator import Indicator
 from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
-    PopulationPhenomenon,
-    PresencesPhenomenon,
     BedsPhenomenon,
     ExtraBedsPhenomenon,
     ExtraFacilitiesPhenomenon,
     FacilitiesTotalPhenomenon,
+    PopulationPhenomenon,
+    PresencesPhenomenon,
 )
 
 # ---------------------------------------------------------------------------

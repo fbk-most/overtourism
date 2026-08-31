@@ -8,9 +8,9 @@ import pandas as pd
 
 from overtourism.overtourism.backend_extension.api.models.indicator import Indicator
 from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
+    BedsPhenomenon,
     FlowPhenomenon,
     PresencesPhenomenon,
-    BedsPhenomenon,
 )
 
 # ---------------------------------------------------------------------------

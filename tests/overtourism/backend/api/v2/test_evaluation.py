@@ -178,9 +178,7 @@ def test_list_evaluations_excludes_session_evaluations(
     response = client.get(f"/api/v2/{tenant}/evaluations")
 
     assert response.status_code == 200
-    assert evaluation_id not in {
-        item["evaluation_id"] for item in response.json()
-    }
+    assert evaluation_id not in {item["evaluation_id"] for item in response.json()}
 
 
 def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(

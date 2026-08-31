@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from overtourism.dt_manager.manager.manager import Manager
 
 
@@ -48,6 +50,54 @@ def test_create_and_list_proposals_for_a_problem(
     proposals = {item["proposal_id"]: item for item in list_response.json()}
     assert proposal_id in proposals
     assert proposals[proposal_id]["related_scenario_ids"] == [base_scenario_id]
+
+
+@pytest.mark.parametrize("related_scenario_ids", [None, []])
+def test_create_proposal_adds_base_scenario_when_payload_omits_it(
+    client,
+    tenant: str,
+    problem_id: str,
+    related_scenario_ids: list[str] | None,
+) -> None:
+    payload: dict[str, object] = {
+        "problem_id": problem_id,
+        "proposal_id": "proposal-base-default",
+    }
+    if related_scenario_ids is not None:
+        payload["related_scenario_ids"] = related_scenario_ids
+
+    response = client.post(f"/api/v2/{tenant}/proposals", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["related_scenario_ids"] == [f"{tenant}_base_scenario"]
+
+
+def test_create_proposal_keeps_related_scenarios_and_adds_base(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    related_scenario = manager.scenario_manager.create_scenario(
+        "scenario-linked-to-proposal",
+        tenant,
+        name="Linked scenario",
+    )
+
+    response = client.post(
+        f"/api/v2/{tenant}/proposals",
+        json={
+            "problem_id": problem_id,
+            "proposal_id": "proposal-with-related-scenario",
+            "related_scenario_ids": [related_scenario.scenario_id],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["related_scenario_ids"] == [
+        related_scenario.scenario_id,
+        f"{tenant}_base_scenario",
+    ]
 
 
 def test_list_proposals_can_filter_by_related_scenario(

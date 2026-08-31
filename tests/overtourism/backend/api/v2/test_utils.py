@@ -45,22 +45,24 @@ def test_scenario_index_diffs_uses_the_layer_3_schema(
     schema_calls: list[str] = []
     monkeypatch.setattr(
         "overtourism.backend.api.utils.utils.call_schema",
-        lambda requested_tenant: schema_calls.append(requested_tenant)
-        or {
-            "indexes": [
-                {
-                    "name": "season",
-                    "kind": "categorical",
-                    "default_category": "base",
-                },
-                {
-                    "name": "parking capacity",
-                    "kind": "distribution",
-                    "default_range": [100.0, 200.0],
-                },
-                {"name": "car mode share", "kind": "scalar", "default": 0.69},
-            ]
-        },
+        lambda requested_tenant: (
+            schema_calls.append(requested_tenant)
+            or {
+                "indexes": [
+                    {
+                        "name": "season",
+                        "kind": "categorical",
+                        "default_category": "base",
+                    },
+                    {
+                        "name": "parking capacity",
+                        "kind": "distribution",
+                        "default_range": [100.0, 200.0],
+                    },
+                    {"name": "car mode share", "kind": "scalar", "default": 0.69},
+                ]
+            }
+        ),
     )
 
     assert scenario_index_diffs(handler, scenario) == {

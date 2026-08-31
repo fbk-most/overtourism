@@ -7,6 +7,7 @@ import typing
 import requests
 from fastapi import HTTPException, status
 
+from overtourism.backend.api.utils.executor_utils import call_schema
 from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.problem.problem import Problem
@@ -17,7 +18,6 @@ from overtourism.dt_manager.utils.exception import (
     EvaluationDoesNotExist,
     ProposalDoesNotExist,
 )
-from overtourism.backend.api.utils.executor_utils import call_schema
 from overtourism.layer_3.model.common.sustainability_field import get_index_diffs
 
 if typing.TYPE_CHECKING:
@@ -131,6 +131,18 @@ def validate_related_scenario_ids(
     for scenario_id in validated_ids:
         get_scenario_or_404(tenant, handler, scenario_id)
     return validated_ids
+
+
+def ensure_base_scenario_id(
+    tenant: str,
+    related_scenario_ids: list[str] | None,
+) -> list[str]:
+    """Include the tenant's base scenario in a new proposal's links."""
+    scenario_ids = list(related_scenario_ids or [])
+    base_scenario_id = BootstrapConfig(tenant).scenario_id
+    if base_scenario_id not in scenario_ids:
+        scenario_ids.append(base_scenario_id)
+    return scenario_ids
 
 
 def proposal_to_api(

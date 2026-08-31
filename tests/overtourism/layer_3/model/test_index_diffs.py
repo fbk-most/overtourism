@@ -36,7 +36,9 @@ def test_get_index_diffs_formats_scalar_categorical_and_distribution_changes() -
     }
 
 
-def test_get_index_diffs_uses_all_as_categorical_base_and_omits_unchanged_values() -> None:
+def test_get_index_diffs_uses_all_as_categorical_base_and_omits_unchanged_values() -> (
+    None
+):
     schema = {
         "indexes": [
             {"name": "weekday", "kind": "categorical"},

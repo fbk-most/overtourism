@@ -12,15 +12,15 @@ from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.overtourism.backend_extension.api.models.territorial_config import (
     TerritorialConfig,
 )
+from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
+    PHENOMENON_LABELS_IT,
+)
 from overtourism.overtourism.backend_extension.api.models.trentino_indicators import (
     _REGISTRY,
     CODICI_COMUNI_FILE,
     MACRO_AREAS_FILE,
     MAP_SHAPEFILE,
     get_indicator,
-)
-from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena import (
-    PHENOMENON_LABELS_IT,
 )
 from overtourism.overtourism.backend_extension.api.utils.index_utils import (
     _build_geodataframe,
