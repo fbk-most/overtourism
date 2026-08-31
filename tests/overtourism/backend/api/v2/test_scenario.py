@@ -354,12 +354,14 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
         param_overrides={"visits": 5},
         name="Scenario delete",
     )
+    scenario.version = 2
+    manager.store.save_scenario(scenario.to_dict())
 
     delete_response = error_client.request(
         "DELETE",
         f"/api/v2/{tenant}/scenarios/{scenario.scenario_id}",
         params={"problem_id": problem_id},
-        json={"version": 1},
+        json={"version": 2},
     )
 
     assert delete_response.status_code == 200

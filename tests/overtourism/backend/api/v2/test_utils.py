@@ -10,6 +10,7 @@ from overtourism.backend.api.utils.utils import (
     get_problem_or_404,
     get_proposal_or_404,
     get_scenario_or_404,
+    get_session_evaluation_by_id_or_404,
     get_session_evaluation_or_404,
     get_session_or_404,
     get_session_scenario_or_404,
@@ -25,6 +26,25 @@ class SnapshotResult:
 
     def to_snapshot(self):
         return self.payload
+
+
+def test_session_helpers_do_not_mask_internal_errors(handler) -> None:
+    def raise_internal_error(*args, **kwargs):
+        raise RuntimeError("internal failure")
+
+    handler.manager.read_session = raise_internal_error
+    handler.manager.read_session_scenario = raise_internal_error
+    handler.manager.read_session_evaluation = raise_internal_error
+    handler.manager.read_session_evaluation_by_id = raise_internal_error
+
+    with pytest.raises(RuntimeError, match="internal failure"):
+        get_session_or_404(handler, "session")
+    with pytest.raises(RuntimeError, match="internal failure"):
+        get_session_scenario_or_404(handler, "session", "scenario")
+    with pytest.raises(RuntimeError, match="internal failure"):
+        get_session_evaluation_or_404(handler, "session", "scenario")
+    with pytest.raises(RuntimeError, match="internal failure"):
+        get_session_evaluation_by_id_or_404(handler, "session", "evaluation")
 
 
 def test_scenario_index_diffs_uses_the_layer_3_schema(
@@ -131,11 +151,13 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_scenario_or_404(tenant, handler, "missing-scenario")
     assert scenario_exc.value.status_code == 404
 
-    with pytest.raises(EntityDoesNotExist):
+    with pytest.raises(HTTPException) as proposal_exc:
         get_proposal_or_404(tenant, handler, "missing-proposal")
+    assert proposal_exc.value.status_code == 404
 
-    with pytest.raises(EntityDoesNotExist):
+    with pytest.raises(HTTPException) as evaluation_exc:
         get_evaluation_or_404(tenant, handler, "missing-scenario")
+    assert evaluation_exc.value.status_code == 404
 
     session = manager.session_manager.create_session(metadata={"source": "ui"})
     draft = manager.create_session_scenario(

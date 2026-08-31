@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-from sqlalchemy.exc import IntegrityError
-
-from overtourism.dt_manager.utils.exception import EntityDoesNotExist
-
 
 def _raise_runtime_error(*args: Any, **kwargs: Any) -> Any:
     raise RuntimeError("boom")
@@ -82,34 +77,30 @@ def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     assert list_response.status_code == 200
     assert list_response.json() == []
 
-    try:
-        client.post(
-            f"/api/v2/{tenant}/proposals",
-            json={"problem_id": "missing-problem", "proposal_id": "proposal-x"},
-        )
-    except IntegrityError:
-        pass
-    else:
-        raise AssertionError("Expected IntegrityError for missing problem")
+    create_response = client.post(
+        f"/api/v2/{tenant}/proposals",
+        json={"problem_id": "missing-problem", "proposal_id": "proposal-x"},
+    )
+    assert create_response.status_code == 404
+    assert create_response.json() == {"detail": "Problem 'missing-problem' not found."}
 
-    with pytest.raises(EntityDoesNotExist):
-        client.get(
-            f"/api/v2/{tenant}/proposals/missing-proposal",
-            params={"problem_id": problem_id},
-        )
+    read_response = client.get(
+        f"/api/v2/{tenant}/proposals/missing-proposal",
+        params={"problem_id": problem_id},
+    )
+    update_response = client.put(
+        f"/api/v2/{tenant}/proposals/missing-proposal",
+        params={"problem_id": problem_id},
+        json={"version": 1, "name": "Updated"},
+    )
+    delete_response = client.delete(
+        f"/api/v2/{tenant}/proposals/missing-proposal",
+        params={"problem_id": problem_id},
+    )
 
-    with pytest.raises(EntityDoesNotExist):
-        client.put(
-            f"/api/v2/{tenant}/proposals/missing-proposal",
-            params={"problem_id": problem_id},
-            json={"version": 1, "name": "Updated"},
-        )
-
-    with pytest.raises(EntityDoesNotExist):
-        client.delete(
-            f"/api/v2/{tenant}/proposals/missing-proposal",
-            params={"problem_id": problem_id},
-        )
+    for response in (read_response, update_response, delete_response):
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Proposal 'missing-proposal' not found."}
 
 
 def test_scenario_routes_return_404_for_missing_entities(
@@ -212,30 +203,30 @@ def test_evaluation_routes_return_404_for_missing_entities(
         "detail": "Scenario 'missing-scenario' not found."
     }
 
-    read_response = error_client.get(
+    read_response = client.get(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
-    assert read_response.status_code == 500
+    assert read_response.status_code == 404
 
-    data_response = error_client.get(
+    data_response = client.get(
         f"/api/v2/{tenant}/evaluations/missing-evaluation/data",
         params={"problem_id": problem_id},
     )
-    assert data_response.status_code == 500
+    assert data_response.status_code == 404
 
-    update_response = error_client.put(
+    update_response = client.put(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
         json={"version": 1, "ensemble_size": 4},
     )
-    assert update_response.status_code == 500
+    assert update_response.status_code == 404
 
-    delete_response = error_client.delete(
+    delete_response = client.delete(
         f"/api/v2/{tenant}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
-    assert delete_response.status_code == 500
+    assert delete_response.status_code == 404
 
     session_response = client.post(
         f"/api/v2/{tenant}/sessions/missing-session/evaluations",
