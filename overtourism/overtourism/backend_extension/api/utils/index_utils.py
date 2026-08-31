@@ -71,8 +71,21 @@ def _compute_min_max(gdf_final):
         return -1, -1
 
 
+def _round_count_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    out = gdf.copy()
+    for col in out.columns:
+        if col not in {
+            "INDICE",
+            "AREA_NAME",
+            "geometry",
+        } and pd.api.types.is_numeric_dtype(out[col]):
+            out[col] = out[col].round().astype("Int64")
+    return out
+
+
 def _to_map_response(gdf_final):
     min_value, max_value = _compute_min_max(gdf_final)
+    gdf_final = _round_count_columns(gdf_final)
     return {
         "geojson": gdf_final.to_json(),
         "min_value": min_value,

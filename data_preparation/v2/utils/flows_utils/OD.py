@@ -88,6 +88,7 @@ from numpy import array, errstate, fill_diagonal, sqrt
 from os.path import exists
 from pandas import DataFrame, read_parquet
 from tqdm import tqdm
+import os 
 
 ####################### DIRECTION MATRIX ###########################
 
@@ -210,6 +211,9 @@ def direction_distance_2_df(
                 rows.append([i, j, dir_vector, distance])
         # Create DataFrame
         df = DataFrame(rows, columns=columns)
+        output_dir = os.path.dirname(complete_path_direction_distance_df)
+        if output_dir:  
+            os.makedirs(output_dir, exist_ok=True)
         df.to_parquet(complete_path_direction_distance_df, index=False)
         return df
 

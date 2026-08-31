@@ -29,6 +29,8 @@ from data_preparation.v2.utils.utils import (
     pad_id_comune,
     get_mapping_comuni,
     save_computed_dfs,
+    _remove_provincia,
+    _to_data_location
 )
 from data_preparation.v2.utils.disaggregation import disaggregate
 
@@ -110,6 +112,43 @@ def create_mapping(df):
 
 ## COMPUTATION
 ## Functions to compute phenomena dataframes
+def compute_arrivi_trentino(mapping_comuni, how="uniform", distribution=None,
+                             years=["2021", "2022", "2023", "2024"]):
+    logging.info("Downloading arrivi_trentino_ISPAT.csv from S3...")
+    arrivi_trentino = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
+    arrivi_trentino.rename(columns={"Anno": "anno", "Ambito": "comune"}, inplace=True)
+    arrivi_trentino = pd.melt(
+        arrivi_trentino, id_vars="comune", value_vars=years,
+        value_name="arrivi", var_name="anno",
+    )
+    arrivi_trentino["anno"] = arrivi_trentino["anno"].astype(int)
+    arrivi_trentino = _remove_provincia(arrivi_trentino, upper=True)
+
+    json_apt = get_json_s3("mapping_ids/map_comuni_into_apt.json")
+    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
+
+    arrivi_trentino["ID_COMUNE"] = arrivi_trentino["comune"].map(json_apt).apply(
+        lambda x: [int(i) for i in x] if isinstance(x, list) else x
+    )
+    arrivi_trentino = _to_data_location(arrivi_trentino, date_col="anno")
+
+    kwargs = dict(axis="both", freq_from="Y", freq_to="D", id_to_name=id_to_comune)
+    if how == "distributional":
+        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        kwargs.update(
+            space_weights=distribution,
+            space_weight_col="presenze",
+            space_time_freq="Y",
+            time_weights=distribution,
+            time_weight_col="presenze",
+        )
+    elif how != "uniform":
+        raise ValueError(f"Unknown disaggregation method: {how}, choose one between 'uniform' and 'distributional'")
+
+    arrivi = disaggregate(arrivi_trentino, cols=["arrivi"], **kwargs)
+    arrivi["ID_COMUNE"] = pad_id_comune(arrivi["ID_COMUNE"])
+    arrivi["DATA"] = pd.to_datetime(arrivi["DATA"]).dt.strftime("%Y-%m-%d")
+    return arrivi
 
 
 def compute_flussi_trentino(mapping_comuni):
@@ -247,8 +286,10 @@ def compute_phenomenon_dataframes(local=False):
 
     flussi_df = compute_flussi_trentino(mapping_comuni)
     phen_flussi_temp_2023 = compute_flussi_2023_temp(flussi_df)
+    arrivi_trentino = compute_arrivi_trentino(mapping_comuni)  # apt -> comunale
 
     dict_dfs = {
+        "arrivi_trentino": arrivi_trentino,
         "phen_flussi": flussi_df,
         "phen_flussi_temp_2023": phen_flussi_temp_2023,
     }

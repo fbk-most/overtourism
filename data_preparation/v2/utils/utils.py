@@ -96,6 +96,9 @@ def _remove_provincia(df, comune_col="comune", upper=False):
     series = df[comune_col].str.upper() if upper else df[comune_col]
     mask = series.str.startswith("PROVINCIA")
     if mask.any():
+        logging.info(
+            f"Comune {df.loc[mask, comune_col].unique()} is a PROVINCIA, removing it from the analysis"
+        )
         df = df[~mask]
     return df
 
@@ -250,10 +253,10 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
 
 def save_computed_dfs(dict_dfs, local=False):
     for key, value in dict_dfs.items():
-        logging.info(f"Uploading dataframe '{key}'...")
+        logging.info(f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet...")
         put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
         if not local:
-            logging.info(f"Logging dataframe '{key}'...")
+            logging.info(f"Logging dataframe '{key}.parquet'...")
             log_dataframe(value, key, type="parquet")
     logging.info("## Saved.")
 

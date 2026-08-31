@@ -30,14 +30,6 @@ def _lookup_weights(exp, weights, on, weight_col, time_col, freq=None):
     # collapse the distribution on the join keys so the merge cannot duplicate rows
     right = right.groupby(keys, as_index=False)[weight_col].sum()
     merged = left[keys].merge(right, on=keys, how="left")
-
-    # n_missing = int(merged[weight_col].isna().sum())
-    # if n_missing:
-    #     logging.warning(
-    #         "Disaggregation: %d rows without weight on %s (weight 0; uniform "
-    #         "split only if the whole parent row is unmatched)",
-    #         n_missing, on,
-    #     )
     return merged[weight_col].to_numpy()
 
 
@@ -136,6 +128,7 @@ def disaggregate_time(
     id_col="ID_COMUNE",
     weights=None,
     weight_col=None,
+    weight_freq=None,
     integer=True,
 ):
     """Expand each row into one row per child period (freq_from -> freq_to)."""
@@ -155,7 +148,7 @@ def disaggregate_time(
     on = [time_col]
     if weights is not None and id_col in weights.columns and id_col in exp.columns:
         on.append(id_col)
-    exp["_W"] = _lookup_weights(exp, weights, on, weight_col, time_col)
+    exp["_W"] = _lookup_weights(exp, weights, on, weight_col, time_col, weight_freq)
 
     exp = _split(exp, cols, integer)
     return _close(exp, own_row)
@@ -172,6 +165,7 @@ def disaggregate(
     space_time_freq=None,
     time_weights=None,
     time_weight_col=None,
+    time_weight_freq=None,
     freq_from="M",
     freq_to="D",
     id_col="ID_COMUNE",
@@ -180,7 +174,7 @@ def disaggregate(
     id_to_name=None,
     integer=True,
 ):
-    """Disaggregate along axis in {"space", "time", "both"}."""
+    """Disaggregate along axis in {"space", "time", "both"}"""
     if axis not in {"space", "time", "both"}:
         raise ValueError(f"Unknown axis: {axis}")
 
@@ -214,6 +208,7 @@ def disaggregate(
             id_col=id_col,
             weights=time_weights,
             weight_col=time_weight_col,
+            weight_freq=time_weight_freq,
             integer=integer,
         )
 
