@@ -455,8 +455,8 @@ class PeriodPercentageImpactIndicator(Indicator):
         )
         merged["INDICE_seasonal"] = merged["INDICE_seasonal"].fillna(0)
 
-        merged["INDICE"] = (
-            merged["INDICE_seasonal"] / merged["INDICE_total"].replace(0, np.nan)
-        ) * 100
+        merged["INDICE"] = merged["INDICE_seasonal"] / merged["INDICE_total"].replace(
+            0, np.nan
+        )
 
         return merged[["ID_COMUNE", "INDICE"]]

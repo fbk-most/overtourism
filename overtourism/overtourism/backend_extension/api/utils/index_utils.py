@@ -65,6 +65,9 @@ def _compute_min_max(gdf_final):
         if min_val == max_val == 0.0:
             max_val == 1.0
 
+        if min_val == max_val == 1.0:
+            min_val == 0.0
+
         return min_val, max_val
 
     except Exception:
