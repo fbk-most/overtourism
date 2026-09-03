@@ -231,6 +231,7 @@ class VariationRateIndicator(Indicator):
     availableForVariation = False
     extraFields = ["indicator", "start_date_comparison", "end_date_comparison"]
     internal_only = True
+    index_value_unit_description = "Percentuale di variazione tra due periodi"
 
     def __init__(self):
         # No fixed phenomena: which indicator (and therefore which
@@ -359,6 +360,9 @@ class PeriodPercentageImpactIndicator(Indicator):
     availableForVariation = False
     extraFields = ["indicator", "seasonality"]
     internal_only = True
+    index_value_unit_description = (
+        "Percentuale di impatto del sottoperiodo rispetto al periodo totale"
+    )
 
     def __init__(self):
         # Same rationale as VariationRateIndicator: the wrapped indicator is

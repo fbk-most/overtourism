@@ -191,6 +191,7 @@ def get_indicators_list():
     logger.info("[get-index-list] Fetching list of indices")
     try:
         indicators = []
+        additional_labels = []
         for key in _REGISTRY:
             indicator = get_indicator(key)
             if not indicator.internal_only:
@@ -208,7 +209,16 @@ def get_indicators_list():
                         },
                     }
                 )
-        return {"indicators": indicators}
+            else:
+                additional_labels.append(
+                    {
+                        "value": key,
+                        "label": indicator.name or key,
+                        "index_description": indicator.description,
+                        "index_value_unit_description": indicator.index_value_unit_description,
+                    }
+                )
+        return {"indicators": indicators, "additional_labels": additional_labels}
     except Exception as e:
         logger.info(f"[get-index-list] Error fetching indicators: {e}")
         raise HTTPException(
