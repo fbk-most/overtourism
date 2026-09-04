@@ -334,8 +334,9 @@ class VariationRateIndicator(Indicator):
 
         # Percentage variation: (baseline - comparison) / comparison * 100
         merged["INDICE"] = (
-            merged["Periodo base"] - merged["Periodo comparazione"]
-        ) / merged["Periodo comparazione"].replace(0, np.nan)
+            (merged["Periodo base"] - merged["Periodo comparazione"])
+            / merged["Periodo comparazione"].replace(0, np.nan)
+        ) * 100
 
         return merged[["ID_COMUNE", "INDICE", "Periodo base", "Periodo comparazione"]]
 
@@ -463,8 +464,8 @@ class PeriodPercentageImpactIndicator(Indicator):
         )
         merged["INDICE_seasonal"] = merged["INDICE_seasonal"].fillna(0)
 
-        merged["INDICE"] = merged["INDICE_seasonal"] / merged["INDICE_total"].replace(
-            0, np.nan
-        )
+        merged["INDICE"] = (
+            merged["INDICE_seasonal"] / merged["INDICE_total"].replace(0, np.nan)
+        ) * 100
 
         return merged[["ID_COMUNE", "INDICE", "INDICE_total", "INDICE_seasonal"]]

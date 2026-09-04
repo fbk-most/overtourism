@@ -51,7 +51,9 @@ def _compute_min_max(gdf_final):
         min_val = float(gdf_final["INDICE"].min())
         max_val = float(gdf_final["INDICE"].max())
 
-        if min_val <= 1:
+        print(f"MIN VAL {min_val}, MAX VAL {max_val}")
+
+        if 0 <= min_val <= 1:
             min_val = 0.0
 
         if 0 <= max_val <= 1:
@@ -63,10 +65,15 @@ def _compute_min_max(gdf_final):
             min_val = floor(min_val)
 
         if min_val == max_val == 0.0:
-            max_val == 1.0
+            max_val = 1.0
 
         if min_val == max_val == 1.0:
-            min_val == 0.0
+            min_val = 0.0
+
+        if min_val == max_val == 100.0:
+            min_val = 0.0
+
+        print(f"RES MIN VAL {min_val}, MAX VAL {max_val}")
 
         return min_val, max_val
 
@@ -77,8 +84,11 @@ def _compute_min_max(gdf_final):
 def _round_count_columns(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     out = gdf.copy()
     for col in out.columns:
-        if col not in {
-            "INDICE",
+        if ("INDICE" in col or "Periodo" in col) and pd.api.types.is_numeric_dtype(
+            out[col]
+        ):
+            out[col] = out[col].round(2)
+        elif col not in {
             "AREA_NAME",
             "geometry",
         } and pd.api.types.is_numeric_dtype(out[col]):
