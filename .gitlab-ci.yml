@@ -6,6 +6,7 @@ services:
 stages:
   - build
   - test
+  - deploy-model
   - deploy
 
 variables:
@@ -13,6 +14,11 @@ variables:
   DOCKER_DRIVER: overlay
   CONTAINER_IMAGE: smartcommunitylab/overtourism-backend:$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
   CONTAINER_IMAGE_LATEST: smartcommunitylab/overtourism-backend:latest
+  MODEL_CONTAINER_IMAGE: smartcommunitylab/overtourism-model:$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
+  MODEL_CONTAINER_IMAGE_LATEST: smartcommunitylab/overtourism-model:latest
+  MODEL_DEPLOYMENT_NAME: overtourism-model
+  MODEL_CONTAINER_NAME: overtourism-model
+  MODEL_BACKEND_URL: http://overtourism-model:8001
   CS_IMAGE: smartcommunitylab/overtourism-backend:latest
 
 include:
@@ -27,14 +33,30 @@ backend-container-build:
     DOCKER_BUILDKIT: 1
   script:
     - docker login -u $DHUB_USER -p $DHUB_PASS
-    - DOCKER_BUILDKIT=1 docker build -f Dockerfile -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
+    - DOCKER_BUILDKIT=1 docker build -f Dockerfile.crud -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
     - docker push $CONTAINER_IMAGE
     - docker push $CONTAINER_IMAGE_LATEST
   only:
     - dev
     - prod
     - main
-    - demo-luglio
+    - v2-alpha-0.1
+
+model-container-build:
+  stage: test
+  variables:
+    BUILDKIT_PROGRESS: plain
+    DOCKER_BUILDKIT: 1
+  script:
+    - docker login -u $DHUB_USER -p $DHUB_PASS
+    - DOCKER_BUILDKIT=1 docker build -f Dockerfile.model -t $MODEL_CONTAINER_IMAGE -t $MODEL_CONTAINER_IMAGE_LATEST .
+    - docker push $MODEL_CONTAINER_IMAGE
+    - docker push $MODEL_CONTAINER_IMAGE_LATEST
+  only:
+    - dev
+    - prod
+    - main
+    - v2-alpha-0.1
 
 container_scanning:
   stage: test
@@ -42,7 +64,7 @@ container_scanning:
     - backend-container-build
   variables:
     DOCKER_IMAGE: $CONTAINER_IMAGE
-    DOCKERFILE_PATH: "Dockerfile"
+    DOCKERFILE_PATH: "Dockerfile.crud"
     GIT_STRATEGY: fetch
     DOCKER_USER: ""
     DOCKER_PASSWORD: ""
@@ -58,7 +80,22 @@ deploy-prod:
     name: dslab
   script:
     - echo "deploy backend"
+    - kubectl -n overtourism set env deployment/overtourism-backend MODEL_BACKEND_URL=$MODEL_BACKEND_URL
     - kubectl -n overtourism set image deployments/overtourism-backend overtourism-backend=$CONTAINER_IMAGE --record=true
     - kubectl -n overtourism rollout status deployment overtourism-backend
   only:
-    - demo-luglio
+    - v2-alpha-0.1
+
+deploy-model-prod:
+  stage: deploy-model
+  image:
+    name: smartcommunitylab/k8s-ansible-clusterctl:1.33.3-1.10.3
+    entrypoint: [""]
+  environment:
+    name: dslab
+  script:
+    - echo "deploy model backend"
+    - kubectl -n overtourism set image deployment/$MODEL_DEPLOYMENT_NAME $MODEL_CONTAINER_NAME=$MODEL_CONTAINER_IMAGE --record=true
+    - kubectl -n overtourism rollout status deployment/$MODEL_DEPLOYMENT_NAME
+  only:
+    - v2-alpha-0.1

@@ -38,11 +38,19 @@ fastapi run ./overtourism/overtourism/app_v1.py
 
 ## With Docker
 
-You can build a container to run backend api:
+You can build separate containers for the CRUD API and the model-computation API:
 
 ```bash
-docker build -t overtourism-backend .
-docker run -it --rm -p 8000:8000 overtourism-backend
+docker network create overtourism
+
+docker build -f Dockerfile.model -t overtourism-model .
+docker run -d --rm --name overtourism-model --network overtourism \
+    -p 8001:8001 overtourism-model
+
+docker build -f Dockerfile.crud -t overtourism-crud .
+docker run -it --rm --network overtourism -p 8000:8000 \
+    -e MODEL_BACKEND_URL=http://overtourism-model:8001 \
+    overtourism-crud
 ```
 
 Or use a predefined container image `ghcr.io/tn-aixpa/overtourism-backend:latest`.
