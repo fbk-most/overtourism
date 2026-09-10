@@ -231,6 +231,7 @@ class VariationRateIndicator(Indicator):
     availableForVariation = False
     extraFields = ["indicator", "start_date_comparison", "end_date_comparison"]
     internal_only = True
+    index_value_unit_description = "Percentuale di variazione tra due periodi"
 
     def __init__(self):
         # No fixed phenomena: which indicator (and therefore which
@@ -319,20 +320,25 @@ class VariationRateIndicator(Indicator):
         if current_df is None or previous_df is None:
             return None
 
-        merged = current_df[["ID_COMUNE", "INDICE"]].merge(
-            previous_df[["ID_COMUNE", "INDICE"]],
-            on="ID_COMUNE",
-            how="outer",
-            suffixes=("_current", "_previous"),
+        merged = (
+            current_df[["ID_COMUNE", "INDICE"]]
+            .rename(columns={"INDICE": "Periodo base"})
+            .merge(
+                previous_df[["ID_COMUNE", "INDICE"]].rename(
+                    columns={"INDICE": "Periodo comparazione"}
+                ),
+                on="ID_COMUNE",
+                how="outer",
+            )
         )
 
-        # Percentage variation: (current - previous) / previous * 100
+        # Percentage variation: (baseline - comparison) / comparison * 100
         merged["INDICE"] = (
-            (merged["INDICE_current"] - merged["INDICE_previous"])
-            / merged["INDICE_previous"].replace(0, np.nan)
+            (merged["Periodo base"] - merged["Periodo comparazione"])
+            / merged["Periodo comparazione"].replace(0, np.nan)
         ) * 100
 
-        return merged[["ID_COMUNE", "INDICE"]]
+        return merged[["ID_COMUNE", "INDICE", "Periodo base", "Periodo comparazione"]]
 
 
 class PeriodPercentageImpactIndicator(Indicator):
@@ -359,6 +365,9 @@ class PeriodPercentageImpactIndicator(Indicator):
     availableForVariation = False
     extraFields = ["indicator", "seasonality"]
     internal_only = True
+    index_value_unit_description = (
+        "Percentuale di impatto del sottoperiodo rispetto al periodo totale"
+    )
 
     def __init__(self):
         # Same rationale as VariationRateIndicator: the wrapped indicator is
@@ -459,4 +468,4 @@ class PeriodPercentageImpactIndicator(Indicator):
             merged["INDICE_seasonal"] / merged["INDICE_total"].replace(0, np.nan)
         ) * 100
 
-        return merged[["ID_COMUNE", "INDICE"]]
+        return merged[["ID_COMUNE", "INDICE", "INDICE_total", "INDICE_seasonal"]]

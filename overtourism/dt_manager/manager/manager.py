@@ -152,6 +152,12 @@ class Manager:
         related_scenario_ids: list[str] | None = None,
     ) -> Proposal:
         """Update a stored proposal and its links."""
+        relationships_changed = related_scenario_ids is not None and set(
+            self.relationship_manager.get_related_scenario_ids(proposal_id)
+        ) != set(related_scenario_ids)
+        metadata_update_requested = any(
+            value is not None for value in (name, description, status, extras)
+        )
         proposal = self.proposal_manager.update_proposal(
             proposal_id=proposal_id,
             name=name,
@@ -164,6 +170,10 @@ class Manager:
                 proposal_id=proposal_id,
                 scenario_ids=related_scenario_ids,
             )
+            if relationships_changed and not metadata_update_requested:
+                proposal.version += 1
+                proposal.updated = get_timestamp()
+                self.store.save_proposal(proposal.to_dict())
         return proposal
 
     def delete_proposal(self, proposal_id: str) -> None:

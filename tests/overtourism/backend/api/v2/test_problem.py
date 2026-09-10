@@ -131,8 +131,13 @@ def test_delete_problem_removes_it_from_the_store(
         extras={},
         tenant=tenant,
     )
+    manager.update_problem(problem.problem_id, name="Delete me, updated")
 
-    response = client.delete(f"/api/v2/{tenant}/problems/{problem.problem_id}")
+    response = client.request(
+        "DELETE",
+        f"/api/v2/{tenant}/problems/{problem.problem_id}",
+        json={"version": 2},
+    )
 
     assert response.status_code == 200
     assert all(
@@ -156,7 +161,11 @@ def test_delete_problem_keeps_owned_sessions(
     session_id = create_response.json()["session_id"]
     assert handler.manager.read_session(session_id).owner_id == "anonymous:tenant-alpha"
 
-    delete_response = client.delete(f"/api/v2/{tenant}/problems/{problem_id}")
+    delete_response = client.request(
+        "DELETE",
+        f"/api/v2/{tenant}/problems/{problem_id}",
+        json={"version": 1},
+    )
 
     assert delete_response.status_code == 200
     assert handler.manager.read_session(session_id).owner_id == "anonymous:tenant-alpha"

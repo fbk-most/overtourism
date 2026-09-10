@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, delete, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker
@@ -348,6 +348,7 @@ class SQLStore(Store):
 
     def save_relationships(self, relationships: list[dict[str, str]]) -> None:
         with self.session_factory.begin() as session:
+            session.execute(delete(self.schema.relationships))
             for relationship_data in relationships:
                 session.merge(relationship_to_orm(relationship_data))
 

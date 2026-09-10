@@ -229,13 +229,14 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
 
     assert delete_response.status_code == 200
     assert delete_response.json() == {"message": "Evaluation deleted successfully"}
-    assert (
-        error_client.get(
-            f"/api/v2/{tenant}/evaluations/{evaluation_id}",
-            params={"problem_id": problem_id},
-        ).status_code
-        == 500
+    read_deleted_response = client.get(
+        f"/api/v2/{tenant}/evaluations/{evaluation_id}",
+        params={"problem_id": problem_id},
     )
+    assert read_deleted_response.status_code == 404
+    assert read_deleted_response.json() == {
+        "detail": f"Evaluation '{evaluation_id}' not found."
+    }
 
 
 def test_create_and_read_session_evaluation_for_a_draft(

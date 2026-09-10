@@ -100,6 +100,27 @@ def test_create_proposal_keeps_related_scenarios_and_adds_base(
     ]
 
 
+def test_create_proposal_rejects_problem_from_another_tenant(
+    client,
+    manager: Manager,
+    tenant: str,
+) -> None:
+    foreign_problem = manager.create_problem(
+        tenant="tenant-beta",
+        name="Foreign problem",
+    )
+
+    response = client.post(
+        f"/api/v2/{tenant}/proposals",
+        json={"problem_id": foreign_problem.problem_id},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": f"Problem '{foreign_problem.problem_id}' not found."
+    }
+
+
 def test_list_proposals_can_filter_by_related_scenario(
     client,
     manager: Manager,
@@ -126,6 +147,33 @@ def test_list_proposals_can_filter_by_related_scenario(
 
     assert response.status_code == 200
     assert [item["proposal_id"] for item in response.json()] == [proposal.proposal_id]
+
+
+def test_updating_only_related_scenarios_increments_proposal_version(
+    client,
+    manager: Manager,
+    tenant: str,
+    problem_id: str,
+) -> None:
+    proposal = manager.create_proposal(
+        problem_id,
+        related_scenario_ids=[f"{tenant}_base_scenario"],
+    )
+
+    update_response = client.put(
+        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        json={"version": 1, "related_scenario_ids": []},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["version"] == 2
+    assert update_response.json()["related_scenario_ids"] == []
+
+    stale_response = client.put(
+        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        json={"version": 1, "name": "Stale update"},
+    )
+    assert stale_response.status_code == 412
 
 
 def test_update_and_delete_proposal_require_the_current_version(
@@ -167,26 +215,21 @@ def test_update_and_delete_proposal_require_the_current_version(
     assert update_response.json()["version"] == 2
     assert update_response.json()["name"] == "Updated proposal"
     assert update_response.json()["status"] == "accepted"
-    assert update_response.json()["related_scenario_ids"] == [base_scenario_id]
-    assert manager.relationship_manager.get_related_scenario_ids(
-        proposal.proposal_id,
-    ) == [base_scenario_id]
-
-    delete_missing_version = client.delete(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
-        params={"problem_id": problem_id},
+    assert update_response.json()["related_scenario_ids"] == []
+    assert (
+        manager.relationship_manager.get_related_scenario_ids(
+            proposal.proposal_id,
+        )
+        == []
     )
-
-    assert delete_missing_version.status_code == 200
-
-    delete_response = error_client.request(
+    delete_response = client.request(
         "DELETE",
         f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
         params={"problem_id": problem_id},
         json={"version": 2},
     )
 
-    assert delete_response.status_code == 500
+    assert delete_response.status_code == 200
     assert {
         proposal.proposal_id for proposal in manager.list_proposals(problem_id)
     } == {f"{tenant}_base_proposal"}

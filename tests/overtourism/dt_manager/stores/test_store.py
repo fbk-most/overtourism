@@ -62,6 +62,35 @@ def test_problem_round_trip_and_delete_problem(
     assert sql_store.load_evaluations() == [evaluation_payload]
 
 
+def test_save_relationships_replaces_the_persisted_snapshot(
+    sql_store,
+    problem_payload,
+    scenario_payload,
+    other_scenario_payload,
+    proposal_payload,
+) -> None:
+    sql_store.save_problem(problem_payload)
+    sql_store.save_scenario(scenario_payload)
+    sql_store.save_scenario(other_scenario_payload)
+    sql_store.save_proposal(proposal_payload)
+
+    first_relationship = {
+        "proposal_id": proposal_payload["proposal_id"],
+        "scenario_id": scenario_payload["scenario_id"],
+    }
+    second_relationship = {
+        "proposal_id": proposal_payload["proposal_id"],
+        "scenario_id": other_scenario_payload["scenario_id"],
+    }
+    sql_store.save_relationships([first_relationship, second_relationship])
+
+    sql_store.save_relationships([second_relationship])
+    assert sql_store.load_relationships() == [second_relationship]
+
+    sql_store.save_relationships([])
+    assert sql_store.load_relationships() == []
+
+
 def test_entity_round_trip_sorted_listings_and_relationship_filters(
     sql_store,
     problem_payload,

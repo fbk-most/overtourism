@@ -400,7 +400,8 @@ class Indicator:
             start_date=start_date,
             end_date=end_date,
             **extra,
-        ).fillna(0)
+        )
+        result["INDICE"] = result["INDICE"].fillna(0)
 
         return result
 

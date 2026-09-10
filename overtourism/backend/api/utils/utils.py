@@ -13,11 +13,7 @@ from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
-from overtourism.dt_manager.utils.exception import (
-    EntityDoesNotExist,
-    EvaluationDoesNotExist,
-    ProposalDoesNotExist,
-)
+from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.layer_3.model.common.sustainability_field import get_index_diffs
 
 if typing.TYPE_CHECKING:
@@ -113,7 +109,7 @@ def get_proposal_or_404(
     """Return a stored proposal or raise a not-found error."""
     try:
         return handler.manager.read_proposal(proposal_id, tenant=tenant)
-    except ProposalDoesNotExist as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Proposal '{proposal_id}' not found.",
@@ -172,7 +168,7 @@ def get_evaluation_or_404(
     detail = f"Evaluation '{evaluation_id}' not found"
     try:
         return handler.manager.read_evaluation(evaluation_id, tenant=tenant)
-    except EvaluationDoesNotExist as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"{detail}.",
@@ -191,7 +187,7 @@ def get_session_or_404(
     """Return an in-memory session or raise a not-found error."""
     try:
         return handler.manager.read_session(session_id)
-    except Exception as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session '{session_id}' not found.",
@@ -209,7 +205,7 @@ def get_session_scenario_or_404(
             session_id,
             scenario_id,
         )
-    except Exception as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Scenario '{scenario_id}' not found in session '{session_id}'.",
@@ -227,7 +223,7 @@ def get_session_evaluation_or_404(
             session_id,
             scenario_id,
         )
-    except Exception as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evaluation for scenario '{scenario_id}' not found in session '{session_id}'.",
@@ -245,7 +241,7 @@ def get_session_evaluation_by_id_or_404(
             session_id,
             evaluation_id,
         )
-    except Exception as exc:
+    except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Evaluation '{evaluation_id}' not found in session '{session_id}'.",

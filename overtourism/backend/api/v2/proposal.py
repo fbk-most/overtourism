@@ -17,6 +17,7 @@ from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
     ensure_base_scenario_id,
+    get_problem_or_404,
     get_proposal_or_404,
     proposal_to_api,
     validate_related_scenario_ids,
@@ -77,6 +78,7 @@ async def create_proposal(
 ) -> ProposalData:
     """Create a proposal for a problem."""
     try:
+        get_problem_or_404(tenant, handler, data.problem_id)
         proposal_payload = data.model_dump(exclude_unset=True)
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
             tenant,
