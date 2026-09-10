@@ -26,7 +26,7 @@ TEMP_FOLDER_DIR.mkdir(parents=True, exist_ok=True)
 PATH_SAVE = TEMP_FOLDER_DIR / "processed_data_trentino"
 
 PATH_OVERTOURISM = Path(__file__).parents[4].resolve()
-PATH_MOST_PLATFORM_INDEX_DFS = (
+PATH_AIXPA_INDEX_DFS = (
     PATH_OVERTOURISM
     / "overtourism"
     / "overtourism"
@@ -34,7 +34,7 @@ PATH_MOST_PLATFORM_INDEX_DFS = (
     / "database"
     / "index_data_v2"
 )
-PATH_MOST_PLATFORM_INDEX_DFS.mkdir(parents=True, exist_ok=True)
+PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 
 MAPPING_COMUNI_FILE = (
@@ -167,7 +167,7 @@ def log_dataframe(df: pd.DataFrame, name: str, type: str = "parquet"):
     raise NotImplementedError(f"Unsupported type: {type}.")
 
 
-def init_s3_dhcli(env="most-platform"):
+def init_s3_dhcli(env="aixpa"):
     """
     Initialize S3 connection for overtourism analysis.
         Parameters:
@@ -204,7 +204,7 @@ s3, bucket = None, None
 def init_s3(force=False):
     global s3, bucket
     if s3 is None or bucket is None or force:
-        s3, bucket = init_s3_dhcli("most-platform")
+        s3, bucket = init_s3_dhcli("aixpa")
     return s3, bucket
 
 
@@ -292,9 +292,9 @@ def download_s3_folder(
 def save_computed_dfs(dict_dfs, local=False):
     for key, value in dict_dfs.items():
         logging.info(
-            f"Uploading dataframe '{key}' in path {PATH_MOST_PLATFORM_INDEX_DFS}/{key}.parquet..."
+            f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet..."
         )
-        put_dataframe(value, key, type="parquet", path=PATH_MOST_PLATFORM_INDEX_DFS)
+        put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
         if not local:
             logging.info(f"Logging dataframe '{key}.parquet'...")
             log_dataframe(value, key, type="parquet")
