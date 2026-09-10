@@ -251,9 +251,49 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
+def download_s3_folder(
+    s3_prefix: str = "overtourism/inputdata/",
+    local_dir: str | Path = "./downloaded_files",
+    bucket_name: str = "most-datalake",
+) -> None:
+    """Scarica tutti i file da una cartella S3 in una cartella locale.
+
+    Accetta sia un prefisso completo (es. "overtourism/inputdata/Depurazione")
+    sia un nome relativo di cartella (es. "Depurazione").
+    """
+    _, bucket = init_s3()
+    local_dir = Path(local_dir)
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    s3_prefix = s3_prefix.strip("/")
+    if not s3_prefix:
+        s3_prefix = "overtourism/inputdata"
+    elif not s3_prefix.startswith("overtourism/inputdata"):
+        s3_prefix = f"overtourism/inputdata/{s3_prefix}"
+
+    if not s3_prefix.endswith("/"):
+        s3_prefix += "/"
+
+    for obj in bucket.objects.filter(Prefix=s3_prefix):
+        if obj.key.endswith("/"):
+            continue
+
+        relative_path = Path(obj.key).relative_to(s3_prefix.rstrip("/"))
+        target_path = local_dir / relative_path
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        print(f"Downloading {obj.key} -> {target_path}...")
+        bucket.download_file(obj.key, str(target_path))
+
+    print("Download completato!")
+
+
 def save_computed_dfs(dict_dfs, local=False):
     for key, value in dict_dfs.items():
-        logging.info(f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet...")
+        logging.info(
+            f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet..."
+        )
         put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
         if not local:
             logging.info(f"Logging dataframe '{key}.parquet'...")
