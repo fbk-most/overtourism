@@ -13,11 +13,12 @@ from data_preparation.v2.utils.utils import (
 )
 
 STRUTTURE_VALUE_COLS = [
-    "tot_postiletto",
     "tot_postiletto_non_conv",
-    "tot_postiletto_conv",
-    "tot_strutture",
+    "tot_postiletto_conv",    
+    "tot_postiletto",
     "tot_strutture_non_conv",
+    "tot_strutture_conv"
+    "tot_strutture",
     "tot_postiletto_alberghieri",
     "tot_postiletto_extralberghieri"
 ]
@@ -54,11 +55,11 @@ CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
 ## The following functions are used to standardize all the datasets in a common format  
 
 ## Filtering helper functions: used for filtering the dataframes of interest
-def _filtering_strutture(df, min_year, year_col="anno"):
+def _pre_filtering_strutture(df, min_year, year_col="anno"):
     """Excludes years pre-2020, geography changes for munidcipalities aggregations"""
     return df[df[year_col] > min_year].copy()
 
-def _filtering_vodafone_attendences(df):
+def _pre_filtering_vodafone_attendences(df):
     "Pre-filtering presences on tourists and municipalities"
     return df[
         (df["userProfile"] == "TOURIST")
@@ -163,7 +164,7 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
     return df
 
 
-def standardize_raw_data():
+def standardize_base_raw_data():
     """Leading raw data to a standardized format"""
     ## updload mapping
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
@@ -180,8 +181,8 @@ def standardize_raw_data():
     vodafone_df = get_dataframe("vodafone_attendences")
 
     ## Filtering step (to select just data of interest)
-    strutture_df = _filtering_strutture(strutture_df, min_year = 2019)
-    vodafone_df = _filtering_vodafone_attendences(vodafone_df)
+    strutture_df = _pre_filtering_strutture(strutture_df, min_year = 2019)
+    vodafone_df = _pre_filtering_vodafone_attendences(vodafone_df)
 
     # Standardize data
     popolazione_df = standardize_popolazione(popolazione_df, mapping_comuni)
@@ -192,4 +193,4 @@ def standardize_raw_data():
 
 
 if __name__=="__main__":
-    popolazione_df, strutture_df, vodafone_df = standardize_raw_data()
+    popolazione_df, strutture_df, vodafone_df = standardize_base_raw_data()
