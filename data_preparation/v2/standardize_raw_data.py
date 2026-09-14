@@ -1,5 +1,4 @@
 import logging
-
 import pandas as pd
 import geopandas as geopd
 from data_preparation.v2.utils.utils import (
@@ -12,7 +11,6 @@ from data_preparation.v2.utils.utils import (
     resolve_id_comune,
     get_mapping
 )
-
 
 STRUTTURE_VALUE_COLS = [
     "tot_postiletto",
@@ -42,7 +40,7 @@ COMUNE_NAME_OVERRIDES = {
 CATEGORIA_ALBERGHIERI_LETTI = "alberghieri posti_letto"
 CATEGORIA_EXTRALBERGHIERI_LETTI = "extra alb. Posti_letto"
 
-#aggiunte
+# Aggiunte
 CATEGORIA_ALBERGHIERI_STRUTTURE = "alberghieri strutture"
 CATEGORIA_EXTRALBERGHIERI_STRUTTURE = "extra alb. Strutture"
 
@@ -57,11 +55,11 @@ CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
 
 ## Filtering helper functions: used for filtering the dataframes of interest
 def _filtering_strutture(df, min_year, year_col="anno"):
-    """Esclude anni pre-2020, dove la geografia comunale ISTAT cambia per aggregazioni/fusioni di comuni"""
+    """Excludes years pre-2020, geography changes for munidcipalities aggregations"""
     return df[df[year_col] > min_year].copy()
 
 def _filtering_vodafone_attendences(df):
-    # Keep only tourist presences at municipality level
+    "Pre-filtering presences on tourists and municipalities"
     return df[
         (df["userProfile"] == "TOURIST")
         & (df["locType"] == "TN_MKT_AL_3")
@@ -166,21 +164,22 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
 
 
 def standardize_raw_data():
+    """Leading raw data to a standardized format"""
     ## updload mapping
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
     ## uploading geojson data 
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
 
-    ## uploading dataframes 
+    ## Uploading dataframes 
     logging.info("Downloading dataframe 'popolazione_2020_2024'...")
     popolazione_df = get_dataframe("popolazione_2020_2024")
     logging.info("Downloading Annuario-TavXIII-per-comune-csv.csv from S3...")
-    strutture_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv")) # get_dataframe("Annuario-TavXIII-per-comune-csv")
+    strutture_df = pd.read_csv(get_s3("Annuario-TavXIII-per-comune-csv.csv"))
     logging.info("Downloading dataframe 'vodafone_attendences'...")
     vodafone_df = get_dataframe("vodafone_attendences")
 
-    ## Filtering step (to select data of interest)
+    ## Filtering step (to select just data of interest)
     strutture_df = _filtering_strutture(strutture_df, min_year = 2019)
     vodafone_df = _filtering_vodafone_attendences(vodafone_df)
 
@@ -193,4 +192,4 @@ def standardize_raw_data():
 
 
 if __name__=="__main__":
-    standardize_raw_data()
+    popolazione_df, strutture_df, vodafone_df = standardize_raw_data()
