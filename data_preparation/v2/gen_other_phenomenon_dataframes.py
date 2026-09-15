@@ -123,7 +123,7 @@ def compute_phenomenon_dataframes(local=False):
         "phen_flussi_temp_2023": phen_flussi_temp_2023,
     }
 
-    save_computed_dfs(dict_dfs, local=True)
+    save_computed_dfs(dict_dfs, local=local)
 
 
 if __name__ == "__main__":
