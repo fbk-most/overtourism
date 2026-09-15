@@ -164,6 +164,7 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
 
     df = _standardize(df, date_col = "date")
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
+    df.rename(columns = {"value": "presenze"}, inplace = True)
 
     # df = (
     #         df.groupby(["DATA", "LOCATION"])
@@ -250,6 +251,20 @@ def standardize_base_raw_data():
     presenze_df_alb = standardize_presenze_ISPAT_alb(presenze_ispat, mapping_apt)
     presenze_df_extralb = standardize_presenze_ISPAT_extralb(presenze_df_extralb, mapping_comuni)
     return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
+    
+## Standardization function for mapping: 
+def standardize_mapping(mapping: dict) -> dict:
+    """Standardizes mapping dictionaries:
+    - IDs padded strings via pad_id_comune().
+    - Names in uppercase without spaces.
+    Manages both formats {Nome: ID} and {Nome: [ID1, ID2]}
+    """
+    if not mapping:
+        return {}
+
+    s = pd.Series(mapping)
+    s.index = s.index.astype(str).str.upper().str.strip()
+    return pad_id_comune(s).to_dict()
 
 
 if __name__=="__main__":
