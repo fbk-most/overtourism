@@ -151,6 +151,10 @@ def disaggregate_time(
     exp["_W"] = _lookup_weights(exp, weights, on, weight_col, time_col, weight_freq)
 
     exp = _split(exp, cols, integer)
+    # Keep the public output compatible with the string-based DATA columns, used by the other standardized dataframes.
+    exp[time_col] = pd.to_datetime(exp[time_col], errors="coerce").dt.strftime(
+        "%Y-%m-%d"
+    )
     return _close(exp, own_row)
 
 
