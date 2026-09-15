@@ -128,6 +128,11 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
     return id_comune
 
 
+def standard_ordering_cols(df):
+    existing_first = [col for col in ["DATA", "LOCATION", "ID_COMUNE"] if col in df.columns]
+    remaining = [col for col in df.columns if col not in  ["DATA", "LOCATION", "ID_COMUNE"]]
+    return df[existing_first + remaining]
+
 ## S3 utilities
 
 

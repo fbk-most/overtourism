@@ -9,6 +9,7 @@ from data_preparation.v2.utils.utils import (
     pad_id_comune,
     customize_unidecode,
     resolve_id_comune,
+    standard_ordering_cols,
     get_mapping
 )
 
@@ -142,7 +143,7 @@ def standardize_strutture(df, mapping_comuni, logging_errors = True):
                 f"[compute_strutture] WARNING: could not find ID_COMUNE for "
                 f"{len(still_missing)} comune(s): {sorted(still_missing)}"
             )             
-    return df[["DATA", "LOCATION", "ID_COMUNE"] + STRUTTURE_VALUE_COLS]
+    return standard_ordering_cols(df[["DATA", "LOCATION", "ID_COMUNE"] + STRUTTURE_VALUE_COLS])
 
 
 def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
@@ -163,16 +164,15 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
     df.loc[mask, "ID_COMUNE"] = [[22250]] * mask.sum()
 
     df = _standardize(df, date_col = "date")
-    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
     df.rename(columns = {"value": "presenze"}, inplace = True)
-
+    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
     # df = (
     #         df.groupby(["DATA", "LOCATION"])
     #         .agg({"ID_COMUNE": "first", "value": "sum"})
     #         .reset_index()
     #         .rename(columns={"value": "presenze"})
     #     )
-    return df
+    return standard_ordering_cols(df) 
 
 
 def standardize_presenze_ISPAT_alb(df, mapping_comuni):
@@ -192,7 +192,8 @@ def standardize_presenze_ISPAT_alb(df, mapping_comuni):
         df.sort_values(by=["comune", "data"]).reset_index(drop=True), 
         date_col = 'data'
         )
-    return df
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return standard_ordering_cols(df) 
 
 
 def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
@@ -215,8 +216,8 @@ def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
     df["comune"] = "PROVINCIA"
     df["ID_COMUNE"] = [list(mapping_comuni.values())] * len(df)
     df = _standardize(df, date_col = "data", remove_provincia = False)
-    
-    return df 
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return standard_ordering_cols(df) 
 
 
 def standardize_base_raw_data():
