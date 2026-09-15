@@ -17,9 +17,6 @@ dataframe that carries an ID_COMUNE column is normalized to the
 zero-padded string form right before it's returned, via `pad_id_comune()`.
 """
 import logging
-
-import pandas as pd
-import geopandas as geopd
 from data_preparation.v2.utils.utils import (
     save_computed_dfs,
     get_mapping
