@@ -21,10 +21,9 @@ import pandas as pd
 from data_preparation.v2.utils.utils import (
     get_s3,
     pad_id_comune,
-    get_mapping,
-    _remove_provincia,
-    _to_data_location
+    get_mapping
 )
+from standardize_raw_data import _standardize
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,15 +89,6 @@ FLUSSI_LEVEL_COLS = [
 ]
 
 ## HELPER FUNCTIONS for standardization
-def _standardize(df, date_col="anno", remove_provincia=True, pad=False):
-    """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
-    if remove_provincia:
-        df = _remove_provincia(df, upper=True)
-    df = _to_data_location(df, date_col=date_col)
-    if pad:
-        df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    return df
-
 
 def _pre_filtering_flussi(df, colmap):
     """Pre-filterin: selection of Trentino area"""
@@ -107,6 +97,7 @@ def _pre_filtering_flussi(df, colmap):
 
 
 def standardize_arrivi(df, mapping_comuni, years=["2021", "2022", "2023", "2024"]):
+    """Leads arrivi df to a standard format"""
     df = df.rename(columns={"Anno": "anno", "Ambito": "comune"})
     df = pd.melt(df, id_vars="comune", value_vars=years, value_name="arrivi", var_name="anno")
     df["anno"] = df["anno"].astype(int)
@@ -119,7 +110,7 @@ def standardize_arrivi(df, mapping_comuni, years=["2021", "2022", "2023", "2024"
 def _standardize_flussi_component(df, colmap, year):
     """Leads flows df to a standard format"""
     df = df.rename(columns=colmap)
-    df["comune"] = df["comune"].str.upper()
+    df["comune"] = df["comune"].str.upper().str.strip()
     df["anno"] = year
     return _standardize(df, date_col="anno", remove_provincia=False)
 
@@ -160,6 +151,7 @@ def combine_flussi(df_all, df_user, mapping_comuni):
     df_merged = df_merged.drop(columns=["_merge"])
 
     df_merged["ID_COMUNE"] = df_merged["ID"].map(_flussi_id_map(df_user, mapping_comuni))
+    df_merged["ID_COMUNE"] = pad_id_comune(df_merged["ID_COMUNE"])  
     return df_merged
 
 
