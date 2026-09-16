@@ -169,13 +169,14 @@ class FazzonAdapter(OvertourismAdapter):
             field_elements=output.field_elements,
             x_values=output.x_values,
             y_values=output.y_values,
-            x_label=output.x_axis_name,
-            y_label=output.y_axis_name,
+            x_label=self._backend.X_AXIS_NAME,
+            y_label=self._backend.Y_AXIS_NAME,
             samples_x=output.samples_x,
             samples_y=output.samples_y,
             sustainability_index=output.sustainability_index,
             sustainability_by_constraint=output.sustainability_by_constraint,
             modal_lines=output.modal_lines,
+            constraint_labels=self._backend.MAPPER,
         )
 
 

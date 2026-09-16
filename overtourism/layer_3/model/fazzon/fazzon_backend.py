@@ -30,7 +30,6 @@ from overtourism.layer_3.model.common.sustainability_field import (
     compute_sustainability_field,
 )
 from overtourism.layer_3.model.fazzon.fazzon_model import FazzonModel
-from overtourism.layer_3.model.fazzon.schema_metadata import SCHEMA_METADATA
 
 
 class FazzonBackend:
@@ -40,6 +39,22 @@ class FazzonBackend:
     `OvertourismEvaluationConfig` with fixed seeds and sample counts — seeds
     are a compute-quality concern and live here, not in the frontend.
     """
+
+    # Subsystem/constraint display names and axis labels — the backend's own
+    # minimal, structural presentation metadata, hardcoded here the same way
+    # `_schema` hardcodes parameter metadata. `schema()` returns these
+    # verbatim
+    MAPPER: dict[str, str] = {
+        "parking": "Parcheggi",
+        "road": "Viabilità",
+        "food": "Ristorazione",
+        "lakeside": "Lungolago",
+    }
+    X_AXIS_NAME = "Visitatori in auto / giorno"
+    Y_AXIS_NAME = "Visitatori non-auto / giorno"
+    # TODO: check: are thesepointers really needed?
+    X_FIELD = "visitors_car"
+    Y_FIELD = "visitors_other"
 
     def __init__(self) -> None:
         model = FazzonModel(inputs=FazzonModel.default_inputs())
@@ -68,7 +83,13 @@ class FazzonBackend:
     def schema(self) -> dict[str, Any]:
         """Return Fazzon indexes and placeholder frontend metadata."""
         return {
-            "metadata": SCHEMA_METADATA,
+            "metadata": {
+                "mapper": self.MAPPER,
+                "x_axis_name": self.X_AXIS_NAME,
+                "y_axis_name": self.Y_AXIS_NAME,
+                "x_field": self.X_FIELD,
+                "y_field": self.Y_FIELD,
+            },
             "indexes": self.parameter_schema(),
         }
 
@@ -246,8 +267,6 @@ class FazzonBackend:
             field_elements=field_elements,
             x_values=cc,
             y_values=oo,
-            x_axis_name="Visitatori in auto / giorno",
-            y_axis_name="Visitatori non-auto / giorno",
             samples_x=list(pv_samples[pv_car]),
             samples_y=list(pv_samples[pv_other]),
             usage_fields=usage_fields,

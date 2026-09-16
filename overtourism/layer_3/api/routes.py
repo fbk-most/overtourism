@@ -44,11 +44,63 @@ def list_models() -> list[ModelInfo]:
     return [ModelInfo(key=key, title=MODEL_TITLES[key]) for key in BACKEND_REGISTRY]
 
 
+# Presentation constants that are identical across every model
+_RISK_COLOR_SCALE: list[tuple[float, str]] = [
+    (0.0, "rgb(5, 102, 8)"),
+    (0.05, "rgb(100, 180, 90)"),
+    (0.20, "rgb(180, 230, 170)"),
+    (0.40, "rgb(230, 250, 225)"),
+    (0.50, "yellow"),
+    (0.60, "rgb(255, 242, 242)"),
+    (0.80, "rgb(242, 204, 204)"),
+    (0.95, "rgb(204, 76, 76)"),
+    (1.0, "rgb(180, 4, 38)"),
+]
+
+_MONODIMENSIONAL_PLOT_MAPPER: dict[str, dict[str, str]] = {
+    "x": {"label": "Giorni (ordinati per utilizzo)"},
+    "y": {"label": "Livello di utilizzo della destinazione", "field": "usage"},
+}
+
+
+def _build_metadata(minimal: dict[str, Any]) -> dict[str, Any]:
+    """Build the full `/schema` presentation metadata from a backend's minimal set."""
+    mapper = minimal["mapper"] | {"default": "Tutti"}
+    constraint_kpis = {
+        f"constraint level {key}": f"Giorni di criticità {label}"
+        for key, label in mapper.items()
+        if key != "default"
+    }
+    kpi_mapper = {
+        "title": "Indici",
+        "area": "Area Totale",
+        "overtourism_level": "Giorni di criticità complessiva",
+        **constraint_kpis,
+        "critical constraint": "Vincolo Critico",
+    }
+    return {
+        "mapper": mapper,
+        "color_map": _RISK_COLOR_SCALE,
+        "kpi_mapper": kpi_mapper,
+        "plot_mapper": {
+            "monodimensional": _MONODIMENSIONAL_PLOT_MAPPER,
+            "bidimensional": {
+                "x": {"label": minimal["x_axis_name"], "field": minimal["x_field"]},
+                "y": {"label": minimal["y_axis_name"], "field": minimal["y_field"]},
+            },
+        },
+    }
+
+
 @router.get("/{model_key}/schema", response_model=ModelSchema)
 def get_schema(model_key: str) -> ModelSchema:
     """Return the model's ordered, self-describing parameter schema."""
     backend = _get_backend_or_404(model_key)
-    return ModelSchema.model_validate(backend.schema())
+    schema = backend.schema()
+    metadata = _build_metadata(schema["metadata"])
+    return ModelSchema.model_validate(
+        {"metadata": metadata, "indexes": schema["indexes"]}
+    )
 
 
 @router.post("/{model_key}/evaluate", response_model=Any)

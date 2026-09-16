@@ -135,6 +135,10 @@ class PlotData:
         Per-constraint sustainability ``{name: (value, ci_half_width)}``.
     modal_lines : dict of {str: (np.ndarray, np.ndarray)}
         Per-constraint modal lines ``{name: (x_coords, y_coords)}``.
+    constraint_labels : dict of {str: str}, optional
+        Human-readable display name per constraint id,
+        e.g. ``{"parking": "Parcheggi"}``. Renderer falls back
+        to ``name.capitalize()`` for any id missing here.
     scenario_key : str, optional
         Key of the active scenario (informational; not used by the renderer).
     scenario_label : str, optional
@@ -154,6 +158,7 @@ class PlotData:
     sustainability_index: tuple[float, float]
     sustainability_by_constraint: dict[str, tuple[float, float]]
     modal_lines: dict[str, tuple[np.ndarray, np.ndarray]]
+    constraint_labels: dict[str, str] = field(default_factory=dict)
     scenario_key: str = ""
     scenario_label: str = ""
     scenario_description: str = ""

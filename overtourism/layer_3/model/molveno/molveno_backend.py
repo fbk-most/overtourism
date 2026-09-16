@@ -30,7 +30,6 @@ from overtourism.layer_3.model.common.sustainability_field import (
     compute_sustainability_field,
 )
 from overtourism.layer_3.model.molveno.molveno_model import MolvenoModel
-from overtourism.layer_3.model.molveno.schema_metadata import SCHEMA_METADATA
 
 
 def _presence_transformation(
@@ -60,6 +59,22 @@ class MolvenoBackend:
     `OvertourismEvaluationConfig` with fixed seeds and sample counts — seeds
     are a compute-quality concern and live here, not in the frontend.
     """
+
+    # Subsystem/constraint display names and axis labels — the backend's own
+    # minimal, structural presentation metadata, hardcoded here the same way
+    # `_schema` hardcodes parameter metadata. `schema()` returns these
+    # verbatim
+    MAPPER: dict[str, str] = {
+        "parking": "Parcheggi",
+        "beach": "Spiaggia",
+        "accommodation": "Alberghi",
+        "food": "Ristoranti",
+    }
+    X_AXIS_NAME = "Turisti / giorno"
+    Y_AXIS_NAME = "Escursionisti / giorno"
+    # TODO: check: are thesepointers really needed?
+    X_FIELD = "tourist"
+    Y_FIELD = "excursionist"
 
     def __init__(self) -> None:
         model = MolvenoModel(inputs=MolvenoModel.default_inputs())
@@ -94,7 +109,13 @@ class MolvenoBackend:
     def schema(self) -> dict[str, Any]:
         """Return Molveno indexes and frontend presentation metadata."""
         return {
-            "metadata": SCHEMA_METADATA,
+            "metadata": {
+                "mapper": self.MAPPER,
+                "x_axis_name": self.X_AXIS_NAME,
+                "y_axis_name": self.Y_AXIS_NAME,
+                "x_field": self.X_FIELD,
+                "y_field": self.Y_FIELD,
+            },
             "indexes": self.parameter_schema(),
         }
 
@@ -279,8 +300,6 @@ class MolvenoBackend:
             field_elements=field_elements,
             x_values=tt,
             y_values=ee,
-            x_axis_name="Turisti / giorno",
-            y_axis_name="Escursionisti / giorno",
             samples_x=samples_x,
             samples_y=samples_y,
             usage_fields=usage_fields,

@@ -23,6 +23,7 @@ just a constructor argument), mirroring the API's own single generic router.
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -119,12 +120,21 @@ class HttpOvertourismAdapter(OvertourismAdapter):
     def title(self) -> str:
         return self._title
 
-    def parameter_specs(self) -> list[ParameterSpec]:
-        """Fetch the parameter schema from `GET /models/{model_key}/schema`."""
+    @functools.cached_property
+    def _schema(self) -> dict[str, Any]:
+        """Fetch and cache `GET /models/{model_key}/schema`.
+
+        Reused by `parameter_specs()` (`indexes`) and `run()`
+        (`metadata.plot_mapper` axis labels — see its docstring) so
+        evaluating repeatedly doesn't refetch it.
+        """
         resp = self._client.get(f"/models/{self._model_key}/schema")
         resp.raise_for_status()
-        schema = resp.json()
-        return [HttpParameterSpec.from_json(d) for d in schema["indexes"]]
+        return resp.json()
+
+    def parameter_specs(self) -> list[ParameterSpec]:
+        """Return the parameter schema from the cached `/schema` response."""
+        return [HttpParameterSpec.from_json(d) for d in self._schema["indexes"]]
 
     def predefined_scenarios(self) -> list[ScenarioDef]:
         """No `/scenarios` endpoint in v1 — the scenario selector is simply absent."""
@@ -132,6 +142,12 @@ class HttpOvertourismAdapter(OvertourismAdapter):
 
     def run(self, param_overrides: dict[str, Any]) -> PlotData:
         """Evaluate via `POST /models/{model_key}/evaluate` and reshape the plain-JSON response."""
+        metadata = self._schema.get("metadata", {})
+        bidimensional = metadata.get("plot_mapper", {}).get("bidimensional", {})
+        x_label = bidimensional.get("x", {}).get("label", "")
+        y_label = bidimensional.get("y", {}).get("label", "")
+        constraint_labels = metadata.get("mapper", {})
+
         resp = self._client.post(
             f"/models/{self._model_key}/evaluate",
             json={"param_overrides": param_overrides},
@@ -144,8 +160,8 @@ class HttpOvertourismAdapter(OvertourismAdapter):
             field_elements={k: np.array(v) for k, v in data["field_elements"].items()},
             x_values=np.array(data["x_values"]),
             y_values=np.array(data["y_values"]),
-            x_label=data["x_axis_name"],
-            y_label=data["y_axis_name"],
+            x_label=x_label,
+            y_label=y_label,
             samples_x=data["samples_x"],
             samples_y=data["samples_y"],
             sustainability_index=(
@@ -160,4 +176,5 @@ class HttpOvertourismAdapter(OvertourismAdapter):
                 k: (np.array(v["x"]), np.array(v["y"]))
                 for k, v in data["modal_lines"].items()
             },
+            constraint_labels=constraint_labels,
         )
