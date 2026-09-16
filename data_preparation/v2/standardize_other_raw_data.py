@@ -1,21 +1,3 @@
-"""
-Loads and prepares the base "phenomenon" dataframes used to compute the
-capacity / tourism indexes for Trentino, saves them in a format compatible with the Indicators/Phenomenon modules.
-
-Each phenomenon dataframe is typically contains:
-  - DATA: the time dimension, at whatever granularity is natural for that
-    phenomenon (YYYY for yearly data, YYYY-MM-DD for daily data)
-  - LOCATION: the comune/ambito name
-  - COMUNE_ID: mapped location identifier(s), when available
-  - ... plus the phenomenon's own value column(s)
-
-NOTE ON ID_COMUNE FORMATTING: ISTAT comune codes are conventionally
-represented as 6-digit zero-padded strings (e.g. 22001 -> "022001"). The
-raw sources / mapping JSONs here store them as plain ints, so every
-dataframe that carries an ID_COMUNE column is normalized to the
-zero-padded string form right before it's returned, via `pad_id_comune()`.
-"""
-
 import logging
 import pandas as pd
 from data_preparation.v2.utils.utils import (
