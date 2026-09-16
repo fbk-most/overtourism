@@ -104,7 +104,7 @@ def standardize_arrivi(df, mapping_comuni, years=["2021", "2022", "2023", "2024"
     df["ID_COMUNE"] = df["comune"].map(mapping_comuni).apply(
         lambda x: [int(i) for i in x] if isinstance(x, list) else x
     )
-    return _standardize(df, date_col="anno")
+    return _standardize(df, date_col="anno", df_name = "arrivi_df")
 
 
 def _standardize_flussi_component(df, colmap, year):
@@ -112,7 +112,7 @@ def _standardize_flussi_component(df, colmap, year):
     df = df.rename(columns=colmap)
     df["comune"] = df["comune"].str.upper().str.strip()
     df["anno"] = year
-    return _standardize(df, date_col="anno", remove_provincia=False)
+    return _standardize(df, date_col="anno", remove_provincia=False, df_name = "flussi_df")
 
 
 def standardize_flussi_all(df_all, year=2024):

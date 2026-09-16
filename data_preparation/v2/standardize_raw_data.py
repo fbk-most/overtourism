@@ -70,11 +70,14 @@ def _pre_filtering_vodafone_attendences(df):
 
 
 # Standardization function
-def _standardize(df, date_col= "anno", remove_provincia=True) -> pd.DataFrame:
+def _standardize(df, date_col= "anno", remove_provincia=True, df_name = None) -> pd.DataFrame:
     """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
-    logging.info("Applying standardization to data")
+    logging.info(
+        "Applying standardization to data%s",
+        f" '{df_name}'" if df_name else ""
+    )   
     if remove_provincia:
-        df = _remove_provincia(df)
+        df = _remove_provincia(df, upper=True)
     df = _to_data_location(df, date_col=date_col)
     if "ID_COMUNE" not in df.columns:
         logging.info("No ID_COMUNE column found")
@@ -88,13 +91,13 @@ def standardize_popolazione(df, mapping_comuni) -> pd.DataFrame:
     """Standardizes popolazione df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
     df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    return _standardize(df, date_col="anno")
+    return _standardize(df, date_col="anno", df_name = "popolazione_df")
 
 def standardize_strutture(df, mapping_comuni, logging_errors = True):
     """Standardizes strutture df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
     df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    df = _standardize(df, date_col="anno")
+    df = _standardize(df, date_col="anno", df_name = "strutture_df")
 
     df = df.rename(columns={
         CATEGORIA_ALBERGHIERI_LETTI: "tot_postiletto_alberghieri",
@@ -170,7 +173,7 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
     df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
     df.loc[mask, "ID_COMUNE"] = [[22250]] * mask.sum()
 
-    df = _standardize(df, date_col = "date")
+    df = _standardize(df, date_col = "date", df_name = "vodafone_df")
     df.rename(columns = {"value": "presenze"}, inplace = True)
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
     return standard_ordering_cols(df) 
@@ -192,7 +195,8 @@ def standardize_presenze_ISPAT_alb(df, mapping_comuni):
     )
     df =_standardize(
         df.sort_values(by=["comune", "data"]).reset_index(drop=True), 
-        date_col = 'data'
+        date_col = 'data',
+        df_name = "presenze_alb_df"
         )
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return standard_ordering_cols(df) 
@@ -218,7 +222,7 @@ def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
     df.sort_values(by = "data")
     df["comune"] = "PROVINCIA"
     df["ID_COMUNE"] = [list(mapping_comuni.values())] * len(df)
-    df = _standardize(df, date_col = "data", remove_provincia = False)
+    df = _standardize(df, date_col = "data", remove_provincia = False, df_name="presenze_extralb_df")
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return standard_ordering_cols(df) 
 
