@@ -13,6 +13,7 @@ from data_preparation.v2.utils.utils import (
     get_mapping
 )
 
+## CONSTANT VARIABLES 
 STRUTTURE_VALUE_COLS = [
     "tot_postiletto_non_conv",
     "tot_postiletto_conv",    
@@ -81,11 +82,13 @@ def _standardize(df, date_col= "anno", remove_provincia=True) -> pd.DataFrame:
 
 ## Spectific functions 
 def standardize_popolazione(df, mapping_comuni) -> pd.DataFrame:
+    """Standardizes popolazione df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
     df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
     return _standardize(df, date_col="anno")
 
 def standardize_strutture(df, mapping_comuni, logging_errors = True):
+    """Standardizes strutture df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
     df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
     df = _standardize(df, date_col="anno")
@@ -147,6 +150,7 @@ def standardize_strutture(df, mapping_comuni, logging_errors = True):
 
 
 def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
+    """Standardizes presences df, registered by vodafone, granularity: vodafone aggregations, daily"""
     location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
     df["comune"] = df["locId"].map(
         location_map
@@ -166,16 +170,11 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
     df = _standardize(df, date_col = "date")
     df.rename(columns = {"value": "presenze"}, inplace = True)
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
-    # df = (
-    #         df.groupby(["DATA", "LOCATION"])
-    #         .agg({"ID_COMUNE": "first", "value": "sum"})
-    #         .reset_index()
-    #         .rename(columns={"value": "presenze"})
-    #     )
     return standard_ordering_cols(df) 
 
 
 def standardize_presenze_ISPAT_alb(df, mapping_comuni):
+    """Standardizes presences df, alb, granularity: APT, monthly"""
     df.rename(columns={"Ambito": "comune", "Presenze": "presenze_alb"}, inplace=True)
     df["data"] = pd.to_datetime(
         {
@@ -197,6 +196,7 @@ def standardize_presenze_ISPAT_alb(df, mapping_comuni):
 
 
 def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
+    """Standardizes presences df, extra-alb, granularity: provincia, monthly"""
     df.rename(
         columns={
             "Presenze alberghi": "presenze_alb",
@@ -252,7 +252,8 @@ def standardize_base_raw_data():
     presenze_df_alb = standardize_presenze_ISPAT_alb(presenze_ispat, mapping_apt)
     presenze_df_extralb = standardize_presenze_ISPAT_extralb(presenze_df_extralb, mapping_comuni)
     return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
-    
+
+
 ## Standardization function for mapping: 
 def standardize_mapping(mapping: dict) -> dict:
     """Standardizes mapping dictionaries:

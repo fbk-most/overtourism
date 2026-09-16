@@ -18,12 +18,9 @@ zero-padded string form right before it's returned, via `pad_id_comune()`.
 
 import logging
 import pandas as pd
-
 from data_preparation.v2.utils.utils import (
     get_s3,
-    get_json_s3,
     pad_id_comune,
-    save_computed_dfs,
     get_mapping,
     _remove_provincia,
     _to_data_location
@@ -94,6 +91,7 @@ FLUSSI_LEVEL_COLS = [
 
 ## HELPER FUNCTIONS for standardization
 def _standardize(df, date_col="anno", remove_provincia=True, pad=False):
+    """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
     if remove_provincia:
         df = _remove_provincia(df, upper=True)
     df = _to_data_location(df, date_col=date_col)
@@ -103,6 +101,7 @@ def _standardize(df, date_col="anno", remove_provincia=True, pad=False):
 
 
 def _pre_filtering_flussi(df, colmap):
+    """Pre-filterin: selection of Trentino area"""
     df = df[list(colmap)]
     return df[df["AREA_ID"].str.startswith("ITA.04.022.", na=False)].copy()
 
@@ -118,6 +117,7 @@ def standardize_arrivi(df, mapping_comuni, years=["2021", "2022", "2023", "2024"
 
 
 def _standardize_flussi_component(df, colmap, year):
+    """Leads flows df to a standard format"""
     df = df.rename(columns=colmap)
     df["comune"] = df["comune"].str.upper()
     df["anno"] = year
@@ -125,10 +125,12 @@ def _standardize_flussi_component(df, colmap, year):
 
 
 def standardize_flussi_all(df_all, year=2024):
+    """Flows df (all) standardization"""
     return _standardize_flussi_component(df_all, df__map, year)
 
 
 def standardize_flussi_user(df_user, year=2024):
+    """Flows df (users) standardization"""
     return _standardize_flussi_component(df_user, df_u_map, year)
 
 
@@ -145,6 +147,7 @@ def _flussi_id_map(df_user, mapping_comuni):
 
 
 def combine_flussi(df_all, df_user, mapping_comuni):
+    """Performs merge of flows dfs"""
     df_all = df_all.copy()
     df_all[["FLOWS_IN", "FLOWS_OUT"]] *= 4
 
@@ -161,10 +164,12 @@ def combine_flussi(df_all, df_user, mapping_comuni):
 
 
 def _post_filtering_flussi(df):
+    """Post-filtering: selection of columns of interest"""
     keep_cols = ["ID", "DATA", "LOCATION", "ID_COMUNE"] + FLUSSI_VALUE_COLS + FLUSSI_LEVEL_COLS
     return df[keep_cols].copy()
 
-def standardize_other_raw_data():
+def standardize_other_raw_data():    
+    """Leading raw data to a standardized format"""
     mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
     mapping_apt = get_mapping("map_comuni_into_apt.json")
 
