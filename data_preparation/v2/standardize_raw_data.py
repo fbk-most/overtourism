@@ -76,7 +76,9 @@ def _standardize(df, date_col= "anno", remove_provincia=True) -> pd.DataFrame:
     if remove_provincia:
         df = _remove_provincia(df)
     df = _to_data_location(df, date_col=date_col)
-    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"]) 
+    if "ID_COMUNE" in df.columns:
+        logging.info("No ID_COMUNE column found")
+        df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     return df
 
 
