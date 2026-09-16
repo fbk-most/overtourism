@@ -24,7 +24,7 @@ from data_preparation.v2.standardize_other_raw_data import (
     FLUSSI_VALUE_COLS,
     FLUSSI_LEVEL_COLS,
 )
-
+from standardize_raw_data import standardize_mapping
 logging.basicConfig(level=logging.INFO)
 
 
@@ -110,8 +110,9 @@ def compute_phenomenon_dataframes(local=False):
     logging.info("## Standardizing raw data...")
     arrivi_std, flussi_std = standardize_other_raw_data()
 
-    logging.info("## Computing phenomenon dataframes...")
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
+    mapping_comuni = standardize_mapping(mapping_comuni)
+    logging.info("## Computing phenomenon dataframes...")
 
     arrivi_trentino = compute_arrivi_trentino(arrivi_std, mapping_comuni)
     flussi_df = compute_flussi_trentino(flussi_std, mapping_comuni)
