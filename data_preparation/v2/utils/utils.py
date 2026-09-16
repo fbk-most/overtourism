@@ -37,8 +37,8 @@ PATH_AIXPA_INDEX_DFS = (
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
 
-MAPPING_COMUNI_FILE = (
-    Path(__file__).resolve().parents[2] / "mapping" / "mapping_comuni_ISTAT.json"
+MAPPING_PATH = (
+    Path(__file__).resolve().parents[2] / "mapping" 
 )
 
 # Explicit overrides for comuni whose official Italian name differs from
@@ -61,9 +61,12 @@ COMUNE_NAME_OVERRIDES = {
 
 ## UTILS FUNCTIONS
 ## Some functions for decoding / padding / cleaning
-def get_mapping_comuni():
-    with MAPPING_COMUNI_FILE.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def get_mapping(mapping_name, local = False):
+    if local: 
+        with (MAPPING_PATH / mapping_name).open("r", encoding="utf-8") as f:
+            json.load(f)
+    else:
+        return get_json_s3(f"mapping_ids/{mapping_name}")
 
 
 def customize_unidecode(x):
@@ -72,7 +75,7 @@ def customize_unidecode(x):
     """
     if x.endswith("'"):  # removes also trailing apostrophe if present
         x = x.removesuffix("'")
-    return unidecode(x.strip().upper())
+    return unidecode(x.strip().upper()).replace("0", "-")
 
 
 def pad_id_comune(series, width=6):
@@ -81,9 +84,12 @@ def pad_id_comune(series, width=6):
     Missing / unmapped values (NaN) are left untouched. Works regardless of
     whether the column arrives as int, float (common when NaNs are present),
     or string dtype.
+    Works seamlessly for scalars (int, float, str, NaN) and lists of IDs.
     """
-
     def _pad(x):
+        if isinstance(x, list):
+            return [_pad(i) for i in x]
+        
         if pd.isna(x):
             return x
         return str(int(x)).zfill(width)
@@ -121,6 +127,11 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
         id_comune = mapping_comuni.get(overrides[name])
     return id_comune
 
+
+def standard_ordering_cols(df):
+    existing_first = [col for col in ["DATA", "LOCATION", "ID_COMUNE"] if col in df.columns]
+    remaining = [col for col in df.columns if col not in  ["DATA", "LOCATION", "ID_COMUNE"]]
+    return df[existing_first + remaining]
 
 ## S3 utilities
 
