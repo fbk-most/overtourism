@@ -119,7 +119,7 @@ def compute_phenomenon_dataframes(local=False):
     phen_flussi_temp_2023 = compute_flussi_2023_temp(flussi_df)
 
     dict_dfs = {
-        "arrivi_trentino": arrivi_trentino,
+        "phen_arrivi": arrivi_trentino,
         "phen_flussi": flussi_df,
         "phen_flussi_temp_2023": phen_flussi_temp_2023,
     }
