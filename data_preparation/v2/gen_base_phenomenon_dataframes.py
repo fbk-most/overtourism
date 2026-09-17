@@ -23,9 +23,11 @@ from data_preparation.v2.utils.utils import (
 )
 from data_preparation.v2.standardize_raw_data import standardize_base_raw_data, standardize_mapping
 from data_preparation.v2.utils.disaggregation import disaggregate
-
+from pathlib import Path 
 logging.basicConfig(level=logging.INFO)
+import pandas as pd 
 
+SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
 
 ## COMPUTATION
 ## Functions to compute phenomena dataframes
@@ -142,13 +144,43 @@ def compute_vodafone_attendences(
     df = disaggregate(df, cols=["presenze"], **kwargs)
     return df
 
-## MAIN computation of phenomena 
-def compute_phenomenon_dataframes(local=False):
+
+def get_base_standardized_data(use_cached_std: bool, type_format = "csv"):
+    """
+    Gets standardized data. 
+    If use_cached_std=True, tries to load from local CSVs/parquet files.
+    Otherwise, if False, or error given, launches standardize_base_raw_data().
+    """
+    assert type_format in ["csv", "parquet"]
+
+    if use_cached_std and SAVEPATH_STD_DATA.exists():
+        try:
+            logging.info("Loading standardized data from local...")
+            if type_format == "csv":
+                read_fn = lambda file: pd.read_csv(file, dtype={'ID_COMUNE': str})
+            else:
+                read_fn = lambda file: pd.read_parquet(file)
+            # dtype={'ID_COMUNE': str} per evitare che Pandas rimuova lo zero iniziale dai codici ISTAT
+            popolazione_df = read_fn(SAVEPATH_STD_DATA / f"popolazione_std.{type_format}")
+            strutture_df = read_fn(SAVEPATH_STD_DATA / f"strutture_std.{type_format}")
+            vodafone_df = read_fn(SAVEPATH_STD_DATA / f"vodafone_std.{type_format}")
+            presenze_df_alb = read_fn(SAVEPATH_STD_DATA / f"presenze_alb_std.{type_format}")
+            presenze_df_extralb = read_fn(SAVEPATH_STD_DATA / f"presenze_extralb_std.{type_format}")
+            return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
+
+        except Exception as e:
+            logging.warning(f"Not able to find data ({e}). Executing standardization...")
+    
+    logging.info("Standardization of raw data...")
+    return standardize_base_raw_data()
+
+
+def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb):
     """Loads and prepares the base "phenomenon" dataframes.
 
     Returns a dict with keys:
       "phen_strutture_ospitalita", "phen_popolazione",
-      "phen_vodafone_attendences", "phen_arrivi_trentino"
+      "phen_vodafone_attendences"
     Each value is a dataframe standardized to DATA/LOCATION (+ ID, + the
     phenomenon's own value columns). Any ID_COMUNE column is zero-padded to
     6 digits (e.g. 22001 -> "022001").
@@ -161,14 +193,9 @@ def compute_phenomenon_dataframes(local=False):
     - "indice-ospitalita"
     - "indice-turismo-sommerso"
     """
-    
     logging.info(f"## Computing phenomenon dataframes")
-    logging.info("STANDARDIZATION OF RAW DATA...")
-    popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb = standardize_base_raw_data()
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_comuni = standardize_mapping(mapping_comuni)
-
-    logging.info("COMPUTATION OF PHENOMENA...")
     ## strutture and popolazione: all yet done (corresponds to the standardized version)    
 
     ### ---------------------------------- ### 
@@ -218,6 +245,32 @@ def compute_phenomenon_dataframes(local=False):
         "phen_strutture": strutture_df,
         "phen_presenze": presenze_df,
     }
+    return dict_dfs
+
+
+## MAIN ORCHESTRATOR
+def compute_phenomenon_dataframes(local=False, use_cached_standardized=False):
+    """Main orchestrator, 
+    local defines if to upload the phenomena or save them locally
+    use_cached_standardized defines is to use local data or do the standardization process from scrach """
+    (
+        popolazione_df, 
+        strutture_df, 
+        vodafone_df, 
+        presenze_df_alb, 
+        presenze_df_extralb
+    ) = get_base_standardized_data(use_cached_std=use_cached_standardized)  # decide whether to use the local data, existing from previous standardization, or perform the entire process  
+
+    ## Computation of phenomena
+    logging.info(f"## Computing phenomenon dataframes")
+
+    dict_dfs = calculate_phenomena(
+        popolazione_df, 
+        strutture_df, 
+        vodafone_df, 
+        presenze_df_alb, 
+        presenze_df_extralb, 
+    )
 
     logging.info("## Saving phenomenon dataframes...")
     save_computed_dfs(dict_dfs, local=local)
