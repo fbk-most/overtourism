@@ -262,13 +262,14 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def save_computed_dfs(dict_dfs, local=False):
+def save_computed_dfs(dict_dfs, local=False, type_format = 'parquet', path_saving = PATH_AIXPA_INDEX_DFS):
+    assert type_format in ["csv", "parquet"]
     for key, value in dict_dfs.items():
-        logging.info(f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet...")
-        put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
+        logging.info(f"Uploading dataframe '{key}' in path {path_saving}/{key}.{type_format}...")
+        put_dataframe(value, key, type=type_format, path=path_saving)
         if not local:
-            logging.info(f"Logging dataframe '{key}.parquet'...")
-            log_dataframe(value, key, type="parquet")
+            logging.info(f"Logging dataframe '{key}.{type_format}'...")
+            log_dataframe(value, key, type=type_format)
     logging.info("## Saved.")
 
 
