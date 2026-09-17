@@ -45,7 +45,6 @@ Finally, output dataframes are either saved locally or logged to DigitalHub base
 ```python
 from data_preparation.v2.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
 
-compute_phenomenon_dataframes(local=True, use_cached_standardized=False)
+compute_phenomenon_dataframes(local=True, use_cached_standardized=False, type_format = "parquet")
 ```
-This will save the phenomena locally, starting from the raw data and performing the standardization process from scratch. If `use_cached_standardized` is set to True and no local data are stored, the process is executed anyway.  
-
+This will save the phenomena locally, starting from the raw data and performing the standardization process from scratch. If `use_cached_standardized` is set to True and no local data are stored, the process is executed anyway.. The parameter `type_format` controls the format of both the local standarduzed stored dataframes and the format of phenomena to save.

@@ -166,13 +166,14 @@ def get_base_standardized_data(use_cached_std: bool, type_format = "csv"):
             vodafone_df = read_fn(SAVEPATH_STD_DATA / f"vodafone_std.{type_format}")
             presenze_df_alb = read_fn(SAVEPATH_STD_DATA / f"presenze_alb_std.{type_format}")
             presenze_df_extralb = read_fn(SAVEPATH_STD_DATA / f"presenze_extralb_std.{type_format}")
+            logging.info("Loading done.")
             return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 
         except Exception as e:
             logging.warning(f"Not able to find data ({e}). Executing standardization...")
     
     logging.info("Standardization of raw data...")
-    return standardize_base_raw_data()
+    return standardize_base_raw_data(type_format = type_format)
 
 
 def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb):
@@ -193,7 +194,6 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     - "indice-ospitalita"
     - "indice-turismo-sommerso"
     """
-    logging.info(f"## Computing phenomenon dataframes")
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_comuni = standardize_mapping(mapping_comuni)
     ## strutture and popolazione: all yet done (corresponds to the standardized version)    
@@ -202,7 +202,9 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     ## 1. DISAGGREGAZIONE UNIFORME :
     ## Le presenze vodafone sono distribuite uniformemente sui comuni
     ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite uniformemente sui comuni
+    logging.info(f"## Computing vodafone phenomenon dataframe")
     vodafone_attendences_df = compute_vodafone_attendences(vodafone_df, mapping_comuni, how="uniform")
+    logging.info(f"## Computing presences phenomenon dataframe")
     presenze_df = compute_presenze_trentino(presenze_df_alb, presenze_df_extralb, vodafone_attendences_df, mapping_comuni)
 
     ### -------------------------------------------------------------------- ### 
@@ -249,7 +251,7 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
 
 
 ## MAIN ORCHESTRATOR
-def compute_phenomenon_dataframes(local=False, use_cached_standardized=False):
+def compute_phenomenon_dataframes(local=False, use_cached_standardized=False, type_format="csv"):
     """Main orchestrator, 
     local defines if to upload the phenomena or save them locally
     use_cached_standardized defines is to use local data or do the standardization process from scrach """
@@ -259,7 +261,7 @@ def compute_phenomenon_dataframes(local=False, use_cached_standardized=False):
         vodafone_df, 
         presenze_df_alb, 
         presenze_df_extralb
-    ) = get_base_standardized_data(use_cached_std=use_cached_standardized)  # decide whether to use the local data, existing from previous standardization, or perform the entire process  
+    ) = get_base_standardized_data(use_cached_std=use_cached_standardized, type_format=type_format)  # decide whether to use the local data, existing from previous standardization, or perform the entire process  
 
     ## Computation of phenomena
     logging.info(f"## Computing phenomenon dataframes")
@@ -273,8 +275,8 @@ def compute_phenomenon_dataframes(local=False, use_cached_standardized=False):
     )
 
     logging.info("## Saving phenomenon dataframes...")
-    save_computed_dfs(dict_dfs, local=local)
+    save_computed_dfs(dict_dfs, local=local, type_format = type_format)
 
 
 if __name__ == "__main__":
-    compute_phenomenon_dataframes(local=False)
+    compute_phenomenon_dataframes(local=True, use_cached_standardized=False, type_format = "parquet")
