@@ -231,7 +231,7 @@ def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
     return standard_ordering_cols(df) 
 
 
-def standardize_base_raw_data():
+def standardize_base_raw_data(local = True, type_format = "csv"):
     """Leading raw data to a standardized format"""
     ## updload mapping and geojson data 
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
@@ -272,7 +272,7 @@ def standardize_base_raw_data():
     }
     save_path = Path(SAVEPATH_STD_DATA).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
-    save_computed_dfs(dict_dfs=dict_dfs, local = True, type_format = "csv", path_saving=save_path)
+    save_computed_dfs(dict_dfs=dict_dfs, local = local, type_format = type_format, path_saving=save_path)
     return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 
 
@@ -292,4 +292,4 @@ def standardize_mapping(mapping: dict) -> dict:
 
 
 if __name__=="__main__":
-    popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb = standardize_base_raw_data()
+    popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb = standardize_base_raw_data(local=True, type_format="parquet")
