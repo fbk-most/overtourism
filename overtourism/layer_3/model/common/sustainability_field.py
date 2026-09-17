@@ -404,8 +404,6 @@ class SustainabilityFieldOutput(ModelOutput):
         Per-constraint field arrays, same shape as ``field``.
     x_values, y_values : np.ndarray
         1-D parameter-grid axes, shape ``(N_x,)`` / ``(N_y,)``.
-    x_axis_name, y_axis_name : str
-        Human-readable axis labels (domain metadata, not rendering config).
     samples_x, samples_y : list[float]
         Raw presence samples for the scatter overlay.
     usage_fields : dict[str, np.ndarray]
@@ -421,8 +419,6 @@ class SustainabilityFieldOutput(ModelOutput):
     field_elements: dict[str, np.ndarray]
     x_values: np.ndarray
     y_values: np.ndarray
-    x_axis_name: str
-    y_axis_name: str
     samples_x: list[float]
     samples_y: list[float]
     usage_fields: dict[str, np.ndarray]

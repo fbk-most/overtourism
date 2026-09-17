@@ -68,8 +68,6 @@ class EvaluateResponse(BaseModel):
     field_elements: dict[str, list[list[float]]]
     x_values: list[float]
     y_values: list[float]
-    x_axis_name: str
-    y_axis_name: str
     samples_x: list[float]
     samples_y: list[float]
     confidence: float
@@ -99,8 +97,6 @@ class EvaluateResponse(BaseModel):
             field_elements={k: v.tolist() for k, v in output.field_elements.items()},
             x_values=output.x_values.tolist(),
             y_values=output.y_values.tolist(),
-            x_axis_name=output.x_axis_name,
-            y_axis_name=output.y_axis_name,
             samples_x=output.samples_x,
             samples_y=output.samples_y,
             confidence=output.confidence,

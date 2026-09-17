@@ -205,15 +205,16 @@ def _make_field_figure(data: PlotData, title: str | None = None) -> go.Figure:
             color = _FALLBACK_COLORS[fallback_idx % len(_FALLBACK_COLORS)]
             fallback_idx += 1
         sust_val, sust_ci = data.sustainability_by_constraint.get(name, (0.0, 0.0))
+        label = data.constraint_labels.get(name, name.capitalize())
         fig.add_trace(
             go.Scatter(
                 x=list(x_coords),
                 y=list(y_coords),
                 mode="lines",
-                name=f"{name.capitalize()}  {sust_val * 100:.0f}%",
+                name=f"{label}  {sust_val * 100:.0f}%",
                 line=dict(color=color, width=3),
                 hovertemplate=(
-                    f"<b>{name.capitalize()} — frontiera</b><br>"
+                    f"<b>{label} — frontiera</b><br>"
                     f"Sostenibilità: {sust_val * 100:.1f}% ± {sust_ci * 100:.1f}%<br>"
                     f"{data.x_label}: %{{x:.0f}}<br>"
                     f"{data.y_label}: %{{y:.0f}}<extra></extra>"
@@ -284,7 +285,8 @@ def _kpi_dataframe(named_outputs: list[tuple[str, PlotData]]) -> pd.DataFrame:
             "Complessivo": f"{idx_val * 100:.1f}% ±{idx_ci * 100:.1f}%",
         }
         for name, (v, c) in data.sustainability_by_constraint.items():
-            row[name.capitalize()] = f"{v * 100:.1f}% ±{c * 100:.1f}%"
+            label = data.constraint_labels.get(name, name.capitalize())
+            row[label] = f"{v * 100:.1f}% ±{c * 100:.1f}%"
         rows.append(row)
     if not rows:
         return pd.DataFrame()
@@ -574,7 +576,11 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
         )
         st.markdown("**Per vincolo:**")
         rows = [
-            {"Vincolo": name, "Sost.": f"{v * 100:.1f}%", "CI": f"±{c * 100:.1f}%"}
+            {
+                "Vincolo": output.constraint_labels.get(name, name.capitalize()),
+                "Sost.": f"{v * 100:.1f}%",
+                "CI": f"±{c * 100:.1f}%",
+            }
             for name, (v, c) in output.sustainability_by_constraint.items()
         ]
         if rows:
@@ -584,4 +590,7 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
                 output.sustainability_by_constraint,
                 key=lambda k: output.sustainability_by_constraint[k][0],
             )
-            st.caption(f"⚠️ Vincolo critico: **{critical}**")
+            critical_label = output.constraint_labels.get(
+                critical, critical.capitalize()
+            )
+            st.caption(f"⚠️ Vincolo critico: **{critical_label}**")

@@ -117,43 +117,26 @@ def test_evaluate_returns_snapshot_when_snapshot_is_true(monkeypatch) -> None:
     assert response.json() == {"field": [[0.1]]}
 
 
-def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> None:
+def test_get_schema_builds_full_metadata_from_backend_minimal_set(monkeypatch) -> None:
+    """`get_schema` builds the full presentation metadata from the
+    backend's minimal set (`_build_metadata`).
+
+    Uses distinctive fake `mapper`/axis/field values so the assertions
+    prove the values genuinely flow from `minimal`.
+    """
+
     class FakeBackend:
         def schema(self):
             return {
                 "metadata": {
                     "mapper": {
-                        "default": "Tutti",
-                        "parcheggi": "Parcheggi",
-                        "spiaggia": "Spiaggia",
-                        "alberghi": "Alberghi",
-                        "ristoranti": "Ristoranti",
+                        "parking": "FAKE-PARK",
+                        "beach": "FAKE-BEACH",
                     },
-                    "color_map": [
-                        [0.0, "rgb(5, 102, 8)"],
-                        [0.05, "rgb(100, 180, 90)"],
-                        [0.2, "rgb(180, 230, 170)"],
-                        [0.4, "rgb(230, 250, 225)"],
-                        [0.5, "yellow"],
-                        [0.6, "rgb(255, 242, 242)"],
-                        [0.8, "rgb(242, 204, 204)"],
-                        [0.95, "rgb(204, 76, 76)"],
-                        [1.0, "rgb(180, 4, 38)"],
-                    ],
-                    "kpi_mapper": {"title": "Indici"},
-                    "plot_mapper": {
-                        "monodimensional": {
-                            "x": {"label": "Giorni"},
-                            "y": {"label": "Utilizzo", "field": "usage"},
-                        },
-                        "bidimensional": {
-                            "x": {"label": "Turisti", "field": "tourist"},
-                            "y": {
-                                "label": "Escursionisti",
-                                "field": "excursionist",
-                            },
-                        },
-                    },
+                    "x_axis_name": "FAKE-X",
+                    "y_axis_name": "FAKE-Y",
+                    "x_field": "fake_x_field",
+                    "y_field": "fake_y_field",
                 },
                 "indexes": [{"name": "parking", "kind": "scalar"}],
             }
@@ -167,37 +150,36 @@ def test_get_schema_returns_model_indexes_and_frontend_metadata(monkeypatch) -> 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["metadata"] == {
-        "mapper": {
-            "default": "Tutti",
-            "parcheggi": "Parcheggi",
-            "spiaggia": "Spiaggia",
-            "alberghi": "Alberghi",
-            "ristoranti": "Ristoranti",
-        },
-        "color_map": [
-            [0.0, "rgb(5, 102, 8)"],
-            [0.05, "rgb(100, 180, 90)"],
-            [0.2, "rgb(180, 230, 170)"],
-            [0.4, "rgb(230, 250, 225)"],
-            [0.5, "yellow"],
-            [0.6, "rgb(255, 242, 242)"],
-            [0.8, "rgb(242, 204, 204)"],
-            [0.95, "rgb(204, 76, 76)"],
-            [1.0, "rgb(180, 4, 38)"],
-        ],
-        "kpi_mapper": {"title": "Indici"},
-        "plot_mapper": {
-            "monodimensional": {
-                "x": {"label": "Giorni"},
-                "y": {"label": "Utilizzo", "field": "usage"},
-            },
-            "bidimensional": {
-                "x": {"label": "Turisti", "field": "tourist"},
-                "y": {"label": "Escursionisti", "field": "excursionist"},
-            },
-        },
+
+    # Backend-owned entries taken verbatim; "default" is injected as a standard.
+    assert body["metadata"]["mapper"] == {
+        "default": "Tutti",
+        "parking": "FAKE-PARK",
+        "beach": "FAKE-BEACH",
     }
+    assert body["metadata"]["plot_mapper"]["bidimensional"] == {
+        "x": {"label": "FAKE-X", "field": "fake_x_field"},
+        "y": {"label": "FAKE-Y", "field": "fake_y_field"},
+    }
+
+    # Derived mechanically from `mapper` (one per non-"default" key).
+    assert body["metadata"]["kpi_mapper"]["constraint level parking"] == (
+        "Giorni di criticità FAKE-PARK"
+    )
+    assert body["metadata"]["kpi_mapper"]["constraint level beach"] == (
+        "Giorni di criticità FAKE-BEACH"
+    )
+    assert "constraint level default" not in body["metadata"]["kpi_mapper"]
+
+    # Universal, model-independent constants.
+    assert body["metadata"]["color_map"][0] == [0.0, "rgb(5, 102, 8)"]
+    assert body["metadata"]["kpi_mapper"]["title"] == "Indici"
+    assert body["metadata"]["kpi_mapper"]["critical constraint"] == "Vincolo Critico"
+    assert body["metadata"]["plot_mapper"]["monodimensional"] == {
+        "x": {"label": "Giorni (ordinati per utilizzo)"},
+        "y": {"label": "Livello di utilizzo della destinazione", "field": "usage"},
+    }
+
     assert body["indexes"][0]["name"] == "parking"
     assert body["indexes"][0]["kind"] == "scalar"
 
