@@ -1,17 +1,21 @@
 import logging
 import pandas as pd
+from pathlib import Path 
 import geopandas as geopd
 from data_preparation.v2.utils.utils import (
     get_dataframe,
-    get_s3,
-   _remove_provincia,
-    _to_data_location,
+    get_s3,    
+    get_mapping,
+    save_computed_dfs,
     pad_id_comune,
     customize_unidecode,
     resolve_id_comune,
     standard_ordering_cols,
-    get_mapping
+   _remove_provincia,
+    _to_data_location,
 )
+
+SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
 
 ## CONSTANT VARIABLES 
 STRUTTURE_VALUE_COLS = [
@@ -91,7 +95,7 @@ def standardize_popolazione(df, mapping_comuni) -> pd.DataFrame:
     """Standardizes popolazione df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
     df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    return _standardize(df, date_col="anno", df_name = "popolazione_df")
+    return standard_ordering_cols(_standardize(df, date_col="anno", df_name = "popolazione_df"))
 
 def standardize_strutture(df, mapping_comuni, logging_errors = True):
     """Standardizes strutture df, granularity: municipality, yearly"""
@@ -171,7 +175,7 @@ def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
 
     mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
     df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
-    df.loc[mask, "ID_COMUNE"] = [[22250]] * mask.sum()
+    df.loc[mask, "ID_COMUNE"] = pd.Series([[22250]] * mask.sum(), index=df.index[mask], dtype=object)
 
     df = _standardize(df, date_col = "date", df_name = "vodafone_df")
     df.rename(columns = {"value": "presenze"}, inplace = True)
@@ -258,6 +262,17 @@ def standardize_base_raw_data():
     vodafone_df = standardize_vodafone(vodafone_df, mapping_vodafone, geojson_comuni_json_data)
     presenze_df_alb = standardize_presenze_ISPAT_alb(presenze_ispat, mapping_apt)
     presenze_df_extralb = standardize_presenze_ISPAT_extralb(presenze_df_extralb, mapping_comuni)
+
+    dict_dfs = {
+        "popolazione_std" : popolazione_df,
+        "strutture_std" : strutture_df,
+        "vodafone_std" : vodafone_df,
+        "presenze_alb_std" : presenze_df_alb,
+        "presenze_extralb_std" : presenze_df_extralb
+    }
+    save_path = Path(SAVEPATH_STD_DATA).resolve()
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_computed_dfs(dict_dfs=dict_dfs, local = True, type_format = "csv", path_saving=save_path)
     return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 
 
