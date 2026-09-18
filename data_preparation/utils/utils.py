@@ -37,7 +37,118 @@ MAPPING_PATH = (
     Path(__file__).resolve().parents[2] / "mapping" 
 )
 
-## S3 utilities and getter functions from platform
+# Explicit overrides for comuni whose official Italian name differs from
+# a naive "before the dash" split of the bilingual name in the source CSV.
+COMUNE_NAME_OVERRIDES = {
+    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
+    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
+    "CANAL SAN BOVO": "CANAL SAN BOVO",
+    "CANAZEI-CIANACEI": "CANAZEI",
+    "FIEROZZO-VLAROTZ": "FIEROZZO",
+    "FRASSILONGO-GARAIT": "FRASSILONGO",
+    "LUSERNA-LUSERN": "LUSERNA",
+    "MAZZIN-MAZIN": "MAZZIN",
+    "MOENA-MOENA": "MOENA",
+    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
+    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
+    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
+}
+
+
+## UTILS FUNCTIONS
+## Some functions for decoding / padding / cleaning
+def get_mapping(mapping_name, local = False):
+    if local: 
+        with (MAPPING_PATH / mapping_name).open("r", encoding="utf-8") as f:
+            json.load(f)
+    else:
+        return get_json_s3(f"mapping_ids/{mapping_name}")
+
+
+def customize_unidecode(x):
+    """
+    Convert the input string, removing accents, converting to uppercase, and stripping whitespace.
+    """
+    if x.endswith("'"):  # removes also trailing apostrophe if present
+        x = x.removesuffix("'")
+    return unidecode(x.strip().upper()).replace("0", "-")
+
+
+def pad_id_comune(series, width=6):
+    """Zero-pad an ID_COMUNE column to `width` digits (e.g. 22001 -> '022001').
+
+    Missing / unmapped values (NaN) are left untouched. Works regardless of
+    whether the column arrives as int, float (common when NaNs are present),
+    or string dtype.
+    Works seamlessly for scalars (int, float, str, NaN) and lists of IDs.
+    """
+    def _pad(x):
+        if isinstance(x, list):
+            return [_pad(i) for i in x]
+        
+        if pd.isna(x):
+            return x
+        return str(int(x)).zfill(width)
+
+    return series.apply(_pad)
+
+
+def _remove_provincia(df, comune_col="comune", upper=False):
+    """Drop rows whose comune starts with 'PROVINCIA', logging what gets removed."""
+    df = df.copy()
+    series = df[comune_col].str.upper() if upper else df[comune_col]
+    mask = series.str.startswith("PROVINCIA")
+    if mask.any():
+        logging.info(
+            f"Comune {df.loc[mask, comune_col].unique()} is a PROVINCIA, removing it from the analysis"
+        )
+        df = df[~mask]
+    return df
+
+
+def _to_data_location(df, date_col, drop_cols=None, comune_col = "comune"):
+    """Standardize a phenomenon dataframe to DATA/LOCATION column naming.
+
+    date_col: name of the column holding the time dimension (e.g. "anno" or "date").
+    drop_cols: optional columns to drop before returning (e.g. a redundant "anno"
+    column once the daily "date" column is promoted to DATA).
+    """
+    df = df.drop(columns=drop_cols) if drop_cols else df
+    return df.rename(columns={date_col: "DATA", comune_col: "LOCATION"})
+
+
+def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
+    """Map a comune name to its ISTAT ID, falling back to the bilingual-name overrides."""
+    id_comune = mapping_comuni.get(name)
+    if id_comune is None and name in overrides:
+        id_comune = mapping_comuni.get(overrides[name])
+    return id_comune
+
+
+def standard_ordering_cols(df):
+    existing_first = [col for col in ["DATA", "ID_COMUNE"] if col in df.columns]  # , "ID_COMUNE"
+    remaining = [col for col in df.columns if col not in  ["DATA", "ID_COMUNE"]]
+    return df[existing_first + remaining]
+
+
+def check_consistency_popolazione_dfs():
+    """Function to check mean popolazione of one dataframe popolazione correspond in the two versions"""
+    logging.info("Downloading dataframe 'popolazione_2025_ISPAT'...")  # dataframe containing data 1 gen 2024 + 1 gen 2025 
+    df_2024_ispat = pd.read_csv(get_s3("popolazione_2025_ISPAT.csv"))
+    df_2024 = get_dataframe("popolazione_2020_2024")
+
+    ## minor check to see if popolazione media given is comparable to the one computed as the aritmetic mean (at least for 2024)
+    df_2024_ispat['pop_media_2024'] = ((df_2024_ispat['Popolazione residente al 1.1.2024'] + df_2024_ispat['Popolazione residente al 1.1.2025']) / 2).round().astype(int)
+    df_2024 = df_2024[df_2024['anno'] == 2024]
+    
+    mgs = pd.merge(df_2024, df_2024_ispat, left_on = "comune",right_on = "Comuni")
+    mgs['disc'] = abs(mgs['popolazione'] - mgs['pop_media_2024'])
+    mgs['diff_assoluta'] = (mgs['popolazione'] - mgs['pop_media_2024']).abs()
+    mgs['diff_percentuale'] = (mgs['diff_assoluta'] / mgs['popolazione']) * 100
+    print(mgs.diff_percentuale.describe())
+
+## S3 utilities
+
 
 def get_dataframe(name: str) -> DataFrame:
     return dh.get_dataitem(name, project=PROJECT).as_df()
