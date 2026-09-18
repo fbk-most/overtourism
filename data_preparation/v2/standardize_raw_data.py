@@ -97,11 +97,11 @@ def standardize_popolazione(df, mapping_comuni, comune_col = "comune", date_col 
     df["ID_COMUNE"] = df[comune_col].apply(lambda x: resolve_id_comune(x, mapping_comuni))
     return standard_ordering_cols(_standardize(df, date_col=date_col, comune_col = comune_col, df_name = "popolazione_df"))
 
-def standardize_strutture(df, mapping_comuni, logging_errors = True):
+def standardize_strutture(df, mapping_comuni, logging_errors = True, comune_col = "comune"):
     """Standardizes strutture df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode)
-    df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    df = _standardize(df, date_col="anno", df_name = "strutture_df")
+    df[comune_col] = df[comune_col].apply(customize_unidecode)
+    df["ID_COMUNE"] = df[comune_col].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+    df = _standardize(df, date_col="anno", df_name = "strutture_df", comune_col=comune_col)
 
     df = df.rename(columns={
         CATEGORIA_ALBERGHIERI_LETTI: "tot_postiletto_alberghieri",
@@ -118,6 +118,21 @@ def standardize_strutture(df, mapping_comuni, logging_errors = True):
         CATEGORIA_TOT_CONVENZIONALI: "tot_strutture_conv"
     })
 
+    for col in [
+        "tot_postiletto_non_conv",
+        "tot_postiletto_conv",
+        "tot_postiletto",
+        "tot_strutture_non_conv",
+        "tot_strutture_conv",
+        "tot_strutture",
+        "tot_postiletto_alberghieri",
+        "tot_postiletto_extralberghieri",
+        "tot_strutture_alberghiere",
+        "tot_strutture_extralberghiere",
+    ]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    
     df["tot_strutture"] = (
         df["tot_strutture_conv"]
         + df["tot_strutture_non_conv"]
