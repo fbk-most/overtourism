@@ -74,15 +74,15 @@ def _pre_filtering_vodafone_attendences(df):
 
 
 # Standardization function
-def _standardize(df, date_col= "anno", remove_provincia=True, df_name = None) -> pd.DataFrame:
+def _standardize(df, date_col= "anno", comune_col = "comune", remove_provincia=True, df_name = None) -> pd.DataFrame:
     """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
     logging.info(
         "Applying standardization to data%s",
         f" '{df_name}'" if df_name else ""
     )   
     if remove_provincia:
-        df = _remove_provincia(df, upper=True)
-    df = _to_data_location(df, date_col=date_col)
+        df = _remove_provincia(df, comune_col=comune_col, upper=True)
+    df = _to_data_location(df, date_col=date_col, comune_col = comune_col)
     if "ID_COMUNE" not in df.columns:
         logging.info("No ID_COMUNE column found")
     else:
@@ -91,11 +91,11 @@ def _standardize(df, date_col= "anno", remove_provincia=True, df_name = None) ->
 
 
 ## Spectific functions 
-def standardize_popolazione(df, mapping_comuni) -> pd.DataFrame:
+def standardize_popolazione(df, mapping_comuni, comune_col = "comune", date_col = "anno") -> pd.DataFrame:
     """Standardizes popolazione df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode)
-    df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    return standard_ordering_cols(_standardize(df, date_col="anno", df_name = "popolazione_df"))
+    df[comune_col] = df[comune_col].apply(customize_unidecode)
+    df["ID_COMUNE"] = df[comune_col].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+    return standard_ordering_cols(_standardize(df, date_col=date_col, comune_col = comune_col, df_name = "popolazione_df"))
 
 def standardize_strutture(df, mapping_comuni, logging_errors = True):
     """Standardizes strutture df, granularity: municipality, yearly"""
