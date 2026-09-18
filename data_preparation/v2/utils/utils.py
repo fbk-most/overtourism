@@ -110,7 +110,7 @@ def _remove_provincia(df, comune_col="comune", upper=False):
     return df
 
 
-def _to_data_location(df, date_col, drop_cols=None):
+def _to_data_location(df, date_col, drop_cols=None, comune_col = "comune"):
     """Standardize a phenomenon dataframe to DATA/LOCATION column naming.
 
     date_col: name of the column holding the time dimension (e.g. "anno" or "date").
@@ -118,7 +118,7 @@ def _to_data_location(df, date_col, drop_cols=None):
     column once the daily "date" column is promoted to DATA).
     """
     df = df.drop(columns=drop_cols) if drop_cols else df
-    return df.rename(columns={date_col: "DATA", "comune": "LOCATION"})
+    return df.rename(columns={date_col: "DATA", comune_col: "LOCATION"})
 
 
 def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
@@ -133,6 +133,23 @@ def standard_ordering_cols(df):
     existing_first = [col for col in ["DATA", "ID_COMUNE"] if col in df.columns]  # , "ID_COMUNE"
     remaining = [col for col in df.columns if col not in  ["DATA", "ID_COMUNE"]]
     return df[existing_first + remaining]
+
+
+def check_consistency_popolazione_dfs():
+    """Function to check mean popolazione of one dataframe popolazione correspond in the two versions"""
+    logging.info("Downloading dataframe 'popolazione_2025_ISPAT'...")  # dataframe containing data 1 gen 2024 + 1 gen 2025 
+    df_2024_ispat = pd.read_csv(get_s3("popolazione_2025_ISPAT.csv"))
+    df_2024 = get_dataframe("popolazione_2020_2024")
+
+    ## minor check to see if popolazione media given is comparable to the one computed as the aritmetic mean (at least for 2024)
+    df_2024_ispat['pop_media_2024'] = ((df_2024_ispat['Popolazione residente al 1.1.2024'] + df_2024_ispat['Popolazione residente al 1.1.2025']) / 2).round().astype(int)
+    df_2024 = df_2024[df_2024['anno'] == 2024]
+    
+    mgs = pd.merge(df_2024, df_2024_ispat, left_on = "comune",right_on = "Comuni")
+    mgs['disc'] = abs(mgs['popolazione'] - mgs['pop_media_2024'])
+    mgs['diff_assoluta'] = (mgs['popolazione'] - mgs['pop_media_2024']).abs()
+    mgs['diff_percentuale'] = (mgs['diff_assoluta'] / mgs['popolazione']) * 100
+    print(mgs.diff_percentuale.describe())
 
 ## S3 utilities
 
