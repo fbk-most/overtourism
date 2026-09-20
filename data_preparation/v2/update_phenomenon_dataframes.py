@@ -23,11 +23,11 @@ RENAMING_STRUTTURE = {
     "Esercizi extralberghieri Letti": "extra alb. Posti_letto",
     "Totale Numero": "tot convenzionali strutture",
     "Totale Letti": "tot convenzionali posti_letto",
-    "Alloggi turistici Numero": "all. privati numero",  # to check 
-    'Alloggi a disposizione Numero': 'all.disposizione numero',
-    'Alloggi a disposizione Letti': 'all. disposizione posti_letto'
+    "Alloggi turistici Numero": "all. privati numero",
+    "Alloggi turistici Letti": "all. privati posti_letto",  
+    "Alloggi a disposizione Numero": "all.disposizione numero",
+    "Alloggi a disposizione Letti": "all. disposizione posti_letto",
 }
-
 
 ## popolazione 
 def standardize_upd_popolazione_2025(df, mapping_comuni):
