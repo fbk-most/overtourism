@@ -7,11 +7,16 @@ import logging
 from data_preparation.v2.utils.utils import (
     get_mapping,
     get_s3,
-
 )
-from data_preparation.v2.standardize_raw_data import standardize_mapping, standardize_popolazione, standardize_strutture
-from data_preparation.v2.utils.disaggregation import disaggregate
+from data_preparation.v2.standardize_raw_data import (
+    standardize_mapping, 
+    standardize_popolazione, 
+    standardize_strutture,
+    standardize_vodafone,
+    _pre_filtering_vodafone_attendences
+)
 import pandas as pd 
+import geopandas as geopd 
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,6 +47,7 @@ def standardize_upd_popolazione_2025(df, mapping_comuni):
 
 def standardize_upd_strutture_2024(mapping_comuni):
     """Adapts the strutture to the "standard" one in order to reuse standardize_strutture()"""
+    ## TODO: upload the version xlsx for consistency
     logging.info("Downloading strutture_annuario_2024.csv from S3...")
     df = pd.read_excel(
         get_s3("strutture_annuario_2024.ods"),
@@ -64,7 +70,6 @@ def standardize_upd_strutture_2025(mapping_comuni):
     df["anno"]=2025
     return standardize_strutture(df[["Comune", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comune")
 
-
 ## vodafone attendences 
 
 def standardize_upd_data():
@@ -72,6 +77,8 @@ def standardize_upd_data():
     logging.info("Downloading dataframe 'popolazione_2026_ISPAT'...")
     df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv")) 
     mapping_comuni = standardize_mapping(get_mapping("mapping_comuni_ISTAT.json"))
+    mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
+    geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
 
     popolazione_df = standardize_upd_popolazione_2025(df, mapping_comuni)
     print(popolazione_df.head())
@@ -82,7 +89,13 @@ def standardize_upd_data():
     strutture_25_df = standardize_upd_strutture_2025(mapping_comuni)
     print(strutture_25_df.head())
 
+    vodafone_df = pd.read_csv(get_s3("vodafone_attendences_new.csv"))
+    logging.info("Downloading dataframe 'vodafone_attendences_new.csv'...")
+    vodafone_df = _pre_filtering_vodafone_attendences(vodafone_df)
+    vodafone_df = standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data)
+
 ## UPDATE OF PHENOMENA
+## functions to define updates: save merged dataframes 
 
 if __name__=="__main__":
     standardize_upd_data()
