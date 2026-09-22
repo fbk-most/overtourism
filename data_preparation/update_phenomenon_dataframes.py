@@ -76,16 +76,17 @@ def standardize_upd_strutture_2024(mapping_comuni):
 
 def _remove_unnamed(df):
     """Removes unnamed from header"""
-    top = pd.Series([c[0] for c in df.columns]).where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
+    top = pd.Series([c[0] for c in df.columns])
+    top = top.where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
+    bottom = pd.Series([c[1] for c in df.columns])
 
     df = df.copy()
     df.columns = [
         str(t).strip() if str(b).startswith("Unnamed") or pd.isna(b)
         else f"{str(t).strip()} {str(b).strip()}"
-        for t, b in zip(top,  pd.Series([c[1] for c in df.columns]))
+        for t, b in zip(top, bottom)
     ]
     return df
-
 def standardize_upd_strutture_2025(mapping_comuni):
     """Adapts the strutture to the "standard" one in order to reuse standardize_strutture()"""
     df = pd.read_excel(get_s3("numero_strutture_ISPAT_2025.xlsx"), header=[0, 1])
