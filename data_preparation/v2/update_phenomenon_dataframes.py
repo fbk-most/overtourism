@@ -140,16 +140,14 @@ def standardize_upd_data(local = True, type_format = "csv"):
     ## download mapping and geojson data 
     logging.info("Downloading and standardizing mappings...") 
     mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
-    mapping_comuni = standardize_mapping(get_mapping("mapping_comuni_ISTAT.json"))
+    mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_apt= get_mapping("map_comuni_into_apt.json")
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
     
     logging.info("Downloading dataframe 'popolazione_2026_ISPAT.csv'...")
     popolazione_df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv")) 
-
     logging.info("Downloading dataframe 'vodafone_attendences_new.csv'...")
     vodafone_df = pd.read_csv(get_s3("vodafone_attendences_new.csv"))
-
     ## TODO: upload the version xlsx for consistency
     logging.info("Downloading strutture_annuario_2024.ods from S3...")
     strutture_24_df = pd.read_excel(get_s3("strutture_annuario_2024.ods"),engine='odf')
