@@ -13,6 +13,8 @@ from data_preparation.v2.standardize_raw_data import (
     standardize_popolazione, 
     standardize_strutture,
     standardize_vodafone,
+    standardize_presenze_ISPAT_alb,
+    standardize_presenze_ISPAT_extralb,
     _pre_filtering_vodafone_attendences
 )
 import pandas as pd 
@@ -32,6 +34,21 @@ RENAMING_STRUTTURE = {
     "Alloggi turistici Letti": "all. privati posti_letto",  
     "Alloggi a disposizione Numero": "all.disposizione numero",
     "Alloggi a disposizione Letti": "all. disposizione posti_letto",
+}
+
+MONTHS_MAPPING = {
+    "Gennaio": 1,
+    "Febbraio": 2,
+    "Marzo": 3,
+    "Aprile": 4,
+    "Maggio": 5,
+    "Giugno": 6,
+    "Luglio": 7,
+    "Agosto": 8,
+    "Settembre": 9,
+    "Ottobre": 10,
+    "Novembre": 11,
+    "Dicembre": 12,
 }
 
 ## popolazione 
@@ -57,15 +74,23 @@ def standardize_upd_strutture_2024(mapping_comuni):
     df["anno"] = 2024
     return standardize_strutture(df[["Comuni", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comuni")
 
+def _remove_unnamed(df):
+    """Removes unnamed from header"""
+    top = pd.Series([c[0] for c in df.columns]).where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
+
+    df = df.copy()
+    df.columns = [
+        str(t).strip() if str(b).startswith("Unnamed") or pd.isna(b)
+        else f"{str(t).strip()} {str(b).strip()}"
+        for t, b in zip(top,  pd.Series([c[1] for c in df.columns]))
+    ]
+    return df
 
 def standardize_upd_strutture_2025(mapping_comuni):
     """Adapts the strutture to the "standard" one in order to reuse standardize_strutture()"""
     df = pd.read_excel(get_s3("numero_strutture_ISPAT_2025.xlsx"), header=[0, 1])
 
-    df.columns = [
-        f"{col[0]} {col[1]}".strip() if "Unnamed" not in str(col[1]) else col[0] 
-        for col in df.columns
-    ]
+    df = _remove_unnamed(df)
     df = df.rename(columns=RENAMING_STRUTTURE)
     df["anno"]=2025
     return standardize_strutture(df[["Comune", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comune")
