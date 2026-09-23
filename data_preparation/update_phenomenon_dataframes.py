@@ -286,10 +286,8 @@ def standardize_upd_data(local = True, type_format = "csv"):
 ## UPDATE OF PHENOMENA
 ## functions to define updates: save merged dataframes 
 def _make_hashable(value):
-    """Converte un valore potenzialmente non-hashable (lista) in una forma
-    hashable stabile, per poterlo usare come chiave di drop_duplicates.
-    Liste -> tuple (ordinate, per stabilità indipendentemente dall'ordine
-    con cui i comuni sono stati raccolti a monte)."""
+    """Converts a non-hashable (list) item inot an hashable one, in order to use it in drop_duplicates.
+    Lists -> tuples (ordered)"""
     if isinstance(value, list):
         return tuple(sorted(value))
     return value
@@ -319,8 +317,7 @@ def merge_update(df_old: pd.DataFrame, df_new: pd.DataFrame, common_cols=None) -
 
 
 def merge_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
-    """Merge vecchio/nuovo per ciascun fenomeno. strutture_std riceve due
-    aggiornamenti in sequenza (2024 poi 2025)."""
+    """Merges old and new: strutture_std receives 2024 and then 2025."""
     pop_old, pop_new = old_dfs['popolazione_std'], new_dfs['popolazione_25_std']
     strutture_old, strutture_new_24, strutture_new_25 =  old_dfs['strutture_std'], new_dfs['strutture_24_std'], new_dfs['strutture_25_std']
     vodafone_old, vodafone_new = old_dfs['vodafone_std'], new_dfs['vodafone_25_std']
@@ -345,18 +342,20 @@ def merge_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
         "presenze_extralb_apt_std": new_dfs["presenze_extralb_25_apt_std"],  # new granularity
     }
 
-
-if __name__=="__main__":
-    old_dfs = standardize_base_raw_data(local=True, type_format="parquet")
-    new_dfs = standardize_upd_data(local=True, type_format="parquet")
-    merged_dfs = merge_dataframes(old_dfs, new_dfs)
-
+def save_merged(merged_dfs,type_format = "csv"):
     save_path = Path(SAVEPATH_STD_DATA_MERGED).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
     save_computed_dfs(
         dict_dfs=merged_dfs,
         local=True,
-        type_format="parquet",
+        type_format=type_format,
         path_saving=save_path,
     )
+
+if __name__=="__main__":
+    ## ENTIRE PIPELINE:
+    old_dfs = standardize_base_raw_data(local=True, type_format="csv")
+    new_dfs = standardize_upd_data(local=True, type_format="csv")
+    merged_dfs = merge_dataframes(old_dfs, new_dfs)
+    save_merged(merged_dfs)
     print("Process finished.")
