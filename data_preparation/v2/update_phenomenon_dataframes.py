@@ -15,7 +15,9 @@ from data_preparation.v2.standardize_raw_data import (
     standardize_strutture,
     standardize_vodafone,
     standardize_presenze_ISPAT_alb,
-    _pre_filtering_vodafone_attendences
+    _pre_filtering_vodafone_attendences,
+    standardize_base_raw_data,
+    standard_ordering_cols
 )
 from pathlib import Path 
 import pandas as pd 
@@ -23,7 +25,9 @@ import geopandas as geopd
 
 logging.basicConfig(level=logging.INFO)
 SAVEPATH_STD_DATA_UPD = Path(__file__).parent / "data_std" / "updated"
+SAVEPATH_STD_DATA_MERGED = Path(__file__).parent / "data_std" / "merged_std"
 
+BASE_COLS = ["DATA", "LOCATION", "ID_COMUNE"]
 ## STANDARDIZATION OF NEW DATA 
 RENAMING_STRUTTURE = {
     "Esercizi alberghieri Numero": "alberghieri strutture",
@@ -131,7 +135,7 @@ def _read_grouped_presenze_tsv(data_source, sep: str = "\t") -> pd.DataFrame:
 def standardize_upd_popolazione_2025(df, mapping_comuni):
     """Standardization function for popolazione"""
     # popolazione del 2025 calcolata come media aritmetica 
-    df['popolazione'] = ((df['Popolazione residente al 1.1.2025'] + df['Popolazione residente al 1.1.2026']) / 2).round().astype(int)    # dataframe containing daata 1 gen 2025 + 1 gen 2026
+    df['popolazione'] = ((df['Popolazione residente al 1.1.2025'] + df['Popolazione residente al 1.1.2026']) / 2).round().astype(int)    # dataframe containing data 1 gen 2025 + 1 gen 2026
     df = df.sort_values(by = "Comuni") 
     df['anno'] = 2025
     return standardize_popolazione(df, mapping_comuni, comune_col = "Comuni", date_col= "anno")
@@ -267,7 +271,7 @@ def standardize_upd_data(local = True, type_format = "csv"):
     dict_dfs = {
         "popolazione_25_std" : popolazione_df,
         "strutture_24_std" : strutture_24_df,
-        "strutture_24_std" : strutture_25_df,
+        "strutture_25_std" : strutture_25_df,
         "vodafone_25_std" : vodafone_df,
         "presenze_alb_25_std" : presenze_ispat,
         "presenze_extralb_25_apt_std" : presenze_extralb_apt_df,
@@ -276,11 +280,83 @@ def standardize_upd_data(local = True, type_format = "csv"):
     save_path = Path(SAVEPATH_STD_DATA_UPD).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
     save_computed_dfs(dict_dfs=dict_dfs, local = local, type_format = type_format, path_saving=save_path)
-    return dict_dfs.values()
+    return dict_dfs
 
 
 ## UPDATE OF PHENOMENA
 ## functions to define updates: save merged dataframes 
+def _make_hashable(value):
+    """Converte un valore potenzialmente non-hashable (lista) in una forma
+    hashable stabile, per poterlo usare come chiave di drop_duplicates.
+    Liste -> tuple (ordinate, per stabilità indipendentemente dall'ordine
+    con cui i comuni sono stati raccolti a monte)."""
+    if isinstance(value, list):
+        return tuple(sorted(value))
+    return value
+
+
+def merge_update(df_old: pd.DataFrame, df_new: pd.DataFrame, common_cols=None) -> pd.DataFrame:
+    """Merges old and new: checks the columns and updates the data if there is some intersection.
+    If common_cols is set to None, df_old.columns are used as reference"""
+    if common_cols is None:
+        common_cols = list(df_old.columns)
+
+    all_cols = set(BASE_COLS) | set(common_cols)
+    ## si presume questi assert passino dopo la standardizzazione
+    assert all_cols.issubset(df_old.columns), f"Columns {all_cols - set(df_old.columns)} not found in old DF"
+    assert all_cols.issubset(df_new.columns), f"Columns {all_cols - set(df_new.columns)} not found in new DF"
+
+    merged = pd.concat([df_old[list(all_cols)], df_new[list(all_cols)]], ignore_index=True)
+    dedup_key = merged["ID_COMUNE"].apply(_make_hashable)  # we use tuple to avoid type problems 
+
+    merged = (
+        merged.assign(_dedup_key=dedup_key)
+        .drop_duplicates(subset=["DATA", "_dedup_key"], keep="last")
+        .drop(columns="_dedup_key")
+    )
+    # print(merged["ID_COMUNE"].apply(type).value_counts())
+    return standard_ordering_cols(merged.sort_values(by=['DATA', 'LOCATION']).reset_index(drop=True))
+
+
+def merge_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
+    """Merge vecchio/nuovo per ciascun fenomeno. strutture_std riceve due
+    aggiornamenti in sequenza (2024 poi 2025)."""
+    pop_old, pop_new = old_dfs['popolazione_std'], new_dfs['popolazione_25_std']
+    strutture_old, strutture_new_24, strutture_new_25 =  old_dfs['strutture_std'], new_dfs['strutture_24_std'], new_dfs['strutture_25_std']
+    vodafone_old, vodafone_new = old_dfs['vodafone_std'], new_dfs['vodafone_25_std']
+    presenze_alb_old, presenze_alb_new = old_dfs['presenze_alb_std'], new_dfs['presenze_alb_25_std']
+    presenze_xalb_old, presenze_xalb_new = old_dfs['presenze_extralb_std'], new_dfs['presenze_extralb_25_prov_std']
+    
+    popolazione = merge_update(pop_old, pop_new, common_cols = ['popolazione'])
+
+    strutture = merge_update(strutture_old, strutture_new_24)  # in this case, they have the same structure, so default common cols is used
+    strutture = merge_update(strutture, strutture_new_25)
+    vodafone = merge_update(vodafone_old, vodafone_new)
+
+    presenze_alb = merge_update(presenze_alb_old, presenze_alb_new)
+    presenze_extralb = merge_update(presenze_xalb_old,presenze_xalb_new)
+
+    return {
+        "popolazione_std": popolazione,
+        "strutture_std": strutture,
+        "vodafone_std": vodafone,
+        "presenze_alb_std": presenze_alb,
+        "presenze_extralb_std": presenze_extralb,
+        "presenze_extralb_apt_std": new_dfs["presenze_extralb_25_apt_std"],  # new granularity
+    }
+
 
 if __name__=="__main__":
-    standardize_upd_data()
+    old_dfs = standardize_base_raw_data(local=True, type_format="parquet")
+    new_dfs = standardize_upd_data(local=True, type_format="parquet")
+    merged_dfs = merge_dataframes(old_dfs, new_dfs)
+
+    save_path = Path(SAVEPATH_STD_DATA_MERGED).resolve()
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_computed_dfs(
+        dict_dfs=merged_dfs,
+        local=True,
+        type_format="parquet",
+        path_saving=save_path,
+    )
+    print("Process finished.")
