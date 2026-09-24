@@ -151,6 +151,79 @@ def check_consistency_popolazione_dfs():
     mgs['diff_percentuale'] = (mgs['diff_assoluta'] / mgs['popolazione']) * 100
     print(mgs.diff_percentuale.describe())
 
+def _remove_unnamed(df):
+    """Removes unnamed from header.
+    If the columns are already flat strings (as in the reconstructed TSVs), this is a no-op and we leave them untouched.
+    """
+    if not isinstance(df.columns, pd.MultiIndex):
+        return df.copy()
+
+    top = pd.Series([c[0] for c in df.columns])
+    top = top.where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
+    bottom = pd.Series([c[1] for c in df.columns])
+
+    df = df.copy()
+    df.columns = [
+        str(t).strip() if str(b).startswith("Unnamed") or pd.isna(b)
+        else f"{str(t).strip()} {str(b).strip()}"
+        for t, b in zip(top, bottom)
+    ]
+    return df
+
+def _read_grouped_presenze_tsv(data_source, sep: str = "\t") -> pd.DataFrame:
+    """
+    This function reshapes the grouped header into flat columns, like: Mese, Esercizi alberghieri Italiani, Esercizi alberghieri Stranieri, ...
+    """
+    if hasattr(data_source, "read"):
+        data = data_source.getvalue().decode("utf-8")
+        lines = [ln.rstrip("\n") for ln in data.splitlines() if ln.strip()]
+        path_desc = "buffer"
+    else:
+        path = str(data_source)
+        with open(path, "r", encoding="utf-8") as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        path_desc = path
+
+    if len(lines) < 2:
+        raise ValueError(f"File troppo corto per header a 2 righe: {path_desc}")
+
+    first = [c.strip() for c in lines[0].split(sep)]
+    second = [c.strip() for c in lines[1].split(sep)]
+
+    groups = [c for c in first if c and c.lower() != "mese"]
+    if not groups:
+        raise ValueError(f"Header della prima riga non riconosciuto: {first}")
+
+    names = ["Mese"]
+    for group in groups:
+        names.extend([f"{group} Italiani", f"{group} Stranieri", f"{group} Totale"])
+
+    if len(names) != len(second) + 1:
+        # Fallback: if the file is already sufficiently aligned, read it with a
+        # MultiIndex-like structure instead of manually reconstructing names.
+        if hasattr(data_source, "read"):
+            return pd.read_csv(data_source, sep=sep, header=[0, 1], dtype=str)
+        return pd.read_csv(path_desc, sep=sep, header=[0, 1], dtype=str)
+
+    if hasattr(data_source, "read"):
+        return pd.read_csv(
+            pd.io.common.StringIO(data),
+            sep=sep,
+            header=None,
+            names=names,
+            skiprows=2,
+            dtype=str,
+        )
+
+    return pd.read_csv(
+        path_desc,
+        sep=sep,
+        header=None,
+        names=names,
+        skiprows=2,
+        dtype=str,
+    )
+
 ## S3 utilities
 
 
