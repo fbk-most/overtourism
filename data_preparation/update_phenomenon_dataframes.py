@@ -7,7 +7,9 @@ import logging
 from data_preparation.v2.utils.utils import (
     get_mapping,
     get_s3,
-    save_computed_dfs
+    save_computed_dfs,
+    _read_grouped_presenze_tsv,
+    _remove_unnamed
 )
 from data_preparation.v2.standardize_raw_data import (
     standardize_presenze_ISPAT_extralb,
@@ -15,9 +17,9 @@ from data_preparation.v2.standardize_raw_data import (
     standardize_strutture,
     standardize_vodafone,
     standardize_presenze_ISPAT_alb,
-    _pre_filtering_vodafone_attendences,
     standardize_base_raw_data,
-    standard_ordering_cols
+    standard_ordering_cols,
+    _pre_filtering_vodafone_attendences,
 )
 from pathlib import Path 
 import pandas as pd 
@@ -57,80 +59,6 @@ MONTHS_MAPPING = {
     "Dicembre": 12,
 }
 
-def _remove_unnamed(df):
-    """Removes unnamed from header.
-
-    If the columns are already flat strings (as in the reconstructed TSVs), this is a no-op and we leave them untouched.
-    """
-    if not isinstance(df.columns, pd.MultiIndex):
-        return df.copy()
-
-    top = pd.Series([c[0] for c in df.columns])
-    top = top.where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
-    bottom = pd.Series([c[1] for c in df.columns])
-
-    df = df.copy()
-    df.columns = [
-        str(t).strip() if str(b).startswith("Unnamed") or pd.isna(b)
-        else f"{str(t).strip()} {str(b).strip()}"
-        for t, b in zip(top, bottom)
-    ]
-    return df
-
-def _read_grouped_presenze_tsv(data_source, sep: str = "\t") -> pd.DataFrame:
-    """
-    This function reshapes the grouped header into flat columns, like: Mese, Esercizi alberghieri Italiani, Esercizi alberghieri Stranieri, ...
-    """
-    if hasattr(data_source, "read"):
-        data = data_source.getvalue().decode("utf-8")
-        lines = [ln.rstrip("\n") for ln in data.splitlines() if ln.strip()]
-        path_desc = "buffer"
-    else:
-        path = str(data_source)
-        with open(path, "r", encoding="utf-8") as f:
-            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
-        path_desc = path
-
-    if len(lines) < 2:
-        raise ValueError(f"File troppo corto per header a 2 righe: {path_desc}")
-
-    first = [c.strip() for c in lines[0].split(sep)]
-    second = [c.strip() for c in lines[1].split(sep)]
-
-    groups = [c for c in first if c and c.lower() != "mese"]
-    if not groups:
-        raise ValueError(f"Header della prima riga non riconosciuto: {first}")
-
-    names = ["Mese"]
-    for group in groups:
-        names.extend([f"{group} Italiani", f"{group} Stranieri", f"{group} Totale"])
-
-    if len(names) != len(second) + 1:
-        # Fallback: if the file is already sufficiently aligned, read it with a
-        # MultiIndex-like structure instead of manually reconstructing names.
-        if hasattr(data_source, "read"):
-            return pd.read_csv(data_source, sep=sep, header=[0, 1], dtype=str)
-        return pd.read_csv(path_desc, sep=sep, header=[0, 1], dtype=str)
-
-    if hasattr(data_source, "read"):
-        return pd.read_csv(
-            pd.io.common.StringIO(data),
-            sep=sep,
-            header=None,
-            names=names,
-            skiprows=2,
-            dtype=str,
-        )
-
-    return pd.read_csv(
-        path_desc,
-        sep=sep,
-        header=None,
-        names=names,
-        skiprows=2,
-        dtype=str,
-    )
-
 ## popolazione 
 def standardize_upd_popolazione_2025(df, mapping_comuni):
     """Standardization function for popolazione"""
@@ -140,7 +68,8 @@ def standardize_upd_popolazione_2025(df, mapping_comuni):
     df['anno'] = 2025
     return standardize_popolazione(df, mapping_comuni, comune_col = "Comuni", date_col= "anno")
 
-## strutture annuario 
+## strutture annuario     
+
 def standardize_upd_strutture_2024(df, mapping_comuni):
     """Adapts the strutture 2024 to the "standard" one in order to reuse standardize_strutture()"""
     df = df.rename(columns=RENAMING_STRUTTURE)
@@ -155,7 +84,7 @@ def standardize_upd_strutture_2025(df, mapping_comuni):
     return standardize_strutture(df[["Comune", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comune")
 
 ## presenze ispat (ALB/EXTRALB)
-def _process_presenze_ispat_2025(df, apts, mapping, anno=2025):
+def _process_presenze_ispat_2025(df, apts, anno=2025):
     """Logica comune per estrarre e pulire i dati delle presenze ISPAT 2025"""
     columns = [("Mese", "")]
     for ambito in apts[1:]:
@@ -189,11 +118,11 @@ def _process_presenze_ispat_2025(df, apts, mapping, anno=2025):
     return long_df[["Ambito", "Anno", "Mese", "Presenze"]]  # now it's in the right format to be given as input of standardization 
 
 def standardize_upd_presenze_alb_2025(df, apts, mapping, anno=2025):
-    long_df = _process_presenze_ispat_2025(df, apts, mapping, anno)
+    long_df = _process_presenze_ispat_2025(df, apts, anno)
     return standardize_presenze_ISPAT_alb(long_df, mapping)
 
 def standardize_upd_presenze_extralb_apt_2025(df, apts, mapping, anno=2025):
-    long_df = _process_presenze_ispat_2025(df, apts, mapping, anno)
+    long_df = _process_presenze_ispat_2025(df, apts, anno)
     std_df = standardize_presenze_ISPAT_alb(long_df, mapping) # standardizes with alb procedure because it's at atp granularity 
     return std_df.rename(columns={"presenze_alb": "presenze_xalb"}) 
 
@@ -235,26 +164,26 @@ def standardize_upd_data(local = True, type_format = "csv"):
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
     
     logging.info("Downloading dataframe 'popolazione_2026_ISPAT.csv'...")
-    popolazione_df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv")) 
+    popolazione_df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv"))  #  download from ISPAT 
     logging.info("Downloading dataframe 'vodafone_attendences_new.csv'...")
     vodafone_df = pd.read_csv(get_s3("vodafone_attendences_new.csv"))
     ## TODO: upload the version xlsx for consistency
     logging.info("Downloading strutture_annuario_2024.ods from S3...")
-    strutture_24_df = pd.read_excel(get_s3("strutture_annuario_2024.ods"),engine='odf')
+    strutture_24_df = pd.read_excel(get_s3("strutture_annuario_2024.ods"),engine='odf')  # download from ISPAT 
 
     logging.info("Downloading strutture_annuario_2025.xlsx'...")
     strutture_25_df = pd.read_excel(get_s3("numero_strutture_ISPAT_2025.xlsx"), header=[0, 1])
 
     logging.info("Downloading presenze_alb_2025.csv from S3...")
-    raw_alb = pd.read_csv(get_s3("presenze_alb_2025.csv"), sep="\t", header=None, skiprows=2, dtype=str)
+    raw_alb = pd.read_csv(get_s3("presenze_alb_2025.csv"), sep="\t", header=None, skiprows=2, dtype=str)   # download from ISPAT 
     apts = [x.strip() for x in get_s3("presenze_alb_2025.csv").getvalue().decode("utf-8").splitlines()[0].split("\t")]
 
     logging.info("Downloading presenze_xalb_2025.csv from S3...")
-    presenze_extralb_apt_df = pd.read_csv(get_s3("presenze_xalb_2025.csv"), sep="\t", header=None, skiprows=2, dtype=str)
+    presenze_extralb_apt_df = pd.read_csv(get_s3("presenze_xalb_2025.csv"), sep="\t", header=None, skiprows=2, dtype=str)   # download from ISPAT 
     apts_extralb = [x.strip() for x in get_s3("presenze_xalb_2025.csv").getvalue().decode("utf-8").splitlines()[0].split("\t")]
 
     logging.info("Downloading presenze_xalb_2025_prov.csv from S3...")
-    raw_extralb_provincia = _read_grouped_presenze_tsv(get_s3("presenze_xalb_2025_prov.csv"))
+    raw_extralb_provincia = _read_grouped_presenze_tsv(get_s3("presenze_xalb_2025_prov.csv"))   # download from ISPAT 
 
     logging.info("Standardization of data...")
     popolazione_df = standardize_upd_popolazione_2025(popolazione_df, mapping_comuni)
