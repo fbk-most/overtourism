@@ -18,15 +18,25 @@ from data_preparation.v2.utils.utils import (
 SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
 
 ## CONSTANT VARIABLES 
+## just the minimal cols 
+
 STRUTTURE_VALUE_COLS = [
     "tot_postiletto_non_conv",
-    "tot_postiletto_conv",    
     "tot_postiletto",
     "tot_strutture_non_conv",
-    "tot_strutture_conv",
     "tot_strutture",
-    "tot_postiletto_alberghieri",
-    "tot_postiletto_extralberghieri"
+]
+VODAFONE_VALUE_COLS = [
+    'presenze'
+]
+POPOLAZIONE_VALUE_COLS = [
+    "popolazione"
+]
+PRESENZE_ALB_VALUE_COLS = [
+    "presenze_alb"
+]
+PRESENZE_XALB_VALUE_COLS = [
+    'presenze_xalb'  # presenze_alb
 ]
 
 COMUNE_NAME_OVERRIDES = {
@@ -44,194 +54,30 @@ COMUNE_NAME_OVERRIDES = {
     "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
 }
 
-CATEGORIA_ALBERGHIERI_LETTI = "alberghieri posti_letto"
-CATEGORIA_EXTRALBERGHIERI_LETTI = "extra alb. Posti_letto"
-
-# Aggiunte
-CATEGORIA_ALBERGHIERI_STRUTTURE = "alberghieri strutture"
-CATEGORIA_EXTRALBERGHIERI_STRUTTURE = "extra alb. Strutture"
-
-CATEGORIA_ALLOGGI_PRIVATI = "all. privati numero"
-CATEGORIA_ALLOGGI_PRIVATI_LETTI = "all. privati posti_letto"
-
-CATEGORIA_TOT_CONVENZIONALI_LETTI = "tot convenzionali posti_letto"
-CATEGORIA_TOT_CONVENZIONALI = "tot convenzionali strutture"
-
-## STANDARDIZATION:
-## The following functions are used to standardize all the datasets in a common format  
-
-## Filtering helper functions: used for filtering the dataframes of interest
-def _pre_filtering_strutture(df, min_year, year_col="anno"):
-    """Excludes years pre-2020, geography changes for munidcipalities aggregations"""
-    return df[df[year_col] > min_year].copy()
-
-def _pre_filtering_vodafone_attendences(df):
-    "Pre-filtering presences on tourists and municipalities"
-    return df[
-        (df["userProfile"] == "TOURIST")
-        & (df["locType"] == "TN_MKT_AL_3")
-    ].copy()
-
-
-# Standardization function
-def _standardize(df, date_col= "anno", remove_provincia=True, df_name = None) -> pd.DataFrame:
-    """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
-    logging.info(
-        "Applying standardization to data%s",
-        f" '{df_name}'" if df_name else ""
-    )   
-    if remove_provincia:
-        df = _remove_provincia(df, upper=True)
-    df = _to_data_location(df, date_col=date_col)
-    if "ID_COMUNE" not in df.columns:
-        logging.info("No ID_COMUNE column found")
-    else:
-        df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    return df
-
-
-## Spectific functions 
-def standardize_popolazione(df, mapping_comuni) -> pd.DataFrame:
-    """Standardizes popolazione df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode)
-    df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    return standard_ordering_cols(_standardize(df, date_col="anno", df_name = "popolazione_df"))
-
-def standardize_strutture(df, mapping_comuni, logging_errors = True):
-    """Standardizes strutture df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode)
-    df["ID_COMUNE"] = df["comune"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
-    df = _standardize(df, date_col="anno", df_name = "strutture_df")
-
-    df = df.rename(columns={
-        CATEGORIA_ALBERGHIERI_LETTI: "tot_postiletto_alberghieri",
-        CATEGORIA_EXTRALBERGHIERI_LETTI: "tot_postiletto_extralberghieri",
-        
-        # added
-        CATEGORIA_ALBERGHIERI_STRUTTURE : "tot_strutture_alberghiere",
-        CATEGORIA_EXTRALBERGHIERI_STRUTTURE : "tot_strutture_extralberghiere",
-
-        CATEGORIA_ALLOGGI_PRIVATI: "tot_strutture_non_conv",
-        CATEGORIA_ALLOGGI_PRIVATI_LETTI: "tot_postiletto_non_conv",
-
-        CATEGORIA_TOT_CONVENZIONALI_LETTI: "tot_postiletto_conv",
-        CATEGORIA_TOT_CONVENZIONALI: "tot_strutture_conv"
-    })
-
-    df["tot_strutture"] = (
-        df["tot_strutture_conv"]
-        + df["tot_strutture_non_conv"]
-    )
-
-    df["tot_postiletto"] = (
-        df["tot_postiletto_conv"]
-        + df["tot_postiletto_non_conv"]
-    )
-    unmatched_mask = df["ID_COMUNE"].isna()
-    if unmatched_mask.any():
-        fallback_names = df.loc[
-            unmatched_mask, "LOCATION"
-        ].map(COMUNE_NAME_OVERRIDES)
-        df.loc[unmatched_mask, "ID_COMUNE"] = (
-            fallback_names.map(mapping_comuni)
-        )
-        df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])   # re-apply padding on these IDs 
-
-    if logging_errors:
-        num_errate = (df["tot_postiletto_conv"] !=(
-                df["tot_postiletto_alberghieri"] + df["tot_postiletto_extralberghieri"]
-            )).sum()
-
-        if num_errate > 0 : 
-            logging.warning(f"Number of lines such that tot letti convenzionali != sum(letti alberghieri, letti extralberghieri): {num_errate} su {len(df)}")
-            logging.warning("Considering sum as the correct value")
-
-        err_strutture = (df["tot_strutture_conv"] != (df["tot_strutture_alberghiere"] + df["tot_strutture_extralberghiere"])).sum()
-        if err_strutture > 0:
-            logging.warning(f"Mismatch strutture convenzionali in {err_strutture}/{len(df)} lines")
+RENAMING_STRUTTURE = {
+    "alberghieri posti_letto": "tot_postiletto_alberghieri",
+    "extra alb. Posti_letto": "tot_postiletto_extralberghieri",
     
-        still_missing = df[df["ID_COMUNE"].isna()]["LOCATION"].unique()
-        if len(still_missing) > 0:
-            print(
-                f"[compute_strutture] WARNING: could not find ID_COMUNE for "
-                f"{len(still_missing)} comune(s): {sorted(still_missing)}"
-            )             
-    return standard_ordering_cols(df[["DATA", "LOCATION", "ID_COMUNE"] + STRUTTURE_VALUE_COLS])
+    "alberghieri strutture" : "tot_strutture_alberghiere",
+    "extra alb. Strutture" : "tot_strutture_extralberghiere",
 
+    "all. privati numero": "tot_strutture_non_conv",
+    "all. privati posti_letto": "tot_postiletto_non_conv",
 
-def standardize_vodafone(df, mapping_vodafone, geojson_comuni_json_data):
-    """Standardizes presences df, registered by vodafone, granularity: vodafone aggregations, daily"""
+    "tot convenzionali posti_letto": "tot_postiletto_conv",
+    "tot convenzionali strutture": "tot_strutture_conv"
+}
+
+## 0. HELPER FUNCTIONS
+def convert_vodafone_comuni(df, geojson_comuni_json_data):
+    """Helper function for conversion from locId geojson to comune"""
     location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
-    df["comune"] = df["locId"].map(
+    return df["locId"].map(
         location_map
     )
-    df["ID_COMUNE"] = df["comune"].map(
-        mapping_vodafone
-    )
-    # Unify Vigo di Fassa and Pozza di Fassa
-    logging.info(
-        "Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)"
-    )
 
-    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
-    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
-    df.loc[mask, "ID_COMUNE"] = pd.Series([[22250]] * mask.sum(), index=df.index[mask], dtype=object)
-
-    df = _standardize(df, date_col = "date", df_name = "vodafone_df")
-    df.rename(columns = {"value": "presenze"}, inplace = True)
-    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
-    return standard_ordering_cols(df) 
-
-
-def standardize_presenze_ISPAT_alb(df, mapping_comuni):
-    """Standardizes presences df, alb, granularity: APT, monthly"""
-    df.rename(columns={"Ambito": "comune", "Presenze": "presenze_alb"}, inplace=True)
-    df["data"] = pd.to_datetime(
-        {
-            "year": df["Anno"].astype(int),
-            "month": df["Mese"],
-            "day": 1,
-        }
-    )
-    df.drop(columns=["Anno", "Mese"], inplace=True)
-    df["ID_COMUNE"] = df["comune"].map(mapping_comuni).apply(
-        lambda x: [int(i) for i in x] if isinstance(x, list) else x
-    )
-    df =_standardize(
-        df.sort_values(by=["comune", "data"]).reset_index(drop=True), 
-        date_col = 'data',
-        df_name = "presenze_alb_df"
-        )
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
-    return standard_ordering_cols(df) 
-
-
-def standardize_presenze_ISPAT_extralb(df, mapping_comuni):
-    """Standardizes presences df, extra-alb, granularity: provincia, monthly"""
-    df.rename(
-        columns={
-            "Presenze alberghi": "presenze_alb",
-            "Presenze extra-alberghi": "presenze_xalb",
-        },
-        inplace=True,
-    )
-    df["data"] = pd.to_datetime(
-        {
-            "year": df["Anno"].astype(int),
-            "month": df["Mese"],
-            "day": 1,
-        }
-    )
-    df.drop(columns=["Anno", "Mese"], inplace=True)
-    df.sort_values(by = "data")
-    df["comune"] = "PROVINCIA"
-    df["ID_COMUNE"] = [list(mapping_comuni.values())] * len(df)
-    df = _standardize(df, date_col = "data", remove_provincia = False, df_name="presenze_extralb_df")
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
-    return standard_ordering_cols(df) 
-
-
-def standardize_base_raw_data(local = True, type_format = "csv"):
+## 1. LOADING RAW DATA 
+def load_raw_data():
     """Leading raw data to a standardized format"""
     ## updload mapping and geojson data 
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
@@ -252,31 +98,206 @@ def standardize_base_raw_data(local = True, type_format = "csv"):
     presenze_df_extralb = pd.read_csv(get_s3("presenze_Trentino_ISPAT_alb_xalb.csv"))
     logging.info("Downloading mapping_ids/map_comuni_into_apt.json from S3...")
 
-    ## Filtering step (to select just data of interest)
-    strutture_df = _pre_filtering_strutture(strutture_df, min_year = 2019)
-    vodafone_df = _pre_filtering_vodafone_attendences(vodafone_df)
+    return {
+            "mapping_comuni" : mapping_comuni, 
+            "mapping_vodafone": mapping_vodafone, 
+            "mapping_apt": mapping_apt,
+            "geojson_comuni_json_data": geojson_comuni_json_data,
+            "popolazione_df": popolazione_df,
+            "strutture_df": strutture_df, 
+            "vodafone_df": vodafone_df, 
+            "presenze_df_alb": presenze_ispat,
+            "presenze_df_extralb": presenze_df_extralb
+        }
 
-    # Standardize data
-    popolazione_df = standardize_popolazione(popolazione_df, mapping_comuni)
-    strutture_df = standardize_strutture(strutture_df, mapping_comuni)
-    vodafone_df = standardize_vodafone(vodafone_df, mapping_vodafone, geojson_comuni_json_data)
-    presenze_df_alb = standardize_presenze_ISPAT_alb(presenze_ispat, mapping_apt)
-    presenze_df_extralb = standardize_presenze_ISPAT_extralb(presenze_df_extralb, mapping_comuni)
 
-    dict_dfs = {
+## STANDARDIZATION:
+## The following functions are used to standardize all the datasets in a common format  
+
+## Filtering helper functions: used for filtering the dataframes of interest
+
+def _filtering_strutture(df, min_year, year_col="DATA"):
+    """Excludes years pre-2020, geography changes for munidcipalities aggregations"""
+    return df[df[year_col] > min_year].copy()
+
+def _filtering_vodafone_attendences(df):
+    "Filtering presences on tourists and municipalities"
+    return df[
+        (df["userProfile"] == "TOURIST")
+        & (df["locType"] == "TN_MKT_AL_3")
+    ].copy()
+
+# Standardization function
+
+def _standardize_columns(df, date_col = "anno", df_name = None):
+    """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
+    logging.info(
+        "Applying standardization to data%s",
+        f" '{df_name}'" if df_name else ""
+    )   
+    df = _to_data_location(df, date_col=date_col)
+    return df 
+
+
+## 2. STANDARDIZATION: putting the columns in a standard format 
+def standardize_popolazione_columns(df) -> pd.DataFrame:
+    """Standardizes popolazione df, granularity: municipality, yearly"""
+    df["comune"] = df["comune"].apply(customize_unidecode) # riformattiamo i nomi dei comuni 
+    return standard_ordering_cols(_standardize_columns(df, date_col="anno", df_name = "popolazione_df"))
+
+def standardize_strutture_columns(df) -> pd.DataFrame:
+    """Standardizes strutture df, granularity: municipality, yearly"""
+    df["comune"] = df["comune"].apply(customize_unidecode)
+    return standard_ordering_cols(_standardize_columns(df, date_col="anno", df_name = "strutture_df"))
+
+def standardize_vodafone_columns(df,geojson_comuni_json_data):
+    """Standardizes strutture df, granularity: vodafone areas, daily"""
+    df["comune"] = convert_vodafone_comuni(df,geojson_comuni_json_data)
+    # Unify Vigo di Fassa and Pozza di Fassa
+    logging.info(
+        "Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)"
+    )
+    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
+    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
+
+    df = _standardize_columns(df, date_col = "date", df_name = "vodafone_df")
+    df.rename(columns = {"value": "presenze"}, inplace = True)
+    return standard_ordering_cols(df)
+
+def stadardize_presenze_columns(df, cols_renaming:dict):
+    """Standardizes presences df, alb, granularity: APT, monthly"""
+    df.rename(columns = cols_renaming, inplace=True)
+    df["data"] = pd.to_datetime(
+        {
+            "year": df["Anno"].astype(int),
+            "month": df["Mese"],
+            "day": 1,
+        }
+    )
+    df =_standardize_columns(
+            df,
+            date_col = 'data',
+            df_name = "presenze_df"
+        )
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return standard_ordering_cols(df)
+
+def standardize_columns(dict_raw_data):
+    # 2. Standardize data
+    popolazione_df = standardize_popolazione_columns(dict_raw_data['popolazione_df'])
+    strutture_df = standardize_strutture_columns(dict_raw_data['strutture_df'])
+    vodafone_df = standardize_vodafone_columns(dict_raw_data['vodafone_df'], geojson_comuni_json_data=dict_raw_data['geojson_comuni_json_data'])
+    presenze_df_alb = stadardize_presenze_columns(dict_raw_data['presenze_df_alb'],cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"}) 
+    presenze_df_extralb = stadardize_presenze_columns(dict_raw_data['presenze_df_extralb'], cols_renaming={"Presenze alberghi": "presenze_alb","Presenze extra-alberghi": "presenze_xalb",})
+
+    return {
         "popolazione_std" : popolazione_df,
         "strutture_std" : strutture_df,
         "vodafone_std" : vodafone_df,
         "presenze_alb_std" : presenze_df_alb,
-        "presenze_extralb_std" : presenze_df_extralb
-    }
+        "presenze_extralb_std": presenze_df_extralb,
+        "mapping_comuni": dict_raw_data['mapping_comuni'],
+        "mapping_vodafone": dict_raw_data['mapping_vodafone'],
+        "mapping_apt": dict_raw_data['mapping_apt']
+        }
+
+## 3. PROCESS DATA: Take the desired columns, filtering ...
+
+def process_popolazione(df, mapping_comuni):
+    df["ID_COMUNE"] = df["LOCATION"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+    df = _remove_provincia(df, comune_col="LOCATION")
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])   
+    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + POPOLAZIONE_VALUE_COLS])
+
+    
+def process_strutture(df, mapping_comuni):
+    df = _filtering_strutture(df, 2019)
+    df = _remove_provincia(df, comune_col="LOCATION")
+    df = df.rename(columns=RENAMING_STRUTTURE)
+
+    # Compute total as the sum of CONV and NON CONV 
+    df["tot_strutture"] = (
+        df["tot_strutture_conv"]
+        + df["tot_strutture_non_conv"]
+    )
+    df["tot_postiletto"] = (
+        df["tot_postiletto_conv"]
+        + df["tot_postiletto_non_conv"]
+    )
+    # Set ID_COMUNE (resolving the bilingual overrides)
+    df["ID_COMUNE"] = df["LOCATION"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+
+    if df["ID_COMUNE"].isna().any():
+        if len(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].unique()) > 0:
+            logging.warning(
+                f"[process_strutture] Nessun ID_COMUNE trovato (anche con overrides) per: {sorted(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].unique())}"
+            )
+
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])   # apply padding on these IDs
+    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + STRUTTURE_VALUE_COLS])
+
+def process_vodafone(df, mapping_vodafone):
+    """Standardizes presences df, registered by vodafone, granularity: vodafone aggregations, daily"""
+    ## Filtering the attendences on COMUNI & TURISTI 
+    df = _filtering_vodafone_attendences(df)
+    df["ID_COMUNE"] = df["LOCATION"].map(
+        mapping_vodafone
+    )
+    mask = (df["LOCATION"] == 'SAN GIOVANNI DI FASSA')
+    df.loc[mask, "ID_COMUNE"] = pd.Series([[22250]] * mask.sum(), index=df.index[mask], dtype=object)
+    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
+    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + VODAFONE_VALUE_COLS]) 
+
+
+def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia = False):
+    """Standardizes presences df, alb, granularity: APT, monthly"""
+    df.drop(columns=["Anno", "Mese"], inplace=True)
+    df.sort_values(by = "DATA")
+    if provincia: 
+        df["LOCATION"] = "PROVINCIA"
+        df["ID_COMUNE"] = [list(mapping_comuni.values())] * len(df)
+    else:
+        df["ID_COMUNE"] = df["LOCATION"].map(mapping_comuni).apply(
+            lambda x: [int(i) for i in x] if isinstance(x, list) else x
+        )
+        df = _remove_provincia(df,"LOCATION", True)
+    df['ID_COMUNE'] = pad_id_comune(df["ID_COMUNE"])    
+    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + value_cols])
+
+
+def process_data(dict_std_data):
+    # 3. Process data
+    popolazione_df = process_popolazione(dict_std_data['popolazione_std'], dict_std_data['mapping_comuni'])
+    strutture_df = process_strutture(dict_std_data['strutture_std'], dict_std_data['mapping_comuni'])
+    vodafone_df = process_vodafone(dict_std_data['vodafone_std'], dict_std_data['mapping_vodafone'])
+    presenze_df_alb = process_presenze_ISPAT(dict_std_data['presenze_alb_std'],dict_std_data['mapping_apt'], PRESENZE_ALB_VALUE_COLS) 
+    presenze_df_extralb = process_presenze_ISPAT(dict_std_data['presenze_extralb_std'], dict_std_data['mapping_comuni'], PRESENZE_XALB_VALUE_COLS, provincia = True)
+    logging.info("Processing finished...")
+    return {
+        "popolazione_pr" : popolazione_df,
+        "strutture_pr" : strutture_df,
+        "vodafone_pr" : vodafone_df,
+        "presenze_alb_pr" : presenze_df_alb,
+        "presenze_df_extralb": presenze_df_extralb,
+        }
+
+
+def main(local = True, type_format = "csv"):
+    # 1. Loading raw data 
+    dict_raw_data = load_raw_data()
+    dict_std_data = standardize_columns(dict_raw_data)
+    dict_processed_data = process_data(dict_std_data)
+
     save_path = Path(SAVEPATH_STD_DATA).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
-    save_computed_dfs(dict_dfs=dict_dfs, local = local, type_format = type_format, path_saving=save_path)
-    return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
+    save_computed_dfs(dict_dfs=dict_processed_data, local = local, type_format = type_format, path_saving=save_path)
+    return dict_processed_data
 
 
 ## Standardization function for mapping: 
+## to check if necessary 
 def standardize_mapping(mapping: dict) -> dict:
     """Standardizes mapping dictionaries:
     - IDs padded strings via pad_id_comune().
@@ -292,4 +313,4 @@ def standardize_mapping(mapping: dict) -> dict:
 
 
 if __name__=="__main__":
-    popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb = standardize_base_raw_data(local=True, type_format="parquet")
+    main(local=True, type_format="parquet")
