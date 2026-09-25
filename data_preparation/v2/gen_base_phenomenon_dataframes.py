@@ -54,7 +54,6 @@ def compute_presenze_trentino(
     df_alb,
     df_extralb,
     vodafone_distribution,
-    mapping_comuni,
     how="uniform",
     weighting_distribution=None,
     weight_col=None,
@@ -129,7 +128,7 @@ def compute_presenze_trentino(
 
 
 def compute_vodafone_attendences(
-    df, mapping_comuni, how="uniform", distribution=None,
+    df, how="uniform", distribution=None,
     weight_col="popolazione", weight_freq="Y",
 ):
     """Daily x comune vodafone tourist-presence dataframe."""
@@ -218,8 +217,8 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     - "indice-ospitalita"
     - "indice-turismo-sommerso"
     """
-    mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
-    mapping_comuni = standardize_mapping(mapping_comuni)
+    # mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
+    # mapping_comuni = standardize_mapping(mapping_comuni)
     ## strutture and popolazione: all yet done (corresponds to the standardized version, since they are municipality granularity)  
 
     ### ---------------------------------- ### 
@@ -227,9 +226,9 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     ## Le presenze vodafone sono distribuite uniformemente sui comuni
     ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite uniformemente sui comuni
     logging.info(f"## Computing vodafone phenomenon dataframe")
-    vodafone_attendences_df = compute_vodafone_attendences(vodafone_df, mapping_comuni, how="uniform")
+    vodafone_attendences_df = compute_vodafone_attendences(vodafone_df, how="uniform")
     logging.info(f"## Computing presences phenomenon dataframe")
-    presenze_df = compute_presenze_trentino(presenze_df_alb, presenze_df_extralb, vodafone_attendences_df, mapping_comuni)
+    presenze_df = compute_presenze_trentino(presenze_df_alb, presenze_df_extralb, vodafone_attendences_df)
 
     ### -------------------------------------------------------------------- ### 
     # 2. VODAFONE PRESENZE
