@@ -16,7 +16,11 @@ from data_preparation.v2.utils.utils import (
 )
 
 SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
+BASE_PATH = Path(__file__).parent
 
+SAVEPATH_RAW_DATA = BASE_PATH / "data_raw"
+SAVEPATH_STD_DATA = BASE_PATH / "data_std"
+SAVEPATH_PROCESSED_DATA = BASE_PATH / "data_processed"
 ## CONSTANT VARIABLES 
 ## just the minimal cols 
 
@@ -264,6 +268,7 @@ def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia = False):
         df = _remove_provincia(df,"LOCATION", True)
     df['ID_COMUNE'] = pad_id_comune(df["ID_COMUNE"])    
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
+    df=df.sort_values(["LOCATION", "DATA"])
     return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + value_cols])
 
 
@@ -283,16 +288,39 @@ def process_data(dict_std_data):
         "presenze_df_extralb": presenze_df_extralb,
         }
 
-
-def main(local = True, type_format = "csv"):
-    # 1. Loading raw data 
-    dict_raw_data = load_raw_data()
-    dict_std_data = standardize_columns(dict_raw_data)
-    dict_processed_data = process_data(dict_std_data)
-
-    save_path = Path(SAVEPATH_STD_DATA).resolve()
+def _save_step(dict_data: dict, save_path: Path, local: bool, type_format: str):
+    """Saves dataframes"""
+    dfs = {
+        k: v for k, v in dict_data.items()
+        if isinstance(v, pd.DataFrame) and not isinstance(v, geopd.GeoDataFrame)
+    }
+    save_path = Path(save_path).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
-    save_computed_dfs(dict_dfs=dict_processed_data, local = local, type_format = type_format, path_saving=save_path)
+    logging.info("Saving %d dataframes in %s", len(dfs), save_path)
+    save_computed_dfs(
+        dict_dfs=dfs,
+        local=local,
+        type_format=type_format,
+        path_saving=save_path,
+    )
+
+
+def main(local=True, type_format="csv", save_steps=True):
+    # 1. Raw data loading
+    dict_raw_data = load_raw_data()
+    if save_steps:
+        _save_step(dict_raw_data, SAVEPATH_RAW_DATA, local, type_format)
+
+    # 2. Standardization 
+    dict_std_data = standardize_columns(dict_raw_data)
+    if save_steps:
+        _save_step(dict_std_data, SAVEPATH_STD_DATA, local, type_format)
+
+    # 3. Processing
+    dict_processed_data = process_data(dict_std_data)
+    if save_steps:
+        _save_step(dict_processed_data, SAVEPATH_PROCESSED_DATA, local, type_format)
+
     return dict_processed_data
 
 
@@ -313,4 +341,4 @@ def standardize_mapping(mapping: dict) -> dict:
 
 
 if __name__=="__main__":
-    main(local=True, type_format="parquet")
+    main(local=True)
