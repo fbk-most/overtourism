@@ -305,7 +305,7 @@ def _save_step(dict_data: dict, save_path: Path, local: bool, type_format: str):
     )
 
 
-def main(local=True, type_format="csv", save_steps=True):
+def main_preprocessing_raw_data(local=True, type_format="csv", save_steps=True):
     # 1. Raw data loading
     dict_raw_data = load_raw_data()
     if save_steps:
@@ -341,4 +341,4 @@ def standardize_mapping(mapping: dict) -> dict:
 
 
 if __name__=="__main__":
-    main(local=True)
+    main_preprocessing_raw_data(local=True)
