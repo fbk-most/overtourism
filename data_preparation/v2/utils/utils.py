@@ -99,6 +99,7 @@ def pad_id_comune(series, width=6):
 
 def _remove_provincia(df, comune_col="comune", upper=False):
     """Drop rows whose comune starts with 'PROVINCIA', logging what gets removed."""
+    df = df.copy()
     series = df[comune_col].str.upper() if upper else df[comune_col]
     mask = series.str.startswith("PROVINCIA")
     if mask.any():
@@ -129,8 +130,8 @@ def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
 
 
 def standard_ordering_cols(df):
-    existing_first = [col for col in ["DATA", "LOCATION", "ID_COMUNE"] if col in df.columns]
-    remaining = [col for col in df.columns if col not in  ["DATA", "LOCATION", "ID_COMUNE"]]
+    existing_first = [col for col in ["DATA", "ID_COMUNE"] if col in df.columns]  # , "ID_COMUNE"
+    remaining = [col for col in df.columns if col not in  ["DATA", "ID_COMUNE"]]
     return df[existing_first + remaining]
 
 ## S3 utilities
