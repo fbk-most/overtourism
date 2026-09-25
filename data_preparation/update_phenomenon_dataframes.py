@@ -12,15 +12,20 @@ from data_preparation.v2.utils.utils import (
     _remove_unnamed
 )
 from data_preparation.v2.standardize_raw_data import (
-    standardize_presenze_ISPAT_extralb,
-    standardize_popolazione, 
-    standardize_strutture,
-    standardize_vodafone,
-    standardize_presenze_ISPAT_alb,
-    standardize_base_raw_data,
+    standardize_popolazione_columns,
+    standardize_strutture_columns,
+    standardize_vodafone_columns,
+    stadardize_presenze_columns,
     standard_ordering_cols,
-    _pre_filtering_vodafone_attendences,
+    process_popolazione,
+    process_strutture,
+    process_vodafone,
+    process_presenze_ISPAT,
+    main_preprocessing_raw_data,
+    PRESENZE_ALB_VALUE_COLS,
+    PRESENZE_XALB_VALUE_COLS,
 )
+
 from pathlib import Path 
 import pandas as pd 
 import geopandas as geopd 
@@ -29,7 +34,7 @@ logging.basicConfig(level=logging.INFO)
 SAVEPATH_STD_DATA_UPD = Path(__file__).parent / "data_std" / "updated"
 SAVEPATH_STD_DATA_MERGED = Path(__file__).parent / "data_std" / "merged_std"
 
-BASE_COLS = ["DATA", "LOCATION", "ID_COMUNE"]
+BASE_COLS = ["DATA", "ID_COMUNE"]  # LOCATION removed: process_*() removes it
 ## STANDARDIZATION OF NEW DATA 
 RENAMING_STRUTTURE = {
     "Esercizi alberghieri Numero": "alberghieri strutture",
@@ -39,7 +44,7 @@ RENAMING_STRUTTURE = {
     "Totale Numero": "tot convenzionali strutture",
     "Totale Letti": "tot convenzionali posti_letto",
     "Alloggi turistici Numero": "all. privati numero",
-    "Alloggi turistici Letti": "all. privati posti_letto",  
+    "Alloggi turistici Letti": "all. privati posti_letto",
     "Alloggi a disposizione Numero": "all.disposizione numero",
     "Alloggi a disposizione Letti": "all. disposizione posti_letto",
 }
@@ -64,24 +69,41 @@ def standardize_upd_popolazione_2025(df, mapping_comuni):
     """Standardization function for popolazione"""
     # popolazione del 2025 calcolata come media aritmetica 
     df['popolazione'] = ((df['Popolazione residente al 1.1.2025'] + df['Popolazione residente al 1.1.2026']) / 2).round().astype(int)    # dataframe containing data 1 gen 2025 + 1 gen 2026
-    df = df.sort_values(by = "Comuni") 
+    df = df.rename(columns={"Comuni": "comune"}).sort_values(by="comune")
     df['anno'] = 2025
-    return standardize_popolazione(df, mapping_comuni, comune_col = "Comuni", date_col= "anno")
+    std = standardize_popolazione_columns(df)
+    return process_popolazione(std, mapping_comuni)
+
 
 ## strutture annuario     
 
 def standardize_upd_strutture_2024(df, mapping_comuni):
-    """Adapts the strutture 2024 to the "standard" one in order to reuse standardize_strutture()"""
+    """Adapts the strutture 2024 to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
     df = df.rename(columns=RENAMING_STRUTTURE)
     df["anno"] = 2024
-    return standardize_strutture(df[["Comuni", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comuni")
+    df = df.rename(columns={"Comuni": "comune"})
+    std = standardize_strutture_columns(df[["comune", "anno"] + list(RENAMING_STRUTTURE.values())])
+    return process_strutture(std, mapping_comuni)
+
 
 def standardize_upd_strutture_2025(df, mapping_comuni):
-    """Adapts the strutture 2025 to the "standard" one in order to reuse standardize_strutture()"""
+    """Adapts the strutture 2025 to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
     df = _remove_unnamed(df)
     df = df.rename(columns=RENAMING_STRUTTURE)
     df["anno"]=2025
-    return standardize_strutture(df[["Comune", "anno"] + list(RENAMING_STRUTTURE.values())], mapping_comuni, comune_col = "Comune")
+    df = df.rename(columns={"Comune": "comune"})
+    std = standardize_strutture_columns(df[["comune", "anno"] + list(RENAMING_STRUTTURE.values())])
+    return process_strutture(std, mapping_comuni)
+
+
+## vodafone
+def standardize_upd_vodafone_2025(df, mapping_vodafone, geojson_comuni_json_data):
+    """standardize_vodafone_columns() gestisce già internamente il filtro TOURIST/comune
+    (tramite process_vodafone -> _filtering_vodafone_attendences), non serve più
+    pre-filtrare a parte come faceva _pre_filtering_vodafone_attendences."""
+    std = standardize_vodafone_columns(df, geojson_comuni_json_data)
+    return process_vodafone(std, mapping_vodafone)
+
 
 ## presenze ispat (ALB/EXTRALB)
 def _process_presenze_ispat_2025(df, apts, anno=2025):
@@ -99,7 +121,6 @@ def _process_presenze_ispat_2025(df, apts, anno=2025):
     df["Mese"] = df["Mese"].astype(str).str.strip()
     df = df[df["Mese"] != "Anno"].reset_index(drop=True)
     mese_mapped = df["Mese"].map(MONTHS_MAPPING)
-    
     if mese_mapped.isna().any():
         raise ValueError(f"Mesi non riconosciuti: {df.loc[mese_mapped.isna(), 'Mese'].unique()}")
     df["Mese"] = mese_mapped.astype(int)
@@ -119,12 +140,14 @@ def _process_presenze_ispat_2025(df, apts, anno=2025):
 
 def standardize_upd_presenze_alb_2025(df, apts, mapping, anno=2025):
     long_df = _process_presenze_ispat_2025(df, apts, anno)
-    return standardize_presenze_ISPAT_alb(long_df, mapping)
+    std = stadardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
+    return process_presenze_ISPAT(std, mapping, PRESENZE_ALB_VALUE_COLS, provincia=False)
 
 def standardize_upd_presenze_extralb_apt_2025(df, apts, mapping, anno=2025):
     long_df = _process_presenze_ispat_2025(df, apts, anno)
-    std_df = standardize_presenze_ISPAT_alb(long_df, mapping) # standardizes with alb procedure because it's at atp granularity 
-    return std_df.rename(columns={"presenze_alb": "presenze_xalb"}) 
+    std = stadardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
+    processed = process_presenze_ISPAT(std, mapping, PRESENZE_ALB_VALUE_COLS, provincia=False)
+    return processed.rename(columns={"presenze_alb": "presenze_xalb"})
 
 def standardize_upd_presenze_extralb_2025(df, mapping_comuni, anno=2025):
     """
@@ -145,15 +168,17 @@ def standardize_upd_presenze_extralb_2025(df, mapping_comuni, anno=2025):
     presenze_xalb = pd.to_numeric(df["Esercizi extralberghieri Totale"], errors="coerce")
     if presenze_alb.isna().any() or presenze_xalb.isna().any():
         raise ValueError("Valori 'Presenze' non numerici trovati")
-
-    return standardize_presenze_ISPAT_extralb(
-        pd.DataFrame({
-            "Anno": anno,
-            "Mese": df["Mese"].astype(int),
-            "Presenze alberghi": presenze_alb.astype(int),
-            "Presenze extra-alberghi": presenze_xalb.astype(int),
-        }), mapping_comuni)
-
+ 
+    df_xalb_prov = pd.DataFrame({
+        "Anno": anno,
+        "Mese": df["Mese"].astype(int),
+        "Presenze alberghi": presenze_alb.astype(int),
+        "Presenze extra-alberghi": presenze_xalb.astype(int),
+    })
+    std = stadardize_presenze_columns(
+        df_xalb_prov, cols_renaming={"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"}
+    )
+    return process_presenze_ISPAT(std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True)
 def standardize_upd_data(local = True, type_format = "csv"):
     """Standardization function for the new data """
     ## download mapping and geojson data 
@@ -162,9 +187,9 @@ def standardize_upd_data(local = True, type_format = "csv"):
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_apt= get_mapping("map_comuni_into_apt.json")
     geojson_comuni_json_data = geopd.read_file(get_s3("TRENTINO-comuni_Vodafone_2023.geojson"))
-    
+
     logging.info("Downloading dataframe 'popolazione_2026_ISPAT.csv'...")
-    popolazione_df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv"))  #  download from ISPAT 
+    popolazione_df = pd.read_csv(get_s3("popolazione_2026_ISPAT.csv"))  #  download from ISPAT
     logging.info("Downloading dataframe 'vodafone_attendences_new.csv'...")
     vodafone_df = pd.read_csv(get_s3("vodafone_attendences_new.csv"))
     ## TODO: upload the version xlsx for consistency
@@ -189,22 +214,19 @@ def standardize_upd_data(local = True, type_format = "csv"):
     popolazione_df = standardize_upd_popolazione_2025(popolazione_df, mapping_comuni)
     strutture_24_df = standardize_upd_strutture_2024(strutture_24_df, mapping_comuni)   
     strutture_25_df = standardize_upd_strutture_2025(strutture_25_df, mapping_comuni)
-
-    vodafone_df = _pre_filtering_vodafone_attendences(vodafone_df)
-    vodafone_df = standardize_vodafone(vodafone_df, mapping_vodafone, geojson_comuni_json_data)
-
-    presenze_ispat = standardize_upd_presenze_alb_2025(raw_alb, apts, mapping_apt) 
-    presenze_extralb_apt_df = standardize_upd_presenze_extralb_apt_2025(presenze_extralb_apt_df, apts_extralb, mapping_apt) 
-
+    vodafone_df = standardize_upd_vodafone_2025(vodafone_df, mapping_vodafone, geojson_comuni_json_data)
+    presenze_ispat = standardize_upd_presenze_alb_2025(raw_alb, apts, mapping_apt)
+    presenze_extralb_apt_df = standardize_upd_presenze_extralb_apt_2025(presenze_extralb_apt_df, apts_extralb, mapping_apt)
     presenze_extralb_provincia_df = standardize_upd_presenze_extralb_2025(raw_extralb_provincia, mapping_comuni)
+    # Now dictionary at a "processed" level of pipeline
     dict_dfs = {
-        "popolazione_25_std" : popolazione_df,
-        "strutture_24_std" : strutture_24_df,
-        "strutture_25_std" : strutture_25_df,
-        "vodafone_25_std" : vodafone_df,
-        "presenze_alb_25_std" : presenze_ispat,
-        "presenze_extralb_25_apt_std" : presenze_extralb_apt_df,
-        "presenze_extralb_25_prov_std" : presenze_extralb_provincia_df
+        "popolazione_25_pr": popolazione_df,
+        "strutture_24_pr": strutture_24_df,
+        "strutture_25_pr": strutture_25_df,
+        "vodafone_25_pr": vodafone_df,
+        "presenze_alb_25_pr": presenze_ispat,
+        "presenze_extralb_25_apt_pr": presenze_extralb_apt_df,
+        "presenze_extralb_25_prov_pr": presenze_extralb_provincia_df,
     }
     save_path = Path(SAVEPATH_STD_DATA_UPD).resolve()
     save_path.mkdir(parents=True, exist_ok=True)
@@ -224,7 +246,8 @@ def _make_hashable(value):
 
 def merge_update(df_old: pd.DataFrame, df_new: pd.DataFrame, common_cols=None) -> pd.DataFrame:
     """Merges old and new: checks the columns and updates the data if there is some intersection.
-    If common_cols is set to None, df_old.columns are used as reference"""
+    If common_cols is set to None, df_old.columns are used as reference
+    Merge using DATA + ID_COMUNE (via _make_hashable, to deal with ID_COMUNE lists)"""
     if common_cols is None:
         common_cols = list(df_old.columns)
 
@@ -236,23 +259,25 @@ def merge_update(df_old: pd.DataFrame, df_new: pd.DataFrame, common_cols=None) -
     merged = pd.concat([df_old[list(all_cols)], df_new[list(all_cols)]], ignore_index=True)
     dedup_key = merged["ID_COMUNE"].apply(_make_hashable)  # we use tuple to avoid type problems 
 
+
     merged = (
         merged.assign(_dedup_key=dedup_key)
         .drop_duplicates(subset=["DATA", "_dedup_key"], keep="last")
+        .sort_values(by=["DATA", "_dedup_key"])
         .drop(columns="_dedup_key")
-    )
-    # print(merged["ID_COMUNE"].apply(type).value_counts())
-    return standard_ordering_cols(merged.sort_values(by=['DATA', 'LOCATION']).reset_index(drop=True))
+        .reset_index(drop=True)
+    )    # print(merged["ID_COMUNE"].apply(type).value_counts())
 
+    return standard_ordering_cols(merged)
 
 def merge_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
-    """Merges old and new: strutture_std receives 2024 and then 2025."""
-    pop_old, pop_new = old_dfs['popolazione_std'], new_dfs['popolazione_25_std']
-    strutture_old, strutture_new_24, strutture_new_25 =  old_dfs['strutture_std'], new_dfs['strutture_24_std'], new_dfs['strutture_25_std']
-    vodafone_old, vodafone_new = old_dfs['vodafone_std'], new_dfs['vodafone_25_std']
-    presenze_alb_old, presenze_alb_new = old_dfs['presenze_alb_std'], new_dfs['presenze_alb_25_std']
-    presenze_xalb_old, presenze_xalb_new = old_dfs['presenze_extralb_std'], new_dfs['presenze_extralb_25_prov_std']
-    
+    """Merges old and new: strutture_pr receives 2024 and then 2025."""
+    pop_old, pop_new = old_dfs['popolazione_pr'], new_dfs['popolazione_25_pr']
+    strutture_old, strutture_new_24, strutture_new_25 =  old_dfs['strutture_pr'], new_dfs['strutture_24_pr'], new_dfs['strutture_25_pr']
+    vodafone_old, vodafone_new = old_dfs['vodafone_pr'], new_dfs['vodafone_25_pr']
+    presenze_alb_old, presenze_alb_new = old_dfs['presenze_alb_pr'], new_dfs['presenze_alb_25_pr']
+    presenze_xalb_old, presenze_xalb_new = old_dfs['presenze_extralb_pr'], new_dfs['presenze_extralb_25_prov_pr']
+
     popolazione = merge_update(pop_old, pop_new, common_cols = ['popolazione'])
 
     strutture = merge_update(strutture_old, strutture_new_24)  # in this case, they have the same structure, so default common cols is used
@@ -263,12 +288,12 @@ def merge_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
     presenze_extralb = merge_update(presenze_xalb_old,presenze_xalb_new)
 
     return {
-        "popolazione_std": popolazione,
-        "strutture_std": strutture,
-        "vodafone_std": vodafone,
-        "presenze_alb_std": presenze_alb,
-        "presenze_extralb_std": presenze_extralb,
-        "presenze_extralb_apt_std": new_dfs["presenze_extralb_25_apt_std"],  # new granularity
+        "popolazione_pr": popolazione,
+        "strutture_pr": strutture,
+        "vodafone_pr": vodafone,
+        "presenze_alb_pr": presenze_alb,
+        "presenze_df_extralb": presenze_extralb,
+        "presenze_extralb_apt_pr": new_dfs["presenze_extralb_25_apt_pr"],  # new granularity
     }
 
 def save_merged(merged_dfs,type_format = "csv"):
@@ -283,7 +308,7 @@ def save_merged(merged_dfs,type_format = "csv"):
 
 if __name__=="__main__":
     ## ENTIRE PIPELINE:
-    old_dfs = standardize_base_raw_data(local=True, type_format="csv")
+    old_dfs = main_preprocessing_raw_data(local=True, type_format="csv")
     new_dfs = standardize_upd_data(local=True, type_format="csv")
     merged_dfs = merge_dataframes(old_dfs, new_dfs)
     save_merged(merged_dfs)
