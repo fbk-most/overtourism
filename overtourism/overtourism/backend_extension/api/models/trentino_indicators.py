@@ -453,19 +453,19 @@ class PeriodPercentageImpactIndicator(Indicator):
 
         merged = (
             total_df[["ID_COMUNE", "INDICE"]]
-            .rename(columns={"INDICE": "INDICE_total"})
+            .rename(columns={"INDICE": "INDICE_periodo"})
             .merge(
                 seasonal_df[["ID_COMUNE", "INDICE"]].rename(
-                    columns={"INDICE": "INDICE_seasonal"}
+                    columns={"INDICE": "INDICE_sottoperiodo"}
                 ),
                 on="ID_COMUNE",
                 how="outer",
             )
         )
-        merged["INDICE_seasonal"] = merged["INDICE_seasonal"].fillna(0)
+        merged["INDICE_sottoperiodo"] = merged["INDICE_sottoperiodo"].fillna(0)
 
         merged["INDICE"] = (
-            merged["INDICE_seasonal"] / merged["INDICE_total"].replace(0, np.nan)
+            merged["INDICE_sottoperiodo"] / merged["INDICE_periodo"].replace(0, np.nan)
         ) * 100
 
-        return merged[["ID_COMUNE", "INDICE", "INDICE_total", "INDICE_seasonal"]]
+        return merged[["ID_COMUNE", "INDICE", "INDICE_periodo", "INDICE_sottoperiodo"]]
