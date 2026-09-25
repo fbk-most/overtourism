@@ -48,7 +48,47 @@ def _normalize_id_comune(x):
         return tuple(sorted(x))
     return x
 
-## COMPUTATION
+def get_base_standardized_data(use_cached_std: bool, type_format="csv"):
+    """
+    Gets processed data.
+    If use_cached_std=True, tries to load from local CSVs/parquet files.
+    Otherwise, if False, or error given, launches standardize_base_raw_data().
+    """
+    assert type_format in ["csv", "parquet"]
+
+    if use_cached_std and SAVEPATH_PROCESSED_DATA.exists():
+        try:
+            logging.info("Loading processed data from local...")
+            if type_format == "csv":
+                read_fn = lambda file: pd.read_csv(file, dtype={'ID_COMUNE': str})
+            else:
+                read_fn = lambda file: pd.read_parquet(file)
+
+            loaded_files= {
+                key: read_fn(SAVEPATH_PROCESSED_DATA / f"{filename}.{type_format}")
+                for key, filename in PROCESSED_FILES.items()
+            }
+            logging.info("Loading done.")
+            return (
+                loaded_files["popolazione_df"],
+                loaded_files["strutture_df"],
+                loaded_files["vodafone_df"],
+                loaded_files["presenze_df_alb"],
+                loaded_files["presenze_df_extralb"],
+            )
+        except Exception as e:
+            logging.warning(f"Not able to find data ({e}). Executing standardization...")
+    logging.info("Standardization of raw data...")
+    dict_processed_data = main_preprocessing_raw_data(type_format=type_format)
+    return (
+        dict_processed_data["popolazione_pr"],
+        dict_processed_data["strutture_pr"],
+        dict_processed_data["vodafone_pr"],
+        dict_processed_data["presenze_alb_pr"],
+        dict_processed_data["presenze_df_extralb"],
+    )
+
+## 4. COMPUTATION
 ## Functions to compute phenomena dataframes
 def compute_presenze_trentino(
     df_alb,
@@ -158,46 +198,6 @@ def compute_vodafone_attendences(
     df = disaggregate(df, cols=["presenze"], **kwargs)
     return df
 
-def get_base_standardized_data(use_cached_std: bool, type_format="csv"):
-    """
-    Gets processed data.
-    If use_cached_std=True, tries to load from local CSVs/parquet files.
-    Otherwise, if False, or error given, launches standardize_base_raw_data().
-    """
-    assert type_format in ["csv", "parquet"]
-
-    if use_cached_std and SAVEPATH_PROCESSED_DATA.exists():
-        try:
-            logging.info("Loading processed data from local...")
-            if type_format == "csv":
-                read_fn = lambda file: pd.read_csv(file, dtype={'ID_COMUNE': str})
-            else:
-                read_fn = lambda file: pd.read_parquet(file)
-
-            loaded_files= {
-                key: read_fn(SAVEPATH_PROCESSED_DATA / f"{filename}.{type_format}")
-                for key, filename in PROCESSED_FILES.items()
-            }
-            logging.info("Loading done.")
-            return (
-                loaded_files["popolazione_df"],
-                loaded_files["strutture_df"],
-                loaded_files["vodafone_df"],
-                loaded_files["presenze_df_alb"],
-                loaded_files["presenze_df_extralb"],
-            )
-        except Exception as e:
-            logging.warning(f"Not able to find data ({e}). Executing standardization...")
-    logging.info("Standardization of raw data...")
-    dict_processed_data = main_preprocessing_raw_data(type_format=type_format)
-    return (
-        dict_processed_data["popolazione_pr"],
-        dict_processed_data["strutture_pr"],
-        dict_processed_data["vodafone_pr"],
-        dict_processed_data["presenze_alb_pr"],
-        dict_processed_data["presenze_df_extralb"],
-    )
-
 
 def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb):
     """Loads and prepares the base "phenomenon" dataframes.
@@ -217,8 +217,7 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     - "indice-ospitalita"
     - "indice-turismo-sommerso"
     """
-    # mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
-    # mapping_comuni = standardize_mapping(mapping_comuni)
+
     ## strutture and popolazione: all yet done (corresponds to the standardized version, since they are municipality granularity)  
 
     ### ---------------------------------- ### 

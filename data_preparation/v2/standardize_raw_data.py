@@ -15,7 +15,6 @@ from data_preparation.v2.utils.utils import (
     _to_data_location,
 )
 
-SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
 BASE_PATH = Path(__file__).parent
 
 SAVEPATH_RAW_DATA = BASE_PATH / "data_raw"
@@ -42,21 +41,6 @@ PRESENZE_ALB_VALUE_COLS = [
 PRESENZE_XALB_VALUE_COLS = [
     'presenze_xalb'  # presenze_alb
 ]
-
-COMUNE_NAME_OVERRIDES = {
-    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
-    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
-    "CANAL SAN BOVO": "CANAL SAN BOVO",
-    "CANAZEI-CIANACEI": "CANAZEI",
-    "FIEROZZO-VLAROTZ": "FIEROZZO",
-    "FRASSILONGO-GARAIT": "FRASSILONGO",
-    "LUSERNA-LUSERN": "LUSERNA",
-    "MAZZIN-MAZIN": "MAZZIN",
-    "MOENA-MOENA": "MOENA",
-    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
-    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
-    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
-}
 
 RENAMING_STRUTTURE = {
     "alberghieri posti_letto": "tot_postiletto_alberghieri",
@@ -234,7 +218,7 @@ def process_strutture(df, mapping_comuni):
     if df["ID_COMUNE"].isna().any():
         if len(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].unique()) > 0:
             logging.warning(
-                f"[process_strutture] Nessun ID_COMUNE trovato (anche con overrides) per: {sorted(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].unique())}"
+                f'[process_strutture] Nessun ID_COMUNE trovato (anche con overrides) per: {sorted(df.loc[df['ID_COMUNE'].isna(), 'LOCATION'].unique())}'
             )
 
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])   # apply padding on these IDs
@@ -285,7 +269,7 @@ def process_data(dict_std_data):
         "strutture_pr" : strutture_df,
         "vodafone_pr" : vodafone_df,
         "presenze_alb_pr" : presenze_df_alb,
-        "presenze_df_extralb": presenze_df_extralb,
+        "presenze_extralb_pr": presenze_df_extralb,
         }
 
 def _save_step(dict_data: dict, save_path: Path, local: bool, type_format: str):
@@ -322,22 +306,6 @@ def main_preprocessing_raw_data(local=True, type_format="csv", save_steps=True):
         _save_step(dict_processed_data, SAVEPATH_PROCESSED_DATA, local, type_format)
 
     return dict_processed_data
-
-
-## Standardization function for mapping: 
-## to check if necessary 
-def standardize_mapping(mapping: dict) -> dict:
-    """Standardizes mapping dictionaries:
-    - IDs padded strings via pad_id_comune().
-    - Names in uppercase without spaces.
-    Manages both formats {Nome: ID} and {Nome: [ID1, ID2]}
-    """
-    if not mapping:
-        return {}
-
-    s = pd.Series(mapping)
-    s.index = s.index.astype(str).str.upper().str.strip()
-    return pad_id_comune(s).to_dict()
 
 
 if __name__=="__main__":
