@@ -21,13 +21,32 @@ from data_preparation.v2.utils.utils import (
     save_computed_dfs,
     get_mapping
 )
-from data_preparation.v2.standardize_raw_data import standardize_base_raw_data, standardize_mapping
+from data_preparation.v2.standardize_raw_data import main_preprocessing_raw_data, standardize_mapping
 from data_preparation.v2.utils.disaggregation import disaggregate
 from pathlib import Path 
 logging.basicConfig(level=logging.INFO)
 import pandas as pd 
+import ast
 
 SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
+SAVEPATH_PROCESSED_DATA = Path(__file__).parent / "data_processed"  
+# Mapping:
+PROCESSED_FILES = {
+    "popolazione_df": "popolazione_pr",
+    "strutture_df": "strutture_pr",
+    "vodafone_df": "vodafone_pr",
+    "presenze_df_alb": "presenze_alb_pr",
+    "presenze_df_extralb": "presenze_df_extralb", 
+}
+
+## HELPER FUNCTIONS 
+def _normalize_id_comune(x):
+    """Converts ID_COMUNE into a standard hashable form, both if provided from a pandas DataFrame (list/scalar) both if loaded from file (serialized as string)."""
+    if isinstance(x, str) and x.strip().startswith("["):
+        x = ast.literal_eval(x)
+    if isinstance(x, list):
+        return tuple(sorted(x))
+    return x
 
 ## COMPUTATION
 ## Functions to compute phenomena dataframes
@@ -63,8 +82,9 @@ def compute_presenze_trentino(
     """
 
     ## Monthly x APT -> daily x comune
-    id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
-    kwargs = dict(axis="both", freq_from="M", freq_to="D", id_to_name=id_to_comune)
+    kwargs = dict(axis="both", freq_from="M", freq_to="D")  # no id_to_name since LOCATION no more in df
+    df_alb['ID_COMUNE'] = df_alb['ID_COMUNE'].apply(_normalize_id_comune)
+    df_extralb['ID_COMUNE'] = df_extralb['ID_COMUNE'].apply(_normalize_id_comune)
 
     def _weighted_kwargs(col):
         if how != "distributional":
@@ -89,12 +109,8 @@ def compute_presenze_trentino(
     xalb_col = xalb_weight_col if xalb_weight_col is not None else default_col
 
     # own _W column via its own disaggregate() call, since a single call applies one shared weight to every column passed in `cols`.
-    presenze = disaggregate(
-        df_alb, cols=["presenze_alb"], **_weighted_kwargs(alb_col)
-    )
-    presenze_prov = disaggregate(
-        df_extralb, cols=["presenze_xalb"], **_weighted_kwargs(xalb_col)
-    )
+    presenze = disaggregate(df_alb, cols=["presenze_alb"], **_weighted_kwargs(alb_col))
+    presenze_prov = disaggregate(df_extralb, cols=["presenze_xalb"], **_weighted_kwargs(xalb_col))
 
     # presenze_alb is kept at the finer (APT) granularity, only the
     # extra-alberghiero column is taken from the province-level estimate
@@ -108,9 +124,8 @@ def compute_presenze_trentino(
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    df = df.sort_values(by=["DATA", "LOCATION"]).reset_index(drop=True)
+    df = df.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
     return df
-
 
 
 def compute_vodafone_attendences(
@@ -119,16 +134,16 @@ def compute_vodafone_attendences(
 ):
     """Daily x comune vodafone tourist-presence dataframe."""
     # Aggregate daily presences by municipality
+
     df = (
-        df.groupby(["DATA", "LOCATION"])
+        df.assign(_key=df["ID_COMUNE"].apply(_normalize_id_comune))
+        .groupby(["DATA", "_key"])
         .agg({"ID_COMUNE": "first", "presenze": "sum"})
         .reset_index()
+        .drop(columns="_key")
     )
-    ## disaggregation spatial only, data is already daily
-    kwargs = dict(
-        axis="space",
-        id_to_name={id_comune: name for name, id_comune in mapping_comuni.items()},
-    )
+    df['ID_COMUNE']=df['ID_COMUNE'].apply(_normalize_id_comune)
+    kwargs = dict(axis="space")  # LOCATION rm
     if how == "distributional":
         assert distribution is not None, "Distribution required for 'distributional' disaggregation"
         kwargs.update(
@@ -144,36 +159,45 @@ def compute_vodafone_attendences(
     df = disaggregate(df, cols=["presenze"], **kwargs)
     return df
 
-
-def get_base_standardized_data(use_cached_std: bool, type_format = "csv"):
+def get_base_standardized_data(use_cached_std: bool, type_format="csv"):
     """
-    Gets standardized data. 
+    Gets processed data.
     If use_cached_std=True, tries to load from local CSVs/parquet files.
     Otherwise, if False, or error given, launches standardize_base_raw_data().
     """
     assert type_format in ["csv", "parquet"]
 
-    if use_cached_std and SAVEPATH_STD_DATA.exists():
+    if use_cached_std and SAVEPATH_PROCESSED_DATA.exists():
         try:
-            logging.info("Loading standardized data from local...")
+            logging.info("Loading processed data from local...")
             if type_format == "csv":
                 read_fn = lambda file: pd.read_csv(file, dtype={'ID_COMUNE': str})
             else:
                 read_fn = lambda file: pd.read_parquet(file)
-            # dtype={'ID_COMUNE': str} per evitare che Pandas rimuova lo zero iniziale dai codici ISTAT
-            popolazione_df = read_fn(SAVEPATH_STD_DATA / f"popolazione_std.{type_format}")
-            strutture_df = read_fn(SAVEPATH_STD_DATA / f"strutture_std.{type_format}")
-            vodafone_df = read_fn(SAVEPATH_STD_DATA / f"vodafone_std.{type_format}")
-            presenze_df_alb = read_fn(SAVEPATH_STD_DATA / f"presenze_alb_std.{type_format}")
-            presenze_df_extralb = read_fn(SAVEPATH_STD_DATA / f"presenze_extralb_std.{type_format}")
-            logging.info("Loading done.")
-            return popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 
+            loaded_files= {
+                key: read_fn(SAVEPATH_PROCESSED_DATA / f"{filename}.{type_format}")
+                for key, filename in PROCESSED_FILES.items()
+            }
+            logging.info("Loading done.")
+            return (
+                loaded_files["popolazione_df"],
+                loaded_files["strutture_df"],
+                loaded_files["vodafone_df"],
+                loaded_files["presenze_df_alb"],
+                loaded_files["presenze_df_extralb"],
+            )
         except Exception as e:
             logging.warning(f"Not able to find data ({e}). Executing standardization...")
-    
     logging.info("Standardization of raw data...")
-    return standardize_base_raw_data(type_format = type_format)
+    dict_processed_data = main_preprocessing_raw_data(type_format=type_format)
+    return (
+        dict_processed_data["popolazione_pr"],
+        dict_processed_data["strutture_pr"],
+        dict_processed_data["vodafone_pr"],
+        dict_processed_data["presenze_alb_pr"],
+        dict_processed_data["presenze_df_extralb"],
+    )
 
 
 def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb):
@@ -196,7 +220,7 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
     """
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_comuni = standardize_mapping(mapping_comuni)
-    ## strutture and popolazione: all yet done (corresponds to the standardized version)    
+    ## strutture and popolazione: all yet done (corresponds to the standardized version, since they are municipality granularity)  
 
     ### ---------------------------------- ### 
     ## 1. DISAGGREGAZIONE UNIFORME :
@@ -279,4 +303,4 @@ def compute_phenomenon_dataframes(local=False, use_cached_standardized=False, ty
 
 
 if __name__ == "__main__":
-    compute_phenomenon_dataframes(local=True, use_cached_standardized=False, type_format = "parquet")
+    compute_phenomenon_dataframes(local=True, use_cached_standardized=False)
