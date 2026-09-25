@@ -17,11 +17,8 @@ dataframe that carries an ID_COMUNE column is normalized to the
 zero-padded string form right before it's returned, via `pad_id_comune()`.
 """
 import logging
-from data_preparation.v2.utils.utils import (
-    save_computed_dfs,
-    get_mapping
-)
-from data_preparation.v2.standardize_raw_data import main_preprocessing_raw_data, standardize_mapping
+from data_preparation.v2.utils.utils import save_computed_dfs
+from data_preparation.v2.standardize_raw_data import main_preprocessing_raw_data
 from data_preparation.v2.utils.disaggregation import disaggregate
 from pathlib import Path 
 logging.basicConfig(level=logging.INFO)
@@ -85,7 +82,7 @@ def get_base_standardized_data(use_cached_std: bool, type_format="csv"):
         dict_processed_data["strutture_pr"],
         dict_processed_data["vodafone_pr"],
         dict_processed_data["presenze_alb_pr"],
-        dict_processed_data["presenze_df_extralb"],
+        dict_processed_data["presenze_extralb_pr"],
     )
 
 ## 4. COMPUTATION
