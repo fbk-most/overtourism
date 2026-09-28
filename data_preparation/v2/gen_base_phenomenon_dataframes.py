@@ -19,7 +19,7 @@ import logging
 from pathlib import Path
 from data_preparation.v2.utils.utils import save_computed_dfs
 from data_preparation.v2.utils.disaggregation import disaggregate
-from data_preparation.v2.common import (
+from data_preparation.v2.utils.common import (
     PROCESSED_DIR, FINAL_DIR, read_df, check_output_dir,
 )
 

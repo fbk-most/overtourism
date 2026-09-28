@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 from data_preparation.v2.utils.utils import get_s3, get_dataframe, save_computed_dfs
-from data_preparation.v2.common import RAW_DIR, check_output_dir
+from data_preparation.v2.utils.common import RAW_DIR, check_output_dir
 
 logging.basicConfig(level=logging.INFO)
 

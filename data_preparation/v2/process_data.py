@@ -20,7 +20,7 @@ from data_preparation.v2.utils.utils import (
     _remove_provincia,
     save_computed_dfs
 )
-from data_preparation.v2.common import (
+from data_preparation.v2.utils.common import (
     RAW_DIR, NORMALIZED_DIR, PROCESSED_DIR, read_df, read_json,
 )
 

@@ -20,7 +20,7 @@ from data_preparation.v2.utils.utils import (
     _to_data_location,
     save_computed_dfs
 )
-from data_preparation.v2.common import RAW_DIR, NORMALIZED_DIR, read_df
+from data_preparation.v2.utils.common import RAW_DIR, NORMALIZED_DIR, read_df
 
 logging.basicConfig(level=logging.INFO)
 
