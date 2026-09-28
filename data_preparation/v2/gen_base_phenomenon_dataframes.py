@@ -1,92 +1,33 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Loads and prepares the base "phenomenon" dataframes used to compute the
-capacity / tourism indexes for Trentino, saves them in a format compatible with the Indicators/Phenomenon modules.
+STEP 3 - Final phenomenon dataframes.
+
+Input : Output/data_processed/
+Output: Output/final_data/   (phen_popolazione, phen_strutture, phen_presenze)
+        or upload to the platform 
 
 Each phenomenon dataframe is typically contains:
-  - DATA: the time dimension, at whatever granularity is natural for that
-    phenomenon (YYYY for yearly data, YYYY-MM-DD for daily data)
-  - LOCATION: the comune/ambito name
-  - COMUNE_ID: mapped location identifier(s), when available
-  - ... plus the phenomenon's own value column(s)
+  - DATA: YYYY for yearly data, YYYY-MM-DD for daily data
+  - ID_COMUNE: zero-padded ISTAT code (e.g. 22001 -> "022001")
+plus the phenomenon's value columns
 
-NOTE ON ID_COMUNE FORMATTING: ISTAT comune codes are conventionally
-represented as 6-digit zero-padded strings (e.g. 22001 -> "022001"). The
-raw sources / mapping JSONs here store them as plain ints, so every
-dataframe that carries an ID_COMUNE column is normalized to the
-zero-padded string form right before it's returned, via `pad_id_comune()`.
+Relevant for the indicators:
+  "tasso-ricettivita", "indice-turisticita", "indice-stagionalita",
+  "indice-ospitalita", "indice-turismo-sommerso"
 """
 import logging
+from pathlib import Path
 from data_preparation.v2.utils.utils import save_computed_dfs
-from data_preparation.v2.standardize_raw_data import main_preprocessing_raw_data
 from data_preparation.v2.utils.disaggregation import disaggregate
-from pathlib import Path 
+from data_preparation.v2.common import (
+    PROCESSED_DIR, FINAL_DIR, read_df, check_output_dir,
+)
+
 logging.basicConfig(level=logging.INFO)
-import pandas as pd 
-import ast
 
-SAVEPATH_STD_DATA = Path(__file__).parent / "data_std"
-SAVEPATH_PROCESSED_DATA = Path(__file__).parent / "data_processed"  
-# Mapping:
-PROCESSED_FILES = {
-    "popolazione_df": "popolazione_pr",
-    "strutture_df": "strutture_pr",
-    "vodafone_df": "vodafone_pr",
-    "presenze_df_alb": "presenze_alb_pr",
-    "presenze_df_extralb": "presenze_df_extralb", 
-}
-
-## HELPER FUNCTIONS 
-def _normalize_id_comune(x):
-    """Converts ID_COMUNE into a standard hashable form, both if provided from a pandas DataFrame (list/scalar) both if loaded from file (serialized as string)."""
-    if isinstance(x, str) and x.strip().startswith("["):
-        x = ast.literal_eval(x)
-    if isinstance(x, list):
-        return tuple(sorted(x))
-    return x
-
-def get_base_standardized_data(use_cached_std: bool, type_format="csv"):
-    """
-    Gets processed data.
-    If use_cached_std=True, tries to load from local CSVs/parquet files.
-    Otherwise, if False, or error given, launches standardize_base_raw_data().
-    """
-    assert type_format in ["csv", "parquet"]
-
-    if use_cached_std and SAVEPATH_PROCESSED_DATA.exists():
-        try:
-            logging.info("Loading processed data from local...")
-            if type_format == "csv":
-                read_fn = lambda file: pd.read_csv(file, dtype={'ID_COMUNE': str})
-            else:
-                read_fn = lambda file: pd.read_parquet(file)
-
-            loaded_files= {
-                key: read_fn(SAVEPATH_PROCESSED_DATA / f"{filename}.{type_format}")
-                for key, filename in PROCESSED_FILES.items()
-            }
-            logging.info("Loading done.")
-            return (
-                loaded_files["popolazione_df"],
-                loaded_files["strutture_df"],
-                loaded_files["vodafone_df"],
-                loaded_files["presenze_df_alb"],
-                loaded_files["presenze_df_extralb"],
-            )
-        except Exception as e:
-            logging.warning(f"Not able to find data ({e}). Executing standardization...")
-    logging.info("Standardization of raw data...")
-    dict_processed_data = main_preprocessing_raw_data(type_format=type_format)
-    return (
-        dict_processed_data["popolazione_pr"],
-        dict_processed_data["strutture_pr"],
-        dict_processed_data["vodafone_pr"],
-        dict_processed_data["presenze_alb_pr"],
-        dict_processed_data["presenze_extralb_pr"],
-    )
-
-## 4. COMPUTATION
+## COMPUTATION
 ## Functions to compute phenomena dataframes
+## NOTE: ID_COMUNE is expected in scalar form or tuple: this logic wwas moved in read_df with parse_ids=True 
 def compute_presenze_trentino(
     df_alb,
     df_extralb,
@@ -116,11 +57,8 @@ def compute_presenze_trentino(
     at that point). Defaults reproduce the original vodafone-weighted
     behaviour (monthly match spatially, exact-date match temporally).
     """
-
     ## Monthly x APT -> daily x comune
-    kwargs = dict(axis="both", freq_from="M", freq_to="D")  # no id_to_name since LOCATION no more in df
-    df_alb['ID_COMUNE'] = df_alb['ID_COMUNE'].apply(_normalize_id_comune)
-    df_extralb['ID_COMUNE'] = df_extralb['ID_COMUNE'].apply(_normalize_id_comune)
+    kwargs = dict(axis="both", freq_from="M", freq_to="D") # no id_to_name since LOCATION no more in df
 
     def _weighted_kwargs(col):
         if how != "distributional":
@@ -160,8 +98,7 @@ def compute_presenze_trentino(
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    df = df.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
-    return df
+    return df.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
 
 
 def compute_vodafone_attendences(
@@ -170,16 +107,12 @@ def compute_vodafone_attendences(
 ):
     """Daily x comune vodafone tourist-presence dataframe."""
     # Aggregate daily presences by municipality
-
     df = (
-        df.assign(_key=df["ID_COMUNE"].apply(_normalize_id_comune))
-        .groupby(["DATA", "_key"])
-        .agg({"ID_COMUNE": "first", "presenze": "sum"})
+        df.groupby(["DATA", "ID_COMUNE"])
+        .agg({"presenze": "sum"})
         .reset_index()
-        .drop(columns="_key")
     )
-    df['ID_COMUNE']=df['ID_COMUNE'].apply(_normalize_id_comune)
-    kwargs = dict(axis="space")  # LOCATION rm
+    kwargs = dict(axis="space")  # spatial disaggregation only, data is already daily
     if how == "distributional":
         assert distribution is not None, "Distribution required for 'distributional' disaggregation"
         kwargs.update(
@@ -192,41 +125,24 @@ def compute_vodafone_attendences(
     else:
         assert distribution is None
 
-    df = disaggregate(df, cols=["presenze"], **kwargs)
-    return df
+    return disaggregate(df, cols=["presenze"], **kwargs)
 
 
 def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb):
-    """Loads and prepares the base "phenomenon" dataframes.
+    """Builds the final phenomenon dataframes from the processed ones.
 
-    Returns a dict with keys:
-      "phen_strutture_ospitalita", "phen_popolazione",
-      "phen_vodafone_attendences"
-    Each value is a dataframe standardized to DATA/LOCATION (+ ID, + the
-    phenomenon's own value columns). Any ID_COMUNE column is zero-padded to
-    6 digits (e.g. 22001 -> "022001").
-
-    This functions is used to generate base phenomeon that are
-    relevant for the following indicators
-    - "tasso-ricettivita"
-    - "indice-turisticita"
-    - "indice-stagionalita"
-    - "indice-ospitalita"
-    - "indice-turismo-sommerso"
+    Returns a dict with keys "phen_popolazione", "phen_strutture", "phen_presenze".
     """
-
-    ## strutture and popolazione: all yet done (corresponds to the standardized version, since they are municipality granularity)  
-
-    ### ---------------------------------- ### 
+    ### ---------------------------------- ###
     ## 1. DISAGGREGAZIONE UNIFORME :
     ## Le presenze vodafone sono distribuite uniformemente sui comuni
-    ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite uniformemente sui comuni
-    logging.info(f"## Computing vodafone phenomenon dataframe")
+    ## Le presenze ISPAT alberghiere e extra-alberghiere sono distribuite uniformemente sui comuni
+    logging.info("## Computing vodafone phenomenon dataframe")
     vodafone_attendences_df = compute_vodafone_attendences(vodafone_df, how="uniform")
-    logging.info(f"## Computing presences phenomenon dataframe")
+    logging.info("## Computing presences phenomenon dataframe")
     presenze_df = compute_presenze_trentino(presenze_df_alb, presenze_df_extralb, vodafone_attendences_df)
 
-    ### -------------------------------------------------------------------- ### 
+    ### -------------------------------------------------------------------- ###
     # 2. VODAFONE PRESENZE
     ## Le presenze vodafone sono distribuite uniformemente sui comuni
     ## Le presenze ISPAT alberghiere e Le presenze ISPAT extra-alberghiere sono distribuite seguendo la distribuzione vodafone giornaliera
@@ -261,41 +177,51 @@ def calculate_phenomena(popolazione_df, strutture_df, vodafone_df, presenze_df_a
 
     ### -------------------------------------------------------------------- ### 
 
-    dict_dfs = {
+    return {
         "phen_popolazione": popolazione_df,
         "phen_strutture": strutture_df,
         "phen_presenze": presenze_df,
     }
-    return dict_dfs
 
 
-## MAIN ORCHESTRATOR
-def compute_phenomenon_dataframes(local=False, use_cached_standardized=False, type_format="csv"):
+## STEP computation of phenomena 
+def compute_phenomenon_dataframes(processed_dir=PROCESSED_DIR, out_dir=FINAL_DIR, type_format="csv", local=True):
     """Main orchestrator, 
-    local defines if to upload the phenomena or save them locally
-    use_cached_standardized defines is to use local data or do the standardization process from scrach """
-    (
-        popolazione_df, 
-        strutture_df, 
-        vodafone_df, 
-        presenze_df_alb, 
-        presenze_df_extralb
-    ) = get_base_standardized_data(use_cached_std=use_cached_standardized, type_format=type_format)  # decide whether to use the local data, existing from previous standardization, or perform the entire process  
+    local defines if to upload the phenomena or save them locally in out_dir,
+    local=False uploads the phenomena to the platform """
 
-    ## Computation of phenomena
-    logging.info(f"## Computing phenomenon dataframes")
+    processed_dir = Path(processed_dir)
+    check_output_dir(out_dir)
 
+    logging.info("Reading processed data from %s", processed_dir)
+    read = lambda name: read_df(processed_dir, name, type_format, parse_ids=True)
+    popolazione_df = read("popolazione_pr")
+    strutture_df = read("strutture_pr")
+    vodafone_df = read("vodafone_pr")
+    presenze_df_alb = read("presenze_alb_pr")
+    presenze_df_extralb = read("presenze_extralb_pr")
+
+    logging.info("## Computing phenomenon dataframes")
     dict_dfs = calculate_phenomena(
-        popolazione_df, 
-        strutture_df, 
-        vodafone_df, 
-        presenze_df_alb, 
-        presenze_df_extralb, 
+        popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
     )
 
     logging.info("## Saving phenomenon dataframes...")
-    save_computed_dfs(dict_dfs, local=local, type_format = type_format)
+    save_computed_dfs(
+            dict_dfs,
+            local=local,
+            type_format=type_format,
+            path_saving=out_dir,
+    )
+    return dict_dfs
 
 
 if __name__ == "__main__":
-    compute_phenomenon_dataframes(local=True, use_cached_standardized=False)
+    logging.info("Step 3: Output/data_processed -> Output/final_data")
+    processed_dir = PROCESSED_DIR
+    out_dir = FINAL_DIR
+    type_format="csv"
+    upload = False
+    compute_phenomenon_dataframes(
+        processed_dir, out_dir, type_format, upload
+    )
