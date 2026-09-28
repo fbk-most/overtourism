@@ -145,8 +145,6 @@ def get_json_s3(name: str) -> dict:
     """Scarica e parsa un JSON da S3, es. get_json_s3('mapping_ids/mapping_comuni_ISTAT.json')."""
     buffer = get_s3(name)
     return json.load(buffer)
-
-
 def put_dataframe(
     df: pd.DataFrame, name: str, type: str = "parquet", path: Path = PATH_SAVE
 ) -> str:
@@ -159,10 +157,10 @@ def put_dataframe(
             df.to_json(path, orient="index", indent=4)
         case "csv":
             path = path.with_suffix(".csv")
-            df.to_csv(path)
+            df.to_csv(path, index=False)  # added index=False
         case "parquet":
             path = path.with_suffix(".parquet")
-            df.to_parquet(path)
+            df.to_parquet(path, index=False)  # added index=False
         case _:
             raise NotImplementedError(f"Unsupported type: {type}")
     return str(path)
