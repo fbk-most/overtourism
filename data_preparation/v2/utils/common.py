@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Shared paths and I/O helpers for the data preparation pipeline.
+Shared paths helper functions for the data preparation pipeline.
 """
 import ast
 import json
@@ -39,7 +39,6 @@ COMUNE_NAME_OVERRIDES = {
 
 ## UTILS FUNCTIONS
 ## Some functions for decoding / padding / cleaning
-
 
 def customize_unidecode(x):
     """
