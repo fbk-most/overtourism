@@ -221,8 +221,8 @@ def process_data(normalized_dir=NORMALIZED_DIR, mapping_dir=RAW_DIR, out_dir=PRO
 
 if __name__ == "__main__":
     logging.info("Step 2: Output/normalized -> Output/data_processed")
-    normalized_dir= NORMALIZED_DIR
+    dir_in= NORMALIZED_DIR
     mapping_dir= RAW_DIR
-    out_dir= PROCESSED_DIR
+    dir_out= PROCESSED_DIR
     type_format= "csv"
-    process_data(normalized_dir, mapping_dir, out_dir, type_format)
+    process_data(dir_in, mapping_dir, dir_out, type_format)

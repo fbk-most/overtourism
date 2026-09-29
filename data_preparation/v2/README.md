@@ -1,50 +1,58 @@
-# Data transformation into phenomena process 
-This folder contains the data preparation pipeline that processes raw data in order to calculate overtourism and tourist capacity indices for Trentino.
+# Data preparation pipeline
 
-The data are processed and transformed with the following steps: they are standardized into a unified schema, then they are stored (locally or on remote) and used to calculate the base quantities ("phenomena"), required to compute the final indices, by performing operations such as spatial/temporal disaggregation depending on the granularity of the initial data.
+```
+server -> Output/raw_data -> Output/normalized -> Output/data_processed -> Output/final_data
+      (0)                 (1)                  (2)                      (3)             
+```
 
----
+Each step reads the output of the previous one to perform its computations and saves the results in `Output/` directory, in `type_format` format (`csv` default, or `parquet`, must be the same in all the steps).
 
-## Two-Step Pipeline
+| Step | Script | Input | Output |
+|------|--------|-------|--------|
+| 0 - Download | `download_raw_data.py` | server (S3) | `Output/raw_data/` |
+| 1 - Standardization | `standardize_raw_data.py` | `Output/raw_data/` | `Output/normalized/` |
+| 2 - Processing | `process_data.py` | `Output/normalized/` (+ mappings in `Output/raw_data/`) | `Output/data_processed/` |
+| 3 - Final dataframes | `gen_phenomenon.py` | `Output/data_processed/` | `Output/final_data/` (or upload) |
 
-### 1. Standardization (`standardize_raw_data.py`)
-Takes raw data and brings them all into the same common schema:
-- **`DATA`**: Temporal dimension (`YYYY` for annual data, `YYYY-MM-DD` for daily/monthly data).
-- **`LOCATION`**: Name of the municipality or area (*comune* / *ambito*).
-- **`ID_COMUNE`**: ISTAT municipal code, always stored as a 6-digit zero-padded string (`"022001"`). Some phenomena (e.g., Vodafone attendences) can contain a list of IDs instead of a single string (because areas correspond to multiple municipalities)
-- Phenomenon-specific columns (e.g., `presenze_alb`, `tot_postiletto`, etc.).
+## Step 0 - Download raw data
+File: `download_raw_data.py`
+Saves the data exactly as they arrive from the server: no renaming, no normalization.
+Geojson, json mapping, and data: copied as they are
 
-Each data source has its own dedicated function:
-- `standardize_popolazione`: Annual population per municipality.
-- `standardize_strutture`: Annual accommodation structures 
-- `standardize_vodafone`: Daily tourist presences detected by Vodafone.
-- `standardize_presenze_ISPAT_alb`: Monthly ISPAT hotel presences at  APT level.
-- `standardize_presenze_ISPAT_extralb`: Monthly ISPAT non-hotel presences at the provincial level.
+## Step 1 - Standardization
+File: `standardize_raw_data.py`
 
-Output files are cached locally in `data_std/` (Parquet or CSV).
-Some helper functions (for handling standardisation, such as `_pad_id_comune` and `_remove_provincia`, or for interacting with the platform...) are used, from the `utils.py`.
+Uniforms the raw data (column names, `DATA`/`LOCATION` schema, date format, comune names).
+No filtering and no aggregation.
 
----
+Output: `popolazione_std`, `strutture_std`, `vodafone_std`, `presenze_alb_std`, `presenze_extralb_std`.
 
-### 2. Phenomenon Calculation (`gen_base_phenomenon_dataframes.py`)
-Loads the standardized DataFrames and combines/disaggregates them to generate the final phenomena to use for the index computation:
-- `phen_popolazione`
-- `phen_strutture`
-- `phen_presenze` (combination of ISPAT hotel + non-hotel + Vodafone presences)
+## Step 2 - Processing
+File: `process_data.py`
 
-**Spatio-Temporal Disaggregation:** ISPAT data are at a higher granularity level (spatial and temporal), but the pipeline requires daily municipal-level data. The disaggregation method supports two possibilities:
-- `"uniform"`: Evenly distributes values across municipalities and days
-- `"distributional"`: Allocates values using a weighting distribution (e.g., daily Vodafone presences).
+Transformations: `ID_COMUNE` resolution and padding, data filtering (type of user for vodafone, years
+for strutture), selection of the useful columns and finally spatial / temporal disaggregation (day x comune).
 
+Output: `popolazione_pr`, `strutture_pr`, `vodafone_pr`, `presenze_alb_pr`, `presenze_extralb_pr`.
+
+## Step 3 - Final dataframes
+File: `gen_base_phenomenon_dataframes.py`
+
+Creation of the phenomenon dataframes, unyfing presenze in a single one.
+
+Output: `phen_popolazione`, `phen_strutture`, `phen_presenze`.
 Finally, output dataframes are either saved locally or logged to DigitalHub based on the `local` flag.
 
 
 ## How to Run
 
 ### Run the complete pipeline from scratch:
-```python
-from data_preparation.v2.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
+The file `pipeline_phenomena.py` runs the entire pipeline, starting from the raw data and performing the standardization process from scratch. 
+## Parameters
 
-compute_phenomenon_dataframes(local=True, use_cached_standardized=False, type_format = "parquet")
-```
-This will save the phenomena locally, starting from the raw data and performing the standardization process from scratch. If `use_cached_standardized` is set to True and no local data are stored, the process is executed anyway.. The parameter `type_format` controls the format of both the local standarduzed stored dataframes and the format of phenomena to save.
+In every file, the following parameters can be set: 
+- `dir_in`: input directory (output directory of the previous step)
+- `dir_in`: output storing directory (input directory of the following step)
+- `type_format` controls the format of both the stored file ('csv', 'parquet') 
+- for `gen_base_phenomena`: `local`: to decide if store locally or upload
+- for `process_data`: `mapping_dir`: directory which contains the mapping files (by default, stored in Output/raw_data)

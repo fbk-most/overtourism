@@ -58,6 +58,6 @@ def download_raw_data(out_dir=RAW_DIR, type_format="csv"):
 
 if __name__ == "__main__":
     logging.info("Step 0: download raw data into Output/raw_data")
-    out_dir = RAW_DIR
+    dir_out = RAW_DIR
     type_format = "csv"
-    download_raw_data(out_dir=out_dir, type_format=type_format)
+    download_raw_data(out_dir=dir_out, type_format=type_format)

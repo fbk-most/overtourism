@@ -121,7 +121,7 @@ def standardize_raw_data(raw_dir=RAW_DIR, out_dir=NORMALIZED_DIR, type_format="c
 
 
 if __name__ == "__main__":
-    raw_dir = RAW_DIR
-    norm_dir = NORMALIZED_DIR
+    dir_in = RAW_DIR
+    dir_out = NORMALIZED_DIR
     type_format = "csv"
-    standardize_raw_data(raw_dir,norm_dir,type_format)
+    standardize_raw_data(dir_in,dir_out,type_format)

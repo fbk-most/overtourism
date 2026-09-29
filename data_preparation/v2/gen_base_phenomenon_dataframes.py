@@ -91,10 +91,10 @@ def compute_phenomenon_dataframes(processed_dir=PROCESSED_DIR, out_dir=FINAL_DIR
 
 if __name__ == "__main__":
     logging.info("Step 3: Output/data_processed -> Output/final_data")
-    processed_dir = PROCESSED_DIR
-    out_dir = FINAL_DIR
+    dir_in = PROCESSED_DIR
+    dir_out = FINAL_DIR
     type_format="csv"
     local = True
     compute_phenomenon_dataframes(
-        processed_dir, out_dir, type_format, local=local
+        dir_in, dir_out, type_format, local=local
     )
