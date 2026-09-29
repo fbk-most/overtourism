@@ -46,51 +46,46 @@ def _standardize_columns(df, date_col="anno", df_name=None):
     return df
 
 
-## STANDARDIZATION FUNCTIONS
-def standardize_popolazione_columns(df) -> pd.DataFrame:
+
+## 2. STANDARDIZATION: putting the columns in a standard format 
+def standardize_popolazione_columns(df,comune_col = "comune", date_col="anno") -> pd.DataFrame:
     """Standardizes popolazione df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(
-        customize_unidecode
-    )  # riformattiamo i nomi dei comuni
-    return standard_ordering_cols(
-        _standardize_columns(df, date_col="anno", df_name="popolazione_df")
-    )
+    df[comune_col] = df[comune_col].apply(customize_unidecode) # riformattiamo i nomi dei comuni 
+    return standard_ordering_cols(_standardize_columns(df, date_col=date_col, df_name = "popolazione_df"))
 
-
-def standardize_strutture_columns(df) -> pd.DataFrame:
+def standardize_strutture_columns(df,comune_col = "comune", date_col = "anno") -> pd.DataFrame:
     """Standardizes strutture df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode)
-    return standard_ordering_cols(
-        _standardize_columns(df, date_col="anno", df_name="strutture_df")
-    )
+    df[comune_col] = df[comune_col].apply(customize_unidecode)
+    return standard_ordering_cols(_standardize_columns(df, date_col=date_col, df_name = "strutture_df"))
 
-
-def standardize_vodafone_columns(df, geojson_comuni_json_data) -> pd.DataFrame:
+def standardize_vodafone_columns(df,geojson_comuni_json_data, comune_col = "comune", date_col="date"):
     """Standardizes strutture df, granularity: vodafone areas, daily"""
-    df["comune"] = convert_vodafone_comuni(df, geojson_comuni_json_data)
+    df[comune_col] = convert_vodafone_comuni(df,geojson_comuni_json_data)
     # Unify Vigo di Fassa and Pozza di Fassa
     logging.info(
         "Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)"
     )
-    mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
-    df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
-
-    df = _standardize_columns(df, date_col="date", df_name="vodafone_df")
-    df.rename(columns={"value": "presenze"}, inplace=True)
+    mask = df[comune_col].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
+    df.loc[mask, comune_col] = "SAN GIOVANNI DI FASSA"
+    df = _standardize_columns(df, date_col = date_col, df_name = "vodafone_df")
+    df.rename(columns = {"value": "presenze"}, inplace = True)
     return standard_ordering_cols(df)
 
-
-def standardize_presenze_columns(df, cols_renaming: dict) -> pd.DataFrame:
+def standardize_presenze_columns(df, cols_renaming:dict, date_col="data"):
     """Standardizes presences df, alb, granularity: APT, monthly"""
-    df.rename(columns=cols_renaming, inplace=True)
-    df["data"] = pd.to_datetime(
+    df.rename(columns = cols_renaming, inplace=True)
+    df[date_col] = pd.to_datetime(
         {
             "year": df["Anno"].astype(int),
             "month": df["Mese"],
             "day": 1,
         }
     )
-    df = _standardize_columns(df, date_col="data", df_name="presenze_df")
+    df =_standardize_columns(
+            df,
+            date_col = date_col,
+            df_name = "presenze_df"
+        )
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return standard_ordering_cols(df)
 
