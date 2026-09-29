@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from overtourism.backend.auth.dependencies import get_auth_context
+from overtourism.backend.auth.models import AuthContext
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session import manager as session_manager_module
 
@@ -92,6 +94,25 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert delete_response.status_code == 200
     assert delete_response.json() == {"message": "Session deleted successfully"}
     assert manager.session_manager.list_sessions() == []
+
+
+def test_session_owner_uses_token_subject_instead_of_email(client, tenant: str) -> None:
+    client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        authenticated=True,
+        tenant=tenant,
+        subject="user-sub",
+        token="signed-token",
+        claims={"sub": "user-sub", "email": "user@example.com"},
+    )
+
+    response = client.post(
+        f"/api/v2/{tenant}/sessions",
+        params={},
+        json={"metadata": {}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["owner_id"] == "user-sub"
 
 
 def test_session_detail_embeds_evaluation_metadata_without_result(
