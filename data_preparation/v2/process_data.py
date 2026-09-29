@@ -6,7 +6,10 @@ Input : Output/normalized/   (+ mapping json files, read from Output/raw_data)
 Output: Output/data_processed/   (popolazione_pr, strutture_pr, vodafone_pr,
                                   presenze_alb_pr, presenze_extralb_pr)
 
-Transformations: ID_COMUNE resolution, filtering, selection of the columns, computation of aggregated columns.
+Transformations: ID_COMUNE resolution, filtering, selection of the columns, computation of aggregated columns,
+disaggregation of the presences to comune x day (vodafone: areas -> comuni; ISPAT: APT / provincia and
+month -> comune and day). 
+Every row has a single ID_COMUNE; alb, xalb and vodafone presences.
 """
 import logging
 from pathlib import Path
@@ -99,19 +102,25 @@ def process_strutture(df, mapping_comuni):
     return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + STRUTTURE_VALUE_COLS])
 
 
-def process_vodafone(df, mapping_vodafone):
-    """vodafone presences, granularity: vodafone aggregations, daily"""
-    df = _filtering_vodafone_attendences(df)    ## Filtering the attendences on COMUNI & TURISTI 
+def process_vodafone(df, mapping_vodafone, **disagg_kwargs):
+    """vodafone presences: vodafone areas x day -> comune x day.
+    disagg_kwargs (e.g. space_weights, space_weight_col) are passed to disaggregate: uniform split if empty."""
+    df = _filtering_vodafone_attendences(df)    ## Filtering the attendences on COMUNI & TURISTI
     df["ID_COMUNE"] = df["LOCATION"].map(mapping_vodafone)
     mask = df["LOCATION"] == "SAN GIOVANNI DI FASSA"
     df.loc[mask, "ID_COMUNE"] = pd.Series([[22250]] * mask.sum(), index=df.index[mask], dtype=object)
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
-    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
-    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + VODAFONE_VALUE_COLS])
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"]).apply(normalize_id_comune)  # tuple: hashable for the groupby
+
+    # Sum per (day, vodafone area), then split each area over its comuni
+    df = df.groupby(["DATA", "ID_COMUNE"], as_index=False)[VODAFONE_VALUE_COLS].sum()
+    df = disaggregate(df, cols=VODAFONE_VALUE_COLS, axis="space", **disagg_kwargs)
+    return standard_ordering_cols(df)
 
 
-def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia=False):
-    """ISPAT presences (alb: APT, monthly / extralb: provincia, monthly)"""
+def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia=False, **disagg_kwargs):
+    """ISPAT presences (alb: APT, monthly / extralb: provincia, monthly) -> comune x day.
+    disagg_kwargs (space / time weights) are passed to disaggregate: uniform split if empty."""
     df.drop(columns=["Anno", "Mese"], inplace=True)
     if provincia:
         df["LOCATION"] = "PROVINCIA"
@@ -123,8 +132,11 @@ def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia=False):
         df = _remove_provincia(df, "LOCATION", True)
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
-    df = df.sort_values(["LOCATION", "DATA"])
-    return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + value_cols])
+    df = df.sort_values(["LOCATION", "DATA"])[["DATA", "ID_COMUNE"] + value_cols]
+
+    # APT / provincia x month -> comune x day
+    df = disaggregate(df, cols=value_cols, axis="both", freq_from="M", freq_to="D", **disagg_kwargs)
+    return standard_ordering_cols(df)
 
 
 ## Processing step
@@ -142,14 +154,59 @@ def process_data(normalized_dir=NORMALIZED_DIR, mapping_dir=RAW_DIR, out_dir=PRO
     mapping_vodafone = read_json(mapping_dir / "mapping_comuni_into_vodafone_Trento.json")
     mapping_apt = read_json(mapping_dir / "map_comuni_into_apt.json")
 
+    popolazione_pr = process_popolazione(popolazione_std, mapping_comuni)
+    strutture_pr = process_strutture(strutture_std, mapping_comuni)
+
+    ### ---------------------------------- ###
+    ## 1. DISAGGREGAZIONE UNIFORME
+    ## Le presenze vodafone sono distribuite uniformemente sui comuni
+    ## Le presenze ISPAT alberghiere e extra-alberghiere sono distribuite uniformemente sui comuni e sui giorni
+    vodafone_pr = process_vodafone(vodafone_std, mapping_vodafone)
+    presenze_alb_pr = process_presenze_ISPAT(presenze_alb_std, mapping_apt, PRESENZE_ALB_VALUE_COLS)
+    presenze_extralb_pr = process_presenze_ISPAT(
+        presenze_extralb_std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True
+    )
+
+    ### -------------------------------------------------------------------- ###
+    ## 2. VODAFONE PRESENZE
+    ## Le presenze vodafone sono distribuite uniformemente sui comuni
+    ## Le presenze ISPAT alberghiere e extra-alberghiere sono distribuite seguendo la distribuzione vodafone giornaliera
+    # vodafone_pr = process_vodafone(vodafone_std, mapping_vodafone)
+    # w = dict(
+    #     space_weights=vodafone_pr, space_weight_col="presenze", space_time_freq="M",
+    #     time_weights=vodafone_pr, time_weight_col="presenze",
+    # )
+    # presenze_alb_pr = process_presenze_ISPAT(presenze_alb_std, mapping_apt, PRESENZE_ALB_VALUE_COLS, **w)
+    # presenze_extralb_pr = process_presenze_ISPAT(
+    #     presenze_extralb_std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True, **w
+    # )
+
+    ### -------------------------------------------------------------------- ###
+    ## 3. DISAGGREGAZIONE DISTRIBUZIONALE, WRT POSTI LETTO
+    ## Le presenze vodafone sono distribuite seguendo la distribuzione annuale dei posti letto totali, sui comuni
+    ## Le presenze ISPAT alberghiere e extra-alberghiere seguono rispettivamente i posti letto alberghieri ed extra-alberghieri
+    ## Richiede "tot_postiletto_alberghieri" e "tot_postiletto_extralberghieri" in STRUTTURE_VALUE_COLS
+    # vodafone_pr = process_vodafone(
+    #     vodafone_std, mapping_vodafone,
+    #     space_weights=strutture_pr, space_weight_col="tot_postiletto", space_time_freq="Y",
+    # )  # space_weights=popolazione_pr, space_weight_col="popolazione", se si volesse per esempio distribuire rispetto alla popolazione
+    # presenze_alb_pr = process_presenze_ISPAT(
+    #     presenze_alb_std, mapping_apt, PRESENZE_ALB_VALUE_COLS,
+    #     space_weights=strutture_pr, space_weight_col="tot_postiletto_alberghieri", space_time_freq="Y",
+    #     time_weights=strutture_pr, time_weight_col="tot_postiletto_alberghieri", time_weight_freq="Y",
+    # )
+    # presenze_extralb_pr = process_presenze_ISPAT(
+    #     presenze_extralb_std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True,
+    #     space_weights=strutture_pr, space_weight_col="tot_postiletto_extralberghieri", space_time_freq="Y",
+    #     time_weights=strutture_pr, time_weight_col="tot_postiletto_extralberghieri", time_weight_freq="Y",
+    # )
+
     dict_processed = {
-        "popolazione_pr": process_popolazione(popolazione_std, mapping_comuni),
-        "strutture_pr": process_strutture(strutture_std, mapping_comuni),
-        "vodafone_pr": process_vodafone(vodafone_std, mapping_vodafone),
-        "presenze_alb_pr": process_presenze_ISPAT(presenze_alb_std, mapping_apt, PRESENZE_ALB_VALUE_COLS),
-        "presenze_extralb_pr": process_presenze_ISPAT(
-            presenze_extralb_std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True
-        ),
+        "popolazione_pr": popolazione_pr,
+        "strutture_pr": strutture_pr,
+        "vodafone_pr": vodafone_pr,
+        "presenze_alb_pr": presenze_alb_pr,
+        "presenze_extralb_pr": presenze_extralb_pr,
     }
 
     save_computed_dfs(
@@ -157,7 +214,7 @@ def process_data(normalized_dir=NORMALIZED_DIR, mapping_dir=RAW_DIR, out_dir=PRO
             local=True,
             type_format=type_format,
             path_saving=out_dir,
-        )    
+        )
     logging.info("Processed data saved in %s", out_dir)
     return dict_processed
 
