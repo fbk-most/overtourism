@@ -12,17 +12,20 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
 from data_preparation.v2.utils.utils import (
+    save_computed_dfs,
+)
+from data_preparation.v2.utils.common import (
+    RAW_DIR, NORMALIZED_DIR, PROCESSED_DIR, 
+    read_df, 
+    read_json, 
+    normalize_id_comune,
     pad_id_comune,
     resolve_id_comune,
     standard_ordering_cols,
     _remove_provincia,
-    save_computed_dfs
 )
-from data_preparation.v2.utils.common import (
-    RAW_DIR, NORMALIZED_DIR, PROCESSED_DIR, read_df, read_json,
-)
+from data_preparation.v2.utils.disaggregation import disaggregate
 
 logging.basicConfig(level=logging.INFO)
 

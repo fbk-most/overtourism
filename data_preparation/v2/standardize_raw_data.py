@@ -15,12 +15,15 @@ import geopandas as geopd
 import pandas as pd
 
 from data_preparation.v2.utils.utils import (
+    save_computed_dfs
+)
+from data_preparation.v2.utils.common import (
+    RAW_DIR, NORMALIZED_DIR, 
+    read_df,
     customize_unidecode,
     standard_ordering_cols,
     _to_data_location,
-    save_computed_dfs
 )
-from data_preparation.v2.utils.common import RAW_DIR, NORMALIZED_DIR, read_df
 
 logging.basicConfig(level=logging.INFO)
 
