@@ -10,10 +10,7 @@ import io
 import boto3
 import configparser
 import json
-from unidecode import unidecode
 import logging
-
-logging.basicConfig(level=logging.INFO)
 
 
 PROJECT = os.environ.get("PROJECT_NAME", "overtourism")
@@ -36,94 +33,11 @@ PATH_AIXPA_INDEX_DFS = (
 )
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
-
-MAPPING_COMUNI_FILE = (
-    Path(__file__).resolve().parents[2] / "mapping" / "mapping_comuni_ISTAT.json"
+MAPPING_PATH = (
+    Path(__file__).resolve().parents[2] / "mapping" 
 )
 
-# Explicit overrides for comuni whose official Italian name differs from
-# a naive "before the dash" split of the bilingual name in the source CSV.
-COMUNE_NAME_OVERRIDES = {
-    "CAMPITELLO DI FASSA-CIAMPEDEL": "CAMPITELLO DI FASSA",
-    "CAMPODENNO": "CAMPODENNO",  # no dash present, check exact spelling/accents in mapping
-    "CANAL SAN BOVO": "CANAL SAN BOVO",
-    "CANAZEI-CIANACEI": "CANAZEI",
-    "FIEROZZO-VLAROTZ": "FIEROZZO",
-    "FRASSILONGO-GARAIT": "FRASSILONGO",
-    "LUSERNA-LUSERN": "LUSERNA",
-    "MAZZIN-MAZIN": "MAZZIN",
-    "MOENA-MOENA": "MOENA",
-    "PALU DEL FERSINA-PALAI EN BERSNTOL": "PALU DEL FERSINA",
-    "SAN GIOVANNI DI FASSA-SEN JAN": "SAN GIOVANNI DI FASSA",
-    "SORAGA DI FASSA-SORAGA": "SORAGA DI FASSA",
-}
-
-
-## UTILS FUNCTIONS
-## Some functions for decoding / padding / cleaning
-def get_mapping_comuni():
-    with MAPPING_COMUNI_FILE.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def customize_unidecode(x):
-    """
-    Convert the input string, removing accents, converting to uppercase, and stripping whitespace.
-    """
-    if x.endswith("'"):  # removes also trailing apostrophe if present
-        x = x.removesuffix("'")
-    return unidecode(x.strip().upper())
-
-
-def pad_id_comune(series, width=6):
-    """Zero-pad an ID_COMUNE column to `width` digits (e.g. 22001 -> '022001').
-
-    Missing / unmapped values (NaN) are left untouched. Works regardless of
-    whether the column arrives as int, float (common when NaNs are present),
-    or string dtype.
-    """
-
-    def _pad(x):
-        if pd.isna(x):
-            return x
-        return str(int(x)).zfill(width)
-
-    return series.apply(_pad)
-
-
-def _remove_provincia(df, comune_col="comune", upper=False):
-    """Drop rows whose comune starts with 'PROVINCIA', logging what gets removed."""
-    series = df[comune_col].str.upper() if upper else df[comune_col]
-    mask = series.str.startswith("PROVINCIA")
-    if mask.any():
-        logging.info(
-            f"Comune {df.loc[mask, comune_col].unique()} is a PROVINCIA, removing it from the analysis"
-        )
-        df = df[~mask]
-    return df
-
-
-def _to_data_location(df, date_col, drop_cols=None):
-    """Standardize a phenomenon dataframe to DATA/LOCATION column naming.
-
-    date_col: name of the column holding the time dimension (e.g. "anno" or "date").
-    drop_cols: optional columns to drop before returning (e.g. a redundant "anno"
-    column once the daily "date" column is promoted to DATA).
-    """
-    df = df.drop(columns=drop_cols) if drop_cols else df
-    return df.rename(columns={date_col: "DATA", "comune": "LOCATION"})
-
-
-def resolve_id_comune(name, mapping_comuni, overrides=COMUNE_NAME_OVERRIDES):
-    """Map a comune name to its ISTAT ID, falling back to the bilingual-name overrides."""
-    id_comune = mapping_comuni.get(name)
-    if id_comune is None and name in overrides:
-        id_comune = mapping_comuni.get(overrides[name])
-    return id_comune
-
-
-## S3 utilities
-
+## S3 utilities and getter functions from platform
 
 def get_dataframe(name: str) -> DataFrame:
     return dh.get_dataitem(name, project=PROJECT).as_df()
@@ -147,10 +61,10 @@ def put_dataframe(
             df.to_json(path, orient="index", indent=4)
         case "csv":
             path = path.with_suffix(".csv")
-            df.to_csv(path)
+            df.to_csv(path, index=False)  # added index=False
         case "parquet":
             path = path.with_suffix(".parquet")
-            df.to_parquet(path)
+            df.to_parquet(path, index=False)  # added index=False
         case _:
             raise NotImplementedError(f"Unsupported type: {type}")
     return str(path)
@@ -209,7 +123,7 @@ def init_s3(force=False):
 
 
 def get_s3(name: str):
-    s3, bucket = init_s3()
+    s3, _ = init_s3()
     object = s3.Object("most-datalake", "overtourism/inputdata/" + name)
 
     buffer = io.BytesIO()
@@ -251,13 +165,22 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def save_computed_dfs(dict_dfs, local=False):
+def get_mapping(mapping_name, local = False):
+    if local: 
+        with (MAPPING_PATH / mapping_name).open("r", encoding="utf-8") as f:
+            json.load(f)
+    else:
+        return get_json_s3(f"mapping_ids/{mapping_name}")
+
+
+def save_computed_dfs(dict_dfs, local=False, type_format = 'parquet', path_saving = PATH_AIXPA_INDEX_DFS):
+    assert type_format in ["csv", "parquet"]
     for key, value in dict_dfs.items():
-        logging.info(f"Uploading dataframe '{key}' in path {PATH_AIXPA_INDEX_DFS}/{key}.parquet...")
-        put_dataframe(value, key, type="parquet", path=PATH_AIXPA_INDEX_DFS)
+        logging.info(f"Uploading dataframe '{key}' in path {path_saving}/{key}.{type_format}...")
+        put_dataframe(value, key, type=type_format, path=path_saving)
         if not local:
-            logging.info(f"Logging dataframe '{key}.parquet'...")
-            log_dataframe(value, key, type="parquet")
+            logging.info(f"Logging dataframe '{key}.{type_format}'...")
+            log_dataframe(value, key, type=type_format)
     logging.info("## Saved.")
 
 
