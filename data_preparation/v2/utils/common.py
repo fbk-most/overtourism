@@ -12,7 +12,7 @@ from unidecode import unidecode
 import logging 
 logging.basicConfig(level=logging.INFO)
 
-OUTPUT_DIR = Path(__file__).parent / "Output"
+OUTPUT_DIR = Path(__file__).parent.parent / "Output"
 RAW_DIR = OUTPUT_DIR / "raw_data"
 NORMALIZED_DIR = OUTPUT_DIR / "normalized"
 PROCESSED_DIR = OUTPUT_DIR / "data_processed"
