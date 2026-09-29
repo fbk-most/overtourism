@@ -123,6 +123,10 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
+        "overtourism.backend.api.v2.session.call_executor",
+        lambda tenant, param_overrides: {"values": param_overrides},
+    )
+    monkeypatch.setattr(
         session_manager_module,
         "uuid4",
         lambda: SimpleNamespace(hex="session-detail"),

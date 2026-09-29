@@ -42,7 +42,7 @@ def test_create_app_does_not_register_overtourism_extension_routes_by_default(
 ) -> None:
     app = create_app(handler)
 
-    paths = {route.path for route in app.routes}
+    paths = app.openapi()["paths"]
 
     assert "/api/v2/{tenant}/data/overtourism/indexes/categories" not in paths
     assert "/api/v2/{tenant}/widgets" not in paths
@@ -51,7 +51,7 @@ def test_create_app_does_not_register_overtourism_extension_routes_by_default(
 def test_create_app_registers_configuration_route_by_default(handler) -> None:
     app = create_app(handler)
 
-    paths = {route.path for route in app.routes}
+    paths = app.openapi()["paths"]
 
     assert "/api/v2/{tenant}/configuration" in paths
 
