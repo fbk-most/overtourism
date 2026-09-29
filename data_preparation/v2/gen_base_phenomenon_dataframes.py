@@ -94,7 +94,7 @@ if __name__ == "__main__":
     processed_dir = PROCESSED_DIR
     out_dir = FINAL_DIR
     type_format="csv"
-    local = False
+    local = True
     compute_phenomenon_dataframes(
         processed_dir, out_dir, type_format, local=local
     )
