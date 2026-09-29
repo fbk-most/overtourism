@@ -6,11 +6,12 @@ Input : server (S3)
 Output: Output/raw_data/
         Data are saved exactly as they downloaded.
 """
+
 import logging
 from pathlib import Path
 
-from data_preparation.v2.utils.utils import get_s3, get_dataframe, save_computed_dfs
-from data_preparation.v2.utils.common import RAW_DIR, check_output_dir
+from data_preparation.utils.utils import get_s3, get_dataframe, save_computed_dfs
+from data_preparation.utils.common import RAW_DIR, check_output_dir
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,13 +43,13 @@ def download_raw_data(out_dir=RAW_DIR, type_format="csv"):
         logging.info("Downloading object %s from S3...", name)
         (out_dir / name).write_bytes(get_s3(name).getvalue())
     for name in DATAFRAMES:
-            logging.info("Downloading dataframe %s...", name)
-            save_computed_dfs(
-                {name: get_dataframe(name)},
-                local=True,
-                type_format=type_format,
-                path_saving=out_dir,
-            )
+        logging.info("Downloading dataframe %s...", name)
+        save_computed_dfs(
+            {name: get_dataframe(name)},
+            local=True,
+            type_format=type_format,
+            path_saving=out_dir,
+        )
 
     for name in MAPPINGS:
         logging.info("Downloading mapping %s...", name)

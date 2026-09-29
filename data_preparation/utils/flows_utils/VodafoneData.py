@@ -1,10 +1,10 @@
 import pandas as pd
 import polars as pl
 import re
-from data_preparation.v2.utils.flows_utils.OsAndFileHandling import (
+from data_preparation.utils.flows_utils.OsAndFileHandling import (
     extract_od_vodafone_from_bucket,
 )
-from data_preparation.v2.utils.flows_utils.constant_names_variables import (
+from data_preparation.utils.flows_utils.constant_names_variables import (
     date_in_file_2_skip,
 )
 

@@ -1,10 +1,6 @@
 import logging
 import pandas as pd
-from data_preparation.v2.utils.utils import (
-    get_s3,
-    pad_id_comune,
-    get_mapping
-)
+from data_preparation.utils.utils import get_s3, pad_id_comune, get_mapping
 from standardize_raw_data import _standardize
 
 logging.basicConfig(level=logging.INFO)
@@ -31,26 +27,26 @@ FLUSSI_EXTRA_MAPPING = {
 }
 
 df__map = {
-        "AREA_ID": "ID",
-        "AREA_LABEL": "comune",
-        "tot_in_flows_t_0_0_w_all_days_d_": "FLOWS_IN",
-        "tot_out_flows_t_0_0_w_all_days_d_": "FLOWS_OUT",
-        "hotspot_level_tot_in_flows_t_0_0_w_all_days_d_": "LEVEL_IN",
-        "hotspot_level_tot_out_flows_t_0_0_w_all_days_d_": "LEVEL_OUT",
-    }
+    "AREA_ID": "ID",
+    "AREA_LABEL": "comune",
+    "tot_in_flows_t_0_0_w_all_days_d_": "FLOWS_IN",
+    "tot_out_flows_t_0_0_w_all_days_d_": "FLOWS_OUT",
+    "hotspot_level_tot_in_flows_t_0_0_w_all_days_d_": "LEVEL_IN",
+    "hotspot_level_tot_out_flows_t_0_0_w_all_days_d_": "LEVEL_OUT",
+}
 
 df_u_map = {
-        "AREA_ID": "ID",
-        "AREA_LABEL": "comune",
-        "hotspot_level_tot_in_flows_TOURIST_t_0_0_w_all_days_d_": "LEVEL_IN_TOURISTS",
-        "tot_in_flows_TOURIST_t_0_0_w_all_days_d_": "FLOWS_IN_TOURISTS",
-        "hotspot_level_tot_out_flows_TOURIST_t_0_0_w_all_days_d_": "LEVEL_OUT_TOURISTS",
-        "tot_out_flows_TOURIST_t_0_0_w_all_days_d_": "FLOWS_OUT_TOURISTS",
-        "hotspot_level_tot_in_flows_VISITOR_t_0_0_w_all_days_d_": "LEVEL_IN_VISITORS",
-        "tot_in_flows_VISITOR_t_0_0_w_all_days_d_": "FLOWS_IN_VISITORS",
-        "hotspot_level_tot_out_flows_VISITOR_t_0_0_w_all_days_d_": "LEVEL_OUT_VISITORS",
-        "tot_out_flows_VISITOR_t_0_0_w_all_days_d_": "FLOWS_OUT_VISITORS",
-    }
+    "AREA_ID": "ID",
+    "AREA_LABEL": "comune",
+    "hotspot_level_tot_in_flows_TOURIST_t_0_0_w_all_days_d_": "LEVEL_IN_TOURISTS",
+    "tot_in_flows_TOURIST_t_0_0_w_all_days_d_": "FLOWS_IN_TOURISTS",
+    "hotspot_level_tot_out_flows_TOURIST_t_0_0_w_all_days_d_": "LEVEL_OUT_TOURISTS",
+    "tot_out_flows_TOURIST_t_0_0_w_all_days_d_": "FLOWS_OUT_TOURISTS",
+    "hotspot_level_tot_in_flows_VISITOR_t_0_0_w_all_days_d_": "LEVEL_IN_VISITORS",
+    "tot_in_flows_VISITOR_t_0_0_w_all_days_d_": "FLOWS_IN_VISITORS",
+    "hotspot_level_tot_out_flows_VISITOR_t_0_0_w_all_days_d_": "LEVEL_OUT_VISITORS",
+    "tot_out_flows_VISITOR_t_0_0_w_all_days_d_": "FLOWS_OUT_VISITORS",
+}
 
 FLUSSI_VALUE_COLS = [
     "FLOWS_IN",
@@ -72,6 +68,7 @@ FLUSSI_LEVEL_COLS = [
 
 ## HELPER FUNCTIONS for standardization
 
+
 def _pre_filtering_flussi(df, colmap):
     """Pre-filterin: selection of Trentino area"""
     df = df[list(colmap)]
@@ -81,12 +78,16 @@ def _pre_filtering_flussi(df, colmap):
 def standardize_arrivi(df, mapping_comuni, years=["2021", "2022", "2023", "2024"]):
     """Leads arrivi df to a standard format"""
     df = df.rename(columns={"Anno": "anno", "Ambito": "comune"})
-    df = pd.melt(df, id_vars="comune", value_vars=years, value_name="arrivi", var_name="anno")
-    df["anno"] = df["anno"].astype(int)
-    df["ID_COMUNE"] = df["comune"].map(mapping_comuni).apply(
-        lambda x: [int(i) for i in x] if isinstance(x, list) else x
+    df = pd.melt(
+        df, id_vars="comune", value_vars=years, value_name="arrivi", var_name="anno"
     )
-    return _standardize(df, date_col="anno", df_name = "arrivi_df")
+    df["anno"] = df["anno"].astype(int)
+    df["ID_COMUNE"] = (
+        df["comune"]
+        .map(mapping_comuni)
+        .apply(lambda x: [int(i) for i in x] if isinstance(x, list) else x)
+    )
+    return _standardize(df, date_col="anno", df_name="arrivi_df")
 
 
 def _standardize_flussi_component(df, colmap, year):
@@ -94,7 +95,9 @@ def _standardize_flussi_component(df, colmap, year):
     df = df.rename(columns=colmap)
     df["comune"] = df["comune"].str.upper().str.strip()
     df["anno"] = year
-    return _standardize(df, date_col="anno", remove_provincia=False, df_name = "flussi_df")
+    return _standardize(
+        df, date_col="anno", remove_provincia=False, df_name="flussi_df"
+    )
 
 
 def standardize_flussi_all(df_all, year=2024):
@@ -132,30 +135,41 @@ def combine_flussi(df_all, df_user, mapping_comuni):
         logging.warning(f"WARNING: discrepancies found in IDs: {unmatched}")
     df_merged = df_merged.drop(columns=["_merge"])
 
-    df_merged["ID_COMUNE"] = df_merged["ID"].map(_flussi_id_map(df_user, mapping_comuni))
-    df_merged["ID_COMUNE"] = pad_id_comune(df_merged["ID_COMUNE"])  
+    df_merged["ID_COMUNE"] = df_merged["ID"].map(
+        _flussi_id_map(df_user, mapping_comuni)
+    )
+    df_merged["ID_COMUNE"] = pad_id_comune(df_merged["ID_COMUNE"])
     return df_merged
 
 
 def _post_filtering_flussi(df):
     """Post-filtering: selection of columns of interest"""
-    keep_cols = ["ID", "DATA", "LOCATION", "ID_COMUNE"] + FLUSSI_VALUE_COLS + FLUSSI_LEVEL_COLS
+    keep_cols = (
+        ["ID", "DATA", "LOCATION", "ID_COMUNE"] + FLUSSI_VALUE_COLS + FLUSSI_LEVEL_COLS
+    )
     return df[keep_cols].copy()
 
-def standardize_other_raw_data():    
+
+def standardize_other_raw_data():
     """Leading raw data to a standardized format"""
     mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
     mapping_apt = get_mapping("map_comuni_into_apt.json")
 
     arrivi_df = pd.read_csv(get_s3("arrivi_trentino_ISPAT.csv"))
-    df_all_flows = _pre_filtering_flussi(pd.read_parquet(get_s3("grid_all_columns__.parquet")), df__map)
-    df_users_flows = _pre_filtering_flussi(pd.read_parquet(get_s3("grid_all_columns_user.parquet")), df_u_map)
+    df_all_flows = _pre_filtering_flussi(
+        pd.read_parquet(get_s3("grid_all_columns__.parquet")), df__map
+    )
+    df_users_flows = _pre_filtering_flussi(
+        pd.read_parquet(get_s3("grid_all_columns_user.parquet")), df_u_map
+    )
 
     arrivi_df = standardize_arrivi(arrivi_df, mapping_apt)
     df_all = standardize_flussi_all(df_all_flows)
     df_user = standardize_flussi_user(df_users_flows)
 
-    df_flussi = _post_filtering_flussi(combine_flussi(df_all, df_user, mapping_vodafone))
+    df_flussi = _post_filtering_flussi(
+        combine_flussi(df_all, df_user, mapping_vodafone)
+    )
     return arrivi_df, df_flussi
 
 

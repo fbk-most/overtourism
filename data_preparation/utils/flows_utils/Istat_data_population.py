@@ -1,7 +1,7 @@
 import pandas as pd
 import polars as pl
 import re
-from data_preparation.v2.utils.utils import get_s3
+from data_preparation.utils.utils import get_s3
 from pathlib import Path
 
 

@@ -8,17 +8,17 @@ Output: Output/normalized/   (popolazione_std, strutture_std, vodafone_std,
 
 Uniformation of the raw data (names, DATA/LOCATION, dates and comune format).
 """
+
 import logging
 from pathlib import Path
 
 import geopandas as geopd
 import pandas as pd
 
-from data_preparation.v2.utils.utils import (
-    save_computed_dfs
-)
-from data_preparation.v2.utils.common import (
-    RAW_DIR, NORMALIZED_DIR, 
+from data_preparation.utils.utils import save_computed_dfs
+from data_preparation.utils.common import (
+    RAW_DIR,
+    NORMALIZED_DIR,
     read_df,
     customize_unidecode,
     standard_ordering_cols,
@@ -31,41 +31,54 @@ logging.basicConfig(level=logging.INFO)
 ## HELPER FUNCTIONS
 def convert_vodafone_comuni(df, geojson_comuni_json_data):
     """Conversion from locId (geojson) to comune name"""
-    location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
+    location_map = (
+        geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
+    )
     return df["locId"].map(location_map)
 
 
-def _standardize_columns(df, date_col = "anno", df_name = None):
+def _standardize_columns(df, date_col="anno", df_name=None):
     """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
     logging.info(
-        "Applying standardization to data%s",
-        f" '{df_name}'" if df_name else ""
-    )   
+        "Applying standardization to data%s", f" '{df_name}'" if df_name else ""
+    )
     df = _to_data_location(df, date_col=date_col)
-    return df 
+    return df
+
 
 ## STANDARDIZATION FUNCTIONS
 def standardize_popolazione_columns(df) -> pd.DataFrame:
     """Standardizes popolazione df, granularity: municipality, yearly"""
-    df["comune"] = df["comune"].apply(customize_unidecode) # riformattiamo i nomi dei comuni 
-    return standard_ordering_cols(_standardize_columns(df, date_col="anno", df_name = "popolazione_df"))
+    df["comune"] = df["comune"].apply(
+        customize_unidecode
+    )  # riformattiamo i nomi dei comuni
+    return standard_ordering_cols(
+        _standardize_columns(df, date_col="anno", df_name="popolazione_df")
+    )
+
 
 def standardize_strutture_columns(df) -> pd.DataFrame:
     """Standardizes strutture df, granularity: municipality, yearly"""
     df["comune"] = df["comune"].apply(customize_unidecode)
-    return standard_ordering_cols(_standardize_columns(df, date_col="anno", df_name = "strutture_df"))
+    return standard_ordering_cols(
+        _standardize_columns(df, date_col="anno", df_name="strutture_df")
+    )
+
 
 def standardize_vodafone_columns(df, geojson_comuni_json_data) -> pd.DataFrame:
     """Standardizes strutture df, granularity: vodafone areas, daily"""
     df["comune"] = convert_vodafone_comuni(df, geojson_comuni_json_data)
     # Unify Vigo di Fassa and Pozza di Fassa
-    logging.info("Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)")
+    logging.info(
+        "Unification of Vigo di Fassa and Pozza di Fassa in Vodafone dataset (ID 22250)"
+    )
     mask = df["comune"].isin(["VIGO DI FASSA", "POZZA DI FASSA"])
     df.loc[mask, "comune"] = "SAN GIOVANNI DI FASSA"
 
     df = _standardize_columns(df, date_col="date", df_name="vodafone_df")
     df.rename(columns={"value": "presenze"}, inplace=True)
     return standard_ordering_cols(df)
+
 
 def standardize_presenze_columns(df, cols_renaming: dict) -> pd.DataFrame:
     """Standardizes presences df, alb, granularity: APT, monthly"""
@@ -77,11 +90,7 @@ def standardize_presenze_columns(df, cols_renaming: dict) -> pd.DataFrame:
             "day": 1,
         }
     )
-    df =_standardize_columns(
-            df,
-            date_col = 'data',
-            df_name = "presenze_df"
-        )
+    df = _standardize_columns(df, date_col="data", df_name="presenze_df")
     df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
     return standard_ordering_cols(df)
 
@@ -107,7 +116,10 @@ def standardize_raw_data(raw_dir=RAW_DIR, out_dir=NORMALIZED_DIR, type_format="c
         ),
         "presenze_extralb_std": standardize_presenze_columns(
             presenze_extralb_df,
-            {"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"},
+            {
+                "Presenze alberghi": "presenze_alb",
+                "Presenze extra-alberghi": "presenze_xalb",
+            },
         ),
     }
     save_computed_dfs(
@@ -124,4 +136,4 @@ if __name__ == "__main__":
     dir_in = RAW_DIR
     dir_out = NORMALIZED_DIR
     type_format = "csv"
-    standardize_raw_data(dir_in,dir_out,type_format)
+    standardize_raw_data(dir_in, dir_out, type_format)

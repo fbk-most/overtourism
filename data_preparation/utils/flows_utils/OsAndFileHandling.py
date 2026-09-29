@@ -2,7 +2,7 @@ import geopandas as gpd
 import io
 import pandas as pd
 import polars as pl
-from data_preparation.v2.utils.utils import DATA_PREFIX
+from data_preparation.utils.utils import DATA_PREFIX
 from typing import List
 
 ## ---------- DHCLI Interface for Data Lake ---------- ##

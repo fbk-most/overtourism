@@ -34,12 +34,12 @@ import geopandas as gpd
 import numpy as np
 import polars as pl
 from typing import Dict, List
-from data_preparation.v2.utils.flows_utils.Mobility_Hierarchy_functions import (
+from data_preparation.utils.flows_utils.Mobility_Hierarchy_functions import (
     extract_hotspot_levels,
     get_critical_fluxes_per_hotspot_level,
     get_lorenz_curve,
 )
-from data_preparation.v2.utils.flows_utils.OD import compute_total_flows_from_flow
+from data_preparation.utils.flows_utils.OD import compute_total_flows_from_flow
 
 
 class MobilityHierarchy:

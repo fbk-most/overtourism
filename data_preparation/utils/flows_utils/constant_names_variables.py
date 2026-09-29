@@ -1,5 +1,5 @@
 import os
-from data_preparation.v2.utils.utils import DATA_PREFIX, TEMP_FOLDER_DIR
+from data_preparation.utils.utils import DATA_PREFIX, TEMP_FOLDER_DIR
 
 ## ---------- ERROR VARIABLES ---------- ##
 date_in_file_2_skip = {

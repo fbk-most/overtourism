@@ -3,26 +3,26 @@ import geopandas as gpd
 import itertools
 import os
 import polars as pl
-from data_preparation.v2.utils.utils import (
+from data_preparation.utils.utils import (
     TEMP_FOLDER_DIR,
     init_s3,
     log_dataframe,
     read_shapefile_s3,
 )
 from pathlib import Path
-from data_preparation.v2.utils.flows_utils.GenerateFakeFluxes import (
+from data_preparation.utils.flows_utils.GenerateFakeFluxes import (
     add_column_area_and_fraction,
     add_suffix_to_repeated_values,
     redistribute_population_by_fraction,
 )
-from data_preparation.v2.utils.flows_utils.Istat_data_population import (
+from data_preparation.utils.flows_utils.Istat_data_population import (
     Istat_population_data,
     simple_join_cities_with_population,
 )
-from data_preparation.v2.utils.flows_utils.Mobility_Hierarchy import (
+from data_preparation.utils.flows_utils.Mobility_Hierarchy import (
     pipeline_mobility_hierarchy_time_day_type_trips,
 )
-from data_preparation.v2.utils.flows_utils.OD import (
+from data_preparation.utils.flows_utils.OD import (
     add_column_area_code_OD_df_distance,
     compute_difference_trips_col_day_baseline,
     compute_direction_matrix_optimized,
@@ -30,23 +30,23 @@ from data_preparation.v2.utils.flows_utils.OD import (
     direction_distance_2_df,
     join_Tij_Vodafone_with_distance_matrix,
 )
-from data_preparation.v2.utils.flows_utils.OD_pipeline import (
+from data_preparation.utils.flows_utils.OD_pipeline import (
     extract_name_columns_for_difference_pipeline,
     fill_dict_output_hotspot_analysis_OD_analysis_from_case_pipeline,
     get_values_from_case_pipeline_OD_analysis,
     initialize_dicts_that_hold_grid_flows_columns_and_hotspot_analysis,
 )
-from data_preparation.v2.utils.flows_utils.OsAndFileHandling import (
+from data_preparation.utils.flows_utils.OsAndFileHandling import (
     extract_filenames_and_date_from_bucket,
     extract_od_vodafone_from_bucket,
     extract_presences_vodafone_from_bucket,
     merge_flows_and_grid_with_global_to_obtain_unique_dfs,
 )
-from data_preparation.v2.utils.flows_utils.VodafoneData import (
+from data_preparation.utils.flows_utils.VodafoneData import (
     add_column_is_week_and_str_day,
     extract_all_days_available_analysis_flows_from_raw_dataset,
 )
-from data_preparation.v2.utils.flows_utils.constant_names_variables import (
+from data_preparation.utils.flows_utils.constant_names_variables import (
     UserProfiles,
     case_2_is_in_flow,
     col_str_day_od,
@@ -76,12 +76,12 @@ from data_preparation.v2.utils.flows_utils.constant_names_variables import (
     str_trip_type_od,
     str_dir_output_path,
 )
-from data_preparation.v2.utils.flows_utils.default_parameters import (
+from data_preparation.utils.flows_utils.default_parameters import (
     list_time_intervals,
     week_days,
 )
 
-from data_preparation.v2.utils.flows_utils.pipeline_diffusione_1_2 import (
+from data_preparation.utils.flows_utils.pipeline_diffusione_1_2 import (
     default_initial_preparation_common_to_all_cases_df_flows_not_baseline,
     define_columns_to_hold_and_merge_both_for_grid_and_flows_OD_analysis,
     filter_flows_by_conditions_from_cases,

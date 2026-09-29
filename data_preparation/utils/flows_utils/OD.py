@@ -88,7 +88,7 @@ from numpy import array, errstate, fill_diagonal, sqrt
 from os.path import exists
 from pandas import DataFrame, read_parquet
 from tqdm import tqdm
-import os 
+import os
 
 ####################### DIRECTION MATRIX ###########################
 
@@ -212,7 +212,7 @@ def direction_distance_2_df(
         # Create DataFrame
         df = DataFrame(rows, columns=columns)
         output_dir = os.path.dirname(complete_path_direction_distance_df)
-        if output_dir:  
+        if output_dir:
             os.makedirs(output_dir, exist_ok=True)
         df.to_parquet(complete_path_direction_distance_df, index=False)
         return df
@@ -464,12 +464,12 @@ def concat_df_od_and_add_columns(
     Output: pl.DataFrame with the concatenated OD data and the added columns.
 
     """
-    from data_preparation.v2.utils.flows_utils.VodafoneData import (
+    from data_preparation.utils.flows_utils.VodafoneData import (
         extract_od_vodafone_from_bucket,
         add_column_is_week_and_str_day,
     )
     from tqdm import tqdm
-    from data_preparation.v2.utils.utils import DATA_PREFIX
+    from data_preparation.utils.utils import DATA_PREFIX
 
     for i, file in tqdm(
         enumerate(list_files_od), desc="Files OD Vodafone"

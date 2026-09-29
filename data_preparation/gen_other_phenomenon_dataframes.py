@@ -4,7 +4,7 @@ the already-standardized dataframes produced by standardize_other_raw_data.
 
 This module owns only the DISAGGREGATION + final AGGREGATION step:
 standardization (rename, merge, Vigo/Pozza unification, filtering) is done
-upstream in data_preparation.v2.standardize_other_raw_data.
+upstream in data_preparation.standardize_other_raw_data.
 """
 
 import logging
@@ -13,24 +13,27 @@ import pandas as pd
 from utils.flows_utils.main_generate_flows_and_grids import (
     main_generate_flows_and_grids,
 )
-from data_preparation.v2.utils.utils import (
+from data_preparation.utils.utils import (
     pad_id_comune,
     save_computed_dfs,
     get_mapping,
 )
-from data_preparation.v2.utils.disaggregation import disaggregate
-from data_preparation.v2.standardize_other_raw_data import (
+from data_preparation.utils.disaggregation import disaggregate
+from data_preparation.standardize_other_raw_data import (
     standardize_other_raw_data,
     FLUSSI_VALUE_COLS,
     FLUSSI_LEVEL_COLS,
 )
 from standardize_raw_data import standardize_mapping
+
 logging.basicConfig(level=logging.INFO)
 
 
 ## COMPUTATION
 ## Disaggregation / final aggregation only — inputs are already standardized
-def compute_arrivi_trentino(arrivi_std, mapping_comuni, how="uniform", distribution=None):
+def compute_arrivi_trentino(
+    arrivi_std, mapping_comuni, how="uniform", distribution=None
+):
     """Disaggrega arrivi da Anno/APT -> Giorno/Comune.z
 
     `arrivi_std` è il df già standardizzato (DATA/LOCATION/ID_COMUNE + 'arrivi'),
@@ -41,7 +44,9 @@ def compute_arrivi_trentino(arrivi_std, mapping_comuni, how="uniform", distribut
     id_to_comune = {id_comune: name for name, id_comune in mapping_comuni.items()}
     kwargs = dict(axis="both", freq_from="Y", freq_to="D", id_to_name=id_to_comune)
     if how == "distributional":
-        assert distribution is not None, "Distribution required for 'distributional' disaggregation"
+        assert (
+            distribution is not None
+        ), "Distribution required for 'distributional' disaggregation"
         kwargs.update(
             space_weights=distribution,
             space_weight_col="presenze",
@@ -62,9 +67,9 @@ def compute_arrivi_trentino(arrivi_std, mapping_comuni, how="uniform", distribut
 
 def compute_flussi_trentino(flussi_df, mapping_comuni):
     """Disaggregates flows. flussi_df is the standardized dataframe (DATA/LOCATION/ID_COMUNE
-    + FLUSSI_VALUE_COLS + FLUSSI_LEVEL_COLS), produced from standardize_other_raw_data(). 
+    + FLUSSI_VALUE_COLS + FLUSSI_LEVEL_COLS), produced from standardize_other_raw_data().
 
-    NOTE: spatial disaggregation is applied just to FLUSSI_VALUE_COLS, not to FLUSSI_LEVEL_COLS (hotspot levels): where median is used for aggregation 
+    NOTE: spatial disaggregation is applied just to FLUSSI_VALUE_COLS, not to FLUSSI_LEVEL_COLS (hotspot levels): where median is used for aggregation
     """
     id_to_name = {id_comune: name for name, id_comune in mapping_comuni.items()}
 

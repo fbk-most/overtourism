@@ -18,19 +18,19 @@ If it is AGGREGATED then the function applies first the aggregation over user pr
 """
 
 import polars as pl
-from data_preparation.v2.utils.flows_utils.OD import (
+from data_preparation.utils.flows_utils.OD import (
     aggregate_flows,
     filter_flows_by_conditions,
     join_Tij_Vodafone_with_distance_matrix,
     pipeline_initial_df_flows_aggregation_on_dat_hour_user_weekday,
 )
-from data_preparation.v2.utils.flows_utils.OD_pipeline import (
+from data_preparation.utils.flows_utils.OD_pipeline import (
     define_columns_to_hold_OD_analysis,
     set_columns_to_hold_for_OD_analysis,
     set_dict_column_names_flows_OD_analysis,
     set_dict_column_names_grid_OD_analysis,
 )
-from data_preparation.v2.utils.flows_utils.constant_names_variables import (
+from data_preparation.utils.flows_utils.constant_names_variables import (
     UserProfile2IndexVodafone,
     col_str_day_od,
     col_str_is_week,
