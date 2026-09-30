@@ -15,14 +15,14 @@ from overtourism.backend.api.models.evaluation import (
     UpdateEvaluationData,
 )
 from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
-from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
     check_version,
     get_evaluation_or_404,
     get_scenario_or_404,
 )
-from overtourism.backend.auth.dependencies import Handler, get_auth_context
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.handler import Handler, get_handler
 from overtourism.dt_manager.evaluation.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)

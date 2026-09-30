@@ -17,7 +17,7 @@ from overtourism.backend.api.models.proposal import (
 from overtourism.backend.api.models.proposal import (
     UpdateProposalData as BaseUpdateProposalData,
 )
-from overtourism.backend.auth.dependencies import Handler
+from overtourism.backend.handler import Handler
 from overtourism.overtourism.backend_extension.api.models.problem import (
     OvertourismProblemData,
 )

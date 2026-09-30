@@ -9,15 +9,14 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 
-from overtourism.backend.auth.enums import (
+from overtourism.backend.auth.tokens.context import AuthContext
+from overtourism.backend.auth.tokens.enums import (
     AuthClaim,
     AuthErrorDetail,
     AuthHeaderScheme,
 )
-from overtourism.backend.auth.jwt import decode_jwt
-from overtourism.backend.auth.models import AuthContext
-from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
-from overtourism.dt_manager.manager.manager import Manager
+from overtourism.backend.auth.tokens.jwt import decode_jwt
+from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 
 bearer_auth_scheme = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
 
@@ -139,15 +138,3 @@ def get_auth_context(
         token=token,
         claims=claims,
     )
-
-
-class Handler:
-    """
-    Container for backend singletons.
-    """
-
-    def __init__(
-        self,
-        manager: Manager,
-    ) -> None:
-        self.manager = manager

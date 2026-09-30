@@ -10,8 +10,10 @@ from threading import Event, Thread
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.utils.config import APP_VERSION, TERRITORY_ROUTE_PREFIX
-from overtourism.backend.api.utils.dependencies import init_handler
+from overtourism.backend.api.utils.config import (
+    APP_VERSION,
+    BASE_ROUTE,
+)
 from overtourism.backend.api.utils.exceptions import install_exception_handlers
 from overtourism.backend.api.v2.evaluation import evaluation_router
 from overtourism.backend.api.v2.parameters import configuration_router
@@ -20,12 +22,13 @@ from overtourism.backend.api.v2.proposal import proposal_router
 from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.api.v2.session import session_router
 from overtourism.backend.api.v2.territory import territory_router
-from overtourism.backend.auth.router import auth_router
+from overtourism.backend.auth.api.router import auth_router
+from overtourism.backend.handler import init_handler
 
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from overtourism.backend.auth.dependencies import Handler
+    from overtourism.backend.handler import Handler
     from overtourism.dt_manager.session.manager import SessionManager
 
 # Configure logging
@@ -153,7 +156,7 @@ def create_app(
     app.include_router(configuration_router)
     app.include_router(session_router)
     app.include_router(territory_router)
-    app.include_router(auth_router, prefix=TERRITORY_ROUTE_PREFIX, tags=["Auth"])
+    app.include_router(auth_router, prefix=BASE_ROUTE, tags=["Auth"])
 
     if extra_routers:
         for router in extra_routers:

@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.utils.config import BASE_ROUTE
 from overtourism.backend.api.utils.executor_utils import list_models
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.auth.enums import AuthClaim
-from overtourism.backend.auth.models import AuthContext
+from overtourism.backend.auth.tokens.context import AuthContext
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.tokens.enums import AuthClaim
 
 territory_router = APIRouter(
     prefix=f"{BASE_ROUTE}/default",

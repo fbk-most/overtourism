@@ -13,14 +13,14 @@ from overtourism.backend.api.models.scenario import (
     UpdateScenarioData,
 )
 from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
-from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
     get_scenario_or_404,
     raise_immutable_base_scenario_error,
     scenario_to_api,
 )
-from overtourism.backend.auth.dependencies import Handler, get_auth_context
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.handler import Handler, get_handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 
 logger = logging.getLogger(__name__)

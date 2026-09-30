@@ -85,9 +85,10 @@ def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
     assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["security"] == [
         {"BearerAuth": []}
     ]
-    assert openapi["paths"]["/api/v2/{territory}/auth/me"]["get"]["security"] == [
+    assert openapi["paths"]["/api/v2/auth/me"]["get"]["security"] == [
         {"BearerAuth": []}
     ]
+    assert "/api/v2/{territory}/auth/me" not in openapi["paths"]
 
 
 def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
@@ -144,7 +145,7 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
     assert openapi["paths"]["/api/v2/{territory}/evaluations"]["post"]["tags"] == [
         "Evaluations"
     ]
-    assert openapi["paths"]["/api/v2/{territory}/auth/me"]["get"]["tags"] == ["Auth"]
+    assert openapi["paths"]["/api/v2/auth/me"]["get"]["tags"] == ["Auth"]
 
 
 def test_app_lifespan_runs_and_stops_session_cleanup_worker(

@@ -7,9 +7,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from overtourism.backend.api.utils import dependencies as dependencies_module
-from overtourism.backend.api.utils.dependencies import get_handler, init_handler
-from overtourism.backend.auth.dependencies import Handler
+from overtourism.backend import handler as handler_module
+from overtourism.backend.handler import Handler, get_handler, init_handler
 
 
 def _build_handler() -> Handler:
@@ -25,7 +24,7 @@ def test_get_handler_returns_initialized_handler() -> None:
 
 
 def test_get_handler_raises_when_not_initialized(monkeypatch) -> None:
-    monkeypatch.setattr(dependencies_module, "_handler", None)
+    monkeypatch.setattr(handler_module, "_handler", None)
 
     with pytest.raises(HTTPException) as exc_info:
         get_handler()

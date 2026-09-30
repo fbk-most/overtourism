@@ -2,9 +2,26 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import HTTPException, status
 
-from overtourism.backend.auth.dependencies import Handler
+if TYPE_CHECKING:
+    from overtourism.backend.auth.identity.user_manager import UserManager
+    from overtourism.dt_manager.manager.manager import Manager
+
+
+class Handler:
+    """Container for backend managers shared by API dependencies."""
+
+    def __init__(
+        self,
+        manager: Manager,
+        user_manager: UserManager | None = None,
+    ) -> None:
+        self.manager = manager
+        self.user_manager = user_manager
+
 
 _handler: Handler | None = None
 

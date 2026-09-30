@@ -9,10 +9,13 @@ from overtourism.backend.api.utils.executor_utils import (
     call_executor,
     list_models,
 )
-from overtourism.backend.auth.dependencies import Handler
+from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
+from overtourism.backend.auth.identity.user_manager import UserManager
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session.config import SessionCleanupConfig
+from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
@@ -40,6 +43,7 @@ database_url = os.getenv(
 )
 store_conf = StoreConfig("sql", {"url": database_url})
 
+
 # ──────────────────────────────────────────────
 # Manager
 # ──────────────────────────────────────────────
@@ -56,6 +60,8 @@ crud_manager = Manager(
     extras_config,
     session_cleanup_config=session_cleanup_config,
 )
+sql_store = SQLStore(database_url)
+user_repository = SQLUserRepository(sql_store.engine, sql_store.session_factory)
 
 # ──────────────────────────────────────────────
 # Bootstrap entites
@@ -111,4 +117,7 @@ for model in list_models():
 
 def build_handler() -> Handler:
     """Build the molveno backend handler and its collaborators."""
-    return Handler(manager=crud_manager)
+    return Handler(
+        manager=crud_manager,
+        user_manager=UserManager(user_repository),
+    )

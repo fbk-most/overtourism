@@ -8,8 +8,11 @@ from typing import Any
 import jwt
 from jwt import PyJWKClient
 
-from overtourism.backend.auth.enums import AuthEnvironmentVariable, JwtDecodeOption
-from overtourism.backend.auth.settings import AuthSettings
+from overtourism.backend.auth.tokens.enums import (
+    AuthEnvironmentVariable,
+    JwtDecodeOption,
+)
+from overtourism.backend.auth.tokens.settings import AuthSettings
 
 
 @lru_cache(maxsize=8)

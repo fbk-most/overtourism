@@ -6,7 +6,7 @@ import logging
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from overtourism.backend.api.models.evaluation import (
     EvaluationData,
@@ -24,7 +24,6 @@ from overtourism.backend.api.models.session import (
     SessionSummaryData,
 )
 from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
-from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
     get_scenario_or_404,
@@ -34,8 +33,10 @@ from overtourism.backend.api.utils.utils import (
     get_session_scenario_or_404,
     scenario_to_api,
 )
-from overtourism.backend.auth.dependencies import Handler, get_auth_context
-from overtourism.backend.auth.models import AuthContext, resolve_session_owner_id
+from overtourism.backend.auth.identity.users import UserRole
+from overtourism.backend.auth.tokens.context import AuthContext
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.handler import Handler, get_handler
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,38 @@ session_router = APIRouter(
 )
 
 
+def _resolve_session_owner_id(
+    handler: Handler,
+    context: AuthContext,
+    territory: str,
+) -> str:
+    if not context.authenticated:
+        return f"anonymous:{territory}"
+    if context.subject is None or not context.subject.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing user identity claim",
+        )
+    if handler.user_manager is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="User manager is not configured",
+        )
+
+    user = handler.user_manager.get_active_user_by_subject(context.subject)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not registered or active",
+        )
+    if user.role is not UserRole.ADMIN and territory not in user.territories:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not assigned to this territory",
+        )
+    return user.user_id
+
+
 def _require_owned_session(
     handler: Handler,
     territory: str,
@@ -53,7 +86,7 @@ def _require_owned_session(
     context: AuthContext,
 ):
     session = get_session_or_404(handler, session_id)
-    owner_id = resolve_session_owner_id(context, territory)
+    owner_id = _resolve_session_owner_id(handler, context, territory)
     if session.territory != territory or session.owner_id != owner_id:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     return session
@@ -80,7 +113,7 @@ async def create_session(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> SessionSummaryData:
     try:
-        owner_id = resolve_session_owner_id(context, territory)
+        owner_id = _resolve_session_owner_id(handler, context, territory)
         session = handler.manager.create_session(
             territory=territory,
             owner_id=owner_id,
@@ -89,7 +122,6 @@ async def create_session(
         logger.info(f"Session created: {session.session_id}")
         return SessionSummaryData(
             session_id=session.session_id,
-            owner_id=session.owner_id,
             created=session.created,
             updated=session.updated,
             metadata=dict(session.metadata),
@@ -116,11 +148,10 @@ async def list_sessions(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[SessionSummaryData]:
     try:
-        owner_id = resolve_session_owner_id(context, territory)
+        owner_id = _resolve_session_owner_id(handler, context, territory)
         return [
             SessionSummaryData(
                 session_id=session.session_id,
-                owner_id=session.owner_id,
                 created=session.created,
                 updated=session.updated,
                 metadata=dict(session.metadata),
@@ -148,7 +179,7 @@ async def delete_sessions(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
-        owner_id = resolve_session_owner_id(context, territory)
+        owner_id = _resolve_session_owner_id(handler, context, territory)
         sessions = [
             session
             for session in handler.manager.list_sessions()
@@ -182,7 +213,6 @@ async def read_session(
         session = _require_owned_session(handler, territory, session_id, context)
         return SessionData(
             session_id=session.session_id,
-            owner_id=session.owner_id,
             created=session.created,
             updated=session.updated,
             metadata=dict(session.metadata),

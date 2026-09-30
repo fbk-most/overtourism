@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -202,7 +202,7 @@ def test_session_cleanup_uses_configured_ttl(tmp_path) -> None:
         tmp_path,
         session_cleanup_config=cleanup_config,
     )[0]
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expired = manager.session_manager.create_session()
     active = manager.session_manager.create_session()
     expired_data = manager.store.load_session(expired.session_id)

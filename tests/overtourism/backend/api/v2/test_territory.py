@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from overtourism.backend.api.main import create_app
-from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
+from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 
 
 def test_list_territorys_returns_model_keys_when_auth_is_disabled(
@@ -37,7 +37,7 @@ def test_list_territorys_filters_model_keys_to_authenticated_user_territorys(
         jwks_url="https://example.com/.well-known/jwks.json",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
             settings.territory_claim: ["territory-beta", "territory-alpha"],
@@ -72,7 +72,7 @@ def test_list_territorys_returns_no_territorys_when_authenticated_claim_is_missi
         jwks_url="https://example.com/.well-known/jwks.json",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {"sub": "user-1"},
     )
     monkeypatch.setattr(

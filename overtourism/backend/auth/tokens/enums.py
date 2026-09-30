@@ -8,6 +8,8 @@ from enum import StrEnum
 class AuthClaim(StrEnum):
     SUBJECT = "sub"
     TERRITORY = "tenant_id"
+    EMAIL = "email"
+    EMAIL_VERIFIED = "email_verified"
 
 
 class AuthEnvironmentVariable(StrEnum):

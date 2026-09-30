@@ -20,7 +20,6 @@ class SessionSummaryData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     session_id: str
-    owner_id: str | None = None
     created: str
     updated: str
     metadata: dict[str, Any] = Field(default_factory=dict)

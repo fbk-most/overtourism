@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 
 from overtourism.backend.api.main import create_app as create_app_v2
-from overtourism.backend.auth import jwt as auth_jwt
-from overtourism.backend.auth.dependencies import Handler
-from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
+from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
+from overtourism.backend.auth.identity.user_manager import UserManager
+from overtourism.backend.auth.identity.users import UserRole
+from overtourism.backend.auth.tokens import jwt as auth_jwt
+from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 
@@ -24,13 +29,24 @@ def handler(tmp_path) -> Handler:
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
     )
-    return Handler(manager=manager)
+    store = cast(SQLStore, manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    for subject in ("101", "user-1"):
+        user = user_manager.create_user(
+            identifier=f"{subject}@example.org",
+            role=UserRole.VIEWER,
+            territories=["territory-alpha"],
+        )
+        repository.save_user(replace(user, subject=subject))
+    user_manager.reload()
+    return Handler(manager=manager, user_manager=user_manager)
 
 
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
+        (create_app_v2, "/api/v2/auth/me"),
     ],
 )
 def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
@@ -47,15 +63,19 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
     assert response.status_code == 200
     assert response.json() == {
         "authenticated": False,
-        "territory": "territory-alpha",
+        "territory": None,
         "subject": None,
+        "user_id": None,
+        "role": None,
+        "is_global_admin": False,
+        "territories": [],
     }
 
 
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
+        (create_app_v2, "/api/v2/auth/me"),
     ],
 )
 def test_auth_me_requires_bearer_token_when_auth_is_enabled(
@@ -79,7 +99,7 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
+        (create_app_v2, "/api/v2/auth/me"),
     ],
 )
 def test_auth_me_returns_authenticated_context_for_matching_territory(
@@ -94,7 +114,7 @@ def test_auth_me_returns_authenticated_context_for_matching_territory(
         jwks_url="https://example.com/.well-known/jwks.json",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": 101,
             settings.territory_claim: "territory-alpha",
@@ -109,11 +129,14 @@ def test_auth_me_returns_authenticated_context_for_matching_territory(
         )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "authenticated": True,
-        "territory": "territory-alpha",
-        "subject": "101",
-    }
+    user_data = response.json()
+    assert user_data["authenticated"] is True
+    assert user_data["territory"] == "territory-alpha"
+    assert user_data["subject"] == "101"
+    assert user_data["user_id"]
+    assert user_data["role"] == "viewer"
+    assert user_data["is_global_admin"] is False
+    assert user_data["territories"] == ["territory-alpha"]
 
 
 @pytest.mark.parametrize(
@@ -134,7 +157,7 @@ def test_territory_scoped_routes_accept_tokens_that_list_the_path_territory(
         jwks_url="https://example.com/.well-known/jwks.json",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
             settings.territory_claim: ["territory-beta", "territory-alpha"],
@@ -168,7 +191,7 @@ def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
         jwks_url="https://example.com/.well-known/jwks.json",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
             settings.territory_claim: ["territory-alpha", "territory-beta"],
@@ -190,10 +213,10 @@ def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
+        (create_app_v2, "/api/v2/auth/me"),
     ],
 )
-def test_auth_me_rejects_missing_required_territory_claim(
+def test_global_auth_me_allows_missing_tenant_claim(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -206,7 +229,7 @@ def test_auth_me_rejects_missing_required_territory_claim(
         territory_claim="organization_id",
     )
     monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {"sub": "user-1"},
     )
 
@@ -216,47 +239,9 @@ def test_auth_me_rejects_missing_required_territory_claim(
             headers={"Authorization": "Bearer signed-token"},
         )
 
-    assert response.status_code == 403
-    assert response.json() == {
-        "detail": "Token is missing territory claim 'organization_id'"
-    }
-
-
-@pytest.mark.parametrize(
-    ("app_factory", "auth_path"),
-    [
-        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
-    ],
-)
-def test_auth_me_rejects_mismatched_token_territory(
-    handler,
-    monkeypatch: pytest.MonkeyPatch,
-    app_factory,
-    auth_path: str,
-) -> None:
-    app = app_factory(handler)
-    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
-        enabled=True,
-        jwks_url="https://example.com/.well-known/jwks.json",
-    )
-    monkeypatch.setattr(
-        "overtourism.backend.auth.dependencies.decode_jwt",
-        lambda token, settings: {
-            "sub": "user-1",
-            settings.territory_claim: "territory-beta",
-        },
-    )
-
-    with TestClient(app) as client:
-        response = client.get(
-            auth_path,
-            headers={"Authorization": "Bearer signed-token"},
-        )
-
-    assert response.status_code == 403
-    assert response.json() == {
-        "detail": "Token territory does not match requested territory"
-    }
+    assert response.status_code == 200
+    assert response.json()["territory"] is None
+    assert response.json()["subject"] == "user-1"
 
 
 def test_auth_settings_from_env_reads_configured_values(

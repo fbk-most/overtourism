@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
+from typing import cast
 
-from overtourism.backend.auth.dependencies import get_auth_context
-from overtourism.backend.auth.models import AuthContext
+from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
+from overtourism.backend.auth.identity.user_manager import UserManager
+from overtourism.backend.auth.identity.users import UserRole
+from overtourism.backend.auth.tokens.context import AuthContext
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session import manager as session_manager_module
+from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 
 
 def test_delete_all_sessions_removes_only_owned_sessions(
@@ -96,9 +103,17 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert manager.session_manager.list_sessions() == []
 
 
-def test_session_owner_uses_token_subject_instead_of_email(
-    client, territory: str
+def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
+    client,
+    handler: Handler,
+    manager: Manager,
+    territory: str,
 ) -> None:
+    store = cast(SQLStore, manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    handler.user_manager = user_manager
+
     client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=True,
         territory=territory,
@@ -107,6 +122,29 @@ def test_session_owner_uses_token_subject_instead_of_email(
         claims={"sub": "user-sub", "email": "user@example.com"},
     )
 
+    unregistered_response = client.post(
+        f"/api/v2/{territory}/sessions",
+        params={},
+        json={"metadata": {}},
+    )
+    assert unregistered_response.status_code == 403
+
+    invited_user = user_manager.create_user(
+        identifier="user@example.com",
+        role=UserRole.VIEWER,
+        territories=["territory-beta"],
+    )
+    repository.save_user(replace(invited_user, subject="user-sub"))
+    user_manager.reload()
+
+    out_of_scope_response = client.post(
+        f"/api/v2/{territory}/sessions",
+        params={},
+        json={"metadata": {}},
+    )
+    assert out_of_scope_response.status_code == 403
+
+    user_manager.update_user(invited_user.user_id, territories=[territory])
     response = client.post(
         f"/api/v2/{territory}/sessions",
         params={},
@@ -114,7 +152,9 @@ def test_session_owner_uses_token_subject_instead_of_email(
     )
 
     assert response.status_code == 200
-    assert response.json()["owner_id"] == "user-sub"
+    assert "owner_id" not in response.json()
+    session = manager.read_session(response.json()["session_id"])
+    assert session.owner_id == invited_user.user_id
 
 
 def test_expired_session_is_rejected_before_periodic_cleanup(

@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
-from overtourism.backend.auth.enums import (
+from overtourism.backend.auth.tokens.enums import (
     AuthClaim,
     AuthEnvironmentVariable,
     JwtAlgorithm,
@@ -38,14 +38,16 @@ class AuthSettings:
             jwks_url=os.getenv(AuthEnvironmentVariable.JWKS_URL) or None,
             territory_claim=os.getenv(AuthEnvironmentVariable.TERRITORY_CLAIM)
             or AuthClaim.TERRITORY,
-            algorithms=tuple(
-                item.strip() for item in algorithms_value.split(",") if item.strip()
-            )
-            if algorithms_value and algorithms_value.strip()
-            else (JwtAlgorithm.RS256,),
-            leeway_seconds=int(leeway_value)
-            if leeway_value and leeway_value.strip()
-            else 30,
+            algorithms=(
+                tuple(
+                    item.strip() for item in algorithms_value.split(",") if item.strip()
+                )
+                if algorithms_value and algorithms_value.strip()
+                else (JwtAlgorithm.RS256,)
+            ),
+            leeway_seconds=(
+                int(leeway_value) if leeway_value and leeway_value.strip() else 30
+            ),
         )
 
 

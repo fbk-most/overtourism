@@ -8,7 +8,7 @@ import requests
 from fastapi import HTTPException, status
 
 from overtourism.backend.api.utils.executor_utils import call_schema
-from overtourism.backend.auth.dependencies import Handler
+from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
