@@ -4,10 +4,17 @@ The updating procedure shall include a STANDARDIZATION PART (to make the new phe
 """
 
 import logging
+from pathlib import Path
+import geopandas as geopd
+import pandas as pd
+
 from data_preparation.v2.utils.utils import (
     get_mapping,
     get_s3,
     save_computed_dfs,
+)
+from data_preparation.v2.utils.common import (
+    standard_ordering_cols,
     _read_grouped_presenze_tsv,
     _remove_unnamed
 )
@@ -15,21 +22,19 @@ from data_preparation.v2.standardize_raw_data import (
     standardize_popolazione_columns,
     standardize_strutture_columns,
     standardize_vodafone_columns,
-    stadardize_presenze_columns,
-    standard_ordering_cols,
-    process_popolazione,
-    process_strutture,
-    process_vodafone,
-    process_presenze_ISPAT,
-    main_preprocessing_raw_data,
-    PRESENZE_ALB_VALUE_COLS,
-    PRESENZE_XALB_VALUE_COLS,
+    standardize_presenze_columns,
 )
 
-from pathlib import Path 
-import pandas as pd 
-import geopandas as geopd 
+from data_preparation.v2.process_data import (
+    PRESENZE_ALB_VALUE_COLS,
+    PRESENZE_XALB_VALUE_COLS,
+    process_popolazione,
+    process_presenze_ISPAT,
+    process_strutture,
+    process_vodafone,
+)
 
+OUTPUT_DIR = Path(__file__).parent / 'Output'
 logging.basicConfig(level=logging.INFO)
 SAVEPATH_STD_DATA_UPD = Path(__file__).parent / "data_std" / "updated"
 SAVEPATH_STD_DATA_MERGED = Path(__file__).parent / "data_std" / "merged_std"
@@ -140,12 +145,12 @@ def _process_presenze_ispat_2025(df, apts, anno=2025):
 
 def standardize_upd_presenze_alb_2025(df, apts, mapping, anno=2025):
     long_df = _process_presenze_ispat_2025(df, apts, anno)
-    std = stadardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
+    std = standardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
     return process_presenze_ISPAT(std, mapping, PRESENZE_ALB_VALUE_COLS, provincia=False)
 
 def standardize_upd_presenze_extralb_apt_2025(df, apts, mapping, anno=2025):
     long_df = _process_presenze_ispat_2025(df, apts, anno)
-    std = stadardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
+    std = standardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
     processed = process_presenze_ISPAT(std, mapping, PRESENZE_ALB_VALUE_COLS, provincia=False)
     return processed.rename(columns={"presenze_alb": "presenze_xalb"})
 
@@ -158,7 +163,7 @@ def standardize_upd_presenze_extralb_2025(df, mapping_comuni, anno=2025):
     df = df[df["Mese"] != "Totale"].reset_index(drop=True)  # rm Totale
     df["Mese"] = df["Mese"].map(MONTHS_MAPPING)
     if df["Mese"].isna().any():
-        raise ValueError(f"Mesi non riconosciuti: {df.loc[df["Mese"].isna(), 'Mese'].unique()}")
+        raise ValueError(f"Mesi non riconosciuti: {df.loc[df['Mese'].isna(), 'Mese'].unique()}")
 
     for col in ("Esercizi alberghieri Totale", "Esercizi extralberghieri Totale"):
         if col not in df.columns:
@@ -175,10 +180,11 @@ def standardize_upd_presenze_extralb_2025(df, mapping_comuni, anno=2025):
         "Presenze alberghi": presenze_alb.astype(int),
         "Presenze extra-alberghi": presenze_xalb.astype(int),
     })
-    std = stadardize_presenze_columns(
+    std = standardize_presenze_columns(
         df_xalb_prov, cols_renaming={"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"}
     )
     return process_presenze_ISPAT(std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True)
+
 def standardize_upd_data(local = True, type_format = "csv"):
     """Standardization function for the new data """
     ## download mapping and geojson data 
@@ -308,8 +314,8 @@ def save_merged(merged_dfs,type_format = "csv"):
 
 if __name__=="__main__":
     ## ENTIRE PIPELINE:
-    old_dfs = main_preprocessing_raw_data(local=True, type_format="csv")
-    new_dfs = standardize_upd_data(local=True, type_format="csv")
-    merged_dfs = merge_dataframes(old_dfs, new_dfs)
-    save_merged(merged_dfs)
+    # phenomena_old = OUTPUT_DIR
+    # new_dfs = standardize_upd_data(local=True, type_format="csv")
+    # merged_dfs = merge_dataframes(old_dfs, new_dfs)
+    # save_merged(merged_dfs)
     print("Process finished.")
