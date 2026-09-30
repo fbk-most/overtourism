@@ -6,6 +6,11 @@ cd "$ROOT_DIR"
 
 source "$ROOT_DIR/.venv/bin/activate"
 
+if [[ $# -gt 1 ]]; then
+	printf 'Usage: %s [admin-email]\n' "$0" >&2
+	exit 2
+fi
+
 #export OVERTOURISM_DATABASE="postgresql+psycopg://postgres:123@localhost:5432/postgres"
 export DT_OVERTURISM_STANDALONE_MODE="${DT_OVERTOURISM_STANDALONE_MODE:-true}"
 export AUTH_ENABLED="${AUTH_ENABLED:-false}"
@@ -16,6 +21,10 @@ export AUTH_TENANT_CLAIM="${AUTH_TENANT_CLAIM:-tenant_id}"
 export AUTH_ALGORITHMS="${AUTH_ALGORITHMS:-RS256}"
 export AUTH_LEEWAY_SECONDS="${AUTH_LEEWAY_SECONDS:-30}"
 export MODEL_BACKEND_URL="${MODEL_BACKEND_URL:-http://localhost:8001}"
+
+if [[ $# -eq 1 ]]; then
+	python -m overtourism.backend.auth.identity.bootstrap_admin "$1"
+fi
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
