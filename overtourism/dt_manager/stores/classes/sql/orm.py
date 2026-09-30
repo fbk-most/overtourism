@@ -144,6 +144,7 @@ class ScenarioORM(SQLBase):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[str | None] = mapped_column(Text)
     created: Mapped[str | None] = mapped_column(String)
     updated: Mapped[str | None] = mapped_column(String)
     extras: Mapped[dict[str, Any]] = mapped_column(
@@ -284,6 +285,7 @@ def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
         version=scenario.get("version", 0),
         name=scenario.get("name"),
         description=scenario.get("description"),
+        summary=scenario.get("summary"),
         created=scenario.get("created"),
         updated=scenario.get("updated"),
         extras=scenario.get("extras", {}),

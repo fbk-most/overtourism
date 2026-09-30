@@ -24,6 +24,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
         "updated": FIXED_TIMESTAMP,
         "extras": {},
         "param_overrides": {},
+        "summary": None,
     }
 
 
@@ -39,12 +40,14 @@ def test_from_dict_round_trip_with_param_overrides() -> None:
         "updated": "2026-05-15T11:00:00Z",
         "extras": {"kind": "scenario"},
         "param_overrides": {"visits": 12.5, "population": 7},
+        "summary": "Primary scenario summary",
     }
 
     scenario = Scenario.from_dict(payload)
 
     assert scenario.session_id == "session-1"
     assert scenario.param_overrides == payload["param_overrides"]
+    assert scenario.summary == payload["summary"]
     assert scenario.to_dict() == payload
 
 

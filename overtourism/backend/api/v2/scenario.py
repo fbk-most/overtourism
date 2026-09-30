@@ -137,6 +137,7 @@ async def update_scenario(
             param_overrides=data.param_overrides,
             name=data.name,
             description=data.description,
+            summary=data.summary,
             extras=data.extras,
         )
         scenario = handler.manager.read_scenario(scenario_id)

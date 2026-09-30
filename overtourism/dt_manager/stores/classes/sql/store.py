@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine, delete, event, select
+from sqlalchemy import create_engine, delete, event, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker

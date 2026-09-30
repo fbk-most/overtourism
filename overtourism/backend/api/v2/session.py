@@ -254,6 +254,7 @@ async def create_session_scenario(
             session_id,
             data.base_scenario_id,
             param_overrides=data.param_overrides,
+            summary=data.summary,
         )
         logger.info(f"Session draft created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)

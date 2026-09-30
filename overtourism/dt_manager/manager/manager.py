@@ -195,6 +195,7 @@ class Manager:
         param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
+        summary: str | None = None,
         extras: dict | None = None,
         proposal_id: str | None = None,
     ) -> Scenario:
@@ -205,6 +206,7 @@ class Manager:
             param_overrides=param_overrides,
             name=name,
             description=description,
+            summary=summary,
             extras=extras,
         )
         if proposal_id is not None:
@@ -241,6 +243,7 @@ class Manager:
         param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
+        summary: str | None = None,
         extras: dict | None = None,
     ) -> Scenario:
         """Update a stored scenario."""
@@ -249,6 +252,7 @@ class Manager:
             param_overrides=param_overrides,
             name=name,
             description=description,
+            summary=summary,
             extras=extras,
         )
         # For the moment we choose to delete all evaluations when a scenario is updated
@@ -435,9 +439,12 @@ class Manager:
         session_id: str,
         scenario_id: str,
         param_overrides: dict | None = None,
+        summary: str | None = None,
     ) -> Scenario:
         """Create and persist a scenario for a session."""
-        scenario = self.scenario_manager.detach_scenario(scenario_id, param_overrides)
+        scenario = self.scenario_manager.detach_scenario(
+            scenario_id, param_overrides, summary
+        )
         session = self.session_manager.read_session(session_id)
         scenario.session_id = session_id
         scenario.updated = get_timestamp()
@@ -455,6 +462,7 @@ class Manager:
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
+        summary: str | None = None,
         proposal_id: str | None = None,
     ) -> Scenario:
         """Publish a session scenario and its evaluation, if any."""
@@ -463,6 +471,8 @@ class Manager:
             session_scenario.name = name
         if description is not None:
             session_scenario.description = description
+        if summary is not None:
+            session_scenario.summary = summary
         if extras is not None:
             session_scenario.extras = {**session_scenario.extras, **extras}
 

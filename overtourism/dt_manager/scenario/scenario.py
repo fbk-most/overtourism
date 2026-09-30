@@ -22,6 +22,7 @@ class Scenario(Dictable):
     updated: str | None = None
     extras: dict = field(default_factory=dict)
     param_overrides: dict = field(default_factory=dict)
+    summary: str | None = None
 
     @classmethod
     def create_default(
@@ -36,6 +37,7 @@ class Scenario(Dictable):
         updated: str | None = None,
         extras: dict | None = None,
         param_overrides: dict | None = None,
+        summary: str | None = None,
     ) -> Scenario:
         """Create a scenario with default values."""
         now = get_timestamp()
@@ -52,6 +54,7 @@ class Scenario(Dictable):
             updated=now if updated is None else updated,
             extras={} if extras is None else extras,
             param_overrides={} if param_overrides is None else param_overrides,
+            summary=summary,
         )
 
     @classmethod
@@ -70,4 +73,5 @@ class Scenario(Dictable):
             updated=updated,
             extras=scenario_dict.get("extras", {}),
             param_overrides=scenario_dict.get("param_overrides", []),
+            summary=scenario_dict.get("summary"),
         )

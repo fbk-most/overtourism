@@ -22,6 +22,7 @@ def test_list_and_read_stored_scenarios(client, territory: str, problem_id: str)
     assert read_response.status_code == 200
     assert read_response.json()["scenario_id"] == base_scenario_id
     assert read_response.json()["version"] == 1
+    assert read_response.json()["summary"] is None
 
 
 def test_list_scenarios_can_return_only_the_base_scenario(
@@ -85,6 +86,7 @@ def test_create_stored_scenario_persists_values_and_metadata(
         json={
             "name": "Created through API",
             "description": "Stored scenario payload",
+            "summary": "A concise scenario summary",
             "param_overrides": {"visits": 12},
             "extras": {"channel": "api"},
         },
@@ -95,8 +97,43 @@ def test_create_stored_scenario_persists_values_and_metadata(
     assert payload["scenario_id"]
     assert payload["name"] == "Created through API"
     assert payload["description"] == "Stored scenario payload"
+    assert payload["summary"] == "A concise scenario summary"
+    assert "summary" not in payload["extras"]
     assert payload["extras"]["channel"] == "api"
     assert payload["param_overrides"] == {"visits": 12}
+
+    read_response = client.get(
+        f"/api/v2/{territory}/scenarios/{payload['scenario_id']}"
+    )
+
+    assert read_response.status_code == 200
+    assert read_response.json()["summary"] == "A concise scenario summary"
+
+
+def test_update_stored_scenario_persists_top_level_summary(
+    client,
+    territory: str,
+    problem_id: str,
+) -> None:
+    create_response = client.post(
+        f"/api/v2/{territory}/scenarios",
+        json={"summary": "Initial summary"},
+    )
+    assert create_response.status_code == 200
+    scenario_id = create_response.json()["scenario_id"]
+
+    update_response = client.put(
+        f"/api/v2/{territory}/scenarios/{scenario_id}",
+        params={"problem_id": problem_id},
+        json={
+            "version": create_response.json()["version"],
+            "summary": "Updated summary",
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["summary"] == "Updated summary"
+    assert "summary" not in update_response.json()["extras"]
 
 
 def test_list_stored_scenarios_can_filter_by_related_proposal(
@@ -195,6 +232,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
             "base_scenario_id": base_scenario_id,
             "name": "Draft scenario",
             "description": "Scenario under discussion",
+            "summary": "Draft summary",
             "param_overrides": {"visits": 7},
             "extras": {"stage": "draft"},
         },
@@ -204,6 +242,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     draft_id = create_response.json()["scenario_id"]
     assert draft_id
     assert create_response.json()["version"] == 1
+    assert create_response.json()["summary"] == "Draft summary"
 
     read_response = client.get(
         f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
@@ -233,6 +272,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
             "version": 2,
             "name": "Saved scenario",
             "description": "Persisted after review",
+            "summary": "Published summary",
             "proposal_id": proposal_id,
         },
     )
@@ -242,6 +282,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert save_response.json()["session_id"] is None
     assert save_response.json()["version"] == 1
     assert save_response.json()["name"] == "Saved scenario"
+    assert save_response.json()["summary"] == "Published summary"
     public_scenarios_response = client.get(f"/api/v2/{territory}/scenarios")
     assert public_scenarios_response.status_code == 200
     assert draft_id in {

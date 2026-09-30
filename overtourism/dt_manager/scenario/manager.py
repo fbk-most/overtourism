@@ -33,6 +33,7 @@ class ScenarioManager:
         created: str | None = None,
         updated: str | None = None,
         extras: dict | None = None,
+        summary: str | None = None,
     ) -> Scenario:
         """Create and persist a new scenario."""
         try:
@@ -52,12 +53,16 @@ class ScenarioManager:
             created=created,
             updated=updated,
             extras=extras,
+            summary=summary,
         )
         self.store.save_scenario(scenario.to_dict())
         return scenario
 
     def detach_scenario(
-        self, scenario_id: str, param_overrides: dict | None = None
+        self,
+        scenario_id: str,
+        param_overrides: dict | None = None,
+        summary: str | None = None,
     ) -> Scenario:
         """Build a transient scenario draft from a stored scenario."""
         origin = self.read_scenario(scenario_id)
@@ -71,6 +76,7 @@ class ScenarioManager:
             updated=now_timestamp,
             extras=origin.extras,
             territory=origin.territory,
+            summary=origin.summary if summary is None else summary,
         )
 
     def read_scenario(self, scenario_id: str, territory: str | None = None) -> Scenario:
@@ -98,6 +104,7 @@ class ScenarioManager:
         *,
         name: str | None = None,
         description: str | None = None,
+        summary: str | None = None,
         extras: dict | None = None,
     ) -> Scenario:
         """Update a persisted scenario with new values."""
@@ -113,6 +120,7 @@ class ScenarioManager:
             updated=get_timestamp(),
             extras=extras if extras is not None else old_scenario.extras,
             territory=old_scenario.territory,
+            summary=summary if summary is not None else old_scenario.summary,
         )
         self.store.save_scenario(scenario.to_dict())
         return scenario
@@ -124,6 +132,7 @@ class ScenarioManager:
         *,
         name: str | None = None,
         description: str | None = None,
+        summary: str | None = None,
         extras: dict | None = None,
     ) -> Scenario:
         """Update a detached scenario with new values."""
@@ -134,10 +143,12 @@ class ScenarioManager:
             description=description
             if description is not None
             else old_scenario.description,
+            summary=summary if summary is not None else old_scenario.summary,
             created=old_scenario.created,
             updated=get_timestamp(),
             extras=extras if extras is not None else old_scenario.extras,
             territory=old_scenario.territory,
+
         )
 
     def delete_scenario(self, scenario_id: str) -> None:
