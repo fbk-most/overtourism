@@ -26,7 +26,7 @@ class ScenarioManager:
     def create_scenario(
         self,
         scenario_id: str,
-        tenant: str,
+        territory: str,
         param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -45,7 +45,7 @@ class ScenarioManager:
             )
         scenario = Scenario.create_default(
             scenario_id=scenario_id,
-            tenant=tenant,
+            territory=territory,
             param_overrides=param_overrides,
             name=name,
             description=description,
@@ -70,23 +70,23 @@ class ScenarioManager:
             created=now_timestamp,
             updated=now_timestamp,
             extras=origin.extras,
-            tenant=origin.tenant,
+            territory=origin.territory,
         )
 
-    def read_scenario(self, scenario_id: str, tenant: str | None = None) -> Scenario:
+    def read_scenario(self, scenario_id: str, territory: str | None = None) -> Scenario:
         """Return a persisted scenario."""
-        return Scenario.from_dict(self.store.load_scenario(scenario_id, tenant=tenant))
+        return Scenario.from_dict(self.store.load_scenario(scenario_id, territory=territory))
 
     def list_scenarios(
         self,
-        tenant: str | None = None,
+        territory: str | None = None,
         proposal_id: str | None = None,
     ) -> list[Scenario]:
         """Return all persisted scenarios."""
         return [
             Scenario.from_dict(scenario_data)
             for scenario_data in self.store.load_scenarios(
-                tenant=tenant,
+                territory=territory,
                 proposal_id=proposal_id,
             )
         ]
@@ -112,7 +112,7 @@ class ScenarioManager:
             created=old_scenario.created,
             updated=get_timestamp(),
             extras=extras if extras is not None else old_scenario.extras,
-            tenant=old_scenario.tenant,
+            territory=old_scenario.territory,
         )
         self.store.save_scenario(scenario.to_dict())
         return scenario
@@ -137,7 +137,7 @@ class ScenarioManager:
             created=old_scenario.created,
             updated=get_timestamp(),
             extras=extras if extras is not None else old_scenario.extras,
-            tenant=old_scenario.tenant,
+            territory=old_scenario.territory,
         )
 
     def delete_scenario(self, scenario_id: str) -> None:

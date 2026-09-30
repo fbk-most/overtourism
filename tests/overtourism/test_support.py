@@ -11,10 +11,10 @@ from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.utils.utils import get_timestamp
 
-DEFAULT_TENANT = "tenant-alpha"
-DEFAULT_PROBLEM_ID = f"{DEFAULT_TENANT}_base_problem"
-DEFAULT_SCENARIO_ID = f"{DEFAULT_TENANT}_base_scenario"
-DEFAULT_PROPOSAL_ID = f"{DEFAULT_TENANT}_base_proposal"
+DEFAULT_TERRITORY = "territory-alpha"
+DEFAULT_PROBLEM_ID = f"{DEFAULT_TERRITORY}_base_problem"
+DEFAULT_SCENARIO_ID = f"{DEFAULT_TERRITORY}_base_scenario"
+DEFAULT_PROPOSAL_ID = f"{DEFAULT_TERRITORY}_base_proposal"
 
 
 @dataclass(eq=False)
@@ -131,16 +131,16 @@ class FakeExecutionService:
         return evaluation
 
 
-def bootstrap_default_entities(manager: Any, tenant: str = DEFAULT_TENANT) -> None:
+def bootstrap_default_entities(manager: Any, territory: str = DEFAULT_TERRITORY) -> None:
     manager.problem_manager.create_problem(
         DEFAULT_PROBLEM_ID,
-        tenant=tenant,
+        territory=territory,
         name="Base problem",
         description="Base problem",
     )
     manager.scenario_manager.create_scenario(
         DEFAULT_SCENARIO_ID,
-        tenant,
+        territory,
         param_overrides={"visits": 0},
         name="Base scenario",
         description="Base scenario",

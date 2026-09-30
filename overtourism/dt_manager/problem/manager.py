@@ -27,7 +27,7 @@ class ProblemManager:
     def create_problem(
         self,
         problem_id: str,
-        tenant: str,
+        territory: str,
         name: str | None = None,
         description: str | None = None,
         extras: dict | None = None,
@@ -35,7 +35,7 @@ class ProblemManager:
         """Create and persist a new problem."""
         problem = Problem.create_default(
             problem_id,
-            tenant,
+            territory,
             name=name,
             description=description,
             extras=extras,
@@ -43,7 +43,7 @@ class ProblemManager:
         self.store.save_problem(problem.to_dict())
         return problem
 
-    def read_problem(self, problem_id: str, tenant: str | None = None) -> Problem:
+    def read_problem(self, problem_id: str, territory: str | None = None) -> Problem:
         """Return a problem loaded from the store.
 
         Parameters
@@ -56,13 +56,13 @@ class ProblemManager:
         Problem
             Persisted problem instance.
         """
-        return Problem.from_dict(self.store.load_problem(problem_id, tenant=tenant))
+        return Problem.from_dict(self.store.load_problem(problem_id, territory=territory))
 
-    def list_problems(self, tenant: str | None = None) -> list[Problem]:
+    def list_problems(self, territory: str | None = None) -> list[Problem]:
         """Return all persisted problems."""
         return [
             Problem.from_dict(problem_data)
-            for problem_data in self.store.load_problems(tenant=tenant)
+            for problem_data in self.store.load_problems(territory=territory)
         ]
 
     def update_problem(

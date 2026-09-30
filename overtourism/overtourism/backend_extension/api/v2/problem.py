@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.v2.problem import (
     create_problem as base_create_problem,
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 problem_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/problems",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/problems",
     tags=["Problems"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -54,11 +54,11 @@ problem_router = APIRouter(
     },
 )
 async def list_problems(
-    tenant: str,
+    territory: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[OvertourismProblemData]:
     try:
-        listed = await base_list_problems(tenant=tenant, handler=handler)
+        listed = await base_list_problems(territory=territory, handler=handler)
         return [to_problem_api_overtourism(problem) for problem in listed]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
@@ -75,19 +75,19 @@ async def list_problems(
     },
 )
 async def create_problem(
-    tenant: str,
+    territory: str,
     data: OvertourismPostProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProblemData:
     try:
         payload = prepare_problem_payload(
             problem_id=None,
-            tenant=tenant,
+            territory=territory,
             payload=data.model_dump(),
             handler=handler,
         )
         created = await base_create_problem(
-            tenant=tenant,
+            territory=territory,
             data=payload,
             handler=handler,
         )
@@ -107,12 +107,12 @@ async def create_problem(
     },
 )
 async def read_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProblemData:
     try:
-        read = await base_read_problem(tenant, problem_id, handler=handler)
+        read = await base_read_problem(territory, problem_id, handler=handler)
         return to_problem_api_overtourism(read)
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
@@ -129,7 +129,7 @@ async def read_problem(
     },
 )
 async def update_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     data: OvertourismUpdateProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
@@ -137,12 +137,12 @@ async def update_problem(
     try:
         payload = prepare_problem_payload(
             problem_id=problem_id,
-            tenant=tenant,
+            territory=territory,
             payload=data.model_dump(exclude_unset=True),
             handler=handler,
         )
         updated = await base_update_problem(
-            tenant=tenant,
+            territory=territory,
             problem_id=problem_id,
             data=payload,
             handler=handler,
@@ -162,12 +162,12 @@ async def update_problem(
     },
 )
 async def delete_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     try:
-        await base_delete_problem(tenant, problem_id, handler=handler)
+        await base_delete_problem(territory, problem_id, handler=handler)
     except Exception as e:
         logger.error(f"Error deleting problem {problem_id}: {e}")
         raise

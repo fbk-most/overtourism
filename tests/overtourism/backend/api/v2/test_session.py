@@ -13,28 +13,28 @@ from overtourism.dt_manager.session import manager as session_manager_module
 def test_delete_all_sessions_removes_only_owned_sessions(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     for _ in range(2):
         response = client.post(
-            f"/api/v2/{tenant}/sessions",
+            f"/api/v2/{territory}/sessions",
             params={"problem_id": problem_id},
             json={"metadata": {}},
         )
         assert response.status_code == 200
 
     foreign_session = manager.create_session(
-        tenant=tenant,
+        territory=territory,
         owner_id="other-owner",
     )
-    other_tenant_session = manager.create_session(
-        tenant="tenant-beta",
-        owner_id=f"anonymous:{tenant}",
+    other_territory_session = manager.create_session(
+        territory="territory-beta",
+        owner_id=f"anonymous:{territory}",
     )
 
     delete_response = client.delete(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
     )
 
@@ -42,13 +42,13 @@ def test_delete_all_sessions_removes_only_owned_sessions(
     assert delete_response.json() == {"message": "All sessions deleted successfully"}
     assert {
         session.session_id for session in manager.session_manager.list_sessions()
-    } == {foreign_session.session_id, other_tenant_session.session_id}
+    } == {foreign_session.session_id, other_territory_session.session_id}
 
 
 def test_session_routes_manage_the_full_session_lifecycle(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
     monkeypatch,
 ) -> None:
@@ -59,7 +59,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     )
 
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={},
         json={"metadata": {"source": "ui"}},
     )
@@ -70,7 +70,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert create_response.json()["draft_ids"] == []
 
     list_response = client.get(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={},
     )
 
@@ -78,7 +78,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert [item["session_id"] for item in list_response.json()] == ["session-fixed"]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/sessions/session-fixed",
+        f"/api/v2/{territory}/sessions/session-fixed",
         params={},
     )
 
@@ -87,7 +87,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert read_response.json()["evaluations"] == {}
 
     delete_response = client.delete(
-        f"/api/v2/{tenant}/sessions/session-fixed",
+        f"/api/v2/{territory}/sessions/session-fixed",
         params={},
     )
 
@@ -96,17 +96,17 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert manager.session_manager.list_sessions() == []
 
 
-def test_session_owner_uses_token_subject_instead_of_email(client, tenant: str) -> None:
+def test_session_owner_uses_token_subject_instead_of_email(client, territory: str) -> None:
     client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=True,
-        tenant=tenant,
+        territory=territory,
         subject="user-sub",
         token="signed-token",
         claims={"sub": "user-sub", "email": "user@example.com"},
     )
 
     response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={},
         json={"metadata": {}},
     )
@@ -117,14 +117,14 @@ def test_session_owner_uses_token_subject_instead_of_email(client, tenant: str) 
 
 def test_session_detail_embeds_evaluation_metadata_without_result(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     scenario_id: str,
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
         "overtourism.backend.api.v2.session.call_executor",
-        lambda tenant, param_overrides: {"values": param_overrides},
+        lambda territory, param_overrides: {"values": param_overrides},
     )
     monkeypatch.setattr(
         session_manager_module,
@@ -133,14 +133,14 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     )
 
     create_session_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {"source": "ui"}},
     )
     assert create_session_response.status_code == 200
 
     draft_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-detail/scenarios",
+        f"/api/v2/{territory}/sessions/session-detail/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": scenario_id,
@@ -152,7 +152,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     draft_id = draft_response.json()["scenario_id"]
 
     evaluation_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-detail/evaluations",
+        f"/api/v2/{territory}/sessions/session-detail/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": draft_id, "ensemble_size": 4},
     )
@@ -160,7 +160,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     evaluation = evaluation_response.json()
 
     response = client.get(
-        f"/api/v2/{tenant}/sessions/session-detail",
+        f"/api/v2/{territory}/sessions/session-detail",
         params={"problem_id": problem_id},
     )
 

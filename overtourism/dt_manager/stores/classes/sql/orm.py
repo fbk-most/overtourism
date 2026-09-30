@@ -61,9 +61,9 @@ class CompressedJSON(TypeDecorator[bytes | None]):
 
 class ProblemORM(SQLBase):
     __tablename__ = "problems"
-    __table_args__ = (Index("ix_problems_tenant_created", "tenant", "created"),)
+    __table_args__ = (Index("ix_problems_territory_created", "territory", "created"),)
 
-    tenant: Mapped[str | None] = mapped_column(Text)
+    territory: Mapped[str | None] = mapped_column(Text)
     problem_id: Mapped[str] = mapped_column(String, primary_key=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     name: Mapped[str | None] = mapped_column(Text)
@@ -85,11 +85,11 @@ class ProblemORM(SQLBase):
 class SessionORM(SQLBase):
     __tablename__ = "sessions"
     __table_args__ = (
-        Index("ix_sessions_tenant_owner_created", "tenant", "owner_id", "created"),
+        Index("ix_sessions_territory_owner_created", "territory", "owner_id", "created"),
     )
 
     session_id: Mapped[str] = mapped_column(String, primary_key=True)
-    tenant: Mapped[str] = mapped_column(Text)
+    territory: Mapped[str] = mapped_column(Text)
     owner_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     created: Mapped[str | None] = mapped_column(String)
     updated: Mapped[str | None] = mapped_column(String)
@@ -133,10 +133,10 @@ class ProposalORM(SQLBase):
 
 class ScenarioORM(SQLBase):
     __tablename__ = "scenarios"
-    __table_args__ = (Index("ix_scenarios_tenant_created", "tenant", "created"),)
+    __table_args__ = (Index("ix_scenarios_territory_created", "territory", "created"),)
 
     scenario_id: Mapped[str] = mapped_column(String, primary_key=True)
-    tenant: Mapped[str] = mapped_column(Text)
+    territory: Mapped[str] = mapped_column(Text)
     session_id: Mapped[str | None] = mapped_column(
         ForeignKey("sessions.session_id", ondelete="CASCADE"),
         nullable=True,
@@ -221,7 +221,7 @@ def problem_to_orm(problem: dict[str, Any]) -> ProblemORM:
     return ProblemORM(
         problem_id=problem["problem_id"],
         version=problem.get("version", 0),
-        tenant=problem.get("tenant"),
+        territory=problem.get("territory"),
         name=problem.get("name"),
         description=problem.get("description"),
         created=problem.get("created"),
@@ -237,7 +237,7 @@ def problem_from_orm(problem: ProblemORM) -> dict[str, Any]:
 def session_to_orm(session: dict[str, Any]) -> SessionORM:
     return SessionORM(
         session_id=session["session_id"],
-        tenant=session["tenant"],
+        territory=session["territory"],
         owner_id=session.get("owner_id"),
         created=session.get("created"),
         updated=session.get("updated"),
@@ -249,7 +249,7 @@ def session_to_orm(session: dict[str, Any]) -> SessionORM:
 def session_from_orm(session: SessionORM) -> dict[str, Any]:
     return {
         "session_id": session.session_id,
-        "tenant": session.tenant,
+        "territory": session.territory,
         "owner_id": session.owner_id,
         "created": session.created,
         "updated": session.updated,
@@ -279,7 +279,7 @@ def proposal_from_orm(proposal: ProposalORM) -> dict[str, Any]:
 def scenario_to_orm(scenario: dict[str, Any]) -> ScenarioORM:
     return ScenarioORM(
         scenario_id=scenario["scenario_id"],
-        tenant=scenario["tenant"],
+        territory=scenario["territory"],
         session_id=scenario.get("session_id"),
         version=scenario.get("version", 0),
         name=scenario.get("name"),

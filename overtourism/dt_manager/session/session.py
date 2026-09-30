@@ -11,7 +11,7 @@ class Session(Dictable):
     """In-memory working context for scenarios, evaluations, and later chats."""
 
     session_id: str
-    tenant: str
+    territory: str
     created: str
     updated: str
     owner_id: str | None = None

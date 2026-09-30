@@ -11,11 +11,11 @@ FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 def test_create_default_uses_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(scenario_module, "get_timestamp", lambda: FIXED_TIMESTAMP)
 
-    scenario = Scenario.create_default("scenario-alpha", "tenant-alpha")
+    scenario = Scenario.create_default("scenario-alpha", "territory-alpha")
 
     assert scenario.to_dict() == {
         "scenario_id": "scenario-alpha",
-        "tenant": "tenant-alpha",
+        "territory": "territory-alpha",
         "session_id": None,
         "version": 1,
         "name": "scenario-alpha",
@@ -30,7 +30,7 @@ def test_create_default_uses_fallbacks(monkeypatch) -> None:
 def test_from_dict_round_trip_with_param_overrides() -> None:
     payload = {
         "scenario_id": "scenario-alpha",
-        "tenant": "tenant-alpha",
+        "territory": "territory-alpha",
         "session_id": "session-1",
         "version": 1,
         "name": "Scenario Alpha",
@@ -54,7 +54,7 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
     scenario = Scenario.from_dict(
         {
             "scenario_id": "scenario-beta",
-            "tenant": "tenant-beta",
+            "territory": "territory-beta",
             "version": 1,
             "name": "Scenario Beta",
             "description": "Secondary scenario",
@@ -63,7 +63,7 @@ def test_from_dict_fills_missing_timestamps(monkeypatch) -> None:
         }
     )
 
-    assert scenario.tenant == "tenant-beta"
+    assert scenario.territory == "territory-beta"
     assert scenario.created == FIXED_TIMESTAMP
     assert scenario.updated == FIXED_TIMESTAMP
     assert scenario.param_overrides == {}

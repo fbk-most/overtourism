@@ -12,14 +12,14 @@ from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.backend.auth.enums import AuthClaim
 from overtourism.backend.auth.models import AuthContext
 
-tenant_router = APIRouter(
+territory_router = APIRouter(
     prefix=f"{BASE_ROUTE}/default",
-    tags=["Tenants"],
+    tags=["Territorys"],
 )
 
 
-@tenant_router.get("/tenants", response_model=list[str])
-async def list_tenants(
+@territory_router.get("/territorys", response_model=list[str])
+async def list_territorys(
     context: Annotated[AuthContext, Depends(get_auth_context)],
 ) -> list[str]:
     models: list[dict[str, Any]] = list_models()
@@ -28,12 +28,12 @@ async def list_tenants(
     if not context.authenticated:
         return model_keys
 
-    claim = context.claims.get(AuthClaim.TENANT)
+    claim = context.claims.get(AuthClaim.TERRITORY)
     if isinstance(claim, (list, tuple, set, frozenset)):
-        accessible_tenants = {str(tenant) for tenant in claim}
+        accessible_territorys = {str(territory) for territory in claim}
     elif claim is None:
-        accessible_tenants = set()
+        accessible_territorys = set()
     else:
-        accessible_tenants = {str(claim)}
+        accessible_territorys = {str(claim)}
 
-    return [key for key in model_keys if key in accessible_tenants]
+    return [key for key in model_keys if key in accessible_territorys]

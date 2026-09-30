@@ -21,7 +21,7 @@ class AuthSettings:
     issuer: str | None = None
     audience: str | None = None
     jwks_url: str | None = None
-    tenant_claim: str = AuthClaim.TENANT
+    territory_claim: str = AuthClaim.TERRITORY
     algorithms: tuple[str, ...] = (JwtAlgorithm.RS256,)
     leeway_seconds: int = 30
 
@@ -36,8 +36,8 @@ class AuthSettings:
             issuer=os.getenv(AuthEnvironmentVariable.ISSUER) or None,
             audience=os.getenv(AuthEnvironmentVariable.AUDIENCE) or None,
             jwks_url=os.getenv(AuthEnvironmentVariable.JWKS_URL) or None,
-            tenant_claim=os.getenv(AuthEnvironmentVariable.TENANT_CLAIM)
-            or AuthClaim.TENANT,
+            territory_claim=os.getenv(AuthEnvironmentVariable.TERRITORY_CLAIM)
+            or AuthClaim.TERRITORY,
             algorithms=tuple(
                 item.strip() for item in algorithms_value.split(",") if item.strip()
             )

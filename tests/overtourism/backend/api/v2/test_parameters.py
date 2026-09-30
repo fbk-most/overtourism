@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 
-def test_configuration_returns_the_model_schema(monkeypatch, client, tenant) -> None:
+def test_configuration_returns_the_model_schema(monkeypatch, client, territory) -> None:
     monkeypatch.setattr(
         "overtourism.backend.api.v2.parameters.call_schema",
-        lambda requested_tenant: {
+        lambda requested_territory: {
             "metadata": {
                 "mapper": {},
                 "color_map": [],
@@ -17,7 +17,7 @@ def test_configuration_returns_the_model_schema(monkeypatch, client, tenant) -> 
         },
     )
 
-    response = client.get(f"/api/v2/{tenant}/configuration")
+    response = client.get(f"/api/v2/{territory}/configuration")
 
     assert response.status_code == 200
     body = response.json()

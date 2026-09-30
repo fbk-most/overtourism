@@ -9,7 +9,7 @@ def test_base_problem_config_defaults() -> None:
     config = BootstrapConfig()
 
     assert config.problem_id == "default_base_problem"
-    assert config.tenant == "default"
+    assert config.territory == "default"
     assert config.problem_name == "Sandbox problem"
     assert config.problem_description == "Sandbox problem."
     assert config.problem_extras == {}
@@ -26,7 +26,7 @@ def test_base_problem_config_defaults() -> None:
 
 def test_base_problem_config_accepts_custom_values() -> None:
     config = BootstrapConfig(
-        tenant="tenant-alpha",
+        territory="territory-alpha",
         problem_name="Problem Alpha",
         problem_description="Primary problem",
         problem_extras={"region": "tn"},
@@ -39,16 +39,16 @@ def test_base_problem_config_accepts_custom_values() -> None:
         proposal_extras={"priority": "high"},
     )
 
-    assert config.problem_id == "tenant-alpha_base_problem"
-    assert config.tenant == "tenant-alpha"
+    assert config.problem_id == "territory-alpha_base_problem"
+    assert config.territory == "territory-alpha"
     assert config.problem_name == "Problem Alpha"
     assert config.problem_description == "Primary problem"
     assert config.problem_extras == {"region": "tn"}
-    assert config.scenario_id == "tenant-alpha_base_scenario"
+    assert config.scenario_id == "territory-alpha_base_scenario"
     assert config.scenario_name == "Scenario Alpha"
     assert config.scenario_description == "Primary scenario"
     assert config.scenario_extras == {"kind": "scenario"}
-    assert config.proposal_id == "tenant-alpha_base_proposal"
+    assert config.proposal_id == "territory-alpha_base_proposal"
     assert config.proposal_name == "Proposal Alpha"
     assert config.proposal_description == "Primary proposal"
     assert config.proposal_status == "draft"

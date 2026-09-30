@@ -9,12 +9,12 @@ from overtourism.dt_manager.manager.manager import Manager
 
 def test_create_and_list_proposals_for_a_problem(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     create_response = client.post(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         json={
             "problem_id": problem_id,
             "proposal_id": "proposal-api",
@@ -34,7 +34,7 @@ def test_create_and_list_proposals_for_a_problem(
     assert create_response.json()["related_scenario_ids"] == [base_scenario_id]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/proposals/{proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal_id}",
         params={"problem_id": problem_id},
     )
 
@@ -42,7 +42,7 @@ def test_create_and_list_proposals_for_a_problem(
     assert read_response.json()["related_scenario_ids"] == [base_scenario_id]
 
     list_response = client.get(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         params={"problem_id": problem_id},
     )
 
@@ -55,7 +55,7 @@ def test_create_and_list_proposals_for_a_problem(
 @pytest.mark.parametrize("related_scenario_ids", [None, []])
 def test_create_proposal_adds_base_scenario_when_payload_omits_it(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     related_scenario_ids: list[str] | None,
 ) -> None:
@@ -66,26 +66,26 @@ def test_create_proposal_adds_base_scenario_when_payload_omits_it(
     if related_scenario_ids is not None:
         payload["related_scenario_ids"] = related_scenario_ids
 
-    response = client.post(f"/api/v2/{tenant}/proposals", json=payload)
+    response = client.post(f"/api/v2/{territory}/proposals", json=payload)
 
     assert response.status_code == 200
-    assert response.json()["related_scenario_ids"] == [f"{tenant}_base_scenario"]
+    assert response.json()["related_scenario_ids"] == [f"{territory}_base_scenario"]
 
 
 def test_create_proposal_keeps_related_scenarios_and_adds_base(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-linked-to-proposal",
-        tenant,
+        territory,
         name="Linked scenario",
     )
 
     response = client.post(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         json={
             "problem_id": problem_id,
             "proposal_id": "proposal-with-related-scenario",
@@ -96,22 +96,22 @@ def test_create_proposal_keeps_related_scenarios_and_adds_base(
     assert response.status_code == 200
     assert response.json()["related_scenario_ids"] == [
         related_scenario.scenario_id,
-        f"{tenant}_base_scenario",
+        f"{territory}_base_scenario",
     ]
 
 
-def test_create_proposal_rejects_problem_from_another_tenant(
+def test_create_proposal_rejects_problem_from_another_territory(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
 ) -> None:
     foreign_problem = manager.create_problem(
-        tenant="tenant-beta",
+        territory="territory-beta",
         name="Foreign problem",
     )
 
     response = client.post(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         json={"problem_id": foreign_problem.problem_id},
     )
 
@@ -124,12 +124,12 @@ def test_create_proposal_rejects_problem_from_another_tenant(
 def test_list_proposals_can_filter_by_related_scenario(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-linked",
-        tenant,
+        territory,
         param_overrides={"visits": 8},
         name="Linked scenario",
     )
@@ -141,7 +141,7 @@ def test_list_proposals_can_filter_by_related_scenario(
     )
 
     response = client.get(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         params={"problem_id": problem_id, "scenario_id": related_scenario.scenario_id},
     )
 
@@ -152,16 +152,16 @@ def test_list_proposals_can_filter_by_related_scenario(
 def test_updating_only_related_scenarios_increments_proposal_version(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     proposal = manager.create_proposal(
         problem_id,
-        related_scenario_ids=[f"{tenant}_base_scenario"],
+        related_scenario_ids=[f"{territory}_base_scenario"],
     )
 
     update_response = client.put(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         json={"version": 1, "related_scenario_ids": []},
     )
 
@@ -170,7 +170,7 @@ def test_updating_only_related_scenarios_increments_proposal_version(
     assert update_response.json()["related_scenario_ids"] == []
 
     stale_response = client.put(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         json={"version": 1, "name": "Stale update"},
     )
     assert stale_response.status_code == 412
@@ -180,10 +180,10 @@ def test_update_and_delete_proposal_require_the_current_version(
     client,
     error_client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     proposal = manager.create_proposal(
         problem_id,
         name="Versioned proposal",
@@ -192,7 +192,7 @@ def test_update_and_delete_proposal_require_the_current_version(
     )
 
     missing_version = client.put(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         params={"problem_id": problem_id},
         json={"name": "Updated proposal"},
     )
@@ -201,7 +201,7 @@ def test_update_and_delete_proposal_require_the_current_version(
     assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     update_response = client.put(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         params={"problem_id": problem_id},
         json={
             "version": 1,
@@ -224,7 +224,7 @@ def test_update_and_delete_proposal_require_the_current_version(
     )
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         params={"problem_id": problem_id},
         json={"version": 2},
     )
@@ -232,18 +232,18 @@ def test_update_and_delete_proposal_require_the_current_version(
     assert delete_response.status_code == 200
     assert {
         proposal.proposal_id for proposal in manager.list_proposals(problem_id)
-    } == {f"{tenant}_base_proposal"}
+    } == {f"{territory}_base_proposal"}
 
 
 def test_proposal_write_validation_rejects_missing_related_scenarios(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     create_response = client.post(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         json={
             "problem_id": problem_id,
             "proposal_id": "proposal-invalid",
@@ -263,7 +263,7 @@ def test_proposal_write_validation_rejects_missing_related_scenarios(
     )
 
     update_response = client.put(
-        f"/api/v2/{tenant}/proposals/{proposal.proposal_id}",
+        f"/api/v2/{territory}/proposals/{proposal.proposal_id}",
         params={"problem_id": problem_id},
         json={
             "version": 1,

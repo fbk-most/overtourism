@@ -12,7 +12,7 @@ from overtourism.backend.api.models.problem import (
     ProblemData,
     UpdateProblemData,
 )
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
@@ -23,7 +23,7 @@ from overtourism.backend.auth.dependencies import Handler, get_auth_context
 logger = logging.getLogger(__name__)
 
 problem_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/problems",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/problems",
     tags=["Problems"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -38,12 +38,12 @@ problem_router = APIRouter(
     },
 )
 async def list_problems(
-    tenant: str,
+    territory: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
-        return [problem.to_dict() for problem in handler.manager.list_problems(tenant)]
+        return [problem.to_dict() for problem in handler.manager.list_problems(territory)]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise
@@ -59,7 +59,7 @@ async def list_problems(
     },
 )
 async def create_problem(
-    tenant: str,
+    territory: str,
     data: PostProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
@@ -69,7 +69,7 @@ async def create_problem(
             name=data.name,
             description=data.description,
             extras=data.extras,
-            tenant=tenant,
+            territory=territory,
         )
         logger.info(f"Problem created: {data.name}")
         return problem.to_dict()
@@ -88,13 +88,13 @@ async def create_problem(
     },
 )
 async def read_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
     """Read a problem."""
     try:
-        problem = get_problem_or_404(tenant, handler, problem_id)
+        problem = get_problem_or_404(territory, handler, problem_id)
         return problem.to_dict()
     except Exception as e:
         logger.error(f"Error reading problem {problem_id}: {e}")
@@ -111,14 +111,14 @@ async def read_problem(
     },
 )
 async def update_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     data: UpdateProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProblemData:
     """Update a problem and persist the current aggregate."""
     try:
-        problem = get_problem_or_404(tenant, handler, problem_id)
+        problem = get_problem_or_404(territory, handler, problem_id)
         check_version(problem.version, data.version)
         updated_problem = handler.manager.update_problem(
             problem_id,
@@ -142,13 +142,13 @@ async def update_problem(
     },
 )
 async def delete_problem(
-    tenant: str,
+    territory: str,
     problem_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     """Delete a problem from the store."""
     try:
-        get_problem_or_404(tenant, handler, problem_id)
+        get_problem_or_404(territory, handler, problem_id)
         handler.manager.delete_problem(problem_id)
         logger.info(f"Problem deleted: {problem_id}")
     except Exception as e:

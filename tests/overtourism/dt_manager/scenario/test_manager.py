@@ -22,7 +22,7 @@ def test_create_update_save_load_and_delete_scenario(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager = ScenarioManager(sql_store)
     sql_store.save_problem(problem_payload)
 
@@ -33,14 +33,14 @@ def test_create_update_save_load_and_delete_scenario(
 
     scenario = manager.create_scenario(
         "scenario-alpha",
-        tenant,
+        territory,
         param_overrides={"visits": 7, "ignored": "skip"},
         name="Scenario Alpha",
         description="Primary scenario",
         extras={"kind": "scenario"},
     )
 
-    assert scenario.tenant == tenant
+    assert scenario.territory == territory
     assert scenario.created == CREATED_TIMESTAMP
     assert scenario.updated == CREATED_TIMESTAMP
     assert scenario.param_overrides == {"visits": 7, "ignored": "skip"}
@@ -53,7 +53,7 @@ def test_create_update_save_load_and_delete_scenario(
     assert manager.read_scenario("scenario-alpha").to_dict() == scenario.to_dict()
 
     with pytest.raises(ScenarioAlreadyExists):
-        manager.create_scenario("scenario-alpha", tenant)
+        manager.create_scenario("scenario-alpha", territory)
 
     manager.update_scenario("scenario-alpha", param_overrides={"visits": 11})
     updated = manager.read_scenario("scenario-alpha")
@@ -66,7 +66,7 @@ def test_create_update_save_load_and_delete_scenario(
 
     assert sql_store.load_scenario("scenario-alpha") == updated.to_dict()
 
-    loaded = manager.list_scenarios(tenant=tenant)
+    loaded = manager.list_scenarios(territory=territory)
     assert [item.scenario_id for item in loaded] == ["scenario-alpha"]
     assert loaded[0].to_dict() == updated.to_dict()
 
@@ -84,7 +84,7 @@ def test_update_scenario_preserves_existing_values_when_overriding_subset(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager = ScenarioManager(sql_store)
     sql_store.save_problem(problem_payload)
 
@@ -95,7 +95,7 @@ def test_update_scenario_preserves_existing_values_when_overriding_subset(
 
     manager.create_scenario(
         "scenario-alpha",
-        tenant,
+        territory,
         param_overrides={
             "tourists_parking_percentage": 0.02,
             "tourists_per_vehicle": 2.5,
@@ -135,14 +135,14 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager = ScenarioManager(sql_store)
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(scenario_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     base_scenario = manager.create_scenario(
         "scenario-alpha",
-        tenant,
+        territory,
         param_overrides={"visits": 5},
         name="Scenario Alpha",
         description="Primary scenario",
@@ -156,7 +156,7 @@ def test_scenario_manager_builds_updates_and_saves_transient_scenario_objects(
         {"visits": 9},
     )
 
-    assert session_scenario.tenant == tenant
+    assert session_scenario.territory == territory
     assert session_scenario.scenario_id != base_scenario.scenario_id
     assert session_scenario.name == base_scenario.name
     assert session_scenario.description == base_scenario.description
@@ -182,14 +182,14 @@ def test_detach_scenario_preserves_existing_values_when_overriding_subset(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager = ScenarioManager(sql_store)
     sql_store.save_problem(problem_payload)
 
     monkeypatch.setattr(scenario_module, "get_timestamp", lambda: CREATED_TIMESTAMP)
     manager.create_scenario(
         "scenario-alpha",
-        tenant,
+        territory,
         param_overrides={
             "tourists_parking_percentage": 0.02,
             "tourists_per_vehicle": 2.5,

@@ -12,7 +12,7 @@ from overtourism.backend.api.models.scenario import (
     ScenarioData,
     UpdateScenarioData,
 )
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
@@ -26,7 +26,7 @@ from overtourism.dt_manager.manager.config import BootstrapConfig
 logger = logging.getLogger(__name__)
 
 scenario_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/scenarios",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/scenarios",
     tags=["Scenarios"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -42,7 +42,7 @@ scenario_router = APIRouter(
     },
 )
 async def list_scenarios(
-    tenant: str,
+    territory: str,
     proposal_id: str | None = None,
     base_only: bool = False,
     *,
@@ -50,11 +50,11 @@ async def list_scenarios(
 ) -> ScenarioData | list[ScenarioData]:
     try:
         if base_only:
-            names_cfg = BootstrapConfig(tenant)
-            scenario = get_scenario_or_404(tenant, handler, names_cfg.scenario_id)
+            names_cfg = BootstrapConfig(territory)
+            scenario = get_scenario_or_404(territory, handler, names_cfg.scenario_id)
             return scenario_to_api(handler, scenario)
         scenarios = handler.manager.list_scenarios(
-            tenant=tenant, proposal_id=proposal_id
+            territory=territory, proposal_id=proposal_id
         )
         return [
             scenario_to_api(handler, scenario)
@@ -76,12 +76,12 @@ async def list_scenarios(
     },
 )
 async def read_scenario(
-    tenant: str,
+    territory: str,
     scenario_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        scenario = get_scenario_or_404(tenant, handler, scenario_id)
+        scenario = get_scenario_or_404(territory, handler, scenario_id)
         return scenario_to_api(handler, scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
@@ -98,13 +98,13 @@ async def read_scenario(
     },
 )
 async def create_scenario(
-    tenant: str,
+    territory: str,
     data: CreateScenarioData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
-        scenario = handler.manager.create_scenario(tenant=tenant, **scenario_payload)
+        scenario = handler.manager.create_scenario(territory=territory, **scenario_payload)
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:
@@ -123,14 +123,14 @@ async def create_scenario(
     },
 )
 async def update_scenario(
-    tenant: str,
+    territory: str,
     scenario_id: str,
     data: UpdateScenarioData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ScenarioData:
     try:
-        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
-        current_scenario = get_scenario_or_404(tenant, handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, territory, scenario_id)
+        current_scenario = get_scenario_or_404(territory, handler, scenario_id)
         check_version(current_scenario.version, data.version)
         handler.manager.update_scenario(
             scenario_id,
@@ -157,13 +157,13 @@ async def update_scenario(
     },
 )
 async def delete_scenario(
-    tenant: str,
+    territory: str,
     scenario_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict:
     try:
-        raise_immutable_base_scenario_error(handler, tenant, scenario_id)
-        get_scenario_or_404(tenant, handler, scenario_id)
+        raise_immutable_base_scenario_error(handler, territory, scenario_id)
+        get_scenario_or_404(territory, handler, scenario_id)
         handler.manager.delete_scenario(scenario_id)
         logger.info(f"Scenario deleted: {scenario_id}")
         return {"message": "Scenario deleted successfully"}

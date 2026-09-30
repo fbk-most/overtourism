@@ -12,7 +12,7 @@ from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
 from tests.overtourism.test_support import (
-    DEFAULT_TENANT,
+    DEFAULT_TERRITORY,
     FakeExecutionService,
     FakeModelEvaluator,
 )
@@ -37,7 +37,7 @@ def _make_manager(
             problem_keys=frozenset({"objective", "links"}),
         ),
     )
-    manager.name_cfg = SimpleNamespace(tenant=DEFAULT_TENANT)
+    manager.name_cfg = SimpleNamespace(territory=DEFAULT_TERRITORY)
     execution_service = FakeExecutionService(model, evaluator)
     return manager, evaluator, model, execution_service
 
@@ -53,14 +53,14 @@ def test_manager_starts_empty_and_persists_an_explicit_graph(tmp_path) -> None:
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=DEFAULT_TENANT,
+        territory=DEFAULT_TERRITORY,
         name="Problem Alpha",
         description="Primary problem",
         extras={"region": "tn"},
     )
     scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
-        DEFAULT_TENANT,
+        DEFAULT_TERRITORY,
         param_overrides={"visits": 7},
         name="Scenario Alpha",
         description="Primary scenario",
@@ -105,7 +105,7 @@ def test_manager_starts_empty_and_persists_an_explicit_graph(tmp_path) -> None:
 
     assert {item.problem_id for item in manager.list_problems()} == {"problem-alpha"}
     assert {
-        item.scenario_id for item in manager.list_scenarios(tenant=DEFAULT_TENANT)
+        item.scenario_id for item in manager.list_scenarios(territory=DEFAULT_TERRITORY)
     } == {"scenario-alpha"}
     assert {
         item.proposal_id for item in manager.list_proposals(problem.problem_id)
@@ -128,13 +128,13 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=DEFAULT_TENANT,
+        territory=DEFAULT_TERRITORY,
         name="Problem Alpha",
         description="Primary problem",
     )
     base_scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
-        tenant=problem.tenant,
+        territory=problem.territory,
         param_overrides={"visits": 9},
         name="Draft Scenario",
         description="Transient scenario",
@@ -200,13 +200,13 @@ def test_manager_read_scenario_data_reuses_persisted_results(tmp_path) -> None:
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=DEFAULT_TENANT,
+        territory=DEFAULT_TERRITORY,
         name="Problem Alpha",
         description="Primary problem",
     )
     scenario = manager.scenario_manager.create_scenario(
         "scenario-alpha",
-        tenant=problem.tenant,
+        territory=problem.territory,
         param_overrides={"visits": 13},
         name="Scenario Alpha",
         description="Primary scenario",

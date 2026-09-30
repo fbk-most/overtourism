@@ -24,10 +24,10 @@ FINISHED_TIMESTAMP = "2026-05-15T09:00:00Z"
 SESSION_TIMESTAMP = "2026-05-15T10:00:00Z"
 
 
-def _make_scenario(tenant: str, scenario_id: str, visits: int) -> Scenario:
+def _make_scenario(territory: str, scenario_id: str, visits: int) -> Scenario:
     return Scenario.create_default(
         scenario_id,
-        tenant,
+        territory,
         name=f"{scenario_id} name",
         description=f"{scenario_id} description",
         created="2026-05-15T07:00:00Z",
@@ -62,7 +62,7 @@ def test_create_run_load_and_delete_evaluation(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, execution_manager = _make_manager(
         sql_store,
         fake_model,
@@ -74,7 +74,7 @@ def test_create_run_load_and_delete_evaluation(
         execution_helper_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
-    scenario = _make_scenario(tenant, "scenario-alpha", 7)
+    scenario = _make_scenario(territory, "scenario-alpha", 7)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     running = manager.create_evaluation(
@@ -159,7 +159,7 @@ def test_complete_evaluation_persists_result_and_state(
     problem_payload,
 ) -> None:
     manager = EvaluationManager(sql_store)
-    scenario = _make_scenario(problem_payload["tenant"], "scenario-alpha", 7)
+    scenario = _make_scenario(problem_payload["territory"], "scenario-alpha", 7)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
     evaluation = manager.create_evaluation(
         "evaluation-alpha",
@@ -184,7 +184,7 @@ def test_fail_evaluation_persists_failed_state(
     problem_payload,
 ) -> None:
     manager = EvaluationManager(sql_store)
-    scenario = _make_scenario(problem_payload["tenant"], "scenario-alpha", 7)
+    scenario = _make_scenario(problem_payload["territory"], "scenario-alpha", 7)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
     evaluation = manager.create_evaluation(
         "evaluation-alpha",
@@ -207,7 +207,7 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, execution_manager = _make_manager(
         sql_store,
         fake_model,
@@ -219,7 +219,7 @@ def test_evaluation_objects_can_be_executed_saved_and_rerun(
         execution_helper_module, "get_timestamp", lambda: SESSION_TIMESTAMP
     )
 
-    scenario = _make_scenario(tenant, "scenario-alpha", 11)
+    scenario = _make_scenario(territory, "scenario-alpha", 11)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     evaluation = manager.build_running_evaluation(
@@ -308,7 +308,7 @@ def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, execution_manager = _make_manager(
         sql_store,
         fake_model,
@@ -320,8 +320,8 @@ def test_delete_evaluations_for_scenario_clears_matching_persistent_state(
         execution_helper_module, "get_timestamp", lambda: FINISHED_TIMESTAMP
     )
 
-    primary_scenario = _make_scenario(tenant, "scenario-alpha", 5)
-    secondary_scenario = _make_scenario(tenant, "scenario-beta", 9)
+    primary_scenario = _make_scenario(territory, "scenario-alpha", 5)
+    secondary_scenario = _make_scenario(territory, "scenario-beta", 9)
     _persist_problem_scenarios(
         sql_store,
         problem_payload,
@@ -370,10 +370,10 @@ def test_duplicate_and_missing_evaluation_operations_raise_clear_errors(
     fake_model_evaluator,
     problem_payload,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, _ = _make_manager(sql_store, fake_model, fake_model_evaluator)
 
-    scenario = _make_scenario(tenant, "scenario-alpha", 9)
+    scenario = _make_scenario(territory, "scenario-alpha", 9)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     manager.create_evaluation(
@@ -396,7 +396,7 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, execution_manager = _make_manager(
         sql_store,
         fake_model,
@@ -409,7 +409,7 @@ def test_failed_evaluations_are_marked_failed_and_cannot_be_finished_twice(
         lambda: FINISHED_TIMESTAMP,
     )
 
-    scenario = _make_scenario(tenant, "scenario-alpha", 13)
+    scenario = _make_scenario(territory, "scenario-alpha", 13)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
     manager.create_evaluation(
         "evaluation-failure",
@@ -449,14 +449,14 @@ def test_delete_evaluations_for_scenario_ignores_missing_persisted_rows(
     problem_payload,
     monkeypatch,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, execution_manager = _make_manager(
         sql_store,
         fake_model,
         fake_model_evaluator,
     )
 
-    scenario = _make_scenario(tenant, "scenario-alpha", 5)
+    scenario = _make_scenario(territory, "scenario-alpha", 5)
     _persist_problem_scenarios(sql_store, problem_payload, scenario)
 
     manager.create_evaluation(
@@ -494,11 +494,11 @@ def test_build_evaluation_preserves_none_results_without_rebuilding_them(
     fake_model_evaluator,
     problem_payload,
 ) -> None:
-    tenant = problem_payload["tenant"]
+    territory = problem_payload["territory"]
     manager, _ = _make_manager(sql_store, fake_model, fake_model_evaluator)
 
     sql_store.save_problem(problem_payload)
-    sql_store.save_scenario(_make_scenario(tenant, "scenario-alpha", 2).to_dict())
+    sql_store.save_scenario(_make_scenario(territory, "scenario-alpha", 2).to_dict())
     sql_store.save_evaluation(
         {
             "evaluation_id": "evaluation-plain",

@@ -14,7 +14,7 @@ from overtourism.backend.api.models.evaluation import (
     PostEvaluationData,
     UpdateEvaluationData,
 )
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
@@ -28,7 +28,7 @@ from overtourism.dt_manager.evaluation.evaluation import Evaluation
 logger = logging.getLogger(__name__)
 
 evaluation_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/evaluations",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/evaluations",
     tags=["Evaluations"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -44,16 +44,16 @@ evaluation_router = APIRouter(
     },
 )
 async def create_evaluation(
-    tenant: str,
+    territory: str,
     data: PostEvaluationData,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        scenario = get_scenario_or_404(tenant, handler, data.scenario_id)
+        scenario = get_scenario_or_404(territory, handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
         try:
-            result = call_executor(tenant, scenario.param_overrides)
+            result = call_executor(territory, scenario.param_overrides)
         except Exception as e:
             logger.error(f"Error during evaluation execution: {e}")
             evaluation = handler.manager.fail_evaluation(evaluation)
@@ -76,7 +76,7 @@ async def create_evaluation(
     },
 )
 async def list_evaluations(
-    tenant: str,
+    territory: str,
     scenario_id: str | None = None,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
@@ -84,7 +84,7 @@ async def list_evaluations(
     try:
         evaluations = handler.manager.list_evaluations(
             scenario_id,
-            tenant=tenant,
+            territory=territory,
         )
         return [
             EvaluationData.from_domain(evaluation)
@@ -106,13 +106,13 @@ async def list_evaluations(
     },
 )
 async def read_evaluation(
-    tenant: str,
+    territory: str,
     evaluation_id: str,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
+        evaluation = get_evaluation_or_404(territory, handler, evaluation_id)
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
         logger.error(f"Error reading evaluation {evaluation_id}: {e}")
@@ -129,16 +129,16 @@ async def read_evaluation(
     },
 )
 async def update_evaluation(
-    tenant: str,
+    territory: str,
     evaluation_id: str,
     data: UpdateEvaluationData,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationData:
     try:
-        current = get_evaluation_or_404(tenant, handler, evaluation_id)
+        current = get_evaluation_or_404(territory, handler, evaluation_id)
         check_version(current.version, data.version)
-        scenario = handler.manager.read_scenario(current.scenario_id, tenant=tenant)
+        scenario = handler.manager.read_scenario(current.scenario_id, territory=territory)
         evaluation = Evaluation.create_default(
             current.evaluation_id,
             scenario_id=current.scenario_id,
@@ -147,7 +147,7 @@ async def update_evaluation(
         )
         execution_registry = getattr(handler, "execution_manager_registry", None)
         if execution_registry is not None:
-            evaluation = execution_registry.get(tenant).execute_evaluation(
+            evaluation = execution_registry.get(territory).execute_evaluation(
                 evaluation,
                 scenario,
                 ensemble_size=data.ensemble_size,
@@ -155,7 +155,7 @@ async def update_evaluation(
         else:
             evaluation.version += 1
             try:
-                result = call_executor(tenant, scenario.param_overrides)
+                result = call_executor(territory, scenario.param_overrides)
             except Exception as e:
                 logger.error(f"Error during evaluation execution: {e}")
                 evaluation = handler.manager.fail_evaluation(evaluation)
@@ -177,14 +177,14 @@ async def update_evaluation(
     },
 )
 async def delete_evaluation(
-    tenant: str,
+    territory: str,
     evaluation_id: str,
     data: VersionData | None = None,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> dict[str, str]:
     try:
-        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
+        evaluation = get_evaluation_or_404(territory, handler, evaluation_id)
         check_version(evaluation.version, None if data is None else data.version)
         handler.manager.delete_evaluation(evaluation_id)
         logger.info(f"Evaluation deleted: {evaluation_id}")
@@ -205,7 +205,7 @@ async def delete_evaluation(
     },
 )
 async def get_data(
-    tenant: str,
+    territory: str,
     evaluation_id: str,
     as_snapshot: Annotated[bool, Query()] = True,
     params: Annotated[list[str] | None, Query()] = None,
@@ -213,10 +213,10 @@ async def get_data(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> EvaluationOutputData:
     try:
-        evaluation = get_evaluation_or_404(tenant, handler, evaluation_id)
+        evaluation = get_evaluation_or_404(territory, handler, evaluation_id)
         result = handler.manager.read_evaluation_data(
             evaluation_id,
-            tenant=tenant,
+            territory=territory,
         )
         # Re add the query params to the result if they were provided
         return EvaluationOutputData(

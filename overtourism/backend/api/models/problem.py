@@ -12,7 +12,7 @@ class ProblemData(BaseModel):
 
     problem_id: str
     version: int = 0
-    tenant: str
+    territory: str
     name: str | None = None
     description: str | None = None
     created: str | None = None

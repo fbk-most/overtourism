@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.executor_utils import call_schema
 from overtourism.backend.auth.dependencies import get_auth_context
 from overtourism.layer_3.api.schemas import ModelSchema
@@ -14,7 +14,7 @@ from overtourism.layer_3.api.schemas import ModelSchema
 logger = logging.getLogger(__name__)
 
 configuration_router = APIRouter(
-    prefix=TENANT_ROUTE_PREFIX,
+    prefix=TERRITORY_ROUTE_PREFIX,
     dependencies=[Depends(get_auth_context)],
 )
 
@@ -28,11 +28,11 @@ configuration_router = APIRouter(
     },
 )
 async def get_configuration(
-    tenant: str,
+    territory: str,
 ) -> ModelSchema:
-    """List all available configuration for the given tenant."""
+    """List all available configuration for the given territory."""
     try:
-        return call_schema(tenant)
+        return call_schema(territory)
     except Exception as exc:
         logger.error(f"Error listing configuration: {exc}")
         raise

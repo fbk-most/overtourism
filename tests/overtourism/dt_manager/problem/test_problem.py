@@ -11,11 +11,11 @@ FIXED_TIMESTAMP = "2026-05-15T12:34:56Z"
 def test_create_default_uses_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(problem_module, "get_timestamp", lambda: FIXED_TIMESTAMP)
 
-    problem = Problem.create_default("problem-alpha", "tenant-alpha")
+    problem = Problem.create_default("problem-alpha", "territory-alpha")
 
     assert problem.to_dict() == {
         "problem_id": "problem-alpha",
-        "tenant": "tenant-alpha",
+        "territory": "territory-alpha",
         "version": 1,
         "name": "problem-alpha",
         "description": "problem-alpha problem",
@@ -29,7 +29,7 @@ def test_from_dict_round_trip() -> None:
     payload = {
         "problem_id": "problem-alpha",
         "version": 1,
-        "tenant": "molveno",
+        "territory": "molveno",
         "name": "Problem Alpha",
         "description": "Primary problem",
         "created": "2026-05-15T10:00:00Z",

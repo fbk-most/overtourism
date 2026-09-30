@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 class BootstrapConfig:
     """Default problem configuration for manager initialization."""
 
-    tenant: str = "default"
+    territory: str = "default"
 
     problem_id: str = field(init=False)
     problem_name: str = "Sandbox problem"
@@ -28,6 +28,6 @@ class BootstrapConfig:
     proposal_extras: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.problem_id = f"{self.tenant}_base_problem"
-        self.scenario_id = f"{self.tenant}_base_scenario"
-        self.proposal_id = f"{self.tenant}_base_proposal"
+        self.problem_id = f"{self.territory}_base_problem"
+        self.scenario_id = f"{self.territory}_base_scenario"
+        self.proposal_id = f"{self.territory}_base_proposal"

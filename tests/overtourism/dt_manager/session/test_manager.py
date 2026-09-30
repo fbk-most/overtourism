@@ -10,7 +10,7 @@ from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from tests.overtourism.test_support import (
-    DEFAULT_TENANT,
+    DEFAULT_TERRITORY,
     FakeExecutionService,
     FakeModelEvaluator,
 )
@@ -29,25 +29,25 @@ def _make_manager(
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
     )
-    manager.name_cfg = type("NameCfg", (), {"tenant": DEFAULT_TENANT})()
+    manager.name_cfg = type("NameCfg", (), {"territory": DEFAULT_TERRITORY})()
     execution_service = FakeExecutionService(model, evaluator)
     return manager, evaluator, model, execution_service
 
 
 def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
     manager, evaluator, model, execution_service = _make_manager(tmp_path)
-    tenant = DEFAULT_TENANT
+    territory = DEFAULT_TERRITORY
 
     problem = manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=tenant,
+        territory=territory,
         name="Problem Alpha",
         description="Primary problem",
     )
     session = manager.session_manager.create_session(metadata={"source": "test"})
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
-        tenant=problem.tenant,
+        territory=problem.territory,
         param_overrides={"visits": 8},
         name="Draft Scenario",
         description="Transient scenario",
@@ -109,18 +109,18 @@ def test_session_manager_tracks_transient_session_workflow(tmp_path) -> None:
 
 def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> None:
     manager, _evaluator, _model, execution_service = _make_manager(tmp_path)
-    tenant = DEFAULT_TENANT
+    territory = DEFAULT_TERRITORY
 
     manager.problem_manager.create_problem(
         "problem-alpha",
-        tenant=tenant,
+        territory=territory,
         name="Problem Alpha",
         description="Primary problem",
     )
     session = manager.session_manager.create_session()
     draft = manager.scenario_manager.create_scenario(
         "scenario-alpha",
-        tenant=tenant,
+        territory=territory,
         param_overrides={"visits": 11},
         name="Draft Scenario",
         description="Transient scenario",

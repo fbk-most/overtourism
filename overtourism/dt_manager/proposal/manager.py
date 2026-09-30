@@ -55,16 +55,16 @@ class ProposalManager:
     def read_proposal(
         self,
         proposal_id: str,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Proposal:
         """Return a persisted proposal."""
-        return Proposal.from_dict(self.store.load_proposal(proposal_id, tenant=tenant))
+        return Proposal.from_dict(self.store.load_proposal(proposal_id, territory=territory))
 
     def list_proposals(
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[Proposal]:
         """Return all persisted proposals for the problem."""
         return [
@@ -72,7 +72,7 @@ class ProposalManager:
             for proposal_data in self.store.load_proposals(
                 problem_id,
                 scenario_id,
-                tenant=tenant,
+                territory=territory,
             )
         ]
 

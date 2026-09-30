@@ -18,7 +18,7 @@ def test_problem_manager_persists_problem_state_directly_to_store(tmp_path) -> N
 
     manager.create_problem(
         "problem-alpha",
-        tenant="molveno",
+        territory="molveno",
         name="Problem Alpha",
         description="Primary problem",
         extras={"region": "tn"},
@@ -26,7 +26,7 @@ def test_problem_manager_persists_problem_state_directly_to_store(tmp_path) -> N
 
     problem = manager.read_problem("problem-alpha")
     assert problem.problem_id == "problem-alpha"
-    assert problem.tenant == "molveno"
+    assert problem.territory == "molveno"
     assert problem.name == "Problem Alpha"
     assert problem.description == "Primary problem"
     assert problem.extras == {"region": "tn"}
@@ -48,7 +48,7 @@ def test_problem_manager_persists_problem_state_directly_to_store(tmp_path) -> N
     assert [item.problem_id for item in manager.list_problems()] == [
         "problem-alpha",
     ]
-    assert [item.problem_id for item in manager.list_problems(tenant="molveno")] == [
+    assert [item.problem_id for item in manager.list_problems(territory="molveno")] == [
         "problem-alpha",
     ]
 

@@ -12,7 +12,7 @@ from overtourism.backend.api.models.proposal import (
     ProposalData,
     UpdateProposalData,
 )
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.utils.utils import (
     check_version,
@@ -27,7 +27,7 @@ from overtourism.backend.auth.dependencies import Handler, get_auth_context
 logger = logging.getLogger(__name__)
 
 proposal_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/proposals",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/proposals",
     tags=["Proposals"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -43,7 +43,7 @@ proposal_router = APIRouter(
     },
 )
 async def list_proposals(
-    tenant: str,
+    territory: str,
     problem_id: str | None = None,
     scenario_id: str | None = None,
     *,
@@ -54,7 +54,7 @@ async def list_proposals(
         proposals = handler.manager.list_proposals(
             problem_id=problem_id,
             scenario_id=scenario_id,
-            tenant=tenant,
+            territory=territory,
         )
         return [proposal_to_api(handler, proposal) for proposal in proposals]
     except Exception as e:
@@ -72,19 +72,19 @@ async def list_proposals(
     },
 )
 async def create_proposal(
-    tenant: str,
+    territory: str,
     data: PostProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Create a proposal for a problem."""
     try:
-        get_problem_or_404(tenant, handler, data.problem_id)
+        get_problem_or_404(territory, handler, data.problem_id)
         proposal_payload = data.model_dump(exclude_unset=True)
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
-            tenant,
+            territory,
             handler,
             ensure_base_scenario_id(
-                tenant,
+                territory,
                 proposal_payload.get("related_scenario_ids"),
             ),
         )
@@ -106,13 +106,13 @@ async def create_proposal(
     },
 )
 async def read_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Read a proposal by identifier."""
     try:
-        proposal = get_proposal_or_404(tenant, handler, proposal_id)
+        proposal = get_proposal_or_404(territory, handler, proposal_id)
         return proposal_to_api(handler, proposal)
     except Exception as e:
         logger.error(f"Error reading proposal {proposal_id}: {e}")
@@ -129,18 +129,18 @@ async def read_proposal(
     },
 )
 async def update_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     data: UpdateProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> ProposalData:
     """Update a proposal and its related scenario links."""
     try:
-        current_proposal = get_proposal_or_404(tenant, handler, proposal_id)
+        current_proposal = get_proposal_or_404(territory, handler, proposal_id)
         check_version(current_proposal.version, data.version)
         proposal_payload = data.model_dump(exclude_unset=True, exclude={"version"})
         proposal_payload["related_scenario_ids"] = validate_related_scenario_ids(
-            tenant,
+            territory,
             handler,
             proposal_payload.get("related_scenario_ids"),
         )
@@ -162,13 +162,13 @@ async def update_proposal(
     },
 )
 async def delete_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     """Delete a proposal from a problem."""
     try:
-        get_proposal_or_404(tenant, handler, proposal_id)
+        get_proposal_or_404(territory, handler, proposal_id)
         handler.manager.delete_proposal(proposal_id)
         logger.info(f"Proposal deleted: {proposal_id}")
     except Exception as e:

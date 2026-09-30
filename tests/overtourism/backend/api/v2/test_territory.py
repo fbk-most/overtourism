@@ -9,25 +9,25 @@ from overtourism.backend.api.main import create_app
 from overtourism.backend.auth.settings import AuthSettings, get_auth_settings
 
 
-def test_list_tenants_returns_model_keys_when_auth_is_disabled(
+def test_list_territorys_returns_model_keys_when_auth_is_disabled(
     handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = create_app(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(enabled=False)
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.tenant.list_models",
-        lambda: [{"key": "tenant-alpha"}, {"key": "tenant-beta"}],
+        "overtourism.backend.api.v2.territory.list_models",
+        lambda: [{"key": "territory-alpha"}, {"key": "territory-beta"}],
     )
 
     with TestClient(app) as client:
-        response = client.get("/api/v2/default/tenants")
+        response = client.get("/api/v2/default/territorys")
 
     assert response.status_code == 200
-    assert response.json() == ["tenant-alpha", "tenant-beta"]
+    assert response.json() == ["territory-alpha", "territory-beta"]
 
 
-def test_list_tenants_filters_model_keys_to_authenticated_user_tenants(
+def test_list_territorys_filters_model_keys_to_authenticated_user_territorys(
     handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -40,29 +40,29 @@ def test_list_tenants_filters_model_keys_to_authenticated_user_tenants(
         "overtourism.backend.auth.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
-            settings.tenant_claim: ["tenant-beta", "tenant-alpha"],
+            settings.territory_claim: ["territory-beta", "territory-alpha"],
         },
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.tenant.list_models",
+        "overtourism.backend.api.v2.territory.list_models",
         lambda: [
-            {"key": "tenant-alpha"},
-            {"key": "tenant-gamma"},
-            {"key": "tenant-beta"},
+            {"key": "territory-alpha"},
+            {"key": "territory-gamma"},
+            {"key": "territory-beta"},
         ],
     )
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/tenants",
+            "/api/v2/default/territorys",
             headers={"Authorization": "Bearer signed-token"},
         )
 
     assert response.status_code == 200
-    assert response.json() == ["tenant-alpha", "tenant-beta"]
+    assert response.json() == ["territory-alpha", "territory-beta"]
 
 
-def test_list_tenants_returns_no_tenants_when_authenticated_claim_is_missing(
+def test_list_territorys_returns_no_territorys_when_authenticated_claim_is_missing(
     handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -76,13 +76,13 @@ def test_list_tenants_returns_no_tenants_when_authenticated_claim_is_missing(
         lambda token, settings: {"sub": "user-1"},
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.tenant.list_models",
-        lambda: [{"key": "tenant-alpha"}],
+        "overtourism.backend.api.v2.territory.list_models",
+        lambda: [{"key": "territory-alpha"}],
     )
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/tenants",
+            "/api/v2/default/territorys",
             headers={"Authorization": "Bearer signed-token"},
         )
 

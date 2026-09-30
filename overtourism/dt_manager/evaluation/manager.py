@@ -57,34 +57,34 @@ class EvaluationManager:
     def read_evaluation(
         self,
         evaluation_id: str,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Evaluation:
         """Return a persisted evaluation."""
         return Evaluation.from_dict(
-            self.store.load_evaluation(evaluation_id, tenant=tenant)
+            self.store.load_evaluation(evaluation_id, territory=territory)
         )
 
     def list_evaluations(
         self,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[Evaluation]:
         """Return persisted evaluations, optionally filtered by scenario."""
         return [
             Evaluation.from_dict(evaluation)
             for evaluation in self.store.load_evaluations(
                 scenario_id,
-                tenant=tenant,
+                territory=territory,
             )
         ]
 
     def read_latest_evaluation(
         self,
         scenario_id: str,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Evaluation:
         """Return the most recently registered persisted evaluation."""
-        evaluations = self.list_evaluations(scenario_id, tenant=tenant)
+        evaluations = self.list_evaluations(scenario_id, territory=territory)
         if evaluations:
             return max(
                 evaluations,

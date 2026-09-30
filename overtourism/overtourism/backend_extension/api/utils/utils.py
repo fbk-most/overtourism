@@ -46,7 +46,7 @@ def _model_to_api_overtourism(data: dict, model_class: BaseModel) -> BaseModel:
 
 def prepare_problem_payload(
     problem_id: str,
-    tenant: str,
+    territory: str,
     payload: dict[str, Any],
     handler: Handler,
 ) -> BaseUpdateProblemData | BasePostProblemData:
@@ -59,7 +59,7 @@ def prepare_problem_payload(
     extras = handler.manager.problem_extras_from_dict(extras)
 
     payload["extras"] = extras
-    payload["tenant"] = tenant
+    payload["territory"] = territory
 
     if problem_id is not None:
         payload["problem_id"] = problem_id

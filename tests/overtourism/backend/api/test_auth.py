@@ -30,7 +30,7 @@ def handler(tmp_path) -> Handler:
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
     ],
 )
 def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
@@ -47,7 +47,7 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
     assert response.status_code == 200
     assert response.json() == {
         "authenticated": False,
-        "tenant": "tenant-alpha",
+        "territory": "territory-alpha",
         "subject": None,
         "token": None,
         "claims": {},
@@ -57,7 +57,7 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
     ],
 )
 def test_auth_me_requires_bearer_token_when_auth_is_enabled(
@@ -81,10 +81,10 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
     ],
 )
-def test_auth_me_returns_authenticated_context_for_matching_tenant(
+def test_auth_me_returns_authenticated_context_for_matching_territory(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -99,7 +99,7 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
         "overtourism.backend.auth.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": 101,
-            settings.tenant_claim: "tenant-alpha",
+            settings.territory_claim: "territory-alpha",
             "role": "planner",
         },
     )
@@ -113,12 +113,12 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
     assert response.status_code == 200
     assert response.json() == {
         "authenticated": True,
-        "tenant": "tenant-alpha",
+        "territory": "territory-alpha",
         "subject": "101",
         "token": "signed-token",
         "claims": {
             "sub": 101,
-            "tenant_id": "tenant-alpha",
+            "tenant_id": "territory-alpha",
             "role": "planner",
         },
     }
@@ -127,10 +127,10 @@ def test_auth_me_returns_authenticated_context_for_matching_tenant(
 @pytest.mark.parametrize(
     ("app_factory", "problems_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/problems"),
+        (create_app_v2, "/api/v2/territory-alpha/problems"),
     ],
 )
-def test_tenant_scoped_routes_accept_tokens_that_list_the_path_tenant(
+def test_territory_scoped_routes_accept_tokens_that_list_the_path_territory(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -145,7 +145,7 @@ def test_tenant_scoped_routes_accept_tokens_that_list_the_path_tenant(
         "overtourism.backend.auth.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
-            settings.tenant_claim: ["tenant-beta", "tenant-alpha"],
+            settings.territory_claim: ["territory-beta", "territory-alpha"],
         },
     )
 
@@ -161,10 +161,10 @@ def test_tenant_scoped_routes_accept_tokens_that_list_the_path_tenant(
 @pytest.mark.parametrize(
     ("app_factory", "problems_path"),
     [
-        (create_app_v2, "/api/v2/tenant-gamma/problems"),
+        (create_app_v2, "/api/v2/territory-gamma/problems"),
     ],
 )
-def test_tenant_scoped_routes_reject_tokens_missing_the_path_tenant(
+def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -179,7 +179,7 @@ def test_tenant_scoped_routes_reject_tokens_missing_the_path_tenant(
         "overtourism.backend.auth.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
-            settings.tenant_claim: ["tenant-alpha", "tenant-beta"],
+            settings.territory_claim: ["territory-alpha", "territory-beta"],
         },
     )
 
@@ -190,16 +190,16 @@ def test_tenant_scoped_routes_reject_tokens_missing_the_path_tenant(
         )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Token tenant does not match requested tenant"}
+    assert response.json() == {"detail": "Token territory does not match requested territory"}
 
 
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
     ],
 )
-def test_auth_me_rejects_missing_required_tenant_claim(
+def test_auth_me_rejects_missing_required_territory_claim(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -209,7 +209,7 @@ def test_auth_me_rejects_missing_required_tenant_claim(
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
-        tenant_claim="organization_id",
+        territory_claim="organization_id",
     )
     monkeypatch.setattr(
         "overtourism.backend.auth.dependencies.decode_jwt",
@@ -224,17 +224,17 @@ def test_auth_me_rejects_missing_required_tenant_claim(
 
     assert response.status_code == 403
     assert response.json() == {
-        "detail": "Token is missing tenant claim 'organization_id'"
+        "detail": "Token is missing territory claim 'organization_id'"
     }
 
 
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/tenant-alpha/auth/me"),
+        (create_app_v2, "/api/v2/territory-alpha/auth/me"),
     ],
 )
-def test_auth_me_rejects_mismatched_token_tenant(
+def test_auth_me_rejects_mismatched_token_territory(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -249,7 +249,7 @@ def test_auth_me_rejects_mismatched_token_tenant(
         "overtourism.backend.auth.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
-            settings.tenant_claim: "tenant-beta",
+            settings.territory_claim: "territory-beta",
         },
     )
 
@@ -260,7 +260,7 @@ def test_auth_me_rejects_mismatched_token_tenant(
         )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Token tenant does not match requested tenant"}
+    assert response.json() == {"detail": "Token territory does not match requested territory"}
 
 
 def test_auth_settings_from_env_reads_configured_values(
@@ -270,7 +270,7 @@ def test_auth_settings_from_env_reads_configured_values(
     monkeypatch.setenv("AUTH_ISSUER", "issuer")
     monkeypatch.setenv("AUTH_AUDIENCE", "audience")
     monkeypatch.setenv("AUTH_JWKS_URL", "https://example.com/.well-known/jwks.json")
-    monkeypatch.setenv("AUTH_TENANT_CLAIM", "organization_id")
+    monkeypatch.setenv("AUTH_TERRITORY_CLAIM", "organization_id")
     monkeypatch.setenv("AUTH_ALGORITHMS", "RS256, ES256")
     monkeypatch.setenv("AUTH_LEEWAY_SECONDS", "45")
 
@@ -281,7 +281,7 @@ def test_auth_settings_from_env_reads_configured_values(
         issuer="issuer",
         audience="audience",
         jwks_url="https://example.com/.well-known/jwks.json",
-        tenant_claim="organization_id",
+        territory_claim="organization_id",
         algorithms=("RS256", "ES256"),
         leeway_seconds=45,
     )

@@ -11,16 +11,16 @@ class AuthContext(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     authenticated: bool
-    tenant: str | None = None
+    territory: str | None = None
     subject: str | None = None
     token: str | None = None
     claims: dict[str, Any] = Field(default_factory=dict)
 
 
-def resolve_session_owner_id(context: AuthContext, tenant: str) -> str:
+def resolve_session_owner_id(context: AuthContext, territory: str) -> str:
     """Resolve the stable owner identifier for a session."""
     if not context.authenticated:
-        return f"anonymous:{tenant}"
+        return f"anonymous:{territory}"
 
     if context.subject is not None:
         subject_value = context.subject.strip()

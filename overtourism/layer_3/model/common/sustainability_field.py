@@ -117,7 +117,7 @@ def get_index_diffs(
 ) -> dict[str, str]:
     """Return human-readable changes from Layer 3 defaults.
 
-    The schema is the response from a Layer 3 ``/models/{tenant}/schema``
+    The schema is the response from a Layer 3 ``/models/{territory}/schema``
     endpoint. Only parameters present in ``param_overrides`` are considered;
     unknown parameters and overrides without a usable base value are ignored.
 

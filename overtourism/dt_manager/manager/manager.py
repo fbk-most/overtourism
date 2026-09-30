@@ -51,7 +51,7 @@ class Manager:
 
     def create_problem(
         self,
-        tenant: str,
+        territory: str,
         *,
         name: str,
         description: str | None = None,
@@ -60,19 +60,19 @@ class Manager:
         """Create and persist a new problem."""
         return self.problem_manager.create_problem(
             uuid4().hex,
-            tenant=tenant,
+            territory=territory,
             name=name,
             description=description,
             extras=extras,
         )
 
-    def read_problem(self, problem_id: str, *, tenant: str | None = None) -> Problem:
+    def read_problem(self, problem_id: str, *, territory: str | None = None) -> Problem:
         """Return a stored problem."""
-        return self.problem_manager.read_problem(problem_id, tenant=tenant)
+        return self.problem_manager.read_problem(problem_id, territory=territory)
 
-    def list_problems(self, tenant: str | None = None) -> list[Problem]:
+    def list_problems(self, territory: str | None = None) -> list[Problem]:
         """Return all stored problems."""
-        return self.problem_manager.list_problems(tenant=tenant)
+        return self.problem_manager.list_problems(territory=territory)
 
     def update_problem(self, problem_id: str, **kwargs) -> Problem:
         """Update a stored problem."""
@@ -123,22 +123,22 @@ class Manager:
         self,
         proposal_id: str,
         *,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Proposal:
         """Return a stored proposal."""
-        return self.proposal_manager.read_proposal(proposal_id, tenant=tenant)
+        return self.proposal_manager.read_proposal(proposal_id, territory=territory)
 
     def list_proposals(
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[Proposal]:
         """Return stored proposals filtered by problem or scenario."""
         return self.proposal_manager.list_proposals(
             problem_id,
             scenario_id,
-            tenant=tenant,
+            territory=territory,
         )
 
     def update_proposal(
@@ -191,7 +191,7 @@ class Manager:
     def create_scenario(
         self,
         *,
-        tenant: str,
+        territory: str,
         param_overrides: dict | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -201,7 +201,7 @@ class Manager:
         """Create and persist a new scenario."""
         scenario = self.scenario_manager.create_scenario(
             scenario_id=uuid4().hex,
-            tenant=tenant,
+            territory=territory,
             param_overrides=param_overrides,
             name=name,
             description=description,
@@ -218,19 +218,19 @@ class Manager:
         self,
         scenario_id: str,
         *,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Scenario:
         """Return a stored scenario."""
-        return self.scenario_manager.read_scenario(scenario_id, tenant=tenant)
+        return self.scenario_manager.read_scenario(scenario_id, territory=territory)
 
     def list_scenarios(
         self,
-        tenant: str | None = None,
+        territory: str | None = None,
         proposal_id: str | None = None,
     ) -> list[Scenario]:
-        """Return stored scenarios filtered by tenant or proposal."""
+        """Return stored scenarios filtered by territory or proposal."""
         return self.scenario_manager.list_scenarios(
-            tenant=tenant,
+            territory=territory,
             proposal_id=proposal_id,
         )
 
@@ -272,22 +272,22 @@ class Manager:
         self,
         evaluation_id: str,
         *,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Evaluation:
         """Return a stored evaluation."""
         return self.evaluation_manager.read_evaluation(
             evaluation_id,
-            tenant=tenant,
+            territory=territory,
         )
 
     def read_evaluation_data(
         self,
         evaluation_id: str,
         *,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> dict:
         """Return the stored result payload for an evaluation."""
-        return self.read_evaluation(evaluation_id, tenant=tenant).result
+        return self.read_evaluation(evaluation_id, territory=territory).result
 
     def create_evaluation(
         self,
@@ -339,24 +339,24 @@ class Manager:
     def list_evaluations(
         self,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[Evaluation]:
         """Return stored evaluations, optionally filtered by scenario."""
         return self.evaluation_manager.list_evaluations(
             scenario_id,
-            tenant=tenant,
+            territory=territory,
         )
 
     def read_latest_evaluation(
         self,
         scenario_id: str,
         *,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> Evaluation:
         """Return the most recent evaluation for a scenario."""
         return self.evaluation_manager.read_latest_evaluation(
             scenario_id,
-            tenant=tenant,
+            territory=territory,
         )
 
     def delete_evaluation(self, evaluation_id: str) -> None:
@@ -385,13 +385,13 @@ class Manager:
 
     def create_session(
         self,
-        tenant: str | None = None,
+        territory: str | None = None,
         owner_id: str | None = None,
         metadata: dict | None = None,
     ) -> Session:
         """Create a persisted session."""
         return self.session_manager.create_session(
-            tenant=self.name_cfg.tenant if tenant is None else tenant,
+            territory=self.name_cfg.territory if territory is None else territory,
             owner_id=owner_id,
             metadata=metadata,
         )

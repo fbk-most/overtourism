@@ -36,7 +36,7 @@ from tests.overtourism.test_support import (
     DEFAULT_PROBLEM_ID,
     DEFAULT_PROPOSAL_ID,
     DEFAULT_SCENARIO_ID,
-    DEFAULT_TENANT,
+    DEFAULT_TERRITORY,
     FakeExecutionService,
     FakeModelEvaluator,
     RecordingViewer,
@@ -64,12 +64,12 @@ sys.modules.setdefault(
 )
 
 TIMESTAMP = "2025-01-01T00:00:00Z"
-TENANT = DEFAULT_TENANT
+TERRITORY = DEFAULT_TERRITORY
 
 
 @pytest.fixture
-def tenant() -> str:
-    return TENANT
+def territory() -> str:
+    return TERRITORY
 
 
 def _make_problem_payload(
@@ -77,7 +77,7 @@ def _make_problem_payload(
 ) -> dict[str, Any]:
     return Problem.create_default(
         problem_id,
-        TENANT,
+        TERRITORY,
         name=name,
         description=description,
         created=TIMESTAMP,
@@ -89,12 +89,12 @@ def _make_problem_payload(
 def _make_scenario_payload(
     scenario_id: str,
     *,
-    tenant: str,
+    territory: str,
     param_overrides: dict[str, Any],
 ) -> dict[str, Any]:
     return Scenario.create_default(
         scenario_id,
-        tenant,
+        territory,
         name=f"{scenario_id} name",
         description=f"{scenario_id} description",
         created=TIMESTAMP,
@@ -169,7 +169,7 @@ def other_problem_payload() -> dict[str, Any]:
 def scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_scenario_payload(
         "scenario-alpha",
-        tenant=problem_payload["tenant"],
+        territory=problem_payload["territory"],
         param_overrides={"visits": 12.5},
     )
 
@@ -178,7 +178,7 @@ def scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
 def other_scenario_payload(problem_payload: dict[str, Any]) -> dict[str, Any]:
     return _make_scenario_payload(
         "scenario-beta",
-        tenant=problem_payload["tenant"],
+        territory=problem_payload["territory"],
         param_overrides={"crowding": 3.0},
     )
 
@@ -252,7 +252,7 @@ def manager(tmp_path) -> Manager:
             problem_keys=frozenset({"objective", "links"}),
         ),
     )
-    bootstrap_default_entities(manager, TENANT)
+    bootstrap_default_entities(manager, TERRITORY)
     return manager
 
 
@@ -279,7 +279,7 @@ def handler(
 ) -> Handler:
     handler = Handler(manager=manager)
     handler.execution_manager_registry = {
-        TENANT: FakeExecutionService(fake_model, fake_model_evaluator)
+        TERRITORY: FakeExecutionService(fake_model, fake_model_evaluator)
     }
     return handler
 
@@ -305,7 +305,7 @@ def client(handler: Handler, request: pytest.FixtureRequest):
     app = _build_app(handler, _suite_kind(request))
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
-        tenant=TENANT,
+        territory=TERRITORY,
         subject=None,
         token=None,
         claims={},
@@ -320,7 +320,7 @@ def error_client(handler: Handler, request: pytest.FixtureRequest):
     app = _build_app(handler, _suite_kind(request))
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
-        tenant=TENANT,
+        territory=TERRITORY,
         subject=None,
         token=None,
         claims={},

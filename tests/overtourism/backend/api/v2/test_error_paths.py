@@ -11,10 +11,10 @@ def _raise_runtime_error(*args: Any, **kwargs: Any) -> Any:
 
 def test_problem_routes_return_a_friendly_422_validation_payload(
     client,
-    tenant: str,
+    territory: str,
 ) -> None:
     response = client.post(
-        f"/api/v2/{tenant}/problems",
+        f"/api/v2/{territory}/problems",
         json={
             "description": "Missing required name",
             "extras": {},
@@ -38,24 +38,24 @@ def test_problem_routes_surface_not_found_and_internal_errors(
     client,
     error_client,
     handler,
-    tenant: str,
+    territory: str,
 ) -> None:
-    read_response = client.get(f"/api/v2/{tenant}/problems/missing-problem")
+    read_response = client.get(f"/api/v2/{territory}/problems/missing-problem")
     assert read_response.status_code == 404
     assert read_response.json() == {"detail": "Problem 'missing-problem' not found."}
 
     update_response = client.put(
-        f"/api/v2/{tenant}/problems/missing-problem",
+        f"/api/v2/{territory}/problems/missing-problem",
         json={"version": 1, "name": "Updated"},
     )
     assert update_response.status_code == 404
 
-    delete_response = client.delete(f"/api/v2/{tenant}/problems/missing-problem")
+    delete_response = client.delete(f"/api/v2/{territory}/problems/missing-problem")
     assert delete_response.status_code == 404
 
     handler.manager.create_problem = _raise_runtime_error
     create_response = error_client.post(
-        f"/api/v2/{tenant}/problems",
+        f"/api/v2/{territory}/problems",
         json={
             "name": "Broken",
             "description": "Will fail",
@@ -67,34 +67,34 @@ def test_problem_routes_surface_not_found_and_internal_errors(
 
 def test_proposal_routes_return_404_for_missing_problem_and_proposal(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     list_response = client.get(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         params={"problem_id": "missing-problem"},
     )
     assert list_response.status_code == 200
     assert list_response.json() == []
 
     create_response = client.post(
-        f"/api/v2/{tenant}/proposals",
+        f"/api/v2/{territory}/proposals",
         json={"problem_id": "missing-problem", "proposal_id": "proposal-x"},
     )
     assert create_response.status_code == 404
     assert create_response.json() == {"detail": "Problem 'missing-problem' not found."}
 
     read_response = client.get(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
+        f"/api/v2/{territory}/proposals/missing-proposal",
         params={"problem_id": problem_id},
     )
     update_response = client.put(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
+        f"/api/v2/{territory}/proposals/missing-proposal",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Updated"},
     )
     delete_response = client.delete(
-        f"/api/v2/{tenant}/proposals/missing-proposal",
+        f"/api/v2/{territory}/proposals/missing-proposal",
         params={"problem_id": problem_id},
     )
 
@@ -106,20 +106,20 @@ def test_proposal_routes_return_404_for_missing_problem_and_proposal(
 def test_scenario_routes_return_404_for_missing_entities(
     client,
     error_client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     list_response = client.get(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
         params={"problem_id": "missing-problem"},
     )
     assert list_response.status_code == 200
     assert [item["scenario_id"] for item in list_response.json()] == [
-        f"{tenant}_base_scenario"
+        f"{territory}_base_scenario"
     ]
 
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-404/scenarios",
+        f"/api/v2/{territory}/sessions/session-404/scenarios",
         params={"problem_id": problem_id},
         json={"base_scenario_id": "missing-scenario"},
     )
@@ -127,27 +127,27 @@ def test_scenario_routes_return_404_for_missing_entities(
     assert create_response.json() == {"detail": "Session 'session-404' not found."}
 
     read_response = client.get(
-        f"/api/v2/{tenant}/scenarios/missing-scenario",
+        f"/api/v2/{territory}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
     )
     assert read_response.status_code == 404
 
     update_response = error_client.put(
-        f"/api/v2/{tenant}/scenarios/missing-scenario",
+        f"/api/v2/{territory}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Updated"},
     )
     assert update_response.status_code == 404
 
     save_response = client.post(
-        f"/api/v2/{tenant}/sessions/session-404/scenarios/missing-scenario",
+        f"/api/v2/{territory}/sessions/session-404/scenarios/missing-scenario",
         params={"problem_id": problem_id},
         json={"version": 1, "name": "Save failed"},
     )
     assert save_response.status_code == 404
 
     delete_response = error_client.delete(
-        f"/api/v2/{tenant}/scenarios/missing-scenario",
+        f"/api/v2/{territory}/scenarios/missing-scenario",
         params={"problem_id": problem_id},
     )
     assert delete_response.status_code == 404
@@ -155,11 +155,11 @@ def test_scenario_routes_return_404_for_missing_entities(
 
 def test_session_routes_return_404_for_missing_problem_or_session(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": "missing-problem"},
         json={"metadata": {}},
     )
@@ -167,21 +167,21 @@ def test_session_routes_return_404_for_missing_problem_or_session(
     assert create_response.json()["metadata"] == {}
 
     list_response = client.get(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": "missing-problem"},
     )
     assert list_response.status_code == 200
     assert list_response.json() == [create_response.json()]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/sessions/missing-session",
+        f"/api/v2/{territory}/sessions/missing-session",
         params={"problem_id": problem_id},
     )
     assert read_response.status_code == 404
     assert read_response.json() == {"detail": "Session 'missing-session' not found."}
 
     delete_response = client.delete(
-        f"/api/v2/{tenant}/sessions/missing-session",
+        f"/api/v2/{territory}/sessions/missing-session",
         params={"problem_id": problem_id},
     )
     assert delete_response.status_code == 404
@@ -190,11 +190,11 @@ def test_session_routes_return_404_for_missing_problem_or_session(
 def test_evaluation_routes_return_404_for_missing_entities(
     client,
     error_client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
     create_response = client.post(
-        f"/api/v2/{tenant}/evaluations",
+        f"/api/v2/{territory}/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": "missing-scenario"},
     )
@@ -204,39 +204,39 @@ def test_evaluation_routes_return_404_for_missing_entities(
     }
 
     read_response = client.get(
-        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        f"/api/v2/{territory}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
     assert read_response.status_code == 404
 
     data_response = client.get(
-        f"/api/v2/{tenant}/evaluations/missing-evaluation/data",
+        f"/api/v2/{territory}/evaluations/missing-evaluation/data",
         params={"problem_id": problem_id},
     )
     assert data_response.status_code == 404
 
     update_response = client.put(
-        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        f"/api/v2/{territory}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
         json={"version": 1, "ensemble_size": 4},
     )
     assert update_response.status_code == 404
 
     delete_response = client.delete(
-        f"/api/v2/{tenant}/evaluations/missing-evaluation",
+        f"/api/v2/{territory}/evaluations/missing-evaluation",
         params={"problem_id": problem_id},
     )
     assert delete_response.status_code == 404
 
     session_response = client.post(
-        f"/api/v2/{tenant}/sessions/missing-session/evaluations",
+        f"/api/v2/{territory}/sessions/missing-session/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": "missing-scenario"},
     )
     assert session_response.status_code == 404
 
     session_data_response = client.get(
-        f"/api/v2/{tenant}/sessions/missing-session/evaluations/missing-evaluation/data",
+        f"/api/v2/{territory}/sessions/missing-session/evaluations/missing-evaluation/data",
         params={"problem_id": problem_id},
     )
     assert session_data_response.status_code == 404

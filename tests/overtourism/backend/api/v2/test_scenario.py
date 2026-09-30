@@ -6,17 +6,17 @@ from overtourism.backend.api.utils import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
 
-def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+def test_list_and_read_stored_scenarios(client, territory: str, problem_id: str) -> None:
+    base_scenario_id = f"{territory}_base_scenario"
     list_response = client.get(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
     )
 
     assert list_response.status_code == 200
     assert [item["scenario_id"] for item in list_response.json()] == [base_scenario_id]
 
     read_response = client.get(
-        f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
+        f"/api/v2/{territory}/scenarios/{base_scenario_id}",
     )
 
     assert read_response.status_code == 200
@@ -26,20 +26,20 @@ def test_list_and_read_stored_scenarios(client, tenant: str, problem_id: str) ->
 
 def test_list_scenarios_can_return_only_the_base_scenario(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     manager: Manager,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     extra_scenario = manager.scenario_manager.create_scenario(
         "scenario-extra",
-        tenant,
+        territory,
         param_overrides={"visits": 3},
         name="Extra scenario",
     )
 
     response = client.get(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
         params={"problem_id": problem_id, "base_only": True},
     )
 
@@ -50,11 +50,11 @@ def test_list_scenarios_can_return_only_the_base_scenario(
 
 def test_scenario_routes_expose_index_diffs_in_extras(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     monkeypatch,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     monkeypatch.setattr(
         api_utils,
         "scenario_index_diffs",
@@ -62,11 +62,11 @@ def test_scenario_routes_expose_index_diffs_in_extras(
     )
 
     list_response = client.get(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
         params={"problem_id": problem_id},
     )
     read_response = client.get(
-        f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
+        f"/api/v2/{territory}/scenarios/{base_scenario_id}",
         params={"problem_id": problem_id},
     )
 
@@ -78,10 +78,10 @@ def test_scenario_routes_expose_index_diffs_in_extras(
 
 def test_create_stored_scenario_persists_values_and_metadata(
     client,
-    tenant: str,
+    territory: str,
 ) -> None:
     response = client.post(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
         json={
             "name": "Created through API",
             "description": "Stored scenario payload",
@@ -102,38 +102,38 @@ def test_create_stored_scenario_persists_values_and_metadata(
 def test_list_stored_scenarios_can_filter_by_related_proposal(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
     proposal_id: str,
 ) -> None:
     related_scenario = manager.scenario_manager.create_scenario(
         "scenario-related",
-        tenant,
+        territory,
         param_overrides={"visits": 4},
         name="Related scenario",
     )
     manager.link_scenario_to_proposal(proposal_id, related_scenario.scenario_id)
 
     response = client.get(
-        f"/api/v2/{tenant}/scenarios",
+        f"/api/v2/{territory}/scenarios",
         params={"problem_id": problem_id, "proposal_id": proposal_id},
     )
 
     assert response.status_code == 200
     assert {item["scenario_id"] for item in response.json()} == {
         related_scenario.scenario_id,
-        f"{tenant}_base_scenario",
+        f"{territory}_base_scenario",
     }
 
 
 def test_list_scenarios_excludes_session_scenarios(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     session_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {}},
     )
@@ -141,14 +141,14 @@ def test_list_scenarios_excludes_session_scenarios(
     session_id = session_response.json()["session_id"]
 
     draft_response = client.post(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios",
         params={"problem_id": problem_id},
         json={"base_scenario_id": base_scenario_id},
     )
     assert draft_response.status_code == 200
     draft_id = draft_response.json()["scenario_id"]
 
-    response = client.get(f"/api/v2/{tenant}/scenarios")
+    response = client.get(f"/api/v2/{territory}/scenarios")
 
     assert response.status_code == 200
     assert draft_id not in {item["scenario_id"] for item in response.json()}
@@ -157,12 +157,12 @@ def test_list_scenarios_excludes_session_scenarios(
 
 def test_update_stored_scenario_requires_the_current_version(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     missing_version = client.put(
-        f"/api/v2/{tenant}/scenarios/{base_scenario_id}",
+        f"/api/v2/{territory}/scenarios/{base_scenario_id}",
         params={"problem_id": problem_id},
         json={"name": "Updated default", "param_overrides": {"visits": 11}},
     )
@@ -176,20 +176,20 @@ def test_update_stored_scenario_requires_the_current_version(
 def test_session_scenario_can_be_created_updated_and_saved(
     client,
     manager: Manager,
-    tenant: str,
+    territory: str,
     problem_id: str,
     proposal_id: str,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     session_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {}},
     )
     assert session_response.status_code == 200
     session_id = session_response.json()["session_id"]
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": base_scenario_id,
@@ -206,7 +206,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert create_response.json()["version"] == 1
 
     read_response = client.get(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
         params={"problem_id": problem_id},
     )
 
@@ -214,7 +214,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert read_response.json()["extras"] == {"index_diffs": {}}
 
     update_response = client.put(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={
             "version": 1,
@@ -227,7 +227,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert update_response.status_code == 405
 
     save_response = client.post(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={
             "version": 2,
@@ -242,7 +242,7 @@ def test_session_scenario_can_be_created_updated_and_saved(
     assert save_response.json()["session_id"] is None
     assert save_response.json()["version"] == 1
     assert save_response.json()["name"] == "Saved scenario"
-    public_scenarios_response = client.get(f"/api/v2/{tenant}/scenarios")
+    public_scenarios_response = client.get(f"/api/v2/{territory}/scenarios")
     assert public_scenarios_response.status_code == 200
     assert draft_id in {
         item["scenario_id"] for item in public_scenarios_response.json()
@@ -258,13 +258,13 @@ def test_session_scenario_can_be_created_updated_and_saved(
 
 def test_session_scenario_routes_expose_index_diffs_in_extras(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     monkeypatch,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     session_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {}},
     )
@@ -277,7 +277,7 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
     )
 
     create_response = client.post(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": base_scenario_id,
@@ -294,7 +294,7 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
     }
 
     read_response = client.get(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
         params={"problem_id": problem_id},
     )
 
@@ -304,20 +304,20 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
 
 def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
     client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     manager: Manager,
 ) -> None:
-    base_scenario_id = f"{tenant}_base_scenario"
+    base_scenario_id = f"{territory}_base_scenario"
     session_response = client.post(
-        f"/api/v2/{tenant}/sessions",
+        f"/api/v2/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {}},
     )
     assert session_response.status_code == 200
     session_id = session_response.json()["session_id"]
     draft_response = client.post(
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": base_scenario_id,
@@ -330,7 +330,7 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{tenant}/sessions/{session_id}/scenarios/{draft_id}",
+        f"/api/v2/{territory}/sessions/{session_id}/scenarios/{draft_id}",
         params={"problem_id": problem_id},
         json={"version": 1},
     )
@@ -344,13 +344,13 @@ def test_session_scenario_can_be_deleted_without_affecting_stored_scenarios(
 def test_delete_stored_scenario_removes_it_from_the_problem(
     client,
     error_client,
-    tenant: str,
+    territory: str,
     problem_id: str,
     manager: Manager,
 ) -> None:
     scenario = manager.scenario_manager.create_scenario(
         "scenario-delete",
-        tenant,
+        territory,
         param_overrides={"visits": 5},
         name="Scenario delete",
     )
@@ -359,12 +359,12 @@ def test_delete_stored_scenario_removes_it_from_the_problem(
 
     delete_response = error_client.request(
         "DELETE",
-        f"/api/v2/{tenant}/scenarios/{scenario.scenario_id}",
+        f"/api/v2/{territory}/scenarios/{scenario.scenario_id}",
         params={"problem_id": problem_id},
         json={"version": 2},
     )
 
     assert delete_response.status_code == 200
     assert scenario.scenario_id not in {
-        item.scenario_id for item in manager.list_scenarios(tenant)
+        item.scenario_id for item in manager.list_scenarios(territory)
     }

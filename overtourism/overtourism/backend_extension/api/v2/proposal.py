@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.config import TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import get_handler
 from overtourism.backend.api.v2.proposal import (
     create_proposal as base_create_proposal,
@@ -38,7 +38,7 @@ from overtourism.overtourism.backend_extension.api.utils.utils import (
 logger = logging.getLogger(__name__)
 
 proposal_router = APIRouter(
-    prefix=f"{TENANT_ROUTE_PREFIX}/proposals",
+    prefix=f"{TERRITORY_ROUTE_PREFIX}/proposals",
     tags=["Proposals"],
     dependencies=[Depends(get_auth_context)],
 )
@@ -54,7 +54,7 @@ proposal_router = APIRouter(
     },
 )
 async def list_proposals(
-    tenant: str,
+    territory: str,
     problem_id: str | None = None,
     scenario_id: str | None = None,
     *,
@@ -62,7 +62,7 @@ async def list_proposals(
 ) -> list[OvertourismProposalData]:
     try:
         listed = await base_list_proposals(
-            tenant=tenant,
+            territory=territory,
             problem_id=problem_id,
             scenario_id=scenario_id,
             handler=handler,
@@ -83,7 +83,7 @@ async def list_proposals(
     },
 )
 async def create_proposal(
-    tenant: str,
+    territory: str,
     data: OvertourismPostProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProposalData:
@@ -94,7 +94,7 @@ async def create_proposal(
             handler=handler,
         )
         created = await base_create_proposal(
-            tenant=tenant,
+            territory=territory,
             data=payload,
             handler=handler,
         )
@@ -114,13 +114,13 @@ async def create_proposal(
     },
 )
 async def read_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> OvertourismProposalData:
     try:
         read = await base_read_proposal(
-            tenant=tenant,
+            territory=territory,
             proposal_id=proposal_id,
             handler=handler,
         )
@@ -140,7 +140,7 @@ async def read_proposal(
     },
 )
 async def update_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     proposal: OvertourismUpdateProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
@@ -152,7 +152,7 @@ async def update_proposal(
             handler=handler,
         )
         updated = await base_update_proposal(
-            tenant=tenant,
+            territory=territory,
             proposal_id=proposal_id,
             data=payload,
             handler=handler,
@@ -172,13 +172,13 @@ async def update_proposal(
     },
 )
 async def delete_proposal(
-    tenant: str,
+    territory: str,
     proposal_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> None:
     try:
         await base_delete_proposal(
-            tenant=tenant,
+            territory=territory,
             proposal_id=proposal_id,
             handler=handler,
         )

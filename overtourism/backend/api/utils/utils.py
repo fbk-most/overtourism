@@ -27,13 +27,13 @@ if typing.TYPE_CHECKING:
 
 
 def get_problem_or_404(
-    tenant: str,
+    territory: str,
     handler: Handler,
     problem_id: str,
 ) -> Problem:
-    """Return a problem for the requested tenant or raise a not-found error."""
+    """Return a problem for the requested territory or raise a not-found error."""
     try:
-        return handler.manager.read_problem(problem_id, tenant=tenant)
+        return handler.manager.read_problem(problem_id, territory=territory)
     except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,13 +47,13 @@ def get_problem_or_404(
 
 
 def get_scenario_or_404(
-    tenant: str,
+    territory: str,
     handler: Handler,
     scenario_id: str,
 ) -> Scenario:
     """Return a stored scenario or raise a not-found error."""
     try:
-        return handler.manager.read_scenario(scenario_id, tenant=tenant)
+        return handler.manager.read_scenario(scenario_id, territory=territory)
     except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -63,11 +63,11 @@ def get_scenario_or_404(
 
 def raise_immutable_base_scenario_error(
     handler: Handler,
-    tenant: str,
+    territory: str,
     scenario_id: str,
 ) -> None:
     """Raise an error indicating that the base scenario cannot be modified."""
-    if scenario_id == BootstrapConfig(tenant).scenario_id:
+    if scenario_id == BootstrapConfig(territory).scenario_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Base scenario cannot be modified or deleted.",
@@ -79,7 +79,7 @@ def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, typi
     if not scenario.param_overrides:
         return {}
     try:
-        schema = call_schema(scenario.tenant)
+        schema = call_schema(scenario.territory)
     except requests.RequestException:
         return {}
     return get_index_diffs(schema, scenario.param_overrides)
@@ -102,13 +102,13 @@ def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.An
 
 
 def get_proposal_or_404(
-    tenant: str,
+    territory: str,
     handler: Handler,
     proposal_id: str,
 ):
     """Return a stored proposal or raise a not-found error."""
     try:
-        return handler.manager.read_proposal(proposal_id, tenant=tenant)
+        return handler.manager.read_proposal(proposal_id, territory=territory)
     except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -117,7 +117,7 @@ def get_proposal_or_404(
 
 
 def validate_related_scenario_ids(
-    tenant: str,
+    territory: str,
     handler: Handler,
     related_scenario_ids: list[str] | None,
 ) -> list[str] | None:
@@ -125,17 +125,17 @@ def validate_related_scenario_ids(
         return None
     validated_ids = list(dict.fromkeys(related_scenario_ids))
     for scenario_id in validated_ids:
-        get_scenario_or_404(tenant, handler, scenario_id)
+        get_scenario_or_404(territory, handler, scenario_id)
     return validated_ids
 
 
 def ensure_base_scenario_id(
-    tenant: str,
+    territory: str,
     related_scenario_ids: list[str] | None,
 ) -> list[str]:
-    """Include the tenant's base scenario in a new proposal's links."""
+    """Include the territory's base scenario in a new proposal's links."""
     scenario_ids = list(related_scenario_ids or [])
-    base_scenario_id = BootstrapConfig(tenant).scenario_id
+    base_scenario_id = BootstrapConfig(territory).scenario_id
     if base_scenario_id not in scenario_ids:
         scenario_ids.append(base_scenario_id)
     return scenario_ids
@@ -160,14 +160,14 @@ def proposal_to_api(
 
 
 def get_evaluation_or_404(
-    tenant: str,
+    territory: str,
     handler: Handler,
     evaluation_id: str,
 ) -> Evaluation:
     """Return a stored evaluation by ID or raise a not-found error."""
     detail = f"Evaluation '{evaluation_id}' not found"
     try:
-        return handler.manager.read_evaluation(evaluation_id, tenant=tenant)
+        return handler.manager.read_evaluation(evaluation_id, territory=territory)
     except EntityDoesNotExist as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

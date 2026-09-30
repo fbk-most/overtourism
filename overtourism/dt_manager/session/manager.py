@@ -23,7 +23,7 @@ class SessionManager:
 
     def create_session(
         self,
-        tenant: str = "",
+        territory: str = "",
         owner_id: str | None = None,
         metadata: dict | None = None,
     ) -> Session:
@@ -32,7 +32,7 @@ class SessionManager:
         now_timestamp = get_timestamp()
         session = Session(
             session_id=session_id,
-            tenant=tenant,
+            territory=territory,
             created=now_timestamp,
             updated=now_timestamp,
             owner_id=owner_id,

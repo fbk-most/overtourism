@@ -6,10 +6,10 @@ The frontend web application is built as an Angular single-page app. The reposit
 https://github.com/tn-aixpa/overtourism-frontend
 ```
 
-Run the frontend container by pointing `API_BASE_URL` at the tenant-scoped v1 backend base path:
+Run the frontend container by pointing `API_BASE_URL` at the territory-scoped v1 backend base path:
 
 ```bash
 docker run -p 8080:8080 -e API_BASE_URL=https://your-api-url.com/api/v1/molveno tn-aixpa/overtourism-frontend
 ```
 
-Replace `molveno` with the tenant you want the frontend to work against.
+Replace `molveno` with the territory you want the frontend to work against.

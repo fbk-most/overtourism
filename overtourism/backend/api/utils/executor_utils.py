@@ -8,7 +8,7 @@ model_backend_url = os.environ.get("MODEL_BACKEND_URL", "http://localhost:8001")
 
 
 def call_executor(
-    tenant: str,
+    territory: str,
     param_overrides: dict[str, typing.Any] | None = None,
     as_snapshot: bool = False,
 ) -> dict[str, typing.Any]:
@@ -16,7 +16,7 @@ def call_executor(
     if param_overrides is None:
         param_overrides = {}
     params = {"as_snapshot": str(as_snapshot).lower()}
-    base_url = f"{model_backend_url}/models/{tenant}/evaluate"
+    base_url = f"{model_backend_url}/models/{territory}/evaluate"
     return requests.post(
         base_url, json={"param_overrides": param_overrides}, params=params
     ).json()
@@ -29,10 +29,10 @@ def list_models() -> list[dict[str, typing.Any]]:
 
 
 def call_schema(
-    tenant: str,
+    territory: str,
 ) -> dict[str, typing.Any]:
-    """Call the backend schema endpoint for the provided tenant."""
-    base_url = f"{model_backend_url}/models/{tenant}/schema"
+    """Call the backend schema endpoint for the provided territory."""
+    base_url = f"{model_backend_url}/models/{territory}/schema"
     r = requests.get(base_url)
     r.raise_for_status()
     return r.json()

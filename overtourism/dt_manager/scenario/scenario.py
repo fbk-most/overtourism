@@ -13,7 +13,7 @@ class Scenario(Dictable):
     """Domain entity for a scenario."""
 
     scenario_id: str
-    tenant: str
+    territory: str
     session_id: str | None = None
     version: int = 0
     name: str | None = None
@@ -27,7 +27,7 @@ class Scenario(Dictable):
     def create_default(
         cls,
         scenario_id: str,
-        tenant: str,
+        territory: str,
         *,
         version: int = 1,
         name: str | None = None,
@@ -41,7 +41,7 @@ class Scenario(Dictable):
         now = get_timestamp()
         return cls(
             scenario_id=scenario_id,
-            tenant=tenant,
+            territory=territory,
             session_id=None,
             version=version,
             name=scenario_id if name is None else name,
@@ -61,7 +61,7 @@ class Scenario(Dictable):
         updated = scenario_dict.get("updated") or created
         return cls(
             scenario_id=scenario_dict["scenario_id"],
-            tenant=scenario_dict["tenant"],
+            territory=scenario_dict["territory"],
             session_id=scenario_dict.get("session_id"),
             version=scenario_dict.get("version", 0),
             name=scenario_dict.get("name"),

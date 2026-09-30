@@ -23,7 +23,7 @@ class Store(ABC):
     @abstractmethod
     def load_sessions(
         self,
-        tenant: str | None = None,
+        territory: str | None = None,
         owner_id: str | None = None,
     ) -> list[dict]:
         """Load all sessions."""
@@ -41,11 +41,11 @@ class Store(ABC):
         """Persist a problem document."""
 
     @abstractmethod
-    def load_problem(self, problem_id: str, tenant: str | None = None) -> dict:
+    def load_problem(self, problem_id: str, territory: str | None = None) -> dict:
         """Load a problem document."""
 
     @abstractmethod
-    def load_problems(self, tenant: str | None = None) -> list[dict]:
+    def load_problems(self, territory: str | None = None) -> list[dict]:
         """Load all problems."""
 
     @abstractmethod
@@ -64,7 +64,7 @@ class Store(ABC):
     def load_proposal(
         self,
         proposal_id: str,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> dict:
         """Load a single proposal."""
 
@@ -73,7 +73,7 @@ class Store(ABC):
         self,
         problem_id: str | None = None,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[dict]:
         """Load all proposals for a problem."""
 
@@ -90,17 +90,17 @@ class Store(ABC):
         """Persist a scenario document."""
 
     @abstractmethod
-    def load_scenario(self, scenario_id: str, tenant: str | None = None) -> dict:
+    def load_scenario(self, scenario_id: str, territory: str | None = None) -> dict:
         """Load a single scenario."""
 
     @abstractmethod
     def load_scenarios(
         self,
-        tenant: str | None = None,
+        territory: str | None = None,
         proposal_id: str | None = None,
         session_id: str | None = None,
     ) -> list[dict]:
-        """Load all scenarios for a tenant."""
+        """Load all scenarios for a territory."""
 
     @abstractmethod
     def delete_scenario(self, scenario_id: str) -> None:
@@ -130,7 +130,7 @@ class Store(ABC):
     def load_evaluation(
         self,
         evaluation_id: str,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> dict:
         """Load a single evaluation."""
 
@@ -138,7 +138,7 @@ class Store(ABC):
     def load_evaluations(
         self,
         scenario_id: str | None = None,
-        tenant: str | None = None,
+        territory: str | None = None,
     ) -> list[dict]:
         """Load all evaluations for a scenario."""
 

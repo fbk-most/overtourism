@@ -44,8 +44,8 @@ def test_create_app_does_not_register_overtourism_extension_routes_by_default(
 
     paths = app.openapi()["paths"]
 
-    assert "/api/v2/{tenant}/data/overtourism/indexes/categories" not in paths
-    assert "/api/v2/{tenant}/widgets" not in paths
+    assert "/api/v2/{territory}/data/overtourism/indexes/categories" not in paths
+    assert "/api/v2/{territory}/widgets" not in paths
 
 
 def test_create_app_registers_configuration_route_by_default(handler) -> None:
@@ -53,7 +53,7 @@ def test_create_app_registers_configuration_route_by_default(handler) -> None:
 
     paths = app.openapi()["paths"]
 
-    assert "/api/v2/{tenant}/configuration" in paths
+    assert "/api/v2/{territory}/configuration" in paths
 
 
 def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
@@ -69,10 +69,10 @@ def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
         "type": "http",
         "scheme": "bearer",
     }
-    assert openapi["paths"]["/api/v2/{tenant}/problems"]["get"]["security"] == [
+    assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["security"] == [
         {"BearerAuth": []}
     ]
-    assert openapi["paths"]["/api/v2/{tenant}/auth/me"]["get"]["security"] == [
+    assert openapi["paths"]["/api/v2/{territory}/auth/me"]["get"]["security"] == [
         {"BearerAuth": []}
     ]
 
@@ -112,19 +112,19 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
             "description": "Authentication and current user context.",
         },
         {
-            "name": "Tenants",
-            "description": "List tenants available to the current user.",
+            "name": "Territorys",
+            "description": "List territorys available to the current user.",
         },
     ]
-    assert openapi["paths"]["/api/v2/{tenant}/problems"]["get"]["tags"] == ["Problems"]
-    assert openapi["paths"]["/api/v2/{tenant}/proposals"]["get"]["tags"] == [
+    assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["tags"] == ["Problems"]
+    assert openapi["paths"]["/api/v2/{territory}/proposals"]["get"]["tags"] == [
         "Proposals"
     ]
-    assert openapi["paths"]["/api/v2/{tenant}/sessions"]["post"]["tags"] == ["Sessions"]
-    assert openapi["paths"]["/api/v2/{tenant}/scenarios"]["get"]["tags"] == [
+    assert openapi["paths"]["/api/v2/{territory}/sessions"]["post"]["tags"] == ["Sessions"]
+    assert openapi["paths"]["/api/v2/{territory}/scenarios"]["get"]["tags"] == [
         "Scenarios"
     ]
-    assert openapi["paths"]["/api/v2/{tenant}/evaluations"]["post"]["tags"] == [
+    assert openapi["paths"]["/api/v2/{territory}/evaluations"]["post"]["tags"] == [
         "Evaluations"
     ]
-    assert openapi["paths"]["/api/v2/{tenant}/auth/me"]["get"]["tags"] == ["Auth"]
+    assert openapi["paths"]["/api/v2/{territory}/auth/me"]["get"]["tags"] == ["Auth"]

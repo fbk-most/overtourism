@@ -238,9 +238,9 @@ def test_sqlite_schema_defines_indexes_for_common_read_paths(sql_store) -> None:
         for index in inspector.get_indexes(table_name)
     }
 
-    assert index_columns["ix_problems_tenant_created"] == ("tenant", "created")
+    assert index_columns["ix_problems_territory_created"] == ("territory", "created")
     assert index_columns["ix_proposals_problem_id_created"] == ("problem_id", "created")
-    assert index_columns["ix_scenarios_tenant_created"] == ("tenant", "created")
+    assert index_columns["ix_scenarios_territory_created"] == ("territory", "created")
     assert index_columns["ix_proposal_scenario_relationship_scenario_id"] == (
         "scenario_id",
     )

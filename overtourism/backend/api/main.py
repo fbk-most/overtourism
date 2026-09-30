@@ -8,7 +8,7 @@ import typing
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.utils.config import APP_VERSION, TENANT_ROUTE_PREFIX
+from overtourism.backend.api.utils.config import APP_VERSION, TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.dependencies import init_handler
 from overtourism.backend.api.utils.exceptions import install_exception_handlers
 from overtourism.backend.api.v2.evaluation import evaluation_router
@@ -17,7 +17,7 @@ from overtourism.backend.api.v2.problem import problem_router
 from overtourism.backend.api.v2.proposal import proposal_router
 from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.api.v2.session import session_router
-from overtourism.backend.api.v2.tenant import tenant_router
+from overtourism.backend.api.v2.territory import territory_router
 from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
@@ -59,8 +59,8 @@ OPENAPI_TAGS = [
         "description": "Authentication and current user context.",
     },
     {
-        "name": "Tenants",
-        "description": "List tenants available to the current user.",
+        "name": "Territorys",
+        "description": "List territorys available to the current user.",
     },
 ]
 
@@ -104,8 +104,8 @@ def create_app(
     app.include_router(evaluation_router)
     app.include_router(configuration_router)
     app.include_router(session_router)
-    app.include_router(tenant_router)
-    app.include_router(auth_router, prefix=TENANT_ROUTE_PREFIX, tags=["Auth"])
+    app.include_router(territory_router)
+    app.include_router(auth_router, prefix=TERRITORY_ROUTE_PREFIX, tags=["Auth"])
 
     if extra_routers:
         for router in extra_routers:

@@ -66,20 +66,20 @@ for model in list_models():
 
     crud_manager.problem_manager.create_problem(
         problem_id=names_cfg.problem_id,
-        tenant=names_cfg.tenant,
+        territory=names_cfg.territory,
         name=names_cfg.problem_name,
         description=names_cfg.problem_description,
     )
     crud_manager.scenario_manager.create_scenario(
         scenario_id=names_cfg.scenario_id,
-        tenant=names_cfg.tenant,
+        territory=names_cfg.territory,
         name=names_cfg.scenario_name,
         description=names_cfg.scenario_description,
         extras=names_cfg.scenario_extras,
     )
     evaluation = crud_manager.create_evaluation(names_cfg.scenario_id)
     try:
-        result = call_executor(names_cfg.tenant)
+        result = call_executor(names_cfg.territory)
     except Exception:
         crud_manager.fail_evaluation(evaluation)
     else:
