@@ -38,7 +38,7 @@ from overtourism.overtourism.backend_extension.api.utils.index_utils_trentino im
 logger = logging.getLogger(__name__)
 
 indexes_router = APIRouter(
-    prefix=f"{TERRITORY_ROUTE_PREFIX}/indexes",
+    prefix="default/indexes",
     tags=["Indexes"],
     dependencies=[Depends(get_auth_context)],
 )
