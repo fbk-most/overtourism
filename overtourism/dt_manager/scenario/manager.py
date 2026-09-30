@@ -81,7 +81,9 @@ class ScenarioManager:
 
     def read_scenario(self, scenario_id: str, territory: str | None = None) -> Scenario:
         """Return a persisted scenario."""
-        return Scenario.from_dict(self.store.load_scenario(scenario_id, territory=territory))
+        return Scenario.from_dict(
+            self.store.load_scenario(scenario_id, territory=territory)
+        )
 
     def list_scenarios(
         self,
@@ -148,7 +150,6 @@ class ScenarioManager:
             updated=get_timestamp(),
             extras=extras if extras is not None else old_scenario.extras,
             territory=old_scenario.territory,
-
         )
 
     def delete_scenario(self, scenario_id: str) -> None:

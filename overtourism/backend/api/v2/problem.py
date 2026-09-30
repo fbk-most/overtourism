@@ -43,7 +43,9 @@ async def list_problems(
 ) -> list[ProblemData]:
     """List all problems in the current store."""
     try:
-        return [problem.to_dict() for problem in handler.manager.list_problems(territory)]
+        return [
+            problem.to_dict() for problem in handler.manager.list_problems(territory)
+        ]
     except Exception as e:
         logger.error(f"Error listing problems: {e}")
         raise

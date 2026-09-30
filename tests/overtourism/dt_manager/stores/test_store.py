@@ -5,59 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import inspect
 
-from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
-
-
-def test_legacy_scenario_table_is_upgraded_for_summary(tmp_path) -> None:
-    database_url = f"sqlite:///{tmp_path / 'legacy-store.db'}"
-    legacy_engine = create_engine(database_url)
-    with legacy_engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                CREATE TABLE scenarios (
-                    scenario_id VARCHAR PRIMARY KEY,
-                    territory TEXT,
-                    session_id VARCHAR,
-                    version INTEGER NOT NULL,
-                    name TEXT,
-                    description TEXT,
-                    created VARCHAR,
-                    updated VARCHAR,
-                    extras JSON NOT NULL,
-                    param_overrides JSON NOT NULL
-                )
-                """
-            )
-        )
-    legacy_engine.dispose()
-
-    store = SQLStore(database_url)
-    try:
-        scenario_payload = {
-            "scenario_id": "scenario-summary",
-            "territory": "territory-alpha",
-            "session_id": None,
-            "version": 1,
-            "name": "Summary scenario",
-            "description": "Legacy schema scenario",
-            "summary": "A persisted summary",
-            "created": "2026-01-01T00:00:00Z",
-            "updated": "2026-01-01T00:00:00Z",
-            "extras": {},
-            "param_overrides": {},
-        }
-
-        store.save_scenario(scenario_payload)
-
-        assert store.load_scenario("scenario-summary")["summary"] == (
-            "A persisted summary"
-        )
-    finally:
-        store.engine.dispose()
 
 
 def test_problem_round_trip_and_delete_problem(

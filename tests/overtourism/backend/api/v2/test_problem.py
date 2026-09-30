@@ -30,7 +30,9 @@ def test_overtourism_problem_models_do_not_expose_group_metadata() -> None:
     assert "groups" not in update_data.model_dump()
 
 
-def test_list_problems_filters_by_territory(client, manager: Manager, territory: str) -> None:
+def test_list_problems_filters_by_territory(
+    client, manager: Manager, territory: str
+) -> None:
     manager.problem_manager.create_problem(
         "territory-beta-problem",
         territory="territory-beta",
@@ -159,7 +161,9 @@ def test_delete_problem_keeps_owned_sessions(
 
     assert create_response.status_code == 200
     session_id = create_response.json()["session_id"]
-    assert handler.manager.read_session(session_id).owner_id == "anonymous:territory-alpha"
+    assert (
+        handler.manager.read_session(session_id).owner_id == "anonymous:territory-alpha"
+    )
 
     delete_response = client.request(
         "DELETE",
@@ -168,4 +172,6 @@ def test_delete_problem_keeps_owned_sessions(
     )
 
     assert delete_response.status_code == 200
-    assert handler.manager.read_session(session_id).owner_id == "anonymous:territory-alpha"
+    assert (
+        handler.manager.read_session(session_id).owner_id == "anonymous:territory-alpha"
+    )

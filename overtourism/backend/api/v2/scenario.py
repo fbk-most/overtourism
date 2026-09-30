@@ -104,7 +104,9 @@ async def create_scenario(
 ) -> ScenarioData:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
-        scenario = handler.manager.create_scenario(territory=territory, **scenario_payload)
+        scenario = handler.manager.create_scenario(
+            territory=territory, **scenario_payload
+        )
         logger.info(f"Scenario created: {scenario.scenario_id}")
         return scenario_to_api(handler, scenario)
     except Exception as e:

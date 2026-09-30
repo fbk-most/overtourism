@@ -96,7 +96,9 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert manager.session_manager.list_sessions() == []
 
 
-def test_session_owner_uses_token_subject_instead_of_email(client, territory: str) -> None:
+def test_session_owner_uses_token_subject_instead_of_email(
+    client, territory: str
+) -> None:
     client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=True,
         territory=territory,

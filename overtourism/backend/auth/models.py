@@ -17,6 +17,12 @@ class AuthContext(BaseModel):
     claims: dict[str, Any] = Field(default_factory=dict)
 
 
+class AuthMeResponse(BaseModel):
+    authenticated: bool
+    territory: str | None = None
+    subject: str | None = None
+
+
 def resolve_session_owner_id(context: AuthContext, territory: str) -> str:
     """Resolve the stable owner identifier for a session."""
     if not context.authenticated:

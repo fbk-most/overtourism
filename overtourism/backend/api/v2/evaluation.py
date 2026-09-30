@@ -138,7 +138,9 @@ async def update_evaluation(
     try:
         current = get_evaluation_or_404(territory, handler, evaluation_id)
         check_version(current.version, data.version)
-        scenario = handler.manager.read_scenario(current.scenario_id, territory=territory)
+        scenario = handler.manager.read_scenario(
+            current.scenario_id, territory=territory
+        )
         evaluation = Evaluation.create_default(
             current.evaluation_id,
             scenario_id=current.scenario_id,

@@ -85,7 +85,9 @@ class ProblemORM(SQLBase):
 class SessionORM(SQLBase):
     __tablename__ = "sessions"
     __table_args__ = (
-        Index("ix_sessions_territory_owner_created", "territory", "owner_id", "created"),
+        Index(
+            "ix_sessions_territory_owner_created", "territory", "owner_id", "created"
+        ),
     )
 
     session_id: Mapped[str] = mapped_column(String, primary_key=True)

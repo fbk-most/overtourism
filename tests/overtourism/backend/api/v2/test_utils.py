@@ -131,7 +131,9 @@ def test_session_and_entity_helpers_return_domain_objects_or_404(
         get_scenario_or_404(territory, handler, base_scenario_id).scenario_id
         == base_scenario_id
     )
-    assert get_proposal_or_404(territory, handler, proposal_id).proposal_id == proposal_id
+    assert (
+        get_proposal_or_404(territory, handler, proposal_id).proposal_id == proposal_id
+    )
     evaluation = handler.manager.evaluation_manager.create_evaluation(
         "evaluation-alpha",
         base_scenario_id,

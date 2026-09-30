@@ -56,7 +56,9 @@ class ProblemManager:
         Problem
             Persisted problem instance.
         """
-        return Problem.from_dict(self.store.load_problem(problem_id, territory=territory))
+        return Problem.from_dict(
+            self.store.load_problem(problem_id, territory=territory)
+        )
 
     def list_problems(self, territory: str | None = None) -> list[Problem]:
         """Return all persisted problems."""

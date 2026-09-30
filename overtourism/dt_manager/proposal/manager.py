@@ -58,7 +58,9 @@ class ProposalManager:
         territory: str | None = None,
     ) -> Proposal:
         """Return a persisted proposal."""
-        return Proposal.from_dict(self.store.load_proposal(proposal_id, territory=territory))
+        return Proposal.from_dict(
+            self.store.load_proposal(proposal_id, territory=territory)
+        )
 
     def list_proposals(
         self,

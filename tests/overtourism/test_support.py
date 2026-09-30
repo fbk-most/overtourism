@@ -131,7 +131,9 @@ class FakeExecutionService:
         return evaluation
 
 
-def bootstrap_default_entities(manager: Any, territory: str = DEFAULT_TERRITORY) -> None:
+def bootstrap_default_entities(
+    manager: Any, territory: str = DEFAULT_TERRITORY
+) -> None:
     manager.problem_manager.create_problem(
         DEFAULT_PROBLEM_ID,
         territory=territory,

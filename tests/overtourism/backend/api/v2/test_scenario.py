@@ -6,7 +6,9 @@ from overtourism.backend.api.utils import utils as api_utils
 from overtourism.dt_manager.manager.manager import Manager
 
 
-def test_list_and_read_stored_scenarios(client, territory: str, problem_id: str) -> None:
+def test_list_and_read_stored_scenarios(
+    client, territory: str, problem_id: str
+) -> None:
     base_scenario_id = f"{territory}_base_scenario"
     list_response = client.get(
         f"/api/v2/{territory}/scenarios",

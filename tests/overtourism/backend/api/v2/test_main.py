@@ -116,11 +116,15 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
             "description": "List territorys available to the current user.",
         },
     ]
-    assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["tags"] == ["Problems"]
+    assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["tags"] == [
+        "Problems"
+    ]
     assert openapi["paths"]["/api/v2/{territory}/proposals"]["get"]["tags"] == [
         "Proposals"
     ]
-    assert openapi["paths"]["/api/v2/{territory}/sessions"]["post"]["tags"] == ["Sessions"]
+    assert openapi["paths"]["/api/v2/{territory}/sessions"]["post"]["tags"] == [
+        "Sessions"
+    ]
     assert openapi["paths"]["/api/v2/{territory}/scenarios"]["get"]["tags"] == [
         "Scenarios"
     ]

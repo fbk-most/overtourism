@@ -49,8 +49,6 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
         "authenticated": False,
         "territory": "territory-alpha",
         "subject": None,
-        "token": None,
-        "claims": {},
     }
 
 
@@ -115,12 +113,6 @@ def test_auth_me_returns_authenticated_context_for_matching_territory(
         "authenticated": True,
         "territory": "territory-alpha",
         "subject": "101",
-        "token": "signed-token",
-        "claims": {
-            "sub": 101,
-            "tenant_id": "territory-alpha",
-            "role": "planner",
-        },
     }
 
 
@@ -190,7 +182,9 @@ def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
         )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Token territory does not match requested territory"}
+    assert response.json() == {
+        "detail": "Token territory does not match requested territory"
+    }
 
 
 @pytest.mark.parametrize(
@@ -260,7 +254,9 @@ def test_auth_me_rejects_mismatched_token_territory(
         )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Token territory does not match requested territory"}
+    assert response.json() == {
+        "detail": "Token territory does not match requested territory"
+    }
 
 
 def test_auth_settings_from_env_reads_configured_values(
@@ -270,7 +266,7 @@ def test_auth_settings_from_env_reads_configured_values(
     monkeypatch.setenv("AUTH_ISSUER", "issuer")
     monkeypatch.setenv("AUTH_AUDIENCE", "audience")
     monkeypatch.setenv("AUTH_JWKS_URL", "https://example.com/.well-known/jwks.json")
-    monkeypatch.setenv("AUTH_TERRITORY_CLAIM", "organization_id")
+    monkeypatch.setenv("AUTH_TENANT_CLAIM", "organization_id")
     monkeypatch.setenv("AUTH_ALGORITHMS", "RS256, ES256")
     monkeypatch.setenv("AUTH_LEEWAY_SECONDS", "45")
 
