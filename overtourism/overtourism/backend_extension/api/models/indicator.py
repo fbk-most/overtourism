@@ -616,6 +616,19 @@ class Indicator:
             for label in labels:
                 ranges.append((label, label))
 
+        elif granularity == "settimanale":
+            for label in labels:
+                week_start = pd.to_datetime(label)
+                week_end = week_start + pd.Timedelta(6, unit="D")
+                sub_start = max(week_start, start_date)
+                sub_end = min(week_end, end_date)
+                ranges.append(
+                    (
+                        sub_start.strftime("%Y-%m-%d"),
+                        sub_end.strftime("%Y-%m-%d"),
+                    )
+                )
+
         elif granularity == "mensile":
             for label in labels:
                 month_start = pd.to_datetime(label + "-01")

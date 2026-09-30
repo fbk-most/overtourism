@@ -17,7 +17,7 @@ def get_list_comuni(mapping_comuni_file: Path) -> list[dict]:
     Return the list of all comuni. Cached for the process lifetime —
     the JSON mapping never changes while the server is running.
     """
-    comuni = [{"code": "-1", "name": "Regione"}]
+    comuni = [{"code": "-1", "name": "Provincia"}]
     with open(mapping_comuni_file, mode="r", encoding="utf-8") as fh:
         mapping = json.load(fh)
     for name, id_comune in mapping.items():

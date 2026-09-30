@@ -118,6 +118,12 @@ def get_chart_labels(start_date, end_date, granularity: str) -> list[str]:
             labels.append(cur.strftime("%Y-%m-%d"))
             cur += timedelta(days=1)
 
+    elif granularity == "settimanale":
+        labels, cur = [], start_date - timedelta(days=start_date.weekday())
+        while cur <= end_date:
+            labels.append(cur.strftime("%Y-%m-%d"))
+            cur += timedelta(days=7)
+
     elif granularity == "mensile":
         labels, cur = [], start_date.replace(day=1)
         while cur <= end_date:

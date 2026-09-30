@@ -48,7 +48,7 @@ class Phenomenon:
 
     Spatial axis
     ~~~~~~~~~~~~
-    ``spatial_resolution`` : 'comune' | 'provincia' | 'regione'
+    ``spatial_resolution`` : 'comune' | 'macro-area' | 'provincia'
         Granularity of the source data.
 
     ``spatial_strategy`` : 'identity' | 'constant' | 'weighted'
@@ -115,7 +115,7 @@ class Phenomenon:
     temporal_resolution: str = "daily"  # 'daily' | 'monthly' | 'yearly'
     temporal_strategy: str = "identity"  # 'identity' | 'constant' | 'weighted'
 
-    spatial_resolution: str = "comune"  # 'comune' | 'provincia' | 'regione'
+    spatial_resolution: str = "comune"  # 'comune' | 'macro-area' | 'provincia'
     spatial_strategy: str = "identity"  # 'identity' | 'constant' | 'weighted'
 
     support_temporal: Phenomenon | None = None

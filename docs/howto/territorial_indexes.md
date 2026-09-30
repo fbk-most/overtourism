@@ -57,7 +57,7 @@ A `Phenomenon` declares its **native resolution** on two axes, independently:
 |---|---|---|---|
 | Temporal | `temporal_resolution` | `daily` / `monthly` / `yearly` | grain of the source data |
 | Temporal | `temporal_strategy` | `identity` / `constant` / `weighted` | how to bring it to daily |
-| Spatial | `spatial_resolution` | `municipality` / `provincia` / `regione` | grain of the source data |
+| Spatial | `spatial_resolution` | `municipality` / `macro-area` / `province` | grain of the source data |
 | Spatial | `spatial_strategy` | `identity` / `constant` / `weighted` | how to bring it to municipality |
 
 The **strategy** tells the class *how* to disaggregate:
@@ -160,7 +160,9 @@ to compute a sub-period-over-total ratio).
 - **`get_temporal_variation(start_date, end_date, granularity, region_id,
   **extra)`** → a list of `{label, data, std}` series, one per municipality plus
   one region-wide aggregate, bucketed by `granularity`
-  (`giornaliero` / `mensile` / `annuale`). Also cached.
+  (`giornaliero` / `settimanale` / `mensile` / `annuale`). Weekly buckets are
+  labelled by their Monday date and include data through Sunday, clipped to
+  the requested date range. Also cached.
 - **`years_range`** → `{min_year, max_year}`, the full-calendar-year span
   for which *every* phenomenon in the indicator has data — i.e. the
   intersection of each phenomenon's `[min_date, max_date]`, restricted to
@@ -261,7 +263,7 @@ presences, facility counts, and the ratios/combinators built from them).
 
 | Name | Purpose |
 |---|---|
-| `get_list_comuni(file)` | all comuni as `[{code, name}]`, "Regione" (`-1`) first |
+| `get_list_comuni(file)` | all comuni as `[{code, name}]`, "Provincia" (`-1`) first |
 | `get_macro_areas(file)` | list of `MacroArea(name, comuni)` for the region's province/APT groupings |
 | `get_map_geometry(file)` | cached, reprojected (EPSG:4326) `GeoDataFrame` of municipality boundaries |
 | `_build_macro_area_geodataframe(result, codici_comuni_file, geometry_file)` | joins computed values onto pre-unioned macro-area polygons |

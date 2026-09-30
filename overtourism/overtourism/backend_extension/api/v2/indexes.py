@@ -237,7 +237,7 @@ def get_spatial_areas(request: Request):
     try:
         tc = _build_tc(request)
 
-        area_entries = [{"code": "-1", "name": "Regione"}] + [
+        area_entries = [{"code": "-1", "name": "Provincia"}] + [
             {"code": a.name, "name": a.name} for a in tc.areas
         ]
 
@@ -353,7 +353,7 @@ def get_variation_data(
     """
     Time-series variation for the region and selected comuni / macro-areas.
 
-    ``granularity`` here is *temporal* (giornaliero / mensile / annuale).
+    ``granularity`` here is *temporal* (giornaliero / settimanale / mensile / annuale).
     ``spatial_granularity`` (query param) controls the territorial grain.
     """
     try:
