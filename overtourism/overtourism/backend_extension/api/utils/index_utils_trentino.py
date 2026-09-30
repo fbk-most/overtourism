@@ -152,6 +152,32 @@ def _build_macro_area_geodataframe(
     return gpd.GeoDataFrame(merged, geometry="geometry", crs=gdf_areas.crs)
 
 
+def _build_province_geodataframe(gdf_base, result) -> gpd.GeoDataFrame:
+    """Join a province-level result to the union of all municipality shapes."""
+
+    province = gpd.GeoDataFrame(
+        {
+            "PRO_COM_T": ["-1"],
+            "COMUNE": ["Provincia"],
+            "geometry": [gdf_base.geometry.union_all()],
+        },
+        geometry="geometry",
+        crs=gdf_base.crs,
+    )
+    merged = province.merge(
+        result,
+        left_on="PRO_COM_T",
+        right_on="ID_COMUNE",
+        how="left",
+    ).rename(columns={"COMUNE": "AREA_NAME"})
+
+    return gpd.GeoDataFrame(
+        merged.drop(columns=["PRO_COM_T", "ID_COMUNE"]),
+        geometry="geometry",
+        crs=gdf_base.crs,
+    )
+
+
 def _build_geodataframe_vodafone_ids(gdf_base, result, join_on="ID_COMUNE"):
     """
     Same as _build_geodataframe, with ID_COMUNE reflectig AREA_ID scheme (e.g. 'ITA.04.022.100.127')

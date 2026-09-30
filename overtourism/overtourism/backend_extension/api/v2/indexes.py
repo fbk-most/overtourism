@@ -30,6 +30,7 @@ from overtourism.overtourism.backend_extension.api.utils.index_utils import (
 )
 from overtourism.overtourism.backend_extension.api.utils.index_utils_trentino import (
     _build_macro_area_geodataframe,
+    _build_province_geodataframe,
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,
@@ -252,7 +253,10 @@ def get_spatial_areas(request: Request):
         else:
             comuni = all_comuni
 
-        return {"comuni": comuni, "areas": area_entries}
+        return {
+            "comuni": comuni,
+            "areas": area_entries,
+        }
 
     except HTTPException:
         raise
@@ -307,7 +311,9 @@ def get_index_data(
 
         else:
             result = tc.apply(computed_index)
-            if tc.spatial_granularity == "macro_area":
+            if tc.spatial_granularity == "provincia":
+                gdf_final = _build_province_geodataframe(gdf_base, result)
+            elif tc.spatial_granularity == "macro_area":
                 gdf_final = _build_macro_area_geodataframe(
                     result, MACRO_AREAS_FILE, MAP_SHAPEFILE
                 )
@@ -351,10 +357,12 @@ def get_variation_data(
     granularity: str | None = Query(None),
 ):
     """
-    Time-series variation for the region and selected comuni / macro-areas.
+    Time-series variation for the region and selected spatial units. With
+    ``spatial_granularity=provincia``, only the province-wide series is returned.
 
     ``granularity`` here is *temporal* (giornaliero / settimanale / mensile / annuale).
-    ``spatial_granularity`` (query param) controls the territorial grain.
+    ``spatial_granularity`` (query param) accepts ``comune``, ``macro_area``,
+    or ``provincia`` and controls the territorial grain.
     """
     try:
         tc = _build_tc(request)

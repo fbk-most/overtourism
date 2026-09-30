@@ -41,7 +41,7 @@ Two classes do all the work:
   variation, and caching.
 
 Everything territorial (which comuni are visible, municipality vs. macro-area
-grouping) is handled by `TerritorialConfig`, deliberately *outside* both
+or province grouping) is handled by `TerritorialConfig`, deliberately *outside* both
 classes — an `Indicator` never knows about permissions or spatial
 granularity, it only ever returns "one row per municipality."
 
@@ -329,7 +329,8 @@ Dependencies are anyway automatically installed by `uv sync --dev`.
 | Term | Meaning |
 |---|---|
 | **municipality** | Italian municipality — the finest spatial grain the engine works at |
-| **macro_area** | a named group of comuni (province / APT / tourism district) — the coarser of the two spatial granularities exposed to the frontend |
+| **macro_area** | a named group of comuni (such as an APT / tourism district) |
+| **province** | all comuni aggregated into the province-wide unit |
 | **INDICE** | the final computed value of an indicator, one row per municipality (or per municipality × date for variation queries) |
 | **panel** | the resolved `Phenomenon` DataFrame: one row per `(ID_municipality, DATA)` |
 | **combinator** | the pure function that turns aligned phenomenon columns into `INDICE` |

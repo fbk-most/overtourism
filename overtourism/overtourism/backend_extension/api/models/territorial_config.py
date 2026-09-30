@@ -7,7 +7,7 @@ from typing import Literal
 
 import pandas as pd
 
-Granularity = Literal["comune", "macro_area"]
+Granularity = Literal["comune", "macro_area", "provincia"]
 Aggregation = Literal["mean", "sum"]
 
 
@@ -45,10 +45,10 @@ class TerritorialConfig:
     ) -> TerritorialConfig:
         """Validated constructor used by all endpoints."""
 
-        if spatial_granularity not in ("comune", "macro_area"):
+        if spatial_granularity not in ("comune", "macro_area", "provincia"):
             raise ValueError(
                 f"Unknown spatial_granularity={spatial_granularity!r}. "
-                "Expected 'comune' or 'macro_area'."
+                "Expected 'comune' or 'macro_area' or 'province'."
             )
 
         if macro_area_agg not in ("mean", "sum"):
@@ -118,6 +118,24 @@ class TerritorialConfig:
 
         return pd.DataFrame(rows)
 
+    def aggregate_to_province(
+        self,
+        df: pd.DataFrame,
+        value_col: str = "INDICE",
+        id_col: str = "ID_COMUNE",
+    ) -> pd.DataFrame:
+        """Aggregate all available comuni into the province-level unit."""
+
+        comuni = df[df[id_col].astype(str) != "-1"][value_col]
+        if comuni.empty:
+            value = float("nan")
+        elif self.macro_area_agg == "mean":
+            value = float(comuni.mean())
+        else:
+            value = float(comuni.sum())
+
+        return pd.DataFrame([{id_col: "-1", value_col: value}])
+
     def apply(
         self,
         df: pd.DataFrame,
@@ -127,6 +145,13 @@ class TerritorialConfig:
         """Filter and optionally aggregate."""
 
         filtered = self.filter_comuni(df, id_col=id_col)
+
+        if self.spatial_granularity == "provincia":
+            return self.aggregate_to_province(
+                filtered,
+                value_col=value_col,
+                id_col=id_col,
+            )
 
         if self.spatial_granularity == "macro_area":
             return self.aggregate_to_macro_areas(
@@ -162,6 +187,9 @@ class TerritorialConfig:
 
         if self.spatial_granularity == "comune":
             return comune_series + region_series
+
+        if self.spatial_granularity == "provincia":
+            return region_series
 
         by_comune = {str(s[label_key]): s for s in comune_series}
 
