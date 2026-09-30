@@ -223,6 +223,89 @@ def test_missing_entities_raise(sql_store) -> None:
     assert sql_store.load_relationships() == []
 
 
+def test_expired_session_cleanup_preserves_active_and_catalog_data(
+    sql_store,
+    scenario_payload,
+    evaluation_payload,
+) -> None:
+    sql_store.save_session(
+        {
+            "session_id": "expired-session",
+            "territory": "molveno",
+            "created": "2025-12-31T21:30:00-02:00",
+            "updated": "2025-12-31T21:30:00-02:00",
+        }
+    )
+    sql_store.save_session(
+        {
+            "session_id": "active-session",
+            "territory": "molveno",
+            "created": "2025-12-31T23:30:00-02:00",
+            "updated": "2025-12-31T23:30:00-02:00",
+        }
+    )
+    expired_scenario = dict(
+        scenario_payload,
+        scenario_id="expired-draft",
+        session_id="expired-session",
+    )
+    active_scenario = dict(
+        scenario_payload,
+        scenario_id="active-draft",
+        session_id="active-session",
+    )
+    catalog_scenario = dict(
+        scenario_payload,
+        scenario_id="catalog-scenario",
+        session_id=None,
+    )
+    sql_store.save_scenario(expired_scenario)
+    sql_store.save_scenario(active_scenario)
+    sql_store.save_scenario(catalog_scenario)
+    sql_store.save_evaluation(
+        dict(
+            evaluation_payload,
+            evaluation_id="expired-evaluation",
+            scenario_id="expired-draft",
+            session_id="expired-session",
+        )
+    )
+    sql_store.save_evaluation(
+        dict(
+            evaluation_payload,
+            evaluation_id="active-evaluation",
+            scenario_id="active-draft",
+            session_id="active-session",
+        )
+    )
+    sql_store.save_evaluation(
+        dict(
+            evaluation_payload,
+            evaluation_id="catalog-evaluation",
+            scenario_id="catalog-scenario",
+            session_id=None,
+        )
+    )
+
+    deleted_count = sql_store.delete_sessions_created_before(
+        "2026-01-01T00:00:00+00:00"
+    )
+
+    assert deleted_count == 1
+    assert [session["session_id"] for session in sql_store.load_sessions()] == [
+        "active-session",
+    ]
+    assert sql_store.load_scenarios(session_id="expired-session") == []
+    assert sql_store.load_evaluations_for_session("expired-session") == []
+    assert sql_store.load_scenarios(session_id="active-session") == [active_scenario]
+    assert (
+        sql_store.load_evaluations_for_session("active-session")[0]["evaluation_id"]
+        == "active-evaluation"
+    )
+    assert sql_store.load_scenario("catalog-scenario")["session_id"] is None
+    assert sql_store.load_evaluation("catalog-evaluation")["session_id"] is None
+
+
 def test_sqlite_schema_defines_indexes_for_common_read_paths(sql_store) -> None:
     inspector = inspect(sql_store.engine)
 

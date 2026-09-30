@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.dt_manager.session.config import SessionCleanupConfig
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
@@ -20,6 +23,7 @@ def _make_manager(
     tmp_path,
     *,
     evaluator: FakeModelEvaluator | None = None,
+    session_cleanup_config: SessionCleanupConfig | None = None,
 ) -> tuple[Manager, FakeModelEvaluator, object, FakeExecutionService]:
     evaluator = FakeModelEvaluator() if evaluator is None else evaluator
     model = object()
@@ -28,6 +32,7 @@ def _make_manager(
             store_type=StoreType.SQL.value,
             config={"url": f"sqlite:///{tmp_path / 'store.db'}"},
         ),
+        session_cleanup_config=session_cleanup_config,
     )
     manager.name_cfg = type("NameCfg", (), {"territory": DEFAULT_TERRITORY})()
     execution_service = FakeExecutionService(model, evaluator)
@@ -169,3 +174,70 @@ def test_session_manager_can_remove_session_drafts_and_sessions(tmp_path) -> Non
     assert manager.list_sessions() == []
     with pytest.raises(EntityDoesNotExist):
         manager.read_session(session.session_id)
+
+
+def test_expired_session_is_unavailable_before_periodic_cleanup(tmp_path) -> None:
+    manager = _make_manager(tmp_path)[0]
+    session = manager.session_manager.create_session()
+    session_data = manager.store.load_session(session.session_id)
+    session_data["created"] = "2000-01-01T00:00:00Z"
+    manager.store.save_session(session_data)
+
+    with pytest.raises(EntityDoesNotExist):
+        manager.read_session(session.session_id)
+    with pytest.raises(EntityDoesNotExist):
+        manager.list_session_scenarios(session.session_id)
+    with pytest.raises(EntityDoesNotExist):
+        manager.list_session_evaluations(session.session_id)
+
+    assert manager.list_sessions() == []
+
+
+def test_session_cleanup_uses_configured_ttl(tmp_path) -> None:
+    cleanup_config = SessionCleanupConfig(
+        session_scenario_ttl_seconds=10,
+        session_cleanup_interval_seconds=86400,
+    )
+    manager = _make_manager(
+        tmp_path,
+        session_cleanup_config=cleanup_config,
+    )[0]
+    now = datetime.now(timezone.utc)
+    expired = manager.session_manager.create_session()
+    active = manager.session_manager.create_session()
+    expired_data = manager.store.load_session(expired.session_id)
+    active_data = manager.store.load_session(active.session_id)
+    expired_data["created"] = (now - timedelta(seconds=11)).isoformat()
+    active_data["created"] = (now - timedelta(seconds=9)).isoformat()
+    manager.store.save_session(expired_data)
+    manager.store.save_session(active_data)
+
+    deleted_count = manager.session_manager.delete_expired_sessions(now=now)
+
+    assert deleted_count == 1
+    assert [session.session_id for session in manager.list_sessions()] == [
+        active.session_id,
+    ]
+    with pytest.raises(EntityDoesNotExist):
+        manager.read_session(expired.session_id)
+
+
+def test_session_cleanup_config_defaults_to_weekly_ttl_and_daily_interval() -> None:
+    config = SessionCleanupConfig()
+
+    assert config.session_scenario_ttl_seconds == 604800
+    assert config.session_cleanup_interval_seconds == 86400
+
+
+@pytest.mark.parametrize(
+    "config_values",
+    [
+        {"session_scenario_ttl_seconds": 0},
+        {"session_cleanup_interval_seconds": -1},
+        {"session_scenario_ttl_seconds": float("nan")},
+        {"session_cleanup_interval_seconds": float("inf")},
+    ],
+)
+def test_session_cleanup_config_rejects_invalid_durations(config_values) -> None:
+    with pytest.raises(ValueError):
+        SessionCleanupConfig(**config_values)

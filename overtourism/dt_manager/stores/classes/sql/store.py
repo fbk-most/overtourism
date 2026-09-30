@@ -27,6 +27,7 @@ from overtourism.dt_manager.stores.classes.sql.orm import (
 )
 from overtourism.dt_manager.stores.classes.sql.schema import build_sql_schema
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+from overtourism.dt_manager.utils.utils import parse_timestamp
 
 
 class SQLStore(Store):
@@ -114,6 +115,34 @@ class SQLStore(Store):
             stored_session = session.get(self.schema.sessions, session_id)
             if stored_session is not None:
                 session.delete(stored_session)
+
+    def delete_sessions_created_before(self, created_before: str) -> int:
+        cutoff = parse_timestamp(created_before)
+        with self.session_factory.begin() as session:
+            rows = session.execute(
+                select(
+                    self.schema.sessions.session_id,
+                    self.schema.sessions.created,
+                )
+            ).all()
+            expired_session_ids = []
+            for session_id, created in rows:
+                try:
+                    expired = created is None or parse_timestamp(created) <= cutoff
+                except (TypeError, ValueError):
+                    expired = True
+                if expired:
+                    expired_session_ids.append(session_id)
+
+            if not expired_session_ids:
+                return 0
+
+            result = session.execute(
+                delete(self.schema.sessions).where(
+                    self.schema.sessions.session_id.in_(expired_session_ids)
+                )
+            )
+            return result.rowcount or 0
 
     def save_problem(self, problem_data: dict) -> None:
         with self.session_factory.begin() as session:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import typing
+from contextlib import asynccontextmanager
+from threading import Event, Thread
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,7 +23,10 @@ from overtourism.backend.api.v2.territory import territory_router
 from overtourism.backend.auth.router import auth_router
 
 if typing.TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
     from overtourism.backend.auth.dependencies import Handler
+    from overtourism.dt_manager.session.manager import SessionManager
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +37,23 @@ logging.basicConfig(
 logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+
+def _run_session_cleanup(
+    session_manager: SessionManager,
+    stop_event: Event,
+    interval: float,
+) -> None:
+    while not stop_event.is_set():
+        try:
+            deleted_count = session_manager.delete_expired_sessions()
+            if deleted_count:
+                logger.info("Expired sessions cleaned: %s", deleted_count)
+        except Exception:
+            logger.exception("Session cleanup failed")
+        if stop_event.wait(interval):
+            return
+
 
 OPENAPI_TAGS = [
     {
@@ -79,11 +101,37 @@ def create_app(
     """Create a FastAPI app wired to the given handler."""
     init_handler(handler)
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+        stop_event = Event()
+        session_manager = handler.manager.session_manager
+        cleanup_thread = Thread(
+            target=_run_session_cleanup,
+            args=(
+                session_manager,
+                stop_event,
+                session_manager.cleanup_config.session_cleanup_interval_seconds,
+            ),
+            name="session-scenario-cleanup",
+            daemon=True,
+        )
+        cleanup_thread.start()
+        try:
+            yield
+        finally:
+            stop_event.set()
+            cleanup_thread.join(timeout=5)
+            if cleanup_thread.is_alive():
+                logger.warning("Session cleanup thread did not stop before timeout")
+            else:
+                logger.info("Session cleanup thread stopped successfully")
+
     app = FastAPI(
         title=title,
         version=version,
         description=description,
         openapi_tags=OPENAPI_TAGS,
+        lifespan=lifespan,
     )
     install_exception_handlers(app)
 

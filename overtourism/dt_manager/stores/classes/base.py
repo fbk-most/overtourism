@@ -32,6 +32,10 @@ class Store(ABC):
     def delete_session(self, session_id: str) -> None:
         """Delete a session document."""
 
+    @abstractmethod
+    def delete_sessions_created_before(self, created_before: str) -> int:
+        """Delete sessions created at or before the UTC cutoff and return the count."""
+
     # ───────────────────────────────────────────────────────────
     # Problems
     # ───────────────────────────────────────────────────────────

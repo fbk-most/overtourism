@@ -12,6 +12,7 @@ from overtourism.backend.api.utils.executor_utils import (
 from overtourism.backend.auth.dependencies import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
+from overtourism.dt_manager.session.config import SessionCleanupConfig
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
@@ -48,8 +49,13 @@ extras_config = ExtrasConfig(
     proposal_keys=frozenset(("resources", "context", "impact")),
     scenario_keys=frozenset("index_diffs"),
 )
+session_cleanup_config = SessionCleanupConfig()
 
-crud_manager = Manager(store_conf, extras_config)
+crud_manager = Manager(
+    store_conf,
+    extras_config,
+    session_cleanup_config=session_cleanup_config,
+)
 
 # ──────────────────────────────────────────────
 # Bootstrap entites

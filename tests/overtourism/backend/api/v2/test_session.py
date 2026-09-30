@@ -117,6 +117,28 @@ def test_session_owner_uses_token_subject_instead_of_email(
     assert response.json()["owner_id"] == "user-sub"
 
 
+def test_expired_session_is_rejected_before_periodic_cleanup(
+    client,
+    manager: Manager,
+    territory: str,
+) -> None:
+    session = manager.create_session(
+        territory=territory,
+        owner_id=f"anonymous:{territory}",
+    )
+    session_data = manager.store.load_session(session.session_id)
+    session_data["created"] = "2000-01-01T00:00:00Z"
+    manager.store.save_session(session_data)
+
+    response = client.get(f"/api/v2/{territory}/sessions/{session.session_id}")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": f"Session '{session.session_id}' not found."}
+    assert manager.store.load_session(session.session_id)["session_id"] == (
+        session.session_id
+    )
+
+
 def test_session_detail_embeds_evaluation_metadata_without_result(
     client,
     territory: str,

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
 from overtourism.backend.api.main import create_app
+from overtourism.dt_manager.session.config import SessionCleanupConfig
 
 
 def test_create_app_includes_extra_routers_and_metadata(handler) -> None:
@@ -54,6 +57,16 @@ def test_create_app_registers_configuration_route_by_default(handler) -> None:
     paths = app.openapi()["paths"]
 
     assert "/api/v2/{territory}/configuration" in paths
+
+
+def test_indexes_router_registers_under_default_v2_namespace(handler) -> None:
+    from overtourism.overtourism.backend_extension.api.v2.indexes import (
+        indexes_router,
+    )
+
+    app = create_app(handler, extra_routers=[indexes_router])
+
+    assert "/api/v2/default/indexes/get-index-list" in app.openapi()["paths"]
 
 
 def test_create_app_exposes_bearer_auth_in_openapi(handler) -> None:
@@ -132,3 +145,29 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
         "Evaluations"
     ]
     assert openapi["paths"]["/api/v2/{territory}/auth/me"]["get"]["tags"] == ["Auth"]
+
+
+def test_app_lifespan_runs_and_stops_session_cleanup_worker(
+    handler,
+    monkeypatch,
+) -> None:
+    cleanup_config = SessionCleanupConfig(
+        session_scenario_ttl_seconds=604800,
+        session_cleanup_interval_seconds=0.01,
+    )
+    handler.manager.session_manager.cleanup_config = cleanup_config
+    cleanup_called = threading.Event()
+    monkeypatch.setattr(
+        handler.manager.session_manager,
+        "delete_expired_sessions",
+        lambda: cleanup_called.set() or 0,
+    )
+    app = create_app(handler)
+
+    with TestClient(app):
+        assert cleanup_called.wait(timeout=2)
+
+    assert not any(
+        thread.name == "session-scenario-cleanup" and thread.is_alive()
+        for thread in threading.enumerate()
+    )

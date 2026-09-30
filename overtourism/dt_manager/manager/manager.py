@@ -17,6 +17,7 @@ from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.relationship.manager import RelationshipManager
 from overtourism.dt_manager.scenario.manager import ScenarioManager
 from overtourism.dt_manager.scenario.scenario import Scenario
+from overtourism.dt_manager.session.config import SessionCleanupConfig
 from overtourism.dt_manager.session.manager import SessionManager
 from overtourism.dt_manager.session.session import Session
 from overtourism.dt_manager.stores.builder import create_store
@@ -33,6 +34,7 @@ class Manager:
         self,
         store_config: StoreConfig,
         extras_config: ExtrasConfig | None = None,
+        session_cleanup_config: SessionCleanupConfig | None = None,
     ) -> None:
         self.store = create_store(store_config.store_type, **store_config.config)
         self.problem_manager = ProblemManager(self.store)
@@ -40,7 +42,7 @@ class Manager:
         self.scenario_manager = ScenarioManager(self.store)
         self.evaluation_manager = EvaluationManager(self.store)
         self.relationship_manager = RelationshipManager(self.store)
-        self.session_manager = SessionManager(self.store)
+        self.session_manager = SessionManager(self.store, session_cleanup_config)
         self.extras_config = (
             extras_config if extras_config is not None else ExtrasConfig()
         )
@@ -510,6 +512,7 @@ class Manager:
 
     def read_session_scenario(self, session_id: str, scenario_id: str) -> Scenario:
         """Return a transient scenario for a session."""
+        self.session_manager.require_active_session(session_id)
         scenario = Scenario.from_dict(self.store.load_scenario(scenario_id))
         if scenario.session_id != session_id:
             raise EntityDoesNotExist(
@@ -519,6 +522,7 @@ class Manager:
 
     def list_session_scenarios(self, session_id: str) -> list[Scenario]:
         """Return all transient scenarios for a session."""
+        self.session_manager.require_active_session(session_id)
         return [
             Scenario.from_dict(scenario_data)
             for scenario_data in self.store.load_scenarios(session_id=session_id)
@@ -574,6 +578,7 @@ class Manager:
 
     def list_session_evaluations(self, session_id: str) -> list[Evaluation]:
         """Return all transient evaluations for a session."""
+        self.session_manager.require_active_session(session_id)
         return [
             Evaluation.from_dict(evaluation_data)
             for evaluation_data in self.store.load_evaluations_for_session(session_id)
