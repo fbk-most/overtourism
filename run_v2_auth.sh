@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 source "$ROOT_DIR/.venv/bin/activate"
+export OVERTOURISM_DATABASE="sqlite:///overtourism/overtourism/database/overtourism.sqlite"
 
 if [[ $# -gt 1 ]]; then
 	printf 'Usage: %s [admin-email]\n' "$0" >&2
@@ -13,7 +14,7 @@ fi
 
 #export OVERTOURISM_DATABASE="postgresql+psycopg://postgres:123@localhost:5432/postgres"
 export DT_OVERTURISM_STANDALONE_MODE="${DT_OVERTOURISM_STANDALONE_MODE:-true}"
-export AUTH_ENABLED="${AUTH_ENABLED:-false}"
+export AUTH_ENABLED="${AUTH_ENABLED:-true}"
 export AUTH_ISSUER="${AUTH_ISSUER:-https://aac.platform.smartcommunitylab.it}"
 export AUTH_JWKS_URL="${AUTH_JWKS_URL:-https://aac.platform.smartcommunitylab.it/jwk}"
 export AUTH_AUDIENCE="${AUTH_AUDIENCE:-c_50e8e205e30243588df8f1ad9425831a}"
