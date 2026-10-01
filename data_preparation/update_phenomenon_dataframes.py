@@ -80,32 +80,30 @@ MONTHS_MAPPING = {
 
 
 ## Popolazione 
-def standardize_upd_popolazione_2025(df, mapping_comuni):
-    """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026.
-    """
+def standardize_and_process_popolazione_2025(df, mapping_comuni):
+    """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026."""
     df = df.copy()
     df["popolazione"] = (
         (df["Popolazione residente al 1.1.2025"] +
          df["Popolazione residente al 1.1.2026"]) / 2
     ).round().astype(int)
-
     df = df.rename(columns={"Comuni": "comune"}).sort_values(by="comune")
     df["anno"] = 2025
-
-    std = standardize_popolazione_columns(df)  # standardization 
-    return process_popolazione(std, mapping_comuni)
+    # standardization and process
+    return process_popolazione(standardize_popolazione_columns(df), mapping_comuni)
 
 
 ## Strutture 
 def standardize_upd_strutture(df):
     df = df.rename(columns=RENAMING_STRUTTURE).copy()
     for c in df.columns.drop(['comune', 'anno']):
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)   # mnage "-"
 
     ## Logic to compute CONV / NON CONV
     df['tot convenzionali strutture'] = df["alberghieri strutture"]+ df["extra alb. Strutture"]
     df['tot convenzionali posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto']
 
+    # complessivo as sum of all cathegories
     df['COMPLESSIVO numero'] =  df["alberghieri strutture"]+ df["extra alb. Strutture"] + df["Alloggi turistici Numero"] + df["Alloggi a disposizione Numero"]
     df['COMPLESSIVO posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto'] + df["Alloggi turistici Letti"] + df["Alloggi a disposizione Letti"]
 
@@ -117,60 +115,45 @@ def standardize_upd_strutture(df):
     assert (df['all. privati numero'] >= 0).all(), f"There are {len(df[df['all. privati numero'] < 0])} lines with strutture non conv < 0 "
     assert (df['all. privati posti_letto'] >= 0 ).all(), f"There are {len(df[df['all. privati posti_letto'] < 0])} lines with beds strutture non conv < 0 "
 
-    std = standardize_strutture_columns(df.filter(regex=r'^(?!_)'))
-    return std
+    return standardize_strutture_columns(df.filter(regex=r'^(?!_)'))
 
 
-def standardize_upd_strutture_2024(df, mapping_comuni):
+def standardize_and_process_strutture_2024(df, mapping_comuni):
     """Adapt 2024 structures to the current standard structures schema, in order to reuse standardize_strutture_columns() + process_strutture()"""
     df = df.rename(columns={"Comuni": "comune"})
     df["anno"] = 2024
-    std = standardize_upd_strutture(df)
-    return process_strutture(std, mapping_comuni)
+    return process_strutture(standardize_upd_strutture(df), mapping_comuni)
 
 
-def standardize_upd_strutture_2025(df, mapping_comuni):
+def standardize_and_process_strutture_2025(df, mapping_comuni):
     """Adapts the strutture 2025 to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
     df = _remove_unnamed(df)
     df = df.rename(columns={"Comune": "comune"})
     df["anno"] = 2025
-    std = standardize_upd_strutture(df)
-    return process_strutture(std, mapping_comuni)
+    return process_strutture(standardize_upd_strutture(df), mapping_comuni)
 
 
 ## Vodafone
-def standardize_upd_vodafone_2025(df, mapping_vodafone, geojson):
+def standardize_and_process_vodafone_2025(df, mapping_vodafone, geojson):
     """Adapt the new Vodafone data using the dedicated functions."""
-    std = standardize_vodafone_columns(df, geojson)
-    return process_vodafone(std, mapping_vodafone)
+    return process_vodafone(standardize_vodafone_columns(df, geojson), mapping_vodafone)
 
 
 ## Presenze
 def process_presenze_ispat_2025(df, apts, anno=2025):
     """Convert the grouped ISPAT monthly dataframe into long format."""
-    columns = [("Mese", "")]
+    columns = ["Mese"]
     for ambito in apts[1:]:
-        columns.extend([
-            (ambito, "Italiani"),
-            (ambito, "Stranieri"),
-            (ambito, "Totale"),
-        ])
+        columns.extend([f"{ambito} Italiani", f"{ambito} Stranieri", f"{ambito} Totale"])
 
     if len(columns) != df.shape[1]:
-        raise ValueError(
-            f"Numero colonne non combacia: attese {len(columns)}, "
-            f"trovate {df.shape[1]}"
-        )
+        raise ValueError(f"Expected {len(columns)} columns, found {df.shape[1]}")
 
     df = df.copy()
-    df.columns = pd.MultiIndex.from_tuples(columns)
-    df.columns = [
-        f"{ambito} {tipo}".strip() if tipo else ambito
-        for ambito, tipo in df.columns
-    ]
+    df.columns = columns
 
     df["Mese"] = df["Mese"].astype(str).str.strip()
-    df = df[df["Mese"] != "Anno"].reset_index(drop=True)
+    df = df[df["Mese"] != "Anno"].copy()
 
     mapped_months = df["Mese"].map(MONTHS_MAPPING)
     if mapped_months.isna().any():
@@ -186,14 +169,10 @@ def process_presenze_ispat_2025(df, apts, anno=2025):
         id_vars=["Mese"],
         value_vars=value_cols,
         var_name="Ambito",
-        value_name="Presenze",
+        value_name="Presenze"
     )
+    long_df["Ambito"] = long_df["Ambito"].str.removesuffix(" Totale").str.strip()
 
-    long_df["Ambito"] = (
-        long_df["Ambito"]
-        .str.replace(" Totale$", "", regex=True)
-        .str.strip()
-    )
     long_df["Presenze"] = pd.to_numeric(long_df["Presenze"], errors="coerce")
     if long_df["Presenze"].isna().any():
         bad = long_df.loc[long_df["Presenze"].isna(), "Ambito"].unique()
@@ -203,7 +182,7 @@ def process_presenze_ispat_2025(df, apts, anno=2025):
     long_df["Anno"] = anno
     return long_df[["Ambito", "Anno", "Mese", "Presenze"]]  # now it's in the right format to be given as input of standardization 
 
-def standardize_upd_presenze_alb_2025(df, apts, mapping_apt):
+def standardize_and_process_presenze_alb_2025(df, apts, mapping_apt):
     long_df = process_presenze_ispat_2025(df, apts)
     std = standardize_presenze_columns(
         long_df,
@@ -213,7 +192,7 @@ def standardize_upd_presenze_alb_2025(df, apts, mapping_apt):
         std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False
     )
 
-def standardize_upd_presenze_extralb_2025_apt(df, apts, mapping_apt):
+def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
     """New: extra-alberghiero data at APT granularity.
     Kept as an update artifact, although the current final
     phenomenon uses the provincial xalb dataset.
@@ -228,7 +207,7 @@ def standardize_upd_presenze_extralb_2025_apt(df, apts, mapping_apt):
     )
     return processed.rename(columns={"presenze_alb": "presenze_xalb"})
 
-def standardize_upd_presenze_extralb_2025_prov(df, mapping_comuni):
+def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
     df = _remove_unnamed(df).copy()
     df["Mese"] = df["Mese"].astype(str).str.strip()
@@ -307,25 +286,25 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv"):
     logging.info("Standardizing and processing update data...")
 
     dict_dfs = {
-        "popolazione_25_pr": standardize_upd_popolazione_2025(
+        "popolazione_25_pr": standardize_and_process_popolazione_2025(
             popolazione_raw, mapping_comuni
         ),
-        "strutture_24_pr": standardize_upd_strutture_2024(
+        "strutture_24_pr": standardize_and_process_strutture_2024(
             strutture_24_raw, mapping_comuni
         ),
-        "strutture_25_pr": standardize_upd_strutture_2025(
+        "strutture_25_pr": standardize_and_process_strutture_2025(
             strutture_25_raw, mapping_comuni
         ),
-        "vodafone_25_pr": standardize_upd_vodafone_2025(
+        "vodafone_25_pr": standardize_and_process_vodafone_2025(
             vodafone_raw, mapping_vodafone, geojson
         ),
-        "presenze_alb_25_pr": standardize_upd_presenze_alb_2025(
+        "presenze_alb_25_pr": standardize_and_process_presenze_alb_2025(
             raw_alb, apts, mapping_apt
         ),
-        "presenze_extralb_25_apt_pr": standardize_upd_presenze_extralb_2025_apt(
+        "presenze_extralb_25_apt_pr": standardize_and_process_presenze_extralb_2025_apt(
             raw_xalb_apt, apts_xalb, mapping_apt
         ),
-        "presenze_extralb_25_pr": standardize_upd_presenze_extralb_2025_prov(
+        "presenze_extralb_25_pr": standardize_and_process_presenze_extralb_2025_prov(
             raw_xalb_prov, mapping_comuni
         ),
     }
