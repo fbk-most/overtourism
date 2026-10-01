@@ -23,7 +23,7 @@ from overtourism.backend.api.v2.proposal import (
 from overtourism.backend.api.v2.proposal import (
     update_proposal as base_update_proposal,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.overtourism.backend_extension.api.models.proposal import (
     OvertourismPostProposalData,
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 proposal_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/proposals",
     tags=["Proposals"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

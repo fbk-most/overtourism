@@ -21,7 +21,7 @@ from overtourism.backend.api.utils.utils import (
     proposal_to_api,
     validate_related_scenario_ids,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 proposal_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/proposals",
     tags=["Proposals"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

@@ -23,7 +23,7 @@ from overtourism.backend.api.v2.problem import (
 from overtourism.backend.api.v2.problem import (
     update_problem as base_update_problem,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.overtourism.backend_extension.api.models.problem import (
     OvertourismPostProblemData,
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 problem_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/problems",
     tags=["Problems"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

@@ -17,7 +17,7 @@ from overtourism.backend.api.utils.utils import (
     check_version,
     get_problem_or_404,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 problem_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/problems",
     tags=["Problems"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

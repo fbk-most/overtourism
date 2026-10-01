@@ -157,6 +157,40 @@ def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
     assert session.owner_id == invited_user.user_id
 
 
+def test_admin_cannot_read_or_delete_another_users_session(
+    client,
+    handler: Handler,
+    manager: Manager,
+    territory: str,
+) -> None:
+    store = cast(SQLStore, manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    admin = user_manager.create_first_admin("admin@example.org")
+    user_manager.claim_user_by_email(admin.identifier, "admin-sub")
+    handler.user_manager = user_manager
+    client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        authenticated=True,
+        subject="admin-sub",
+        token="signed-token",
+        claims={"sub": "admin-sub"},
+    )
+
+    session = manager.create_session(
+        territory=territory,
+        owner_id="another-user-id",
+    )
+
+    read_response = client.get(f"/api/v2/{territory}/sessions/{session.session_id}")
+    delete_response = client.delete(
+        f"/api/v2/{territory}/sessions/{session.session_id}"
+    )
+
+    assert read_response.status_code == 404
+    assert delete_response.status_code == 404
+    assert manager.read_session(session.session_id).owner_id == "another-user-id"
+
+
 def test_expired_session_is_rejected_before_periodic_cleanup(
     client,
     manager: Manager,

@@ -33,7 +33,7 @@ from overtourism.backend.api.utils.utils import (
     get_session_scenario_or_404,
     scenario_to_api,
 )
-from overtourism.backend.auth.identity.users import UserRole
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler, get_handler
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 session_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/sessions",
     tags=["Sessions"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 
@@ -70,11 +70,6 @@ def _resolve_session_owner_id(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not registered or active",
-        )
-    if user.role is not UserRole.ADMIN and territory not in user.territories:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is not assigned to this territory",
         )
     return user.user_id
 

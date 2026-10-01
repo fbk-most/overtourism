@@ -17,6 +17,14 @@ from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_sett
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
+from overtourism.overtourism.backend_extension.api.v2 import indexes as indexes_api
+from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
+from overtourism.overtourism.backend_extension.api.v2.problem import (
+    problem_router as overtourism_problem_router,
+)
+from overtourism.overtourism.backend_extension.api.v2.proposal import (
+    proposal_router as overtourism_proposal_router,
+)
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 
@@ -102,7 +110,7 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
         (create_app_v2, "/api/v2/auth/me"),
     ],
 )
-def test_auth_me_returns_authenticated_context_for_matching_territory(
+def test_auth_me_returns_authenticated_context_and_database_territory(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -115,11 +123,7 @@ def test_auth_me_returns_authenticated_context_for_matching_territory(
     )
     monkeypatch.setattr(
         "overtourism.backend.auth.tokens.dependencies.decode_jwt",
-        lambda token, settings: {
-            "sub": 101,
-            settings.territory_claim: "territory-alpha",
-            "role": "planner",
-        },
+        lambda token, settings: {"sub": 101},
     )
 
     with TestClient(app) as client:
@@ -145,23 +149,25 @@ def test_auth_me_returns_authenticated_context_for_matching_territory(
         (create_app_v2, "/api/v2/territory-alpha/problems"),
     ],
 )
-def test_territory_scoped_routes_accept_tokens_that_list_the_path_territory(
+@pytest.mark.parametrize("tenant_claim", [None, "territory-beta"])
+def test_territory_scoped_routes_allow_database_assignment_without_territory_claim(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
     problems_path: str,
+    tenant_claim: str | None,
 ) -> None:
     app = app_factory(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
     )
+    claims = {"sub": "user-1"}
+    if tenant_claim is not None:
+        claims["tenant_id"] = tenant_claim
     monkeypatch.setattr(
         "overtourism.backend.auth.tokens.dependencies.decode_jwt",
-        lambda token, settings: {
-            "sub": "user-1",
-            settings.territory_claim: ["territory-beta", "territory-alpha"],
-        },
+        lambda token, settings: claims,
     )
 
     with TestClient(app) as client:
@@ -174,16 +180,21 @@ def test_territory_scoped_routes_accept_tokens_that_list_the_path_territory(
 
 
 @pytest.mark.parametrize(
-    ("app_factory", "problems_path"),
+    ("app_factory", "route_path"),
     [
         (create_app_v2, "/api/v2/territory-gamma/problems"),
+        (create_app_v2, "/api/v2/territory-gamma/proposals"),
+        (create_app_v2, "/api/v2/territory-gamma/scenarios"),
+        (create_app_v2, "/api/v2/territory-gamma/evaluations"),
+        (create_app_v2, "/api/v2/territory-gamma/configuration"),
+        (create_app_v2, "/api/v2/territory-gamma/sessions"),
     ],
 )
-def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
+def test_territory_scoped_routes_reject_database_unassigned_territory_despite_jwt_claim(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
-    problems_path: str,
+    route_path: str,
 ) -> None:
     app = app_factory(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
@@ -194,20 +205,100 @@ def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
         "overtourism.backend.auth.tokens.dependencies.decode_jwt",
         lambda token, settings: {
             "sub": "user-1",
-            settings.territory_claim: ["territory-alpha", "territory-beta"],
+            "tenant_id": "territory-gamma",
         },
     )
 
     with TestClient(app) as client:
         response = client.get(
-            problems_path,
+            route_path,
             headers={"Authorization": "Bearer signed-token"},
         )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "Token territory does not match requested territory"
-    }
+    assert response.json() == {"detail": "User is not assigned to this territory"}
+
+
+def test_global_admin_can_access_unassigned_application_territories(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = cast(SQLStore, handler.manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    admin = user_manager.create_user(
+        identifier="global-admin@example.org",
+        role=UserRole.ADMIN,
+        territories=[],
+    )
+    repository.save_user(replace(admin, subject="global-admin"))
+    user_manager.reload()
+    handler.user_manager = user_manager
+
+    app = create_app_v2(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "global-admin"},
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v2/territory-gamma/problems",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 200
+
+
+def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = create_app_v2(
+        handler,
+        include_problem_router=False,
+        include_proposal_router=False,
+        extra_routers=[
+            overtourism_problem_router,
+            overtourism_proposal_router,
+            indexes_router,
+        ],
+    )
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "unregistered-user"},
+    )
+    monkeypatch.setattr(indexes_api, "_REGISTRY", {})
+
+    with TestClient(app) as client:
+        problem_response = client.get(
+            "/api/v2/territory-gamma/problems",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+        proposal_response = client.get(
+            "/api/v2/territory-gamma/proposals",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+        index_response = client.get(
+            "/api/v2/default/indexes/get-index-list",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+        unauthenticated_index_response = client.get(
+            "/api/v2/default/indexes/get-index-list"
+        )
+
+    assert problem_response.status_code == 403
+    assert proposal_response.status_code == 403
+    assert index_response.status_code == 200
+    assert unauthenticated_index_response.status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -216,7 +307,7 @@ def test_territory_scoped_routes_reject_tokens_missing_the_path_territory(
         (create_app_v2, "/api/v2/auth/me"),
     ],
 )
-def test_global_auth_me_allows_missing_tenant_claim(
+def test_auth_me_does_not_require_tenant_claim(
     handler,
     monkeypatch: pytest.MonkeyPatch,
     app_factory,
@@ -226,7 +317,6 @@ def test_global_auth_me_allows_missing_tenant_claim(
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
-        territory_claim="organization_id",
     )
     monkeypatch.setattr(
         "overtourism.backend.auth.tokens.dependencies.decode_jwt",
@@ -240,7 +330,7 @@ def test_global_auth_me_allows_missing_tenant_claim(
         )
 
     assert response.status_code == 200
-    assert response.json()["territory"] is None
+    assert response.json()["territory"] == "territory-alpha"
     assert response.json()["subject"] == "user-1"
 
 
@@ -251,7 +341,6 @@ def test_auth_settings_from_env_reads_configured_values(
     monkeypatch.setenv("AUTH_ISSUER", "issuer")
     monkeypatch.setenv("AUTH_AUDIENCE", "audience")
     monkeypatch.setenv("AUTH_JWKS_URL", "https://example.com/.well-known/jwks.json")
-    monkeypatch.setenv("AUTH_TENANT_CLAIM", "organization_id")
     monkeypatch.setenv("AUTH_ALGORITHMS", "RS256, ES256")
     monkeypatch.setenv("AUTH_LEEWAY_SECONDS", "45")
 
@@ -262,7 +351,6 @@ def test_auth_settings_from_env_reads_configured_values(
         issuer="issuer",
         audience="audience",
         jwks_url="https://example.com/.well-known/jwks.json",
-        territory_claim="organization_id",
         algorithms=("RS256", "ES256"),
         leeway_seconds=45,
     )

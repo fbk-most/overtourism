@@ -55,14 +55,15 @@ async def read_auth_me(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> AuthMeResponse:
     user = resolve_current_user(context, handler)
+    territories = [] if user is None else sorted(user.territories)
     return AuthMeResponse(
         authenticated=context.authenticated,
-        territory=context.territory,
+        territory=territories[0] if len(territories) == 1 else None,
         subject=context.subject,
         user_id=None if user is None else user.user_id,
         role=None if user is None else user.role,
         is_global_admin=user is not None and user.role is UserRole.ADMIN,
-        territories=[] if user is None else sorted(user.territories),
+        territories=territories,
     )
 
 

@@ -21,7 +21,7 @@ from overtourism.backend.api.utils.utils import (
     get_evaluation_or_404,
     get_scenario_or_404,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.dt_manager.evaluation.evaluation import Evaluation
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 evaluation_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/evaluations",
     tags=["Evaluations"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

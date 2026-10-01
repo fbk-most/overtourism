@@ -19,7 +19,7 @@ from overtourism.backend.api.utils.utils import (
     raise_immutable_base_scenario_error,
     scenario_to_api,
 )
-from overtourism.backend.auth.tokens.dependencies import get_auth_context
+from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 scenario_router = APIRouter(
     prefix=f"{TERRITORY_ROUTE_PREFIX}/scenarios",
     tags=["Scenarios"],
-    dependencies=[Depends(get_auth_context)],
+    dependencies=[Depends(require_territory_access)],
 )
 
 

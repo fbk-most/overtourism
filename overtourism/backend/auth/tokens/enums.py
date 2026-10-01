@@ -7,7 +7,6 @@ from enum import StrEnum
 
 class AuthClaim(StrEnum):
     SUBJECT = "sub"
-    TERRITORY = "tenant_id"
     EMAIL = "email"
     EMAIL_VERIFIED = "email_verified"
 
@@ -17,7 +16,6 @@ class AuthEnvironmentVariable(StrEnum):
     ISSUER = "AUTH_ISSUER"
     AUDIENCE = "AUTH_AUDIENCE"
     JWKS_URL = "AUTH_JWKS_URL"
-    TERRITORY_CLAIM = "AUTH_TENANT_CLAIM"
     ALGORITHMS = "AUTH_ALGORITHMS"
     LEEWAY_SECONDS = "AUTH_LEEWAY_SECONDS"
 
@@ -29,7 +27,6 @@ class AuthHeaderScheme(StrEnum):
 class AuthErrorDetail(StrEnum):
     MISSING_BEARER_TOKEN = "Missing bearer token"
     INVALID_BEARER_TOKEN = "Invalid bearer token"
-    TERRITORY_MISMATCH = "Token territory does not match requested territory"
 
 
 class JwtAlgorithm(StrEnum):

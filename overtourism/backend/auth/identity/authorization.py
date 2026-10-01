@@ -71,6 +71,24 @@ def require_global_admin(
     return user
 
 
+def require_territory_access(
+    territory: str,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    handler: Annotated[Handler, Depends(get_handler)],
+) -> User | None:
+    user = resolve_current_user(context, handler)
+    if (
+        user is not None
+        and user.role is not UserRole.ADMIN
+        and territory not in user.territories
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not assigned to this territory",
+        )
+    return user
+
+
 def get_user_manager(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> UserManager:
