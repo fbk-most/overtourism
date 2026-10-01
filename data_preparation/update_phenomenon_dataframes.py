@@ -6,9 +6,11 @@ Pipeline:
     Takes existing processed data
     + new raw data from S3
         -> standardize new raw data
-        -> process new data 
+        -> process new data
         -> merge (new rows used in case of DATA + ID_COMUNE overlaps)
         -> compute final phenomena
+
+Every step can be run on a SUBSET of phenomena: the phenomena not selected are left untouched, reusing the data already in `processed_dir`.
 """
 
 import logging
@@ -18,7 +20,7 @@ import pandas as pd
 
 from data_preparation.utils.utils import get_mapping, get_s3, save_computed_dfs
 from data_preparation.utils.common import (
-    _read_grouped_presenze_tsv ,
+    _read_grouped_presenze_tsv,
     _remove_unnamed,
     FINAL_DIR, PROCESSED_DIR, check_output_dir, normalize_id_comune,
     read_df, standard_ordering_cols,
@@ -32,6 +34,9 @@ from data_preparation.process_data import (
     process_popolazione, process_presenze_ISPAT, process_strutture,
     process_vodafone,
 )
+
+ALL_DATASETS = ("popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb")
+
 from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
 
 logging.basicConfig(level=logging.INFO)
@@ -79,7 +84,7 @@ MONTHS_MAPPING = {
 # ---------------------------------------------------------------------------
 
 
-## Popolazione 
+## Popolazione
 def standardize_and_process_popolazione_2025(df, mapping_comuni):
     """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026."""
     df = df.copy()
@@ -93,27 +98,27 @@ def standardize_and_process_popolazione_2025(df, mapping_comuni):
     return process_popolazione(standardize_popolazione_columns(df), mapping_comuni)
 
 
-## Strutture 
+## Strutture
 def standardize_upd_strutture(df):
     df = df.rename(columns=RENAMING_STRUTTURE).copy()
     for c in df.columns.drop(['comune', 'anno']):
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)   # mnage "-"
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)   # manage "-"
 
     ## Logic to compute CONV / NON CONV
-    df['tot convenzionali strutture'] = df["alberghieri strutture"]+ df["extra alb. Strutture"]
+    df['tot convenzionali strutture'] = df["alberghieri strutture"] + df["extra alb. Strutture"]
     df['tot convenzionali posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto']
 
     # complessivo as sum of all cathegories
-    df['COMPLESSIVO numero'] =  df["alberghieri strutture"]+ df["extra alb. Strutture"] + df["Alloggi turistici Numero"] + df["Alloggi a disposizione Numero"]
+    df['COMPLESSIVO numero'] = df["alberghieri strutture"] + df["extra alb. Strutture"] + df["Alloggi turistici Numero"] + df["Alloggi a disposizione Numero"]
     df['COMPLESSIVO posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto'] + df["Alloggi turistici Letti"] + df["Alloggi a disposizione Letti"]
 
-    ## in old terminology, all privati = all non conv  
+    ## in old terminology, all privati = all non conv
     df['all. privati numero'] = df['COMPLESSIVO numero'] - df['tot convenzionali strutture']
     df['all. privati posti_letto'] = df['COMPLESSIVO posti_letto'] - df['tot convenzionali posti_letto']
 
-    ## checks 
+    ## checks
     assert (df['all. privati numero'] >= 0).all(), f"There are {len(df[df['all. privati numero'] < 0])} lines with strutture non conv < 0 "
-    assert (df['all. privati posti_letto'] >= 0 ).all(), f"There are {len(df[df['all. privati posti_letto'] < 0])} lines with beds strutture non conv < 0 "
+    assert (df['all. privati posti_letto'] >= 0).all(), f"There are {len(df[df['all. privati posti_letto'] < 0])} lines with beds strutture non conv < 0 "
 
     return standardize_strutture_columns(df.filter(regex=r'^(?!_)'))
 
@@ -177,7 +182,7 @@ def process_presenze_ispat_2025(df, apts, anno=2025):
     if long_df["Presenze"].isna().any():
         bad = long_df.loc[long_df["Presenze"].isna(), "Ambito"].unique()
         raise ValueError(f"Valori non numerici per ambiti: {bad}")
-        
+
     long_df["Presenze"] = long_df["Presenze"].astype(int)
     long_df["Anno"] = anno
     return long_df[["Ambito", "Anno", "Mese", "Presenze"]]  # now it's in the right format to be given as input of standardization 
@@ -191,6 +196,7 @@ def standardize_and_process_presenze_alb_2025(df, apts, mapping_apt):
     return process_presenze_ISPAT(
         std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False
     )
+
 
 def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
     """New: extra-alberghiero data at APT granularity.
@@ -206,6 +212,7 @@ def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
         std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False
     )
     return processed.rename(columns={"presenze_alb": "presenze_xalb"})
+
 
 def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
@@ -251,9 +258,14 @@ def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
 # DOWNLOAD + STANDARDIZE + PROCESS UPDATE
 # ---------------------------------------------------------------------------
 
-def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv"):
-    """Download, standardize and process all update-source datasets."""
+def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datasets=None):
+    """Download, standardize and process only the requested update-source datasets.
+    datasets: subset of ALL_DATASETS, default = all."""
     ## download mapping and geojson data 
+    datasets = set(datasets) if datasets else set(ALL_DATASETS)
+    if datasets - set(ALL_DATASETS):
+        raise ValueError(f"Unknown dataset(s): {sorted(datasets - set(ALL_DATASETS))}. Valid: {ALL_DATASETS}")
+
     check_output_dir(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -263,51 +275,44 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv"):
     mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
     mapping_apt = get_mapping("map_comuni_into_apt.json")
     geojson = geopd.read_file(get_s3(UPDATE_S3_OBJECTS["comuni_trentino_geojson"]))
+    dict_dfs = {}
 
-    logging.info("Downloading update datasets...")
-    popolazione_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["popolazione"])) #  download from ISPAT
-    vodafone_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["vodafone"]))
-    ## TODO: upload the version xlsx for consistency
-    strutture_24_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2024"]), engine="odf")  # download from ISPAT 
-    strutture_25_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2025"]), header=[0, 1]
-    )
-    alb_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_alb_2025"])
-    raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str)  # download from ISPAT 
-    apts = [
-        x.strip()
-        for x in alb_buffer.getvalue().decode("utf-8")
-        .splitlines()[0].split("\t")
-    ]
-    xalb_apt_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_apt"])
-    raw_xalb_apt = pd.read_csv(xalb_apt_buffer, sep="\t", header=None, skiprows=2, dtype=str)  # download from ISPAT 
-    apts_xalb = [x.strip()for x in xalb_apt_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
-    raw_xalb_prov = _read_grouped_presenze_tsv(get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_prov"]))
+    if "popolazione" in datasets:
+        logging.info("Downloading and processing popolazione updated dataset...")
+        popolazione_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["popolazione"])) #  download from ISPAT
+        dict_dfs["popolazione_25_pr"] = standardize_and_process_popolazione_2025(popolazione_raw, mapping_comuni)
 
-    logging.info("Standardizing and processing update data...")
+    if "strutture" in datasets:
+        logging.info("Downloading and processing strutture updated datasets 2024 and 2025...")
+        strutture_24_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2024"]), engine="odf")    ## TODO: upload the version xlsx for consistency
+        strutture_25_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2025"]), header=[0, 1])
+        dict_dfs["strutture_24_pr"] = standardize_and_process_strutture_2024(strutture_24_raw, mapping_comuni)
+        dict_dfs["strutture_25_pr"] = standardize_and_process_strutture_2025(strutture_25_raw, mapping_comuni)
 
-    dict_dfs = {
-        "popolazione_25_pr": standardize_and_process_popolazione_2025(
-            popolazione_raw, mapping_comuni
-        ),
-        "strutture_24_pr": standardize_and_process_strutture_2024(
-            strutture_24_raw, mapping_comuni
-        ),
-        "strutture_25_pr": standardize_and_process_strutture_2025(
-            strutture_25_raw, mapping_comuni
-        ),
-        "vodafone_25_pr": standardize_and_process_vodafone_2025(
-            vodafone_raw, mapping_vodafone, geojson
-        ),
-        "presenze_alb_25_pr": standardize_and_process_presenze_alb_2025(
-            raw_alb, apts, mapping_apt
-        ),
-        "presenze_extralb_25_apt_pr": standardize_and_process_presenze_extralb_2025_apt(
-            raw_xalb_apt, apts_xalb, mapping_apt
-        ),
-        "presenze_extralb_25_pr": standardize_and_process_presenze_extralb_2025_prov(
-            raw_xalb_prov, mapping_comuni
-        ),
-    }
+    if "vodafone" in datasets:
+        logging.info("Downloading and processing vodafone updated dataset...")
+        vodafone_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["vodafone"]))
+        dict_dfs["vodafone_25_pr"] = standardize_and_process_vodafone_2025(vodafone_raw, mapping_vodafone, geojson)
+
+    if "presenze_alb" in datasets:
+        logging.info("Downloading and processing presenze alberghiere updated dataset..")
+        alb_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_alb_2025"])
+        raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str) # download from ISPAT 
+        apts = [
+            x.strip()
+            for x in alb_buffer.getvalue().decode("utf-8")
+            .splitlines()[0].split("\t")
+        ]
+        dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_alb_2025(raw_alb, apts, mapping_apt)
+
+    if "presenze_extralb" in datasets:
+        logging.info("Downloading and processing presenze extralberghiere dataset...")
+        xalb_apt_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_apt"])
+        raw_xalb_apt = pd.read_csv(xalb_apt_buffer, sep="\t", header=None, skiprows=2, dtype=str)
+        apts_xalb = [x.strip() for x in xalb_apt_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
+        raw_xalb_prov = _read_grouped_presenze_tsv(get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_prov"]))
+        dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_extralb_2025_apt(raw_xalb_apt, apts_xalb, mapping_apt)
+        dict_dfs["presenze_extralb_25_pr"] = standardize_and_process_presenze_extralb_2025_prov(raw_xalb_prov, mapping_comuni)
 
     save_computed_dfs(
         dict_dfs,
@@ -365,30 +370,45 @@ def merge_update(df_old, df_new, value_cols):
 
 def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
     """Merge existing processed data with the update."""
-    # POPOLAZIONE
-    popolazione = merge_update(old_dfs["popolazione_pr"],new_dfs["popolazione_25_pr"],["popolazione"])
+    merged = dict(old_dfs)
 
-    # STRUTTURE
-    strutture = merge_update(old_dfs["strutture_pr"],new_dfs["strutture_24_pr"],["tot_postiletto_non_conv","tot_postiletto","tot_strutture_non_conv","tot_strutture"])
-    strutture = merge_update(strutture,new_dfs["strutture_25_pr"],["tot_postiletto_non_conv","tot_postiletto","tot_strutture_non_conv","tot_strutture",])
+    if "popolazione_25_pr" in new_dfs:
+        merged["popolazione_pr"] = merge_update(
+            old_dfs["popolazione_pr"], new_dfs["popolazione_25_pr"], ["popolazione"]
+        )
 
-    # VODAFONE
-    vodafone = merge_update(old_dfs["vodafone_pr"],new_dfs["vodafone_25_pr"],["presenze"])
+    if "strutture_24_pr" in new_dfs and "strutture_25_pr" in new_dfs:
+        strutture = merge_update(
+            old_dfs["strutture_pr"],
+            new_dfs["strutture_24_pr"],
+            ["tot_postiletto_non_conv", "tot_postiletto", "tot_strutture_non_conv", "tot_strutture"],
+        )
+        merged["strutture_pr"] = merge_update(
+            strutture,
+            new_dfs["strutture_25_pr"],
+            ["tot_postiletto_non_conv", "tot_postiletto", "tot_strutture_non_conv", "tot_strutture"],
+        )
 
-    # PRESENZE ALBERGHIERE
-    presenze_alb = merge_update(old_dfs["presenze_alb_pr"],new_dfs["presenze_alb_25_pr"],["presenze_alb"])
+    if "vodafone_25_pr" in new_dfs:
+        merged["vodafone_pr"] = merge_update(
+            old_dfs["vodafone_pr"], new_dfs["vodafone_25_pr"], ["presenze"]
+        )
 
-    # PRESENZE EXTRA-ALBERGHIERE
-    presenze_extralb = merge_update(old_dfs["presenze_extralb_pr"],new_dfs["presenze_extralb_25_pr"],["presenze_xalb"])
+    if "presenze_alb_25_pr" in new_dfs:
+        merged["presenze_alb_pr"] = merge_update(
+            old_dfs["presenze_alb_pr"], new_dfs["presenze_alb_25_pr"], ["presenze_alb"]
+        )
 
-    return {
-        "popolazione_pr": popolazione,
-        "strutture_pr": strutture,
-        "vodafone_pr": vodafone,
-        "presenze_alb_pr": presenze_alb,
-        "presenze_extralb_pr": presenze_extralb,
-        "presenze_extralb_25_apt_pr": new_dfs["presenze_extralb_25_apt_pr"],  # Different granularity; kept as an update artifact.
-    }
+    if "presenze_extralb_25_pr" in new_dfs:
+        merged["presenze_extralb_pr"] = merge_update(
+            old_dfs["presenze_extralb_pr"], new_dfs["presenze_extralb_25_pr"], ["presenze_xalb"]
+        )
+
+    if "presenze_extralb_25_apt_pr" in new_dfs:
+        # Different granularity; keep as an update artifact.
+        merged["presenze_extralb_25_apt_pr"] = new_dfs["presenze_extralb_25_apt_pr"]
+
+    return merged
 
 def save_merged_processed(
     merged_dfs,
@@ -418,6 +438,7 @@ def update_pipeline(
     merged_dir=MERGED_PROCESSED_DIR,
     type_format="csv",
     save_intermediate=True,
+    datasets=None,
 ):
     """Complete update pipeline.
     Steps:
@@ -425,13 +446,14 @@ def update_pipeline(
         2. read current processed data
         3. merge old/new, with new data winning overlaps
         4. recompute final phenomena
-    """
-    logging.info("=== STEP 1: standardize/process update data ===")
-    new_dfs = process_updated_data(out_dir=update_dir,type_format=type_format)
+    datasets: subset of ALL_DATASETS to actually update; default None updates all."""
+
+    logging.info("=== STEP 1: standardize/process update data (%s) ===", datasets if datasets else "all")
+    new_dfs = process_updated_data(out_dir=update_dir, type_format=type_format, datasets=datasets)
 
     logging.info("=== STEP 2: read current processed data ===")
-    old_names = ["popolazione_pr","strutture_pr","vodafone_pr","presenze_alb_pr","presenze_extralb_pr"]
-    old_dfs = {name: read_df(processed_dir, name, type_format)for name in old_names}
+    old_names = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
+    old_dfs = {name: read_df(processed_dir, name, type_format) for name in old_names}
 
     logging.info("=== STEP 3: merge processed data ===")
     merged_dfs = merge_dataframes_processed(old_dfs, new_dfs)
@@ -458,9 +480,14 @@ def update_pipeline(
     return merged_dfs
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":               
+    update_pipeline(datasets={"presenze_alb", "presenze_extralb"})  # solo le presenze
     update_pipeline(
-        processed_dir=PROCESSED_DIR,
-        final_dir=FINAL_DIR,
-        type_format="csv",
+        processed_dir = PROCESSED_DIR,
+        final_dir = FINAL_DIR,
+        update_dir = UPDATE_PROCESSED_DIR,
+        merged_dir = MERGED_PROCESSED_DIR,
+        type_format = "csv",
+        save_intermediate = True,
+        datasets=None,
     )
