@@ -16,23 +16,23 @@ from pathlib import Path
 import geopandas as geopd
 import pandas as pd
 
-from data_preparation.v2.utils.utils import get_mapping, get_s3, save_computed_dfs
-from data_preparation.v2.utils.common import (
+from data_preparation.utils.utils import get_mapping, get_s3, save_computed_dfs
+from data_preparation.utils.common import (
     _read_grouped_presenze_tsv ,
     _remove_unnamed,
     FINAL_DIR, PROCESSED_DIR, check_output_dir, normalize_id_comune,
     read_df, standard_ordering_cols,
 )
-from data_preparation.v2.standardize_raw_data import (
+from data_preparation.standardize_raw_data import (
     standardize_popolazione_columns, standardize_strutture_columns,
     standardize_vodafone_columns, standardize_presenze_columns,
 )
-from data_preparation.v2.process_data import (
+from data_preparation.process_data import (
     PRESENZE_ALB_VALUE_COLS, PRESENZE_XALB_VALUE_COLS,
     process_popolazione, process_presenze_ISPAT, process_strutture,
     process_vodafone,
 )
-from data_preparation.v2.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
+from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
 
 logging.basicConfig(level=logging.INFO)
 
