@@ -31,20 +31,18 @@ logging.basicConfig(level=logging.INFO)
 ## HELPER FUNCTIONS
 def convert_vodafone_comuni(df, geojson_comuni_json_data):
     """Conversion from locId (geojson) to comune name"""
-    location_map = (
-        geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
-    )
+    location_map = geojson_comuni_json_data.set_index("id")["name"].str.upper().to_dict()
     return df["locId"].map(location_map)
 
 
-def _standardize_columns(df, date_col="anno", df_name=None):
+def _standardize_columns(df, date_col = "anno", df_name = None):
     """Basic standardization: comune/data schema -> DATA/LOCATION/ID_COMUNE."""
     logging.info(
-        "Applying standardization to data%s", f" '{df_name}'" if df_name else ""
-    )
+        "Applying standardization to data%s",
+        f" '{df_name}'" if df_name else ""
+    )   
     df = _to_data_location(df, date_col=date_col)
-    return df
-
+    return df 
 
 
 ## 2. STANDARDIZATION: putting the columns in a standard format 
@@ -111,10 +109,7 @@ def standardize_raw_data(raw_dir=RAW_DIR, out_dir=NORMALIZED_DIR, type_format="c
         ),
         "presenze_extralb_std": standardize_presenze_columns(
             presenze_extralb_df,
-            {
-                "Presenze alberghi": "presenze_alb",
-                "Presenze extra-alberghi": "presenze_xalb",
-            },
+            {"Presenze alberghi": "presenze_alb", "Presenze extra-alberghi": "presenze_xalb"},
         ),
     }
     save_computed_dfs(
@@ -131,4 +126,4 @@ if __name__ == "__main__":
     dir_in = RAW_DIR
     dir_out = NORMALIZED_DIR
     type_format = "csv"
-    standardize_raw_data(dir_in, dir_out, type_format)
+    standardize_raw_data(dir_in,dir_out,type_format)
