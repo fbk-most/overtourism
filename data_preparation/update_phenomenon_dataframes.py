@@ -34,12 +34,12 @@ from data_preparation.process_data import (
     process_popolazione, process_presenze_ISPAT, process_strutture,
     process_vodafone,
 )
-
-ALL_DATASETS = ("popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb")
-
 from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
 
 logging.basicConfig(level=logging.INFO)
+
+ALL_DATASETS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"]
+PROCESSED_OLD = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
 
 MERGED_PROCESSED_DIR = Path(__file__).parent / "data_update" / "merged_processed"
 UPDATE_PROCESSED_DIR = Path(__file__).parent / "data_update" / "processed"
@@ -410,23 +410,6 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
 
     return merged
 
-def save_merged_processed(
-    merged_dfs,
-    out_dir=MERGED_PROCESSED_DIR,
-    type_format="csv",
-):
-    check_output_dir(out_dir)
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    save_computed_dfs(
-        merged_dfs,
-        local=True,
-        type_format=type_format,
-        path_saving=out_dir,
-    )
-
-
 # ---------------------------------------------------------------------------
 # COMPLETE UPDATE PIPELINE
 # ---------------------------------------------------------------------------
@@ -452,18 +435,22 @@ def update_pipeline(
     new_dfs = process_updated_data(out_dir=update_dir, type_format=type_format, datasets=datasets)
 
     logging.info("=== STEP 2: read current processed data ===")
-    old_names = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
-    old_dfs = {name: read_df(processed_dir, name, type_format) for name in old_names}
+    processed_dfs_old = {name: read_df(processed_dir, name, type_format) for name in PROCESSED_OLD}
 
     logging.info("=== STEP 3: merge processed data ===")
-    merged_dfs = merge_dataframes_processed(old_dfs, new_dfs)
+    merged_dfs = merge_dataframes_processed(processed_dfs_old, new_dfs)
 
     if save_intermediate:
-        save_merged_processed(
+        check_output_dir(merged_dir)
+        merged_dir.mkdir(parents=True, exist_ok=True)
+
+        save_computed_dfs(
             merged_dfs,
-            out_dir=merged_dir,
+            local=True,
             type_format=type_format,
+            path_saving=merged_dir,
         )
+
 
     logging.info("=== STEP 4: recompute final phenomena ===")
 
