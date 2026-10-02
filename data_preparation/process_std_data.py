@@ -14,7 +14,6 @@ Every row has a single ID_COMUNE; alb, xalb and vodafone presences.
 
 import logging
 from pathlib import Path
-
 import pandas as pd
 from data_preparation.utils.utils import (
     save_computed_dfs,

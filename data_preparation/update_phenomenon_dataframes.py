@@ -28,7 +28,7 @@ from data_preparation.standardize_raw_data import (
     standardize_popolazione_columns, standardize_strutture_columns,
     standardize_vodafone_columns, standardize_presenze_columns,
 )
-from data_preparation.process_data import (
+from data_preparation.process_std_data import (
     PRESENZE_ALB_VALUE_COLS, PRESENZE_XALB_VALUE_COLS,
     process_popolazione, process_presenze_ISPAT, process_strutture,
     process_vodafone,

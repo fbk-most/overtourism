@@ -9,18 +9,20 @@ The entire pipeline is executed, generating phenomena from scratch.
 The intermediate steps save the intermediate results (standardized, processed)
 """
 import logging
-from download_raw_data import download_raw_data
-from standardize_raw_data import standardize_raw_data
-from process_data import process_data
-from gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
+from data_preparation.download_raw_data import download_raw_data
+from data_preparation.standardize_raw_data import standardize_raw_data
+from data_preparation.process_std_data import process_data
+from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
 
 if __name__ == "__main__":
+    type_format = "csv"
+
     logging.info("Step 0: download raw data into Output/raw_data")
-    download_raw_data()
+    download_raw_data(type_format = type_format)
     logging.info("Step 1: uniform raw data into Output/normalized")
-    standardize_raw_data()
+    standardize_raw_data(type_format = type_format)
     logging.info("Step 2: process normalized data into Output/data_processed")
-    process_data()
+    process_data(type_format = type_format)
     logging.info("Step 3: saves final phenomena into Output/final_data")
-    compute_phenomenon_dataframes()
+    compute_phenomenon_dataframes(type_format = type_format)
     logging.info("Pipeline finished!")
