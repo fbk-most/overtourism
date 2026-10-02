@@ -57,6 +57,32 @@ MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
 UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "data_processed"
 FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 
+EXPECTED_COLS_POPOLAZIONE = ["comune", "popolazione", "anno"]
+EXPECTED_COLS_STRUTTURE = [
+    "comune", "anno", "alberghieri strutture", "alberghieri posti_letto", 
+    "extra alb. Strutture", "extra alb. Posti_letto", "tot convenzionali strutture", 
+    "tot convenzionali posti_letto", "COMPLESSIVO numero", "COMPLESSIVO posti_letto", 
+    "all. privati numero", "all. privati posti_letto"
+]
+EXPECTED_COLS_VODAFONE_RAW = ["locId", "date", "value"]
+EXPECTED_COLS_PRESENZE_APT = ["Ambito", "Anno", "Mese", "Presenze"]
+EXPECTED_COLS_PRESENZE_PROV = ["Anno", "Mese", "Presenze alberghi", "Presenze extra-alberghi"]
+
+
+# ---------------------------------------------------------------------------
+# COMPATIBILITY CHECK
+# ---------------------------------------------------------------------------
+def check_cols_compatibility(df: pd.DataFrame, expected_cols: list[str], func_name: str) -> bool:
+    """Checks if all expected columns are present within the DataFrame columns."""
+    missing_cols = sorted(set(expected_cols) - set(df.columns))
+    if missing_cols:
+        logging.warning(
+            f"Mismatch in '{func_name}'! Missing columns: {missing_cols}. "
+            f"Please verify that the data alignment function is correct."
+        )
+        return False
+    return True
+
 
 # ---------------------------------------------------------------------------
 # STANDARDIZATION + PROCESSING OF UPDATE DATA
@@ -64,26 +90,28 @@ FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 
 ## Popolazione
 def standardize_and_process_popolazione_updated(df, mapping_comuni):
-    """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026."""
+    """Standardization function for popolazione."""
     df = align_data_popolazione_2025(df)
-    # standardization and process
+    check_cols_compatibility(df, expected_cols=EXPECTED_COLS_POPOLAZIONE, func_name="align_data_popolazione_2025")
     return process_popolazione(standardize_popolazione_columns(df), mapping_comuni)
 
 
 ## Strutture
 def standardize_and_process_strutture_updated(df, mapping_comuni, comune_col="Comune", year=2025):
-    """Adapts the strutture to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
-    df = align_data_strutture(df, comune_col= comune_col, year=year)
+    """Adapts the strutture to the standard format."""
+    df = align_data_strutture(df, comune_col=comune_col, year=year)
+    check_cols_compatibility(df, expected_cols=EXPECTED_COLS_STRUTTURE, func_name="align_data_strutture")
     return process_strutture(standardize_strutture_columns(df), mapping_comuni)
 
 
 ## Vodafone
 def standardize_and_process_vodafone_updated(df, mapping_vodafone, geojson):
     """Adapt the new Vodafone data using the dedicated functions."""
+    check_cols_compatibility(df, expected_cols=EXPECTED_COLS_VODAFONE_RAW, func_name="fetch_raw_vodafone")
     return process_vodafone(standardize_vodafone_columns(df, geojson), mapping_vodafone)
 
 
-## Presenze
+## Presenze APT
 def standardize_and_process_presenze_apt_updated(df, apts, mapping_apt, output_col="presenze_alb"):
     """
     Standardize and process presenze data at APT granularity.
@@ -91,6 +119,7 @@ def standardize_and_process_presenze_apt_updated(df, apts, mapping_apt, output_c
     and extra-alberghiero (output_col="presenze_xalb").
     """
     long_df = align_presenze_ispat_apts(df, apts, 2025)
+    check_cols_compatibility(long_df, expected_cols=EXPECTED_COLS_PRESENZE_APT, func_name="align_presenze_ispat_apts")
     std = standardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
     processed = process_presenze_ISPAT(std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False)
     
@@ -99,9 +128,11 @@ def standardize_and_process_presenze_apt_updated(df, apts, mapping_apt, output_c
         
     return processed
 
+## Presenze Provinciali
 def standardize_and_process_presenze_extralb_prov_updated(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
     df_alb_xalb_prov = align_presenze_ispat_prov(df)
+    check_cols_compatibility(df_alb_xalb_prov, expected_cols=EXPECTED_COLS_PRESENZE_PROV, func_name="align_presenze_ispat_prov")
     std = standardize_presenze_columns(df_alb_xalb_prov,cols_renaming={"Presenze alberghi": "presenze_alb","Presenze extra-alberghi": "presenze_xalb",})
     return process_presenze_ISPAT(std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True)
 
@@ -244,14 +275,7 @@ def update_pipeline_phen_computation(
     type_format="csv",
     datasets=None,
 ):
-    """Complete update pipeline.
-    Steps:
-        1. download + standardize + process new data
-        2. read current processed data
-        3. merge old/new, with new data winning overlaps
-        4. recompute final phenomena (if all required datasets are updated)
-    datasets: subset of ALL_DATASETS to actually update; default None updates all."""
-
+    """Complete update pipeline."""
     selected_datasets = set(datasets) if datasets else set(ALL_DATASETS_KEYS)
 
     presenze_intersection = selected_datasets.intersection(PRESENZE_DATASETS_KEYS)
