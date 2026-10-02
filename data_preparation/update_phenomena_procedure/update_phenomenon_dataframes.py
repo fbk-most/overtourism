@@ -14,15 +14,14 @@ Every step can be run on a SUBSET of phenomena: the phenomena not selected are l
 """
 
 import logging
-import geopandas as geopd
 import pandas as pd
 
 from data_preparation.utils.utils import (
-    get_mapping, get_s3, save_computed_dfs
+    save_computed_dfs
 )
 from data_preparation.utils.common import (
     PROCESSED_DIR, OUTPUT_DIR,
-    _read_grouped_presenze_tsv, check_output_dir, normalize_id_comune,
+    check_output_dir, _make_hashable,
     read_df, standard_ordering_cols,
 )
 from data_preparation.standardize_raw_data import (
@@ -37,11 +36,15 @@ from data_preparation.process_std_data import (
 from data_preparation.gen_base_phenomenon_dataframes import (
     calculate_phenomena,
 )
-from data_preparation.align_data_for_standardization import (
+from data_preparation.update_phenomena_procedure.align_data_for_standardization import (
     align_data_popolazione_2025, 
     align_data_strutture, 
     align_presenze_ispat_apts, 
     align_presenze_ispat_prov
+)
+from data_preparation.update_phenomena_procedure.fetch_new_data import (
+    fetch_reference_maps, fetch_raw_popolazione, fetch_raw_strutture,
+    fetch_raw_vodafone, fetch_raw_presenze_alb, fetch_raw_presenze_extralb
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -54,21 +57,10 @@ MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
 UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "data_processed"
 FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 
-UPDATE_S3_OBJECTS = {
-    "popolazione": "popolazione_2026_ISPAT.csv",
-    "vodafone": "vodafone_attendences_new.csv",
-    "strutture_2024": "strutture_annuario_2024.ods",
-    "strutture_2025": "numero_strutture_ISPAT_2025.xlsx",
-    "presenze_alb_2025": "presenze_alb_2025.csv",
-    "presenze_xalb_2025_apt": "presenze_xalb_2025.csv",
-    "presenze_xalb_2025_prov": "presenze_xalb_2025_prov.csv",
-    "comuni_trentino_geojson": "TRENTINO-comuni_Vodafone_2023.geojson",
-}
 
 # ---------------------------------------------------------------------------
 # STANDARDIZATION + PROCESSING OF UPDATE DATA
 # ---------------------------------------------------------------------------
-
 
 ## Popolazione
 def standardize_and_process_popolazione_2025(df, mapping_comuni):
@@ -113,6 +105,7 @@ def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     std = standardize_presenze_columns(df_alb_xalb_prov,cols_renaming={"Presenze alberghi": "presenze_alb","Presenze extra-alberghi": "presenze_xalb",})
     return process_presenze_ISPAT(std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True)
 
+
 # ---------------------------------------------------------------------------
 # DOWNLOAD + STANDARDIZE + PROCESS UPDATE
 # ---------------------------------------------------------------------------
@@ -120,7 +113,6 @@ def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
 def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datasets=None):
     """Download, standardize and process only the requested update-source datasets.
     datasets: subset of ALL_DATASETS, default = all."""
-    ## download mapping and geojson data 
     datasets = set(datasets) if datasets else set(ALL_DATASETS_KEYS)
     if datasets - set(ALL_DATASETS_KEYS):
         raise ValueError(f"Unknown dataset(s): {sorted(datasets - set(ALL_DATASETS_KEYS))}. Valid: {ALL_DATASETS_KEYS}")
@@ -129,43 +121,34 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logging.info("Loading mappings and reference GeoJSON...")
+    mapping_vodafone, mapping_comuni, mapping_apt, geojson = fetch_reference_maps()
 
-    mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
-    mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
-    mapping_apt = get_mapping("map_comuni_into_apt.json")
-    geojson = geopd.read_file(get_s3(UPDATE_S3_OBJECTS["comuni_trentino_geojson"]))
     dict_dfs = {}
 
     if "popolazione" in datasets:
         logging.info("Downloading and processing popolazione updated dataset...")
-        popolazione_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["popolazione"])) #  download from ISPAT
+        popolazione_raw = fetch_raw_popolazione()
         dict_dfs["popolazione_25_pr"] = standardize_and_process_popolazione_2025(popolazione_raw, mapping_comuni)
 
     if "strutture" in datasets:
         logging.info("Downloading and processing strutture updated datasets 2024 and 2025...")
-        strutture_24_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2024"]), engine="odf")    ## TODO: upload the version xlsx for consistency
-        strutture_25_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2025"]), header=[0, 1])
+        strutture_24_raw, strutture_25_raw = fetch_raw_strutture()
         dict_dfs["strutture_24_pr"] = standardize_and_process_strutture(strutture_24_raw, mapping_comuni, comune_col="Comuni", year=2024)
         dict_dfs["strutture_25_pr"] = standardize_and_process_strutture(strutture_25_raw, mapping_comuni, comune_col="Comune", year=2025)
 
     if "vodafone" in datasets:
         logging.info("Downloading and processing vodafone updated dataset...")
-        vodafone_raw = pd.read_csv(get_s3(UPDATE_S3_OBJECTS["vodafone"]))
+        vodafone_raw = fetch_raw_vodafone()
         dict_dfs["vodafone_25_pr"] = standardize_and_process_vodafone_2025(vodafone_raw, mapping_vodafone, geojson)
 
     if "presenze_alb" in datasets:
         logging.info("Downloading and processing presenze alberghiere updated dataset..")
-        alb_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_alb_2025"])
-        raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str)
-        apts = [x.strip() for x in alb_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
+        raw_alb, apts = fetch_raw_presenze_alb()
         dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_2025_apt(raw_alb, apts, mapping_apt)
 
     if "presenze_extralb" in datasets:
         logging.info("Downloading and processing presenze extralberghiere dataset...")
-        xalb_apt_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_apt"])
-        raw_xalb_apt = pd.read_csv(xalb_apt_buffer, sep="\t", header=None, skiprows=2, dtype=str)
-        apts_xalb = [x.strip() for x in xalb_apt_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
-        raw_xalb_prov = _read_grouped_presenze_tsv(get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_prov"]))
+        raw_xalb_apt, apts_xalb, raw_xalb_prov = fetch_raw_presenze_extralb()
         dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_2025_apt(raw_xalb_apt, apts_xalb, mapping_apt)
         dict_dfs["presenze_extralb_25_pr"] = standardize_and_process_presenze_extralb_2025_prov(raw_xalb_prov, mapping_comuni)
 
@@ -184,19 +167,6 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
 # MERGE
 # ---------------------------------------------------------------------------
 
-def _make_hashable(value):
-    """Canonical representation used exclusively for deduplication."""
-    value = normalize_id_comune(value)
-
-    if isinstance(value, tuple):
-        return tuple(str(x).zfill(6) for x in value)
-
-    if pd.isna(value):
-        return value
-
-    return str(value).zfill(6)
-
-
 def merge_update(df_old, df_new, value_cols):
     """Merges old and new: checks the columns and updates the data if there is some intersection.
     If common_cols is set to None, df_old.columns are used as reference
@@ -212,7 +182,6 @@ def merge_update(df_old, df_new, value_cols):
     ).copy()
 
     merged["_ID_KEY"] = merged["ID_COMUNE"].map(_make_hashable) # we use tuple to avoid type problems 
-
     merged = (
         merged.drop_duplicates(
             subset=["DATA", "_ID_KEY"], keep="last"
@@ -265,9 +234,11 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
 
     return merged
 
+
 # ---------------------------------------------------------------------------
 # COMPLETE UPDATE PIPELINE
 # ---------------------------------------------------------------------------
+
 def update_pipeline(
     processed_dir=PROCESSED_DIR,
     final_dir=FINAL_UPDATE_DIR,
@@ -316,7 +287,6 @@ def update_pipeline(
 
     # Combine old baseline data with newly merged data for full context
     full_processed = {**processed_dfs_old, **merged_dfs}
-
     all_phenomena = calculate_phenomena(
         full_processed["popolazione_pr"],
         full_processed["strutture_pr"],
@@ -327,7 +297,6 @@ def update_pipeline(
 
     # Filter and save only the phenomena affected by the selected update datasets
     phenomena_to_save = {}
-
     if "popolazione" in selected_datasets:
         phenomena_to_save["phen_popolazione"] = all_phenomena["phen_popolazione"]
 

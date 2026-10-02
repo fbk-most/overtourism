@@ -49,6 +49,17 @@ def customize_unidecode(x):
     return unidecode(x.strip().upper()).replace("0", "-")
 
 
+def _make_hashable(value):
+    """Canonical representation used exclusively for deduplication."""
+    value = normalize_id_comune(value)
+
+    if isinstance(value, tuple):
+        return tuple(str(x).zfill(6) for x in value)
+
+    if pd.isna(value):
+        return value
+
+    return str(value).zfill(6)
 def pad_id_comune(series, width=6):
     """Zero-pad an ID_COMUNE column to `width` digits (e.g. 22001 -> '022001').
 
