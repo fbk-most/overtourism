@@ -500,4 +500,4 @@ def update_pipeline(
 
 
 if __name__ == "__main__":
-    update_pipeline(datasets=["vodafone", "presenze_alb", "presenze_extralb"])
+    update_pipeline()
