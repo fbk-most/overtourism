@@ -17,11 +17,12 @@ import logging
 import geopandas as geopd
 import pandas as pd
 
-from data_preparation.utils.utils import get_mapping, get_s3, save_computed_dfs
+from data_preparation.utils.utils import (
+    get_mapping, get_s3, save_computed_dfs
+)
 from data_preparation.utils.common import (
-    _read_grouped_presenze_tsv,
-    _remove_unnamed,
-    PROCESSED_DIR, OUTPUT_DIR, check_output_dir, normalize_id_comune,
+    PROCESSED_DIR, OUTPUT_DIR,
+    _read_grouped_presenze_tsv, check_output_dir, normalize_id_comune,
     read_df, standard_ordering_cols,
 )
 from data_preparation.standardize_raw_data import (
@@ -36,13 +37,18 @@ from data_preparation.process_std_data import (
 from data_preparation.gen_base_phenomenon_dataframes import (
     calculate_phenomena,
 )
-from data_preparation.align_data_utils import align_data_popolazione_2025, align_data_strutture, align_presenze_ispat_apts, align_presenze_ispat_prov
+from data_preparation.align_data_for_standardization import (
+    align_data_popolazione_2025, 
+    align_data_strutture, 
+    align_presenze_ispat_apts, 
+    align_presenze_ispat_prov
+)
 
 logging.basicConfig(level=logging.INFO)
 
-ALL_DATASETS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"]
-PROCESSED_OLD = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
-PRESENZE_DATASETS = {"vodafone", "presenze_alb", "presenze_extralb"}
+ALL_DATASETS_KEYS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"]
+PROCESSED_OLD_KEYS = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
+PRESENZE_DATASETS_KEYS = {"vodafone", "presenze_alb", "presenze_extralb"}
 
 MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
 UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "data_processed"
@@ -86,47 +92,29 @@ def standardize_and_process_vodafone_2025(df, mapping_vodafone, geojson):
 
 
 ## Presenze
-
-def standardize_and_process_presenze_alb_2025(df, apts, mapping_apt):
-    long_df = align_presenze_ispat_apts(df, apts, 2025)
-    std = standardize_presenze_columns(
-        long_df,
-        cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"},
-    )
-    return process_presenze_ISPAT(
-        std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False
-    )
-
-
-def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
-    """New: extra-alberghiero data at APT granularity.
-    Kept as an update artifact, although the current final
-    phenomenon uses the provincial xalb dataset.
+def standardize_and_process_presenze_2025_apt(df, apts, mapping_apt, output_col="presenze_alb"):
+    """
+    Standardize and process presenze data at APT granularity.
+    Can be used for both alberghiero (output_col="presenze_alb") 
+    and extra-alberghiero (output_col="presenze_xalb").
     """
     long_df = align_presenze_ispat_apts(df, apts, 2025)
     std = standardize_presenze_columns(
-        long_df,
-        cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"},
+        long_df, 
+        cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"}
     )
-    processed = process_presenze_ISPAT(
-        std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False
-    )
-    return processed.rename(columns={"presenze_alb": "presenze_xalb"})
-
+    processed = process_presenze_ISPAT(std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False)
+    
+    if output_col != "presenze_alb":
+        return processed.rename(columns={"presenze_alb": output_col})
+        
+    return processed
 
 def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
     df_alb_xalb_prov = align_presenze_ispat_prov(df)
-    std = standardize_presenze_columns(
-        df_alb_xalb_prov,
-        cols_renaming={
-            "Presenze alberghi": "presenze_alb",
-            "Presenze extra-alberghi": "presenze_xalb",
-        },
-    )
-    return process_presenze_ISPAT(
-        std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True
-    )
+    std = standardize_presenze_columns(df_alb_xalb_prov,cols_renaming={"Presenze alberghi": "presenze_alb","Presenze extra-alberghi": "presenze_xalb",})
+    return process_presenze_ISPAT(std, mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True)
 
 # ---------------------------------------------------------------------------
 # DOWNLOAD + STANDARDIZE + PROCESS UPDATE
@@ -136,9 +124,9 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
     """Download, standardize and process only the requested update-source datasets.
     datasets: subset of ALL_DATASETS, default = all."""
     ## download mapping and geojson data 
-    datasets = set(datasets) if datasets else set(ALL_DATASETS)
-    if datasets - set(ALL_DATASETS):
-        raise ValueError(f"Unknown dataset(s): {sorted(datasets - set(ALL_DATASETS))}. Valid: {ALL_DATASETS}")
+    datasets = set(datasets) if datasets else set(ALL_DATASETS_KEYS)
+    if datasets - set(ALL_DATASETS_KEYS):
+        raise ValueError(f"Unknown dataset(s): {sorted(datasets - set(ALL_DATASETS_KEYS))}. Valid: {ALL_DATASETS_KEYS}")
 
     check_output_dir(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -242,7 +230,6 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
     """Merge existing processed data with the update.
     Returns only the dataframes that were actually updated."""
     merged = {}
-
     if "popolazione_25_pr" in new_dfs:
         merged["popolazione_pr"] = merge_update(
             old_dfs["popolazione_pr"], new_dfs["popolazione_25_pr"], ["popolazione"]
@@ -300,20 +287,20 @@ def update_pipeline(
         4. recompute final phenomena (if all required datasets are updated)
     datasets: subset of ALL_DATASETS to actually update; default None updates all."""
 
-    selected_datasets = set(datasets) if datasets else set(ALL_DATASETS)
+    selected_datasets = set(datasets) if datasets else set(ALL_DATASETS_KEYS)
 
-    presenze_intersection = selected_datasets.intersection(PRESENZE_DATASETS)
-    if presenze_intersection and presenze_intersection != PRESENZE_DATASETS:
-        missing = PRESENZE_DATASETS - presenze_intersection
+    presenze_intersection = selected_datasets.intersection(PRESENZE_DATASETS_KEYS)
+    if presenze_intersection and presenze_intersection != PRESENZE_DATASETS_KEYS:
+        missing = PRESENZE_DATASETS_KEYS - presenze_intersection
         logging.warning(
-            f"All datasets of presenze {sorted(PRESENZE_DATASETS)} has are needed to compute updated 'phen_presenze'. Missing: {sorted(missing)}"
+            f"All datasets of presenze {sorted(PRESENZE_DATASETS_KEYS)} has are needed to compute updated 'phen_presenze'. Missing: {sorted(missing)}"
         )
 
     logging.info("=== STEP 1: standardize/process update data (%s) ===", selected_datasets)
     new_dfs = process_updated_data(out_dir=update_dir, type_format=type_format, datasets=selected_datasets)
 
     logging.info("=== STEP 2: read current processed data ===")
-    processed_dfs_old = {name: read_df(processed_dir, name, type_format) for name in PROCESSED_OLD}
+    processed_dfs_old = {name: read_df(processed_dir, name, type_format) for name in PROCESSED_OLD_KEYS}
 
     logging.info("=== STEP 3: merge processed data ===")
     merged_dfs = merge_dataframes_processed(processed_dfs_old, new_dfs)
@@ -350,7 +337,7 @@ def update_pipeline(
     if "strutture" in selected_datasets:
         phenomena_to_save["phen_strutture"] = all_phenomena["phen_strutture"]
 
-    if PRESENZE_DATASETS.issubset(selected_datasets):
+    if PRESENZE_DATASETS_KEYS.issubset(selected_datasets):
         phenomena_to_save["phen_presenze"] = all_phenomena["phen_presenze"]
 
     if phenomena_to_save:
