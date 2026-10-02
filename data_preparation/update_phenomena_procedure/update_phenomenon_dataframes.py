@@ -63,7 +63,7 @@ FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 # ---------------------------------------------------------------------------
 
 ## Popolazione
-def standardize_and_process_popolazione_2025(df, mapping_comuni):
+def standardize_and_process_popolazione_updated(df, mapping_comuni):
     """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026."""
     df = align_data_popolazione_2025(df)
     # standardization and process
@@ -71,20 +71,20 @@ def standardize_and_process_popolazione_2025(df, mapping_comuni):
 
 
 ## Strutture
-def standardize_and_process_strutture(df, mapping_comuni, comune_col="Comune", year=2025):
+def standardize_and_process_strutture_updated(df, mapping_comuni, comune_col="Comune", year=2025):
     """Adapts the strutture to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
     df = align_data_strutture(df, comune_col= comune_col, year=year)
     return process_strutture(standardize_strutture_columns(df), mapping_comuni)
 
 
 ## Vodafone
-def standardize_and_process_vodafone_2025(df, mapping_vodafone, geojson):
+def standardize_and_process_vodafone_updated(df, mapping_vodafone, geojson):
     """Adapt the new Vodafone data using the dedicated functions."""
     return process_vodafone(standardize_vodafone_columns(df, geojson), mapping_vodafone)
 
 
 ## Presenze
-def standardize_and_process_presenze_2025_apt(df, apts, mapping_apt, output_col="presenze_alb"):
+def standardize_and_process_presenze_apt_updated(df, apts, mapping_apt, output_col="presenze_alb"):
     """
     Standardize and process presenze data at APT granularity.
     Can be used for both alberghiero (output_col="presenze_alb") 
@@ -99,7 +99,7 @@ def standardize_and_process_presenze_2025_apt(df, apts, mapping_apt, output_col=
         
     return processed
 
-def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
+def standardize_and_process_presenze_extralb_prov_updated(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
     df_alb_xalb_prov = align_presenze_ispat_prov(df)
     std = standardize_presenze_columns(df_alb_xalb_prov,cols_renaming={"Presenze alberghi": "presenze_alb","Presenze extra-alberghi": "presenze_xalb",})
@@ -128,29 +128,32 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
     if "popolazione" in datasets:
         logging.info("Downloading and processing popolazione updated dataset...")
         popolazione_raw = fetch_raw_popolazione()
-        dict_dfs["popolazione_25_pr"] = standardize_and_process_popolazione_2025(popolazione_raw, mapping_comuni)
+        dict_dfs["popolazione_update_pr"] = standardize_and_process_popolazione_updated(popolazione_raw, mapping_comuni)
 
     if "strutture" in datasets:
-        logging.info("Downloading and processing strutture updated datasets 2024 and 2025...")
+        logging.info("Downloading and processing strutture updated datasets...")
         strutture_24_raw, strutture_25_raw = fetch_raw_strutture()
-        dict_dfs["strutture_24_pr"] = standardize_and_process_strutture(strutture_24_raw, mapping_comuni, comune_col="Comuni", year=2024)
-        dict_dfs["strutture_25_pr"] = standardize_and_process_strutture(strutture_25_raw, mapping_comuni, comune_col="Comune", year=2025)
+        
+        df_24 = standardize_and_process_strutture_updated(strutture_24_raw, mapping_comuni, comune_col="Comuni", year=2024)
+        df_25 = standardize_and_process_strutture_updated(strutture_25_raw, mapping_comuni, comune_col="Comune", year=2025)
+        ## Concats the years 
+        dict_dfs["strutture_update_pr"] = pd.concat([df_24, df_25], ignore_index=True)
 
     if "vodafone" in datasets:
         logging.info("Downloading and processing vodafone updated dataset...")
         vodafone_raw = fetch_raw_vodafone()
-        dict_dfs["vodafone_25_pr"] = standardize_and_process_vodafone_2025(vodafone_raw, mapping_vodafone, geojson)
+        dict_dfs["vodafone_update_pr"] = standardize_and_process_vodafone_updated(vodafone_raw, mapping_vodafone, geojson)
 
     if "presenze_alb" in datasets:
         logging.info("Downloading and processing presenze alberghiere updated dataset..")
         raw_alb, apts = fetch_raw_presenze_alb()
-        dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_2025_apt(raw_alb, apts, mapping_apt)
+        dict_dfs["presenze_alb_update_pr"] = standardize_and_process_presenze_apt_updated(raw_alb, apts, mapping_apt)
 
     if "presenze_extralb" in datasets:
         logging.info("Downloading and processing presenze extralberghiere dataset...")
         raw_xalb_apt, apts_xalb, raw_xalb_prov = fetch_raw_presenze_extralb()
-        dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_2025_apt(raw_xalb_apt, apts_xalb, mapping_apt)
-        dict_dfs["presenze_extralb_25_pr"] = standardize_and_process_presenze_extralb_2025_prov(raw_xalb_prov, mapping_comuni)
+        dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_apt_updated(raw_xalb_apt, apts_xalb, mapping_apt, output_col="presenze_xalb")
+        dict_dfs["presenze_extralb_update_pr"] = standardize_and_process_presenze_extralb_prov_updated(raw_xalb_prov, mapping_comuni)
 
     save_computed_dfs(
         dict_dfs,
@@ -167,7 +170,7 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
 # MERGE
 # ---------------------------------------------------------------------------
 
-def merge_update(df_old, df_new, value_cols):
+def merge_new_pr_dataframe(df_old, df_new, value_cols):
     """Merges old and new: checks the columns and updates the data if there is some intersection.
     If common_cols is set to None, df_old.columns are used as reference
     Merge using DATA + ID_COMUNE (via _make_hashable, to deal with ID_COMUNE lists)"""
@@ -192,40 +195,34 @@ def merge_update(df_old, df_new, value_cols):
     )    # print(merged["ID_COMUNE"].apply(type).value_counts())
     return standard_ordering_cols(merged)
 
-def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
+def merge_all_processed_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
     """Merge existing processed data with the update.
     Returns only the dataframes that were actually updated."""
     merged = {}
-    if "popolazione_25_pr" in new_dfs:
-        merged["popolazione_pr"] = merge_update(
-            old_dfs["popolazione_pr"], new_dfs["popolazione_25_pr"], ["popolazione"]
+    if "popolazione_update_pr" in new_dfs:
+        merged["popolazione_pr"] = merge_new_pr_dataframe(
+            old_dfs["popolazione_pr"], new_dfs["popolazione_update_pr"], ["popolazione"]
         )
 
-    if "strutture_24_pr" in new_dfs and "strutture_25_pr" in new_dfs:
-        strutture = merge_update(
-            old_dfs["strutture_pr"],
-            new_dfs["strutture_24_pr"],
-            ["tot_postiletto_non_conv", "tot_postiletto", "tot_strutture_non_conv", "tot_strutture"],
-        )
-        merged["strutture_pr"] = merge_update(
-            strutture,
-            new_dfs["strutture_25_pr"],
-            ["tot_postiletto_non_conv", "tot_postiletto", "tot_strutture_non_conv", "tot_strutture"],
-        )
-
-    if "vodafone_25_pr" in new_dfs:
-        merged["vodafone_pr"] = merge_update(
-            old_dfs["vodafone_pr"], new_dfs["vodafone_25_pr"], ["presenze"]
+    if "strutture_update_pr" in new_dfs:
+            merged["strutture_pr"] = merge_new_pr_dataframe(
+                old_dfs["strutture_pr"],
+                new_dfs["strutture_update_pr"],
+                ["tot_postiletto_non_conv", "tot_postiletto", "tot_strutture_non_conv", "tot_strutture"],
+            )
+    if "vodafone_update_pr" in new_dfs:
+        merged["vodafone_pr"] = merge_new_pr_dataframe(
+            old_dfs["vodafone_pr"], new_dfs["vodafone_update_pr"], ["presenze"]
         )
 
-    if "presenze_alb_25_pr" in new_dfs:
-        merged["presenze_alb_pr"] = merge_update(
-            old_dfs["presenze_alb_pr"], new_dfs["presenze_alb_25_pr"], ["presenze_alb"]
+    if "presenze_alb_update_pr" in new_dfs:
+        merged["presenze_alb_pr"] = merge_new_pr_dataframe(
+            old_dfs["presenze_alb_pr"], new_dfs["presenze_alb_update_pr"], ["presenze_alb"]
         )
 
-    if "presenze_extralb_25_pr" in new_dfs:
-        merged["presenze_extralb_pr"] = merge_update(
-            old_dfs["presenze_extralb_pr"], new_dfs["presenze_extralb_25_pr"], ["presenze_xalb"]
+    if "presenze_extralb_update_pr" in new_dfs:
+        merged["presenze_extralb_pr"] = merge_new_pr_dataframe(
+            old_dfs["presenze_extralb_pr"], new_dfs["presenze_extralb_update_pr"], ["presenze_xalb"]
         )
 
     if "presenze_extralb_25_apt_pr" in new_dfs:
@@ -239,7 +236,7 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
 # COMPLETE UPDATE PIPELINE
 # ---------------------------------------------------------------------------
 
-def update_pipeline(
+def update_pipeline_phen_computation(
     processed_dir=PROCESSED_DIR,
     final_dir=FINAL_UPDATE_DIR,
     update_dir=UPDATE_PROCESSED_DIR,
@@ -261,7 +258,7 @@ def update_pipeline(
     if presenze_intersection and presenze_intersection != PRESENZE_DATASETS_KEYS:
         missing = PRESENZE_DATASETS_KEYS - presenze_intersection
         logging.warning(
-            f"All datasets of presenze {sorted(PRESENZE_DATASETS_KEYS)} has are needed to compute updated 'phen_presenze'. Missing: {sorted(missing)}"
+            f"All datasets of presenze {sorted(PRESENZE_DATASETS_KEYS)} are needed to compute updated 'phen_presenze'. Missing: {sorted(missing)}"
         )
 
     logging.info("=== STEP 1: standardize/process update data (%s) ===", selected_datasets)
@@ -271,7 +268,7 @@ def update_pipeline(
     processed_dfs_old = {name: read_df(processed_dir, name, type_format) for name in PROCESSED_OLD_KEYS}
 
     logging.info("=== STEP 3: merge processed data ===")
-    merged_dfs = merge_dataframes_processed(processed_dfs_old, new_dfs)
+    merged_dfs = merge_all_processed_dataframes(processed_dfs_old, new_dfs)
 
     check_output_dir(merged_dir)
     merged_dir.mkdir(parents=True, exist_ok=True)
@@ -324,4 +321,4 @@ def update_pipeline(
 
 
 if __name__ == "__main__":
-    update_pipeline(type_format="parquet")
+    update_pipeline_phen_computation(type_format="parquet")

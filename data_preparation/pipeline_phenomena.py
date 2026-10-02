@@ -12,7 +12,7 @@ import logging
 from data_preparation.download_raw_data import download_raw_data
 from data_preparation.standardize_raw_data import standardize_raw_data
 from data_preparation.process_std_data import process_data
-from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
+from data_preparation.gen_base_phenomenon_dataframes import main_compute_phenomena_dfs
 
 if __name__ == "__main__":
     type_format = "csv"
@@ -24,5 +24,5 @@ if __name__ == "__main__":
     logging.info("Step 2: process normalized data into Output/data_processed")
     process_data(type_format = type_format)
     logging.info("Step 3: saves final phenomena into Output/final_data")
-    compute_phenomenon_dataframes(type_format = type_format)
+    main_compute_phenomena_dfs(type_format = type_format)
     logging.info("Pipeline finished!")

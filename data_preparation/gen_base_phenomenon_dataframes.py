@@ -53,7 +53,6 @@ def calculate_phenomena(
     popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 ):
     """Builds the final phenomenon dataframes from the processed ones.
-
     Returns a dict with keys "phen_popolazione", "phen_strutture", "phen_presenze".
     """
     logging.info("## Computing presences phenomenon dataframe")
@@ -69,7 +68,7 @@ def calculate_phenomena(
 
 
 ## STEP computation of phenomena
-def compute_phenomenon_dataframes(
+def main_compute_phenomena_dfs(
     processed_dir=PROCESSED_DIR, out_dir=FINAL_DIR, type_format="csv", local=True
 ):
     """Main orchestrator,
@@ -108,4 +107,4 @@ if __name__ == "__main__":
     dir_out = FINAL_DIR
     type_format = "csv"
     local = True
-    compute_phenomenon_dataframes(dir_in, dir_out, type_format, local=local)
+    main_compute_phenomena_dfs(dir_in, dir_out, type_format, local=local)
