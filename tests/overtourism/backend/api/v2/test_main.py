@@ -7,7 +7,7 @@ import threading
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.main import create_app
+from overtourism.backend.main import create_app
 from overtourism.dt_manager.session.config import SessionCleanupConfig
 
 
@@ -128,6 +128,10 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
         {
             "name": "Territorys",
             "description": "List territorys available to the current user.",
+        },
+        {
+            "name": "Health",
+            "description": "Operational liveness and readiness probes.",
         },
     ]
     assert openapi["paths"]["/api/v2/{territory}/problems"]["get"]["tags"] == [

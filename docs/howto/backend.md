@@ -36,6 +36,15 @@ Run the FastAPI backend with:
 fastapi run ./overtourism/overtourism/app_v1.py
 ```
 
+## Health probes (v2)
+
+Both v2 services expose unauthenticated operational probes:
+
+- `GET /health/live` returns `200` while the process can answer requests. It does not check external dependencies.
+- `GET /health/ready` returns `200` when the service is ready, or `503` otherwise. The CRUD API checks its SQL store with `SELECT 1`; Layer 3 checks that its model registry is available and consistent.
+
+The local `run_v2_auth.sh` launcher waits for Layer 3 readiness before starting the CRUD API, then waits for API readiness before provisioning the optional admin. `HEALTH_CHECK_TIMEOUT_SECONDS` sets the readiness timeout (default `60`).
+
 ## With Docker
 
 You can build separate containers for the CRUD API and the model-computation API:

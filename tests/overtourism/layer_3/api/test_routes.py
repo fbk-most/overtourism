@@ -6,8 +6,30 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from overtourism.layer_3.api import health as health_api
 from overtourism.layer_3.api.main import app
 from overtourism.layer_3.model.common.sustainability_field import arrange_frontend_data
+
+
+def test_layer_3_health_probes_report_live_and_ready() -> None:
+    with TestClient(app) as client:
+        live_response = client.get("/health/live")
+        ready_response = client.get("/health/ready")
+
+    assert live_response.status_code == 200
+    assert live_response.json() == {"status": "alive"}
+    assert ready_response.status_code == 200
+    assert ready_response.json() == {"status": "ready"}
+
+
+def test_layer_3_is_not_ready_when_model_registry_is_invalid(monkeypatch) -> None:
+    monkeypatch.setattr(health_api, "BACKEND_REGISTRY", {})
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
 
 
 def test_evaluate_returns_frontend_shape_when_snapshot_is_false(monkeypatch) -> None:

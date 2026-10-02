@@ -11,6 +11,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from overtourism.layer_3.api.health import router as health_router
 from overtourism.layer_3.api.routes import router
 
 app = FastAPI(
@@ -29,3 +30,4 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(health_router)

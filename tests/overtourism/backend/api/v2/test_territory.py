@@ -7,11 +7,11 @@ from typing import cast
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.main import create_app
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole
 from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
+from overtourism.backend.main import create_app
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 
 

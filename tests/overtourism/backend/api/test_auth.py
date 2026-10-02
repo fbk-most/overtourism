@@ -8,13 +8,13 @@ from typing import Any, cast
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.main import create_app as create_app_v2
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole
 from overtourism.backend.auth.tokens import jwt as auth_jwt
 from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 from overtourism.backend.handler import Handler
+from overtourism.backend.main import create_app as create_app_v2
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig

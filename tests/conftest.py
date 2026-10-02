@@ -11,11 +11,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.main import create_app
 from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
+from overtourism.backend.main import create_app
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
     Evaluation,
