@@ -34,7 +34,9 @@ from data_preparation.process_data import (
     process_popolazione, process_presenze_ISPAT, process_strutture,
     process_vodafone,
 )
-from data_preparation.gen_base_phenomenon_dataframes import compute_phenomenon_dataframes
+from data_preparation.gen_base_phenomenon_dataframes import (
+    calculate_phenomena,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,7 +44,7 @@ ALL_DATASETS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenz
 PROCESSED_OLD = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
 
 MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
-UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "processed"
+UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "data_processed"
 FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 
 UPDATE_S3_OBJECTS = {
@@ -219,7 +221,7 @@ def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
     df = _remove_unnamed(df).copy()
     df["Mese"] = df["Mese"].astype(str).str.strip()
-    df = df[df["Mese"] != "Totale"].reset_index(drop=True)  # rm Totale
+    df = df[df["Mese"] != "Totale"].reset_index(drop=True)
     df["Mese"] = df["Mese"].map(MONTHS_MAPPING)
     if df["Mese"].isna().any():
         raise ValueError(
@@ -298,12 +300,8 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
     if "presenze_alb" in datasets:
         logging.info("Downloading and processing presenze alberghiere updated dataset..")
         alb_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_alb_2025"])
-        raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str) # download from ISPAT 
-        apts = [
-            x.strip()
-            for x in alb_buffer.getvalue().decode("utf-8")
-            .splitlines()[0].split("\t")
-        ]
+        raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str)
+        apts = [x.strip() for x in alb_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
         dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_alb_2025(raw_alb, apts, mapping_apt)
 
     if "presenze_extralb" in datasets:
@@ -370,8 +368,9 @@ def merge_update(df_old, df_new, value_cols):
     return standard_ordering_cols(merged)
 
 def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
-    """Merge existing processed data with the update."""
-    merged = dict(old_dfs)
+    """Merge existing processed data with the update.
+    Returns only the dataframes that were actually updated."""
+    merged = {}
 
     if "popolazione_25_pr" in new_dfs:
         merged["popolazione_pr"] = merge_update(
@@ -450,29 +449,45 @@ def update_pipeline(
         path_saving=merged_dir,
     )
 
-
     logging.info("=== STEP 4: recompute final phenomena ===")
 
-    # compute_phenomenon_dataframes() expects the five standard
-    # processed datasets. The APT xalb artifact is not included.
-    compute_phenomenon_dataframes(
-        processed_dir=merged_dir,
-        out_dir=final_dir,
-        type_format=type_format,
+    # Combine old baseline data with newly merged data for full context
+    full_processed = {**processed_dfs_old, **merged_dfs}
+
+    all_phenomena = calculate_phenomena(
+        full_processed["popolazione_pr"],
+        full_processed["strutture_pr"],
+        full_processed["vodafone_pr"],
+        full_processed["presenze_alb_pr"],
+        full_processed["presenze_extralb_pr"],
+    )
+
+    # Filter and save only the phenomena affected by the selected update datasets
+    selected_datasets = set(datasets) if datasets else set(ALL_DATASETS)
+    phenomena_to_save = {}
+
+    if "popolazione" in selected_datasets:
+        phenomena_to_save["phen_popolazione"] = all_phenomena["phen_popolazione"]
+
+    if "strutture" in selected_datasets:
+        phenomena_to_save["phen_strutture"] = all_phenomena["phen_strutture"]
+
+    if selected_datasets.intersection({"vodafone", "presenze_alb", "presenze_extralb"}):
+        phenomena_to_save["phen_presenze"] = all_phenomena["phen_presenze"]
+
+    check_output_dir(final_dir)
+    final_dir.mkdir(parents=True, exist_ok=True)
+
+    save_computed_dfs(
+        phenomena_to_save,
         local=True,
+        type_format=type_format,
+        path_saving=final_dir,
     )
 
     logging.info("=== UPDATE COMPLETED ===")
     return merged_dfs
 
 
-if __name__ == "__main__":               
-    update_pipeline(datasets=["presenze_alb", "presenze_extralb"])  # solo le presenze
-    update_pipeline(
-        processed_dir = PROCESSED_DIR,
-        final_dir = FINAL_UPDATE_DIR,
-        update_dir = UPDATE_PROCESSED_DIR,
-        merged_dir = MERGED_PROCESSED_DIR,
-        type_format = "csv",
-        datasets=None,
-    )
+if __name__ == "__main__":
+    update_pipeline(datasets=["vodafone", "presenze_alb", "presenze_extralb", "pippo"])
