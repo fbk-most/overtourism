@@ -17,6 +17,8 @@ from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_sett
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
+from overtourism.dt_manager.stores.config import StoreConfig
+from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.overtourism.backend_extension.api.v2 import indexes as indexes_api
 from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
 from overtourism.overtourism.backend_extension.api.v2.problem import (
@@ -25,8 +27,6 @@ from overtourism.overtourism.backend_extension.api.v2.problem import (
 from overtourism.overtourism.backend_extension.api.v2.proposal import (
     proposal_router as overtourism_proposal_router,
 )
-from overtourism.dt_manager.stores.config import StoreConfig
-from overtourism.dt_manager.stores.enums import StoreType
 
 
 @pytest.fixture

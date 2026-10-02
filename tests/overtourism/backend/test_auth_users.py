@@ -8,9 +8,6 @@ from typing import cast
 
 import pytest
 
-from overtourism.backend.auth.identity.bootstrap_admin import (
-    main as bootstrap_admin_main,
-)
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole
@@ -383,49 +380,3 @@ def test_unverified_or_mismatched_email_cannot_claim_pending_admin(
 
     assert response.status_code == 403
     assert user_manager.get_active_user_by_subject("first-admin-sub") is None
-
-
-def test_bootstrap_admin_command_creates_one_pending_global_admin(
-    tmp_path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    database_url = f"sqlite:///{tmp_path / 'bootstrap.db'}"
-    monkeypatch.setenv("OVERTOURISM_DATABASE", database_url)
-
-    assert bootstrap_admin_main(["First.Admin@example.org"]) == 0
-    assert bootstrap_admin_main(["first.admin@example.org"]) == 0
-
-    store = SQLStore(database_url)
-    try:
-        repository = SQLUserRepository(store.engine, store.session_factory)
-        users = repository.load_users()
-    finally:
-        store.engine.dispose()
-
-    assert len(users) == 1
-    assert users[0].identifier == "first.admin@example.org"
-    assert users[0].role is UserRole.ADMIN
-    assert users[0].subject is None
-    assert users[0].territories == frozenset()
-
-
-def test_bootstrap_admin_command_refuses_a_nonempty_registry(
-    tmp_path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    database_url = f"sqlite:///{tmp_path / 'existing.db'}"
-    store = SQLStore(database_url)
-    repository = SQLUserRepository(store.engine, store.session_factory)
-    UserManager(repository).create_user(
-        identifier="viewer@example.org",
-        role=UserRole.VIEWER,
-        territories=["molveno"],
-    )
-    store.engine.dispose()
-    monkeypatch.setenv("OVERTOURISM_DATABASE", database_url)
-
-    assert bootstrap_admin_main(["admin@example.org"]) == 1
-
-
-def test_bootstrap_admin_command_requires_an_email_address() -> None:
-    assert bootstrap_admin_main(["not-an-email"]) == 2

@@ -22,10 +22,6 @@ export AUTH_ALGORITHMS="${AUTH_ALGORITHMS:-RS256}"
 export AUTH_LEEWAY_SECONDS="${AUTH_LEEWAY_SECONDS:-30}"
 export MODEL_BACKEND_URL="${MODEL_BACKEND_URL:-http://localhost:8001}"
 
-if [[ $# -eq 1 ]]; then
-	python -m overtourism.backend.auth.identity.bootstrap_admin "$1"
-fi
-
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 MAIN_PORT="${MAIN_PORT:-8001}"
@@ -38,10 +34,34 @@ MAIN_PID=$!
 
 sleep "$STARTUP_DELAY_SECONDS"
 
+fastapi run ./overtourism/overtourism/app_v2.py --host "$HOST" --port "$PORT" &
+API_PID=$!
+
 cleanup() {
 	kill "$MAIN_PID" >/dev/null 2>&1 || true
+	kill "$API_PID" >/dev/null 2>&1 || true
 }
 
 trap cleanup EXIT INT TERM
 
-exec fastapi run ./overtourism/overtourism/app_v2.py --host "$HOST" --port "$PORT"
+if [[ $# -eq 1 ]]; then
+	API_READY=false
+	for _ in {1..60}; do
+		if python -c 'import sys; from urllib.request import urlopen; urlopen(f"http://127.0.0.1:{sys.argv[1]}/openapi.json", timeout=1)' "$PORT" >/dev/null 2>&1; then
+			API_READY=true
+			break
+		fi
+		if ! kill -0 "$API_PID" >/dev/null 2>&1; then
+			wait "$API_PID" || true
+			exit 1
+		fi
+		sleep 1
+	done
+	if [[ "$API_READY" != true ]]; then
+		printf 'API did not become ready; admin was not provisioned.\n' >&2
+		exit 1
+	fi
+	python -m bootstrap_admin "$1"
+fi
+
+wait "$API_PID"
