@@ -14,7 +14,6 @@ from overtourism.backend.api.models.evaluation import (
     PostEvaluationData,
     UpdateEvaluationData,
 )
-from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
     check_version,
@@ -23,6 +22,7 @@ from overtourism.backend.api.utils.utils import (
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.dt_manager.evaluation.evaluation import Evaluation
 
 logger = logging.getLogger(__name__)

@@ -6,13 +6,13 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.config import BASE_ROUTE
 from overtourism.backend.api.utils.executor_utils import list_models
 from overtourism.backend.auth.identity.authorization import resolve_current_user
 from overtourism.backend.auth.identity.users import UserRole
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import BASE_ROUTE
 
 territory_router = APIRouter(
     prefix=f"{BASE_ROUTE}/default",

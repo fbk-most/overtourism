@@ -23,7 +23,6 @@ from overtourism.backend.api.models.session import (
     SessionData,
     SessionSummaryData,
 )
-from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.executor_utils import call_executor
 from overtourism.backend.api.utils.utils import (
     get_scenario_or_404,
@@ -37,6 +36,7 @@ from overtourism.backend.auth.identity.authorization import require_territory_ac
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 
 logger = logging.getLogger(__name__)
 

@@ -10,11 +10,6 @@ from threading import Event, Thread
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.utils.config import (
-    APP_VERSION,
-    BASE_ROUTE,
-)
-from overtourism.backend.api.utils.exceptions import install_exception_handlers
 from overtourism.backend.api.v2.evaluation import evaluation_router
 from overtourism.backend.api.v2.parameters import configuration_router
 from overtourism.backend.api.v2.problem import problem_router
@@ -26,6 +21,12 @@ from overtourism.backend.auth.api.router import auth_router
 from overtourism.backend.handler import init_handler
 from overtourism.backend.health.checks import model_backend_is_ready, store_is_ready
 from overtourism.backend.health.router import create_health_router
+from overtourism.backend.utils.config import (
+    APP_VERSION,
+    BASE_ROUTE,
+)
+from overtourism.backend.utils.exceptions import install_exception_handlers
+from overtourism.backend.utils.logging_config import service_log_format
 
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -36,7 +37,7 @@ if typing.TYPE_CHECKING:
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s:%(funcName)s:%(lineno)d | %(message)s",
+    format=service_log_format("backend-api", APP_VERSION),
     handlers=[logging.StreamHandler()],
 )
 logging.getLogger("watchfiles.main").setLevel(logging.WARNING)

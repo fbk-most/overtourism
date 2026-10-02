@@ -8,19 +8,30 @@ Run with::
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from overtourism.layer_3.api.health import router as health_router
+from overtourism.layer_3.api.logging_config import service_log_format
 from overtourism.layer_3.api.routes import router
+
+APP_VERSION = "0.1.0"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=service_log_format("layer-3-models", APP_VERSION),
+    handlers=[logging.StreamHandler()],
+)
 
 app = FastAPI(
     title="Overtourism Digital Twin API",
-    version="0.1.0",
+    version=APP_VERSION,
     description="REST layer over the Fazzon/Molveno computation backends (Layer 3).",
 )
 
-# Permissive dev CORS — mirrors overtourism.OLD/backend/api/main.py.
+# Permissive development CORS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

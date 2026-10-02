@@ -12,13 +12,13 @@ from overtourism.backend.api.models.problem import (
     ProblemData,
     UpdateProblemData,
 )
-from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.utils import (
     check_version,
     get_problem_or_404,
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 
 logger = logging.getLogger(__name__)
 

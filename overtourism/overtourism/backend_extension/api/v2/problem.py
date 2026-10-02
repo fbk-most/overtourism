@@ -7,7 +7,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.v2.problem import (
     create_problem as base_create_problem,
 )
@@ -25,6 +24,7 @@ from overtourism.backend.api.v2.problem import (
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.overtourism.backend_extension.api.models.problem import (
     OvertourismPostProblemData,
     OvertourismProblemData,

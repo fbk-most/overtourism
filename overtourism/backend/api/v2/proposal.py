@@ -12,7 +12,6 @@ from overtourism.backend.api.models.proposal import (
     ProposalData,
     UpdateProposalData,
 )
-from overtourism.backend.api.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.api.utils.utils import (
     check_version,
     ensure_base_scenario_id,
@@ -23,6 +22,7 @@ from overtourism.backend.api.utils.utils import (
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 
 logger = logging.getLogger(__name__)
 
