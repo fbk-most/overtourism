@@ -293,7 +293,8 @@ class Manager:
         territory: str | None = None,
     ) -> dict:
         """Return the stored result payload for an evaluation."""
-        return self.read_evaluation(evaluation_id, territory=territory).result
+        result = self.read_evaluation(evaluation_id, territory=territory).result
+        return {} if result is None else result
 
     def create_evaluation(
         self,
@@ -391,13 +392,13 @@ class Manager:
 
     def create_session(
         self,
-        territory: str | None = None,
+        territory: str,
         owner_id: str | None = None,
         metadata: dict | None = None,
     ) -> Session:
         """Create a persisted session."""
         return self.session_manager.create_session(
-            territory=self.name_cfg.territory if territory is None else territory,
+            territory=territory,
             owner_id=owner_id,
             metadata=metadata,
         )

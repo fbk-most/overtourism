@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from sqlalchemy import create_engine, delete, event, select
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import CursorResult, Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker
 
@@ -137,10 +138,13 @@ class SQLStore(Store):
             if not expired_session_ids:
                 return 0
 
-            result = session.execute(
-                delete(self.schema.sessions).where(
-                    self.schema.sessions.session_id.in_(expired_session_ids)
-                )
+            result = cast(
+                CursorResult[Any],
+                session.execute(
+                    delete(self.schema.sessions).where(
+                        self.schema.sessions.session_id.in_(expired_session_ids)
+                    )
+                ),
             )
             return result.rowcount or 0
 

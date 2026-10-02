@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -48,7 +48,7 @@ async def list_proposals(
     scenario_id: str | None = None,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> list[ProposalData]:
+) -> list[dict[str, Any]]:
     """List all proposals for a problem."""
     try:
         proposals = handler.manager.list_proposals(
@@ -75,7 +75,7 @@ async def create_proposal(
     territory: str,
     data: PostProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProposalData:
+) -> dict[str, Any]:
     """Create a proposal for a problem."""
     try:
         get_problem_or_404(territory, handler, data.problem_id)
@@ -109,7 +109,7 @@ async def read_proposal(
     territory: str,
     proposal_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProposalData:
+) -> dict[str, Any]:
     """Read a proposal by identifier."""
     try:
         proposal = get_proposal_or_404(territory, handler, proposal_id)
@@ -133,7 +133,7 @@ async def update_proposal(
     proposal_id: str,
     data: UpdateProposalData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProposalData:
+) -> dict[str, Any]:
     """Update a proposal and its related scenario links."""
     try:
         current_proposal = get_proposal_or_404(territory, handler, proposal_id)

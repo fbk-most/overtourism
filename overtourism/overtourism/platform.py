@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import digitalhub as dh
-from digitalhub.utils.exceptions import StoreError
+import digitalhub as dh  # type: ignore[import-untyped]
+from digitalhub.utils.exceptions import StoreError  # type: ignore[import-untyped]
 
 # Platform specific settings
 project_name = os.getenv("PROJECT_NAME", "overtourism")

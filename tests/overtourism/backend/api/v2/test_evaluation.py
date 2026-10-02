@@ -120,6 +120,18 @@ def test_create_evaluation_persists_failed_state_when_executor_fails(
     assert read_response.status_code == 200
     assert read_response.json()["state"] == "FAILED"
 
+    data_response = client.get(
+        f"/api/v2/{territory}/evaluations/{evaluation_id}/data",
+        params={"problem_id": problem_id},
+    )
+
+    assert data_response.status_code == 200
+    assert data_response.json() == {
+        "evaluation_id": evaluation_id,
+        "scenario_id": f"{territory}_base_scenario",
+        "data": {},
+    }
+
 
 def test_list_evaluations_filters_by_territory(
     client,

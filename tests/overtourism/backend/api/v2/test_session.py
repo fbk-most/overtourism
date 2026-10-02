@@ -215,6 +215,7 @@ def test_expired_session_is_rejected_before_periodic_cleanup(
 
 def test_session_detail_embeds_evaluation_metadata_without_result(
     client,
+    manager: Manager,
     territory: str,
     problem_id: str,
     scenario_id: str,
@@ -256,6 +257,9 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     )
     assert evaluation_response.status_code == 200
     evaluation = evaluation_response.json()
+    stored_evaluation = manager.read_evaluation(evaluation["evaluation_id"])
+    stored_evaluation.result = None
+    manager.save_evaluation(stored_evaluation)
 
     response = client.get(
         f"/api/v2/{territory}/sessions/session-detail",
@@ -272,3 +276,12 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     assert evaluation_data["state"] == "COMPLETED"
     assert evaluation_data["started"] == evaluation["started"]
     assert evaluation_data["finished"] == evaluation["finished"]
+
+    data_response = client.get(
+        f"/api/v2/{territory}/sessions/session-detail/evaluations/"
+        f"{evaluation['evaluation_id']}/data",
+        params={"problem_id": problem_id},
+    )
+
+    assert data_response.status_code == 200
+    assert data_response.json()["data"] == {}

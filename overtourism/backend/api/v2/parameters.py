@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
@@ -29,7 +30,7 @@ configuration_router = APIRouter(
 )
 async def get_configuration(
     territory: str,
-) -> ModelSchema:
+) -> dict[str, Any]:
     """List all available configuration for the given territory."""
     try:
         return call_schema(territory)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from overtourism.dt_manager.evaluation.evaluation import Evaluation, EvaluationState
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.scenario.scenario import Scenario
@@ -37,9 +39,15 @@ def _make_manager(
             problem_keys=frozenset({"objective", "links"}),
         ),
     )
-    manager.name_cfg = SimpleNamespace(territory=DEFAULT_TERRITORY)
     execution_service = FakeExecutionService(model, evaluator)
     return manager, evaluator, model, execution_service
+
+
+def test_create_session_requires_territory(tmp_path) -> None:
+    manager = _make_manager(tmp_path)[0]
+
+    with pytest.raises(TypeError):
+        getattr(manager, "create_session")()
 
 
 def test_manager_starts_empty_and_persists_an_explicit_graph(tmp_path) -> None:
@@ -140,7 +148,10 @@ def test_manager_session_workflow_uses_session_manager(tmp_path) -> None:
         description="Transient scenario",
     )
 
-    session = manager.create_session(metadata={"source": "test"})
+    session = manager.create_session(
+        territory=DEFAULT_TERRITORY,
+        metadata={"source": "test"},
+    )
     session_scenario = manager.create_session_scenario(
         session.session_id,
         base_scenario.scenario_id,

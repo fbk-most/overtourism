@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, select, text, update
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import CursorResult, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -83,13 +84,16 @@ class SQLUserRepository:
     def bind_subject_if_unlinked(self, identifier: str, subject: str) -> bool:
         try:
             with self._session_factory.begin() as session:
-                result = session.execute(
-                    update(UserORM)
-                    .where(
-                        UserORM.identifier == identifier,
-                        UserORM.subject.is_(None),
-                    )
-                    .values(subject=subject, updated_at=datetime.now(UTC))
+                result = cast(
+                    CursorResult[Any],
+                    session.execute(
+                        update(UserORM)
+                        .where(
+                            UserORM.identifier == identifier,
+                            UserORM.subject.is_(None),
+                        )
+                        .values(subject=subject, updated_at=datetime.now(UTC))
+                    ),
                 )
                 return result.rowcount == 1
         except IntegrityError:

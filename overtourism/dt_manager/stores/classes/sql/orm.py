@@ -28,7 +28,7 @@ class SQLBase(DeclarativeBase):
     pass
 
 
-class CompressedJSON(TypeDecorator[bytes | None]):
+class CompressedJSON(TypeDecorator[dict[str, Any] | None]):
     """Persist JSON payloads as compressed binary blobs."""
 
     impl = LargeBinary
@@ -315,7 +315,7 @@ def relationship_from_orm(relationship: RelationshipORM) -> dict[str, str]:
 
 def evaluation_to_orm(evaluation: dict[str, Any]) -> EvaluationORM:
     result = evaluation.get("result")
-    if hasattr(result, "to_dict"):
+    if result is not None and hasattr(result, "to_dict"):
         result = result.to_dict()
     if result is not None and not isinstance(result, dict):
         raise TypeError(

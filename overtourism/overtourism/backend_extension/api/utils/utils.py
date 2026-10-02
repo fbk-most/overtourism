@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import typing
-from typing import Any
+from typing import Any, overload
+
+from pydantic import BaseModel
 
 from overtourism.backend.api.models.problem import (
     PostProblemData as BasePostProblemData,
@@ -25,16 +26,15 @@ from overtourism.overtourism.backend_extension.api.models.proposal import (
     OvertourismProposalData,
 )
 
-if typing.TYPE_CHECKING:
-    from pydantic import BaseModel
-
-
 # ──────────────────────────────────────────────
 # Conversion functions for overtourism API models
 # ──────────────────────────────────────────────
 
 
-def _model_to_api_overtourism(data: dict, model_class: BaseModel) -> BaseModel:
+def _model_to_api_overtourism[ModelT: BaseModel](
+    data: dict[str, Any],
+    model_class: type[ModelT],
+) -> ModelT:
     """Convert a backend entity to an overtourism API entity."""
     return model_class(**{**data, **data.pop("extras", {})})
 
@@ -44,8 +44,26 @@ def _model_to_api_overtourism(data: dict, model_class: BaseModel) -> BaseModel:
 # ──────────────────────────────────────────────
 
 
+@overload
+def prepare_problem_payload(
+    problem_id: None,
+    territory: str,
+    payload: dict[str, Any],
+    handler: Handler,
+) -> BasePostProblemData: ...
+
+
+@overload
 def prepare_problem_payload(
     problem_id: str,
+    territory: str,
+    payload: dict[str, Any],
+    handler: Handler,
+) -> BaseUpdateProblemData: ...
+
+
+def prepare_problem_payload(
+    problem_id: str | None,
     territory: str,
     payload: dict[str, Any],
     handler: Handler,
@@ -68,7 +86,7 @@ def prepare_problem_payload(
     return BasePostProblemData(**payload)
 
 
-def to_problem_api_overtourism(data: BasePostProblemData) -> OvertourismProblemData:
+def to_problem_api_overtourism(data: dict[str, Any]) -> OvertourismProblemData:
     """Convert a backend problem entity to an overtourism API problem entity."""
     return _model_to_api_overtourism(data, OvertourismProblemData)
 
@@ -78,8 +96,24 @@ def to_problem_api_overtourism(data: BasePostProblemData) -> OvertourismProblemD
 # ──────────────────────────────────────────────
 
 
+@overload
+def prepare_proposal_payload(
+    proposal_id: None,
+    payload: dict[str, Any],
+    handler: Handler,
+) -> BasePostProposalData: ...
+
+
+@overload
 def prepare_proposal_payload(
     proposal_id: str,
+    payload: dict[str, Any],
+    handler: Handler,
+) -> BaseUpdateProposalData: ...
+
+
+def prepare_proposal_payload(
+    proposal_id: str | None,
     payload: dict[str, Any],
     handler: Handler,
 ) -> BasePostProposalData | BaseUpdateProposalData:
@@ -96,6 +130,6 @@ def prepare_proposal_payload(
     return BasePostProposalData(**payload)
 
 
-def to_proposal_api_overtourism(data: BasePostProposalData) -> OvertourismProposalData:
+def to_proposal_api_overtourism(data: dict[str, Any]) -> OvertourismProposalData:
     """Convert a backend proposal entity to an overtourism API proposal entity."""
     return _model_to_api_overtourism(data, OvertourismProposalData)

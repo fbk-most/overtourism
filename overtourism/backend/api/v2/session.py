@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -213,7 +213,7 @@ async def read_session(
             metadata=dict(session.metadata),
             active_scenario_id=session.active_scenario_id,
             draft_ids=list(session.scenarios),
-            scenarios=[
+            drafts=[
                 ScenarioData(**scenario_to_api(handler, draft))
                 for draft in session.scenarios.values()
             ],
@@ -271,7 +271,7 @@ async def create_session_scenario(
     data: PostScenarioData,
     context: Annotated[AuthContext, Depends(get_auth_context)],
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         _require_owned_session(handler, territory, session_id, context)
         get_scenario_or_404(territory, handler, data.base_scenario_id)
@@ -303,7 +303,7 @@ async def read_session_scenario(
     scenario_id: str,
     context: Annotated[AuthContext, Depends(get_auth_context)],
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         _require_owned_session(handler, territory, session_id, context)
         scenario = get_session_scenario_or_404(handler, session_id, scenario_id)
@@ -330,14 +330,14 @@ async def save_scenario(
     *,
     context: Annotated[AuthContext, Depends(get_auth_context)],
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         _require_owned_session(handler, territory, session_id, context)
         get_session_scenario_or_404(handler, session_id, scenario_id)
         saved_scenario = handler.manager.save_session_scenario(
             session_id,
             scenario_id,
-            **data.model_dump(exclude={"version"}),
+            **data.model_dump(exclude={"version"}, exclude_none=True),
         )
         logger.info(f"Scenario saved: {scenario_id}")
         return scenario_to_api(handler, saved_scenario)
@@ -467,7 +467,7 @@ async def get_session_data(
         return EvaluationOutputData(
             scenario_id=evaluation.scenario_id,
             evaluation_id=evaluation.evaluation_id,
-            data=evaluation.result,
+            data={} if evaluation.result is None else evaluation.result,
         )
     except Exception as e:
         logger.error(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -40,7 +40,7 @@ problem_router = APIRouter(
 async def list_problems(
     territory: str,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> list[ProblemData]:
+) -> list[dict[str, Any]]:
     """List all problems in the current store."""
     try:
         return [
@@ -64,7 +64,7 @@ async def create_problem(
     territory: str,
     data: PostProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProblemData:
+) -> dict[str, Any]:
     """Create a new problem with default scenario."""
     try:
         problem = handler.manager.create_problem(
@@ -93,7 +93,7 @@ async def read_problem(
     territory: str,
     problem_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProblemData:
+) -> dict[str, Any]:
     """Read a problem."""
     try:
         problem = get_problem_or_404(territory, handler, problem_id)
@@ -117,7 +117,7 @@ async def update_problem(
     problem_id: str,
     data: UpdateProblemData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ProblemData:
+) -> dict[str, Any]:
     """Update a problem and persist the current aggregate."""
     try:
         problem = get_problem_or_404(territory, handler, problem_id)

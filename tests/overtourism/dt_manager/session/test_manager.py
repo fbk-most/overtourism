@@ -34,7 +34,6 @@ def _make_manager(
         ),
         session_cleanup_config=session_cleanup_config,
     )
-    manager.name_cfg = type("NameCfg", (), {"territory": DEFAULT_TERRITORY})()
     execution_service = FakeExecutionService(model, evaluator)
     return manager, evaluator, model, execution_service
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -47,7 +47,7 @@ async def list_scenarios(
     base_only: bool = False,
     *,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData | list[ScenarioData]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     try:
         if base_only:
             names_cfg = BootstrapConfig(territory)
@@ -79,7 +79,7 @@ async def read_scenario(
     territory: str,
     scenario_id: str,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         scenario = get_scenario_or_404(territory, handler, scenario_id)
         return scenario_to_api(handler, scenario)
@@ -101,7 +101,7 @@ async def create_scenario(
     territory: str,
     data: CreateScenarioData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         scenario_payload = data.model_dump(exclude_unset=True)
         scenario = handler.manager.create_scenario(
@@ -129,18 +129,14 @@ async def update_scenario(
     scenario_id: str,
     data: UpdateScenarioData,
     handler: Annotated[Handler, Depends(get_handler)],
-) -> ScenarioData:
+) -> dict[str, Any]:
     try:
         raise_immutable_base_scenario_error(handler, territory, scenario_id)
         current_scenario = get_scenario_or_404(territory, handler, scenario_id)
         check_version(current_scenario.version, data.version)
         handler.manager.update_scenario(
             scenario_id,
-            param_overrides=data.param_overrides,
-            name=data.name,
-            description=data.description,
-            summary=data.summary,
-            extras=data.extras,
+            **data.model_dump(exclude_none=True, exclude={"version"}),
         )
         scenario = handler.manager.read_scenario(scenario_id)
         logger.info(f"Scenario updated: {scenario_id}")
