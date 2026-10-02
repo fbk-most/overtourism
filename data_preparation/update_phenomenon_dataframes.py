@@ -36,6 +36,7 @@ from data_preparation.process_std_data import (
 from data_preparation.gen_base_phenomenon_dataframes import (
     calculate_phenomena,
 )
+from data_preparation.align_data_utils import align_data_popolazione_2025, align_data_strutture, align_presenze_ispat_apts, align_presenze_ispat_prov
 
 logging.basicConfig(level=logging.INFO)
 
@@ -58,30 +59,6 @@ UPDATE_S3_OBJECTS = {
     "comuni_trentino_geojson": "TRENTINO-comuni_Vodafone_2023.geojson",
 }
 
-RENAMING_STRUTTURE = {
-    "Esercizi alberghieri Numero": "alberghieri strutture",
-    "Esercizi alberghieri Letti": "alberghieri posti_letto",
-    "Esercizi extralberghieri Numero": "extra alb. Strutture",
-    "Esercizi extralberghieri Letti": "extra alb. Posti_letto",
-    "Totale Numero": "tot convenzionali strutture",
-    "Totale Letti": "tot convenzionali posti_letto",
-}
-
-MONTHS_MAPPING = {
-    "Gennaio": 1,
-    "Febbraio": 2,
-    "Marzo": 3,
-    "Aprile": 4,
-    "Maggio": 5,
-    "Giugno": 6,
-    "Luglio": 7,
-    "Agosto": 8,
-    "Settembre": 9,
-    "Ottobre": 10,
-    "Novembre": 11,
-    "Dicembre": 12,
-}
-
 # ---------------------------------------------------------------------------
 # STANDARDIZATION + PROCESSING OF UPDATE DATA
 # ---------------------------------------------------------------------------
@@ -90,55 +67,16 @@ MONTHS_MAPPING = {
 ## Popolazione
 def standardize_and_process_popolazione_2025(df, mapping_comuni):
     """Standardization function for popolazione. It is computed as the arithmetic mean between population at 01/01/2025 and 01/01/2026."""
-    df = df.copy()
-    df["popolazione"] = (
-        (df["Popolazione residente al 1.1.2025"] +
-         df["Popolazione residente al 1.1.2026"]) / 2
-    ).round().astype(int)
-    df = df.rename(columns={"Comuni": "comune"}).sort_values(by="comune")
-    df["anno"] = 2025
+    df = align_data_popolazione_2025(df)
     # standardization and process
     return process_popolazione(standardize_popolazione_columns(df), mapping_comuni)
 
 
 ## Strutture
-def standardize_upd_strutture(df):
-    df = df.rename(columns=RENAMING_STRUTTURE).copy()
-    for c in df.columns.drop(['comune', 'anno']):
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)   # manage "-"
-
-    ## Logic to compute CONV / NON CONV
-    df['tot convenzionali strutture'] = df["alberghieri strutture"] + df["extra alb. Strutture"]
-    df['tot convenzionali posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto']
-
-    # complessivo as sum of all cathegories
-    df['COMPLESSIVO numero'] = df["alberghieri strutture"] + df["extra alb. Strutture"] + df["Alloggi turistici Numero"] + df["Alloggi a disposizione Numero"]
-    df['COMPLESSIVO posti_letto'] = df['alberghieri posti_letto'] + df['extra alb. Posti_letto'] + df["Alloggi turistici Letti"] + df["Alloggi a disposizione Letti"]
-
-    ## in old terminology, all privati = all non conv
-    df['all. privati numero'] = df['COMPLESSIVO numero'] - df['tot convenzionali strutture']
-    df['all. privati posti_letto'] = df['COMPLESSIVO posti_letto'] - df['tot convenzionali posti_letto']
-
-    ## checks
-    assert (df['all. privati numero'] >= 0).all(), f"There are {len(df[df['all. privati numero'] < 0])} lines with strutture non conv < 0 "
-    assert (df['all. privati posti_letto'] >= 0).all(), f"There are {len(df[df['all. privati posti_letto'] < 0])} lines with beds strutture non conv < 0 "
-
-    return standardize_strutture_columns(df.filter(regex=r'^(?!_)'))
-
-
-def standardize_and_process_strutture_2024(df, mapping_comuni):
-    """Adapt 2024 structures to the current standard structures schema, in order to reuse standardize_strutture_columns() + process_strutture()"""
-    df = df.rename(columns={"Comuni": "comune"})
-    df["anno"] = 2024
-    return process_strutture(standardize_upd_strutture(df), mapping_comuni)
-
-
-def standardize_and_process_strutture_2025(df, mapping_comuni):
-    """Adapts the strutture 2025 to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
-    df = _remove_unnamed(df)
-    df = df.rename(columns={"Comune": "comune"})
-    df["anno"] = 2025
-    return process_strutture(standardize_upd_strutture(df), mapping_comuni)
+def standardize_and_process_strutture(df, mapping_comuni, comune_col="Comune", year=2025):
+    """Adapts the strutture to the "standard" one in order to reuse standardize_strutture_columns() + process_strutture()"""
+    df = align_data_strutture(df, comune_col= comune_col, year=year)
+    return process_strutture(standardize_strutture_columns(df), mapping_comuni)
 
 
 ## Vodafone
@@ -148,50 +86,9 @@ def standardize_and_process_vodafone_2025(df, mapping_vodafone, geojson):
 
 
 ## Presenze
-def process_presenze_ispat_2025(df, apts, anno=2025):
-    """Convert the grouped ISPAT monthly dataframe into long format."""
-    columns = ["Mese"]
-    for ambito in apts[1:]:
-        columns.extend([f"{ambito} Italiani", f"{ambito} Stranieri", f"{ambito} Totale"])
-
-    if len(columns) != df.shape[1]:
-        raise ValueError(f"Expected {len(columns)} columns, found {df.shape[1]}")
-
-    df = df.copy()
-    df.columns = columns
-
-    df["Mese"] = df["Mese"].astype(str).str.strip()
-    df = df[df["Mese"] != "Anno"].copy()
-
-    mapped_months = df["Mese"].map(MONTHS_MAPPING)
-    if mapped_months.isna().any():
-        raise ValueError(
-            "Mesi non riconosciuti: "
-            f"{df.loc[mapped_months.isna(), 'Mese'].unique()}"
-        )
-
-    df["Mese"] = mapped_months.astype(int)
-    value_cols = [c for c in df.columns if c.endswith(" Totale")]
-
-    long_df = df.melt(
-        id_vars=["Mese"],
-        value_vars=value_cols,
-        var_name="Ambito",
-        value_name="Presenze"
-    )
-    long_df["Ambito"] = long_df["Ambito"].str.removesuffix(" Totale").str.strip()
-
-    long_df["Presenze"] = pd.to_numeric(long_df["Presenze"], errors="coerce")
-    if long_df["Presenze"].isna().any():
-        bad = long_df.loc[long_df["Presenze"].isna(), "Ambito"].unique()
-        raise ValueError(f"Valori non numerici per ambiti: {bad}")
-
-    long_df["Presenze"] = long_df["Presenze"].astype(int)
-    long_df["Anno"] = anno
-    return long_df[["Ambito", "Anno", "Mese", "Presenze"]]  # now it's in the right format to be given as input of standardization 
 
 def standardize_and_process_presenze_alb_2025(df, apts, mapping_apt):
-    long_df = process_presenze_ispat_2025(df, apts)
+    long_df = align_presenze_ispat_apts(df, apts, 2025)
     std = standardize_presenze_columns(
         long_df,
         cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"},
@@ -206,7 +103,7 @@ def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
     Kept as an update artifact, although the current final
     phenomenon uses the provincial xalb dataset.
     """
-    long_df = process_presenze_ispat_2025(df, apts)
+    long_df = align_presenze_ispat_apts(df, apts, 2025)
     std = standardize_presenze_columns(
         long_df,
         cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"},
@@ -219,35 +116,9 @@ def standardize_and_process_presenze_extralb_2025_apt(df, apts, mapping_apt):
 
 def standardize_and_process_presenze_extralb_2025_prov(df, mapping_comuni):
     """Standardize the provincial extra-alberghiero dataset."""
-    df = _remove_unnamed(df).copy()
-    df["Mese"] = df["Mese"].astype(str).str.strip()
-    df = df[df["Mese"] != "Totale"].reset_index(drop=True)
-    df["Mese"] = df["Mese"].map(MONTHS_MAPPING)
-    if df["Mese"].isna().any():
-        raise ValueError(
-            "Mesi non riconosciuti: "
-            f"{df.loc[df['Mese'].isna(), 'Mese'].unique()}"
-        )
-
-    alb_col = "Esercizi alberghieri Totale"
-    xalb_col = "Esercizi extralberghieri Totale"
-
-    for col in (alb_col, xalb_col):
-        if col not in df.columns:
-            raise ValueError(f"Colonna attesa non trovata: {col}")
-
-    df_xalb_prov = pd.DataFrame({
-        "Anno": 2025,
-        "Mese": df["Mese"].astype(int),
-        "Presenze alberghi": pd.to_numeric(df[alb_col], errors="coerce"),
-        "Presenze extra-alberghi": pd.to_numeric(df[xalb_col], errors="coerce"),
-    })
-
-    if df_xalb_prov[["Presenze alberghi", "Presenze extra-alberghi"]].isna().any().any():
-        raise ValueError("Not numeric values for 'Presenze' found")
-
+    df_alb_xalb_prov = align_presenze_ispat_prov(df)
     std = standardize_presenze_columns(
-        df_xalb_prov,
+        df_alb_xalb_prov,
         cols_renaming={
             "Presenze alberghi": "presenze_alb",
             "Presenze extra-alberghi": "presenze_xalb",
@@ -289,8 +160,8 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
         logging.info("Downloading and processing strutture updated datasets 2024 and 2025...")
         strutture_24_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2024"]), engine="odf")    ## TODO: upload the version xlsx for consistency
         strutture_25_raw = pd.read_excel(get_s3(UPDATE_S3_OBJECTS["strutture_2025"]), header=[0, 1])
-        dict_dfs["strutture_24_pr"] = standardize_and_process_strutture_2024(strutture_24_raw, mapping_comuni)
-        dict_dfs["strutture_25_pr"] = standardize_and_process_strutture_2025(strutture_25_raw, mapping_comuni)
+        dict_dfs["strutture_24_pr"] = standardize_and_process_strutture(strutture_24_raw, mapping_comuni, comune_col="Comuni", year=2024)
+        dict_dfs["strutture_25_pr"] = standardize_and_process_strutture(strutture_25_raw, mapping_comuni, comune_col="Comune", year=2025)
 
     if "vodafone" in datasets:
         logging.info("Downloading and processing vodafone updated dataset...")
@@ -500,4 +371,4 @@ def update_pipeline(
 
 
 if __name__ == "__main__":
-    update_pipeline()
+    update_pipeline(type_format="parquet")
