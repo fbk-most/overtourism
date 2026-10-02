@@ -13,10 +13,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 OUTPUT_DIR = Path(__file__).parent.parent / "Output"
-RAW_DIR = OUTPUT_DIR / "raw_data"
-NORMALIZED_DIR = OUTPUT_DIR / "normalized"
-PROCESSED_DIR = OUTPUT_DIR / "data_processed"
-FINAL_DIR = OUTPUT_DIR / "final_data"
+RAW_DIR = OUTPUT_DIR / "data" / "raw_data"
+NORMALIZED_DIR = OUTPUT_DIR / "data" / "normalized"
+PROCESSED_DIR = OUTPUT_DIR / "data" / "data_processed"
+FINAL_DIR = OUTPUT_DIR / "data" / "final_data"
 
 
 # Explicit overrides for comuni whose official Italian name differs from

@@ -22,7 +22,7 @@ from data_preparation.utils.utils import get_mapping, get_s3, save_computed_dfs
 from data_preparation.utils.common import (
     _read_grouped_presenze_tsv,
     _remove_unnamed,
-    FINAL_DIR, PROCESSED_DIR, check_output_dir, normalize_id_comune,
+    PROCESSED_DIR, OUTPUT_DIR, check_output_dir, normalize_id_comune,
     read_df, standard_ordering_cols,
 )
 from data_preparation.standardize_raw_data import (
@@ -41,8 +41,9 @@ logging.basicConfig(level=logging.INFO)
 ALL_DATASETS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"]
 PROCESSED_OLD = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
 
-MERGED_PROCESSED_DIR = Path(__file__).parent / "data_update" / "merged_processed"
-UPDATE_PROCESSED_DIR = Path(__file__).parent / "data_update" / "processed"
+MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
+UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "processed"
+FINAL_UPDATE_DIR = OUTPUT_DIR / "data_update" / "final_phenomena"
 
 UPDATE_S3_OBJECTS = {
     "popolazione": "popolazione_2026_ISPAT.csv",
@@ -416,11 +417,10 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
 
 def update_pipeline(
     processed_dir=PROCESSED_DIR,
-    final_dir=FINAL_DIR,
+    final_dir=FINAL_UPDATE_DIR,
     update_dir=UPDATE_PROCESSED_DIR,
     merged_dir=MERGED_PROCESSED_DIR,
     type_format="csv",
-    save_intermediate=True,
     datasets=None,
 ):
     """Complete update pipeline.
@@ -440,16 +440,15 @@ def update_pipeline(
     logging.info("=== STEP 3: merge processed data ===")
     merged_dfs = merge_dataframes_processed(processed_dfs_old, new_dfs)
 
-    if save_intermediate:
-        check_output_dir(merged_dir)
-        merged_dir.mkdir(parents=True, exist_ok=True)
+    check_output_dir(merged_dir)
+    merged_dir.mkdir(parents=True, exist_ok=True)
 
-        save_computed_dfs(
-            merged_dfs,
-            local=True,
-            type_format=type_format,
-            path_saving=merged_dir,
-        )
+    save_computed_dfs(
+        merged_dfs,
+        local=True,
+        type_format=type_format,
+        path_saving=merged_dir,
+    )
 
 
     logging.info("=== STEP 4: recompute final phenomena ===")
@@ -468,13 +467,12 @@ def update_pipeline(
 
 
 if __name__ == "__main__":               
-    update_pipeline(datasets={"presenze_alb", "presenze_extralb"})  # solo le presenze
+    update_pipeline(datasets=["presenze_alb", "presenze_extralb"])  # solo le presenze
     update_pipeline(
         processed_dir = PROCESSED_DIR,
-        final_dir = FINAL_DIR,
+        final_dir = FINAL_UPDATE_DIR,
         update_dir = UPDATE_PROCESSED_DIR,
         merged_dir = MERGED_PROCESSED_DIR,
         type_format = "csv",
-        save_intermediate = True,
         datasets=None,
     )
