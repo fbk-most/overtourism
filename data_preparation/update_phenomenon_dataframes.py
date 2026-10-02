@@ -14,7 +14,6 @@ Every step can be run on a SUBSET of phenomena: the phenomena not selected are l
 """
 
 import logging
-from pathlib import Path
 import geopandas as geopd
 import pandas as pd
 
@@ -42,6 +41,7 @@ logging.basicConfig(level=logging.INFO)
 
 ALL_DATASETS = ["popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"]
 PROCESSED_OLD = ["popolazione_pr", "strutture_pr", "vodafone_pr", "presenze_alb_pr", "presenze_extralb_pr"]
+PRESENZE_DATASETS = {"vodafone", "presenze_alb", "presenze_extralb"}
 
 MERGED_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "merged_processed"
 UPDATE_PROCESSED_DIR = OUTPUT_DIR / "data_update" / "data_processed"
@@ -413,7 +413,6 @@ def merge_dataframes_processed(old_dfs: dict, new_dfs: dict) -> dict:
 # ---------------------------------------------------------------------------
 # COMPLETE UPDATE PIPELINE
 # ---------------------------------------------------------------------------
-
 def update_pipeline(
     processed_dir=PROCESSED_DIR,
     final_dir=FINAL_UPDATE_DIR,
@@ -427,11 +426,20 @@ def update_pipeline(
         1. download + standardize + process new data
         2. read current processed data
         3. merge old/new, with new data winning overlaps
-        4. recompute final phenomena
+        4. recompute final phenomena (if all required datasets are updated)
     datasets: subset of ALL_DATASETS to actually update; default None updates all."""
 
-    logging.info("=== STEP 1: standardize/process update data (%s) ===", datasets if datasets else "all")
-    new_dfs = process_updated_data(out_dir=update_dir, type_format=type_format, datasets=datasets)
+    selected_datasets = set(datasets) if datasets else set(ALL_DATASETS)
+
+    presenze_intersection = selected_datasets.intersection(PRESENZE_DATASETS)
+    if presenze_intersection and presenze_intersection != PRESENZE_DATASETS:
+        missing = PRESENZE_DATASETS - presenze_intersection
+        logging.warning(
+            f"All datasets of presenze {sorted(PRESENZE_DATASETS)} has are needed to compute updated 'phen_presenze'. Missing: {sorted(missing)}"
+        )
+
+    logging.info("=== STEP 1: standardize/process update data (%s) ===", selected_datasets)
+    new_dfs = process_updated_data(out_dir=update_dir, type_format=type_format, datasets=selected_datasets)
 
     logging.info("=== STEP 2: read current processed data ===")
     processed_dfs_old = {name: read_df(processed_dir, name, type_format) for name in PROCESSED_OLD}
@@ -463,7 +471,6 @@ def update_pipeline(
     )
 
     # Filter and save only the phenomena affected by the selected update datasets
-    selected_datasets = set(datasets) if datasets else set(ALL_DATASETS)
     phenomena_to_save = {}
 
     if "popolazione" in selected_datasets:
@@ -472,22 +479,25 @@ def update_pipeline(
     if "strutture" in selected_datasets:
         phenomena_to_save["phen_strutture"] = all_phenomena["phen_strutture"]
 
-    if selected_datasets.intersection({"vodafone", "presenze_alb", "presenze_extralb"}):
+    if PRESENZE_DATASETS.issubset(selected_datasets):
         phenomena_to_save["phen_presenze"] = all_phenomena["phen_presenze"]
 
-    check_output_dir(final_dir)
-    final_dir.mkdir(parents=True, exist_ok=True)
+    if phenomena_to_save:
+        check_output_dir(final_dir)
+        final_dir.mkdir(parents=True, exist_ok=True)
 
-    save_computed_dfs(
-        phenomena_to_save,
-        local=True,
-        type_format=type_format,
-        path_saving=final_dir,
-    )
+        save_computed_dfs(
+            phenomena_to_save,
+            local=True,
+            type_format=type_format,
+            path_saving=final_dir,
+        )
+    else:
+        logging.warning("No extra phenomena saved.")
 
     logging.info("=== UPDATE COMPLETED ===")
     return merged_dfs
 
 
 if __name__ == "__main__":
-    update_pipeline(datasets=["vodafone", "presenze_alb", "presenze_extralb", "pippo"])
+    update_pipeline(datasets=["vodafone", "presenze_alb", "presenze_extralb"])
