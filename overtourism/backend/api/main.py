@@ -24,7 +24,7 @@ from overtourism.backend.api.v2.session import session_router
 from overtourism.backend.api.v2.territory import territory_router
 from overtourism.backend.auth.api.router import auth_router
 from overtourism.backend.handler import init_handler
-from overtourism.backend.health.checks import store_is_ready
+from overtourism.backend.health.checks import model_backend_is_ready, store_is_ready
 from overtourism.backend.health.router import create_health_router
 
 if typing.TYPE_CHECKING:
@@ -164,7 +164,9 @@ def create_app(
     app.include_router(territory_router)
     app.include_router(auth_router, prefix=BASE_ROUTE, tags=["Auth"])
     app.include_router(
-        create_health_router(lambda: store_is_ready(handler.manager.store))
+        create_health_router(
+            lambda: store_is_ready(handler.manager.store) and model_backend_is_ready()
+        )
     )
 
     if extra_routers:

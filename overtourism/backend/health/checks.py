@@ -2,8 +2,22 @@
 
 from __future__ import annotations
 
+import requests
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+
+from overtourism.backend.api.utils.executor_utils import model_backend_url
+
+
+def model_backend_is_ready() -> bool:
+    try:
+        response = requests.get(
+            f"{model_backend_url.rstrip('/')}/health/ready",
+            timeout=1,
+        )
+    except requests.RequestException:
+        return False
+    return response.status_code == 200
 
 
 def store_is_ready(store: object) -> bool:
