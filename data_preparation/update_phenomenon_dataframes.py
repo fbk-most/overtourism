@@ -99,10 +99,7 @@ def standardize_and_process_presenze_2025_apt(df, apts, mapping_apt, output_col=
     and extra-alberghiero (output_col="presenze_xalb").
     """
     long_df = align_presenze_ispat_apts(df, apts, 2025)
-    std = standardize_presenze_columns(
-        long_df, 
-        cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"}
-    )
+    std = standardize_presenze_columns(long_df, cols_renaming={"Ambito": "comune", "Presenze": "presenze_alb"})
     processed = process_presenze_ISPAT(std, mapping_apt, PRESENZE_ALB_VALUE_COLS, provincia=False)
     
     if output_col != "presenze_alb":
@@ -161,7 +158,7 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
         alb_buffer = get_s3(UPDATE_S3_OBJECTS["presenze_alb_2025"])
         raw_alb = pd.read_csv(alb_buffer, sep="\t", header=None, skiprows=2, dtype=str)
         apts = [x.strip() for x in alb_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
-        dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_alb_2025(raw_alb, apts, mapping_apt)
+        dict_dfs["presenze_alb_25_pr"] = standardize_and_process_presenze_2025_apt(raw_alb, apts, mapping_apt)
 
     if "presenze_extralb" in datasets:
         logging.info("Downloading and processing presenze extralberghiere dataset...")
@@ -169,7 +166,7 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
         raw_xalb_apt = pd.read_csv(xalb_apt_buffer, sep="\t", header=None, skiprows=2, dtype=str)
         apts_xalb = [x.strip() for x in xalb_apt_buffer.getvalue().decode("utf-8").splitlines()[0].split("\t")]
         raw_xalb_prov = _read_grouped_presenze_tsv(get_s3(UPDATE_S3_OBJECTS["presenze_xalb_2025_prov"]))
-        dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_extralb_2025_apt(raw_xalb_apt, apts_xalb, mapping_apt)
+        dict_dfs["presenze_extralb_25_apt_pr"] = standardize_and_process_presenze_2025_apt(raw_xalb_apt, apts_xalb, mapping_apt)
         dict_dfs["presenze_extralb_25_pr"] = standardize_and_process_presenze_extralb_2025_prov(raw_xalb_prov, mapping_comuni)
 
     save_computed_dfs(
