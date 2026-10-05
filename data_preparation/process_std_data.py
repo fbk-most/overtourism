@@ -116,6 +116,15 @@ def process_vodafone(df, mapping_vodafone, **disagg_kwargs):
     df.loc[mask, "ID_COMUNE"] = pd.Series(
         [[22250]] * mask.sum(), index=df.index[mask], dtype=object
     )
+    if df["ID_COMUNE"].isna().any():
+        locations = sorted(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].dropna().unique().tolist())
+        logging.warning(
+            "[process_vodafone] %d rows Vodafone (%d aree) with no mapping ID_COMUNE; "
+            "rows will be excluded by groupby: %s",
+            int(df["ID_COMUNE"].isna().sum()),
+            len(locations),
+            locations,
+        )
     df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime(
         "%Y-%m-%d"
     )
