@@ -34,7 +34,7 @@ async def list_territories(
     user = resolve_current_user(context, handler)
     if user is None:
         return []
-    if user.role is UserRole.ADMIN:
+    if user.role in (UserRole.ADMIN, UserRole.MULTIEDITOR):
         return model_keys
 
     return [key for key in model_keys if key in user.territories]

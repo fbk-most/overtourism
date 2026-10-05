@@ -41,7 +41,7 @@ def test_list_territories_returns_model_keys_when_auth_is_disabled(
     assert response.json() == ["territory-alpha", "territory-beta"]
 
 
-def test_list_territories_filters_model_keys_to_database_assignments(
+def test_list_territories_returns_all_model_keys_for_multieditor(
     handler,
     user_manager: UserManager,
     monkeypatch: pytest.MonkeyPatch,
@@ -78,7 +78,66 @@ def test_list_territories_filters_model_keys_to_database_assignments(
         )
 
     assert response.status_code == 200
-    assert response.json() == ["territory-alpha", "territory-beta"]
+    assert response.json() == [
+        "territory-alpha",
+        "territory-gamma",
+        "territory-beta",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("role", "assignments", "expected_territories"),
+    [
+        (UserRole.EDITOR, [], []),
+        (UserRole.VIEWER, ["territory-alpha"], ["territory-alpha"]),
+        (
+            UserRole.EDITOR,
+            ["territory-alpha", "territory-gamma", "territory-missing"],
+            ["territory-alpha", "territory-gamma"],
+        ),
+    ],
+)
+def test_list_territories_limits_editor_and_viewer_to_assignments(
+    handler,
+    user_manager: UserManager,
+    monkeypatch: pytest.MonkeyPatch,
+    role: UserRole,
+    assignments: list[str],
+    expected_territories: list[str],
+) -> None:
+    user_manager.create_user(
+        identifier="user@example.org",
+        role=role,
+        territories=assignments,
+    )
+    user_manager.claim_user_by_email("user@example.org", "user-1")
+
+    app = create_app(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "user-1"},
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.api.v2.territory.list_models",
+        lambda: [
+            {"key": "territory-alpha"},
+            {"key": "territory-gamma"},
+            {"key": "territory-beta"},
+        ],
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v2/default/territories",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == expected_territories
 
 
 def test_list_territories_returns_all_model_keys_for_global_admin(

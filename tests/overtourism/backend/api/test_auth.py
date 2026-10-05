@@ -71,7 +71,6 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
     assert response.status_code == 200
     assert response.json() == {
         "authenticated": False,
-        "territory": None,
         "subject": None,
         "user_id": None,
         "role": None,
@@ -135,12 +134,44 @@ def test_auth_me_returns_authenticated_context_and_database_territory(
     assert response.status_code == 200
     user_data = response.json()
     assert user_data["authenticated"] is True
-    assert user_data["territory"] == "territory-alpha"
+    assert "territory" not in user_data
     assert user_data["subject"] == "101"
     assert user_data["user_id"]
     assert user_data["role"] == "viewer"
     assert user_data["is_global_admin"] is False
     assert user_data["territories"] == ["territory-alpha"]
+
+
+def test_auth_me_returns_all_assigned_territories_without_singular_field(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = handler.user_manager.create_user(
+        identifier="multi-viewer@example.org",
+        role=UserRole.VIEWER,
+        territories=["territory-beta", "territory-alpha"],
+    )
+    handler.user_manager.claim_user_by_email(user.identifier, "multi-viewer")
+
+    app = create_app_v2(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "multi-viewer"},
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v2/auth/me",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 200
+    assert "territory" not in response.json()
+    assert response.json()["territories"] == ["territory-alpha", "territory-beta"]
 
 
 @pytest.mark.parametrize(
@@ -254,6 +285,47 @@ def test_global_admin_can_access_unassigned_application_territories(
     assert response.status_code == 200
 
 
+def test_auth_me_returns_all_model_territories_for_admin(
+    handler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = cast(SQLStore, handler.manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    admin = user_manager.create_user(
+        identifier="global-admin@example.org",
+        role=UserRole.ADMIN,
+        territories=[],
+    )
+    repository.save_user(replace(admin, subject="global-admin"))
+    user_manager.reload()
+    handler.user_manager = user_manager
+
+    app = create_app_v2(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "global-admin"},
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.api.router.list_models",
+        lambda: [{"key": "territory-beta"}, {"key": "territory-alpha"}],
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v2/auth/me",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["is_global_admin"] is True
+    assert response.json()["territories"] == ["territory-alpha", "territory-beta"]
+
+
 def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
     handler,
     monkeypatch: pytest.MonkeyPatch,
@@ -330,7 +402,8 @@ def test_auth_me_does_not_require_tenant_claim(
         )
 
     assert response.status_code == 200
-    assert response.json()["territory"] == "territory-alpha"
+    assert "territory" not in response.json()
+    assert response.json()["territories"] == ["territory-alpha"]
     assert response.json()["subject"] == "user-1"
 
 

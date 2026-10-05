@@ -11,7 +11,6 @@ from overtourism.backend.auth.identity.users import UserRole
 
 class AuthMeResponse(BaseModel):
     authenticated: bool
-    territory: str | None = None
     subject: str | None = None
     user_id: str | None = None
     role: UserRole | None = None

@@ -171,7 +171,5 @@ class UserManager:
     ) -> None:
         if role is UserRole.ADMIN and territories:
             raise ValueError("Admin users must not have territory assignments")
-        if role in (UserRole.EDITOR, UserRole.VIEWER) and len(territories) != 1:
-            raise ValueError(f"Role '{role.value}' requires exactly one territory")
         if role is UserRole.MULTIEDITOR and not territories:
             raise ValueError("Multieditor users require at least one territory")

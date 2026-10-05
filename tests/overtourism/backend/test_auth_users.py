@@ -84,10 +84,6 @@ def test_user_changes_are_persisted_and_refreshed_in_memory(user_manager) -> Non
 @pytest.mark.parametrize(
     ("role", "territories"),
     [
-        (UserRole.EDITOR, set()),
-        (UserRole.EDITOR, {"molveno", "fazzon"}),
-        (UserRole.VIEWER, set()),
-        (UserRole.VIEWER, {"molveno", "fazzon"}),
         (UserRole.MULTIEDITOR, set()),
         (UserRole.ADMIN, {"molveno"}),
     ],
@@ -112,11 +108,15 @@ def test_user_creation_enforces_role_territory_cardinality(
     [
         (UserRole.ADMIN, []),
         (UserRole.MULTIEDITOR, ["molveno", "fazzon"]),
+        (UserRole.EDITOR, []),
         (UserRole.EDITOR, ["molveno"]),
+        (UserRole.EDITOR, ["molveno", "fazzon"]),
+        (UserRole.VIEWER, []),
         (UserRole.VIEWER, ["molveno"]),
+        (UserRole.VIEWER, ["molveno", "fazzon"]),
     ],
 )
-def test_user_creation_accepts_valid_role_territory_cardinality(
+def test_user_creation_accepts_zero_or_more_role_territories(
     user_manager,
     role: UserRole,
     territories: list[str],
@@ -198,7 +198,7 @@ def test_failed_reload_clears_cached_users(user_manager, monkeypatch) -> None:
 
 
 def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> None:
-    user_manager, repository = _register_admin(client, handler, manager)
+    user_manager, _ = _register_admin(client, handler, manager)
 
     created_response = client.post(
         "/api/v2/auth/users",
@@ -214,14 +214,11 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     assert created["territories"] == ["fazzon", "molveno"]
     assert user_manager.get_active_user_by_subject("editor-sub") is None
 
-    invited = next(
-        user for user in user_manager.list_users() if user.user_id == created["user_id"]
+    linked_user = user_manager.claim_user_by_email(
+        "editor@example.org",
+        "editor-sub",
     )
-    repository.save_user(replace(invited, subject="editor-sub"))
-    reload_response = client.post("/api/v2/auth/users/reload")
-    assert reload_response.status_code == 200
-    assert reload_response.json() == {"reloaded": True}
-    assert user_manager.get_active_user_by_subject("editor-sub") is not None
+    assert linked_user is not None
 
     updated_response = client.patch(
         f"/api/v2/auth/users/{created['user_id']}",
@@ -237,6 +234,48 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     assert deleted_response.status_code == 200
     assert deleted_response.json()["is_active"] is False
     assert user_manager.get_active_user_by_subject("editor-sub") is None
+
+
+def test_multieditor_defaults_to_all_model_territories(
+    client,
+    handler: Handler,
+    manager: Manager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register_admin(client, handler, manager)
+    monkeypatch.setattr(
+        "overtourism.backend.auth.api.router.list_models",
+        lambda: [{"key": "fazzon"}, {"key": "molveno"}],
+    )
+
+    created_response = client.post(
+        "/api/v2/auth/users",
+        json={
+            "identifier": "editor@example.org",
+            "role": "multieditor",
+        },
+    )
+
+    assert created_response.status_code == 201
+    created = created_response.json()
+    assert created["territories"] == ["fazzon", "molveno"]
+
+    editor_response = client.patch(
+        f"/api/v2/auth/users/{created['user_id']}",
+        json={"role": "editor", "territories": ["molveno"]},
+    )
+    assert editor_response.status_code == 200
+
+    restored_multieditor_response = client.patch(
+        f"/api/v2/auth/users/{created['user_id']}",
+        json={"role": "multieditor"},
+    )
+
+    assert restored_multieditor_response.status_code == 200
+    assert restored_multieditor_response.json()["territories"] == [
+        "fazzon",
+        "molveno",
+    ]
 
 
 def test_current_user_and_role_list_require_no_admin_role(

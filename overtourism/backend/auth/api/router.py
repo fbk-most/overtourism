@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 
+from overtourism.backend.api.utils.executor_utils import list_models
 from overtourism.backend.auth.api.models import (
     AuthMeResponse,
     AuthRoleResponse,
@@ -30,10 +31,14 @@ auth_router = APIRouter(prefix="/auth")
 
 _ROLE_DESCRIPTIONS = {
     UserRole.ADMIN: "Global administrator with access to all territories.",
-    UserRole.MULTIEDITOR: "Editor assigned to one or more territories.",
-    UserRole.EDITOR: "Editor assigned to exactly one territory.",
-    UserRole.VIEWER: "Read-only user assigned to exactly one territory.",
+    UserRole.MULTIEDITOR: "Editor assigned to all territories by default.",
+    UserRole.EDITOR: "Editor assigned to zero or more territories.",
+    UserRole.VIEWER: "Read-only user assigned to zero or more territories.",
 }
+
+
+def _all_model_territories() -> list[str]:
+    return sorted({str(model["key"]) for model in list_models()})
 
 
 def _user_response(user: User) -> AuthUserResponse:
@@ -55,10 +60,14 @@ async def read_auth_me(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> AuthMeResponse:
     user = resolve_current_user(context, handler)
-    territories = [] if user is None else sorted(user.territories)
+    if user is None:
+        territories = []
+    elif user.role is UserRole.ADMIN:
+        territories = _all_model_territories()
+    else:
+        territories = sorted(user.territories)
     return AuthMeResponse(
         authenticated=context.authenticated,
-        territory=territories[0] if len(territories) == 1 else None,
         subject=context.subject,
         user_id=None if user is None else user.user_id,
         role=None if user is None else user.role,
@@ -104,11 +113,15 @@ async def create_auth_user(
     user_manager: Annotated[UserManager, Depends(get_user_manager)],
 ) -> AuthUserResponse:
     try:
+        territories = data.territories
+        if data.role is UserRole.MULTIEDITOR and not territories:
+            territories = _all_model_territories()
         user = user_manager.create_user(
             identifier=data.identifier,
             role=data.role,
-            territories=data.territories,
+            territories=territories,
         )
+        user_manager.reload()
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -138,12 +151,23 @@ async def update_auth_user(
             detail="At least one user field must be provided",
         )
     try:
+        territories = data.territories
+        if data.role is UserRole.MULTIEDITOR and not territories:
+            territories = _all_model_territories()
+        elif territories == [] and data.role is None:
+            current_user = next(
+                (user for user in user_manager.list_users() if user.user_id == user_id),
+                None,
+            )
+            if current_user is not None and current_user.role is UserRole.MULTIEDITOR:
+                territories = _all_model_territories()
         user = user_manager.update_user(
             user_id,
             role=data.role,
-            territories=data.territories,
+            territories=territories,
             is_active=data.is_active,
         )
+        user_manager.reload()
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -173,26 +197,10 @@ async def deactivate_auth_user(
 ) -> AuthUserResponse:
     try:
         user = user_manager.deactivate_user(user_id)
+        user_manager.reload()
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         ) from exc
     return _user_response(user)
-
-
-@auth_router.post(
-    "/users/reload",
-    dependencies=[Depends(require_global_admin)],
-)
-async def reload_auth_users(
-    user_manager: Annotated[UserManager, Depends(get_user_manager)],
-) -> dict[str, bool]:
-    try:
-        user_manager.reload()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Could not reload users from the database",
-        ) from exc
-    return {"reloaded": True}
