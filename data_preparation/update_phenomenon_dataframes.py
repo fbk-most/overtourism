@@ -151,8 +151,8 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
     check_output_dir(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    logging.info("Loading mappings and reference GeoJSON...")
-    mapping_vodafone, mapping_comuni, mapping_apt, geojson = fetch_reference_maps()
+    logging.info("Loading mappings and reference GeoJSON for selected datasets...")
+    mapping_vodafone, mapping_comuni, mapping_apt, geojson = fetch_reference_maps(datasets)
 
     dict_dfs = {}
 

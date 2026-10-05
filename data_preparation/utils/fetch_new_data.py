@@ -22,12 +22,23 @@ UPDATE_S3_OBJECTS = {
 # FETCH / DOWNLOAD RAW DATA HELPERS
 # ---------------------------------------------------------------------------
 
-def fetch_reference_maps():
-    """Load static mapping files and reference GeoJSON."""
-    mapping_vodafone = get_mapping("mapping_comuni_into_vodafone_Trento.json")
-    mapping_comuni = get_mapping("mapping_comuni_ISTAT.json")
-    mapping_apt = get_mapping("map_comuni_into_apt.json")
-    geojson = geopd.read_file(get_s3(UPDATE_S3_OBJECTS["comuni_trentino_geojson"]))
+def fetch_reference_maps(datasets=None):
+    """Load only reference files needed by the selected update datasets."""
+    datasets = set(datasets or {"popolazione", "strutture", "vodafone", "presenze_alb", "presenze_extralb"})
+    needs_comuni = bool(datasets & {"popolazione", "strutture", "presenze_extralb"})
+    needs_apt = bool(datasets & {"presenze_alb", "presenze_extralb"})
+    mapping_vodafone = (
+        get_mapping("mapping_comuni_into_vodafone_Trento.json")
+        if "vodafone" in datasets
+        else None
+    )
+    mapping_comuni = get_mapping("mapping_comuni_ISTAT.json") if needs_comuni else None
+    mapping_apt = get_mapping("map_comuni_into_apt.json") if needs_apt else None
+    geojson = (
+        geopd.read_file(get_s3(UPDATE_S3_OBJECTS["comuni_trentino_geojson"]))
+        if "vodafone" in datasets
+        else None
+    )
     return mapping_vodafone, mapping_comuni, mapping_apt, geojson
 
 
