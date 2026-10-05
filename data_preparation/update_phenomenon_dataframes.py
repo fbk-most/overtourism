@@ -36,13 +36,13 @@ from data_preparation.process_std_data import (
 from data_preparation.gen_base_phenomenon_dataframes import (
     calculate_phenomena,
 )
-from data_preparation.update_phenomena_procedure.align_data_for_standardization import (
+from data_preparation.align_data_for_standardization import (
     align_data_popolazione_2025, 
     align_data_strutture, 
     align_presenze_ispat_apts, 
     align_presenze_ispat_prov
 )
-from data_preparation.update_phenomena_procedure.fetch_new_data import (
+from data_preparation.utils.fetch_new_data import (
     fetch_reference_maps, fetch_raw_popolazione, fetch_raw_strutture,
     fetch_raw_vodafone, fetch_raw_presenze_alb, fetch_raw_presenze_extralb
 )
