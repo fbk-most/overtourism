@@ -7,7 +7,7 @@ package — how the computation layer for the Fazzon and Molveno overtourism
 models is organized, why it is split the way it is, and how it fits together
 with the rest of the system (application backend, production frontend).
 
-**Location note**: everything this document describes (Layers 1–3 and 5)
+**Location note**: everything this document describes (Layers 2–3 and 5)
 lives under `overtourism/layer_3/` — e.g. `overtourism.layer_3.model.common`,
 `overtourism.layer_3.api`, `overtourism.layer_3.dt_studio`. Layer 4
 (application backend) lives outside `layer_3/` entirely, in
@@ -38,26 +38,23 @@ single-page application — see [Next steps](#next-steps).
 ├──────────────────────────────────────────────────────────────────────────┤
 │  LAYER 3 — Computation backend  (model-specific, plain classes)          │
 │  FazzonBackend · MolvenoBackend — no shared base class                   │
-├───────────────────────────────────┬──────────────────────────────────────┤
-│  LAYER 2a — layer_3.cdt_ext       │  LAYER 2b — layer_3.model.common     │
-│  (staged civic_digital_twins      │  (overtourism-model-family code,     │
-│   extensions)                     │   not domain-agnostic)               │
-│  ParameterMeta · build_scenario() │  OvertourismParameterMeta ·          │
-│  · EnsembleEvaluationConfig       │  SustainabilityFieldOutput ·         │
-│                                   │  OvertourismEvaluationConfig ·       │
-│                                   │  shared sustainability-field math    │
-├───────────────────────────────────┴──────────────────────────────────────┤
+├──────────────────────────────────────────────────────────────────────────┤
+│  LAYER 2 — layer_3.model.common                                          │
+│  (overtourism-model-family code, not domain-agnostic)                    │
+│  OvertourismParameterMeta · SustainabilityFieldOutput ·                  │
+│  OvertourismEvaluationConfig · shared sustainability-field math          │
+├──────────────────────────────────────────────────────────────────────────┤
 │  LAYER 1 — civic_digital_twins library  (external, read-only)            │
 │  Model/@define/@inputs/@outputs · ModelOutput · EvaluationConfig ·       │
-│  Scenario · CrossProductEnsemble · Evaluation                            │
+│  ParameterMeta · build_scenario() · Scenario · CrossProductEnsemble ·    │
+│  Evaluation                                                              │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Responsibility |
 |---|---|
 | 1 — `civic_digital_twins` | The external digital-twin modeling library. Read-only from this repo's point of view. |
-| 2a — `overtourism.layer_3.cdt_ext` | Utilities that are useful to *any* `civic_digital_twins` model, staged here only because they are not part of the published library yet. |
-| 2b — `overtourism.layer_3.model.common` | Code shared by the overtourism models specifically (currently Fazzon and Molveno) — array math and types that only make sense for this "2D presence-vs-presence sustainability field" model family. |
+| 2 — `overtourism.layer_3.model.common` | Code shared by the overtourism models specifically (currently Fazzon and Molveno) — array math and types that only make sense for this "2D presence-vs-presence sustainability field" model family. |
 | 3 — Computation backend | One class per model (`FazzonBackend`, `MolvenoBackend`): builds the model, exposes its parameter schema, and evaluates scenarios. Frontend-agnostic — no Streamlit, FastAPI, or other UI/transport code. |
 | 4 — Application backend | Implemented outside `layer_3/`: `overtourism.dt_manager` (scenario/problem/proposal/session managers, persistence stores) plus its own API surface in `overtourism.backend` (auth, `api/v2/*` routers) — not detailed further in this document; its own code is the source of truth. See [Next steps](#next-steps). |
 | 5 — Frontend | Presentation only. A REST API (`overtourism.layer_3.api`) and Streamlit apps (in-process and HTTP-driven) for development and manual testing, plus a production UI (Angular SPA, separate repo) for end users. |
@@ -66,12 +63,13 @@ single-page application — see [Next steps](#next-steps).
 
 ## Layer 1 — `civic_digital_twins` (external dependency)
 
-Pinned in `pyproject.toml` as `civic-digital-twins==0.11.0`. Both `fazzon_model.py`
+Pinned in `pyproject.toml` as `civic-digital-twins>=0.12.0,<0.13` (any
+0.12.x patch release, no 0.13+). Both `fazzon_model.py`
 and `molveno_model.py` are written against the library's `@define`/`@inputs`/
 `@outputs`/`compute()` model-definition API (`civic_digital_twins.dt_model.Model`
 and friends) — every concern sub-model declares its inputs/outputs as typed
 dataclasses and implements a single `compute()` method. `SustainabilityFieldOutput`
-(§Layer 2b) subclasses the library's `ModelOutput`.
+(§Layer 2) subclasses the library's `ModelOutput`.
 
 This API surface only exists from `civic-digital-twins>=0.10.0` — earlier
 releases (`<0.6.0`) instead exposed an `AbstractModel`-based API that has since
@@ -79,18 +77,15 @@ been removed. There is no published version that supports both; if any other
 code in this repository needs to target the older API, it cannot share a
 dependency pin with `overtourism.layer_3.model.*`.
 
----
+### Parameter schema and scenario construction
 
-## Layer 2a — `overtourism.layer_3.cdt_ext` (staged library extensions)
-
-**Location**: `overtourism/layer_3/cdt_ext/runner_ext.py`, importable as
-`overtourism.layer_3.cdt_ext.runner_ext`.
-
-Utilities that are genuinely domain-agnostic — useful to any `civic_digital_twins`
-model, not just the overtourism ones — but not yet part of the published
-library. Kept separate from `overtourism.layer_3.model.common` (§2b) so the
-boundary between "generic, could move upstream" and "overtourism-specific"
-stays clear; see [Next steps](#upstreaming-cdt_ext) for the migration plan.
+`ParameterMeta`, `build_scenario()`, and the `ensemble_seed`/
+`n_samples_per_combo` fields of `EvaluationConfig` are domain-agnostic
+utilities — useful to any `civic_digital_twins` model, not just the
+overtourism ones. They were originally staged in this repo
+(`overtourism.layer_3.cdt_ext.runner_ext`) and have been upstreamed into the
+library as of `civic-digital-twins` 0.12.0; the local copies were dropped and
+everything now imports them from `civic_digital_twins.dt_model`.
 
 ### `ParameterMeta`
 
@@ -113,7 +108,7 @@ Presentation fields (`label`, `description`, `unit`, UI ranges, ...) deliberatel
 do **not** belong here — `build_scenario()` never reads them, they only affect
 widget rendering. A model-family that needs them extends via plain dataclass
 inheritance — see `OvertourismParameterMeta` in `overtourism.layer_3.model.common`
-(§2b), the only subclass today.
+(§Layer 2), the only subclass today.
 
 `name` is kept on the object (not left to a dict key alone) so that any
 `list[ParameterMeta]` view — e.g. a `Backend.parameter_schema()` return value,
@@ -121,29 +116,31 @@ or the FastAPI `/schema` JSON array (§Layer 5 — REST API) — is
 self-describing. Such a list is always *derived* (`list(schema.values())`),
 never hand-authored separately.
 
-### `EnsembleEvaluationConfig`
+### `EvaluationConfig`
 
 ```python
 @dataclass
-class EnsembleEvaluationConfig(EvaluationConfig):
+class EvaluationConfig:
+    ensemble_size: int
     ensemble_seed: int | None = None
     n_samples_per_combo: int = 1
 ```
 
 Makes `CrossProductEnsemble`'s reproducibility knobs (`ensemble_seed`,
 `n_samples_per_combo`) explicit, injectable config instead of hardcoded
-constants. These two fields are candidates to land directly on the library's
-own `EvaluationConfig` — see [Next steps](#upstreaming-cdt_ext).
+constants. (Previously staged here as an `EnsembleEvaluationConfig`
+subclass; deleted outright once the fields landed on the library's own
+`EvaluationConfig`.)
 
 ### `build_scenario()`
 
 ```python
 def build_scenario(
-    model: Any,
-    param_overrides: dict[str, Any],
-    index_map: dict[str, Any],            # index.name → Index object
-    spec_map: dict[str, ParameterMeta],   # index.name → ParameterMeta
-    parameter_axes: list[Any] | None = None,
+    model: Model | ModelVariant,
+    param_overrides: Mapping[str, Any],
+    index_map: Mapping[str, GenericIndex],     # index.name → Index object
+    spec_map: Mapping[str, ParameterMeta],     # index.name → ParameterMeta
+    parameter_axes: list[GenericIndex] | None = None,
 ) -> Scenario:
 ```
 
@@ -170,20 +167,21 @@ concrete classes.
 
 ---
 
-## Layer 2b — `overtourism.layer_3.model.common` (overtourism-model-family code)
+## Layer 2 — `overtourism.layer_3.model.common` (overtourism-model-family code)
 
 **Location**: `overtourism/layer_3/model/common/sustainability_field.py`,
 importable as `overtourism.layer_3.model.common.sustainability_field`.
 
 Code shared by the overtourism models — currently Fazzon and Molveno. Explicitly
-**not** staged in `cdt_ext`: everything here (field math, output shape, config
-fields like `sample_seed`/`target_presence_samples`/`category`/`step`) only
-means something for this specific "2D presence-vs-presence sustainability
-field" model family, not for `civic_digital_twins` models in general.
+**not** a candidate for upstreaming into `civic_digital_twins`: everything
+here (field math, output shape, config fields like `sample_seed`/
+`target_presence_samples`/`category`/`step`) only means something for this
+specific "2D presence-vs-presence sustainability field" model family, not for
+`civic_digital_twins` models in general.
 
 ### `OvertourismParameterMeta`
 
-`ParameterMeta` (§2a) extended with presentation fields via plain dataclass
+`ParameterMeta` (§Layer 1) extended with presentation fields via plain dataclass
 inheritance:
 
 ```python
@@ -206,7 +204,7 @@ unmodified against this (or any other) subclass.
 
 ```python
 @dataclass
-class OvertourismEvaluationConfig(EnsembleEvaluationConfig):
+class OvertourismEvaluationConfig(EvaluationConfig):
     sample_seed: int | None = None
     target_presence_samples: int = 2000
     confidence: float = 0.8
@@ -327,7 +325,7 @@ both models or mechanically derivable from `mapper`, so
 (§Layer 5 — REST API).
 
 `FazzonBackend` and `MolvenoBackend` are plain, self-contained classes with no
-shared base class (see the `ModelBackend` rationale in §Layer 2a) and no
+shared base class (see the `ModelBackend` rationale in §Layer 1) and no
 runtime dependency on each other. Each backend's constructor builds its model,
 an `index.name → Index` map, and an `OvertourismEvaluationConfig` with fixed
 seeds and sample counts — seeds are a compute-quality concern, so they live
@@ -358,13 +356,13 @@ class <Model>Backend:
         """Evaluate the model under string-keyed parameter overrides."""
 
     def arrange_data(self, output: SustainabilityFieldOutput) -> dict[str, Any]:
-        """`arrange_frontend_data(output)` (§Layer 2b) — legacy frontend shape."""
+        """`arrange_frontend_data(output)` (§Layer 2) — legacy frontend shape."""
 ```
 
-`evaluate()` builds a `Scenario` via `build_scenario()` (§Layer 2a), runs a
+`evaluate()` builds a `Scenario` via `build_scenario()` (§Layer 1), runs a
 seeded `CrossProductEnsemble`/`Evaluation` over the model's two presence-variable
 axes, and returns a `SustainabilityFieldOutput` computed via the shared field
-math (§Layer 2b). Grid-resolution parameters (axis max/sample-count) are
+math (§Layer 2). Grid-resolution parameters (axis max/sample-count) are
 backend constructor arguments, not evaluation config — they are structural
 choices about the axis grid, not per-evaluation quality knobs.
 
@@ -418,7 +416,7 @@ note under [Next steps](#layer-4--application-backend) for more.
 flattened via `.tolist()`, no base64) covering `SustainabilityFieldOutput`'s
 field set, including the derived usage/uncertainty/KPI set. `x_axis_name`/
 `y_axis_name` are absent from both `EvaluateResponse` and
-`SustainabilityFieldOutput` itself (§Layer 2b) — they're evaluation-invariant
+`SustainabilityFieldOutput` itself (§Layer 2) — they're evaluation-invariant
 and purely presentational, so they live only on the backend (`X_AXIS_NAME`/
 `Y_AXIS_NAME`, §Layer 3) and reach the wire via `/schema`'s
 `metadata.plot_mapper.bidimensional.{x,y}.label` (via `_build_metadata`,
@@ -436,7 +434,7 @@ where base64 is the right tradeoff — `/evaluate` just no longer uses it by
 default.
 
 `?as_snapshot=false` instead returns `backend.arrange_data(output)` —
-`arrange_frontend_data()`'s legacy points-based shape (§Layer 2b), for the
+`arrange_frontend_data()`'s legacy points-based shape (§Layer 2), for the
 current frontend to consume directly without a rewrite. An explicit,
 acknowledged bridge, expected to be removed once that chain is streamlined;
 because the two branches return incompatible shapes behind one query
@@ -508,7 +506,7 @@ shell (`dashboard/adapter.py`, `dashboard/app.py`) doesn't import
 `OvertourismAdapter.run(param_overrides)` calls `backend.evaluate(param_overrides)`
 — directly, or via the REST API — and maps the result onto `PlotData`.
 `SustainabilityFieldOutput` itself carries no axis-label or subsystem-display-
-name fields (§Layer 2b) — those are presentation, not computation — so both
+name fields (§Layer 2) — those are presentation, not computation — so both
 adapter styles source them independently rather than reading them off the
 evaluation output: the in-process adapters (`FazzonAdapter`/`MolvenoAdapter`)
 read `self._backend.X_AXIS_NAME`/`.Y_AXIS_NAME`/`.MAPPER` directly.
@@ -579,14 +577,3 @@ Layer 4 the same way any other frontend does — as `overtourism.backend`'s
 HTTP API, not a plain library call, since Layer 4 was built as a separate
 service rather than an in-process dependency (§Layer 4 — application
 backend).
-
-### Upstreaming `cdt_ext`
-
-`overtourism.layer_3.cdt_ext.runner_ext` (§Layer 2a) is a staging area, not a
-permanent home: `ParameterMeta`, `build_scenario()`, and
-`EnsembleEvaluationConfig` are all judged to be useful to any
-`civic_digital_twins` model, not just the overtourism ones. When equivalents
-land in the `civic_digital_twins` library itself, drop the local copies here
-and import from the library instead — `overtourism.layer_3.model.common` and the
-Layer 3 backends should need no other change, since they only depend on
-`cdt_ext`'s public names, not its location.

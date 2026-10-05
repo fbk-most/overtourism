@@ -18,10 +18,10 @@ from civic_digital_twins.dt_model import (
     CrossProductEnsemble,
     Evaluation,
     Scenario,
+    build_scenario,
     sample_across,
 )
 
-from overtourism.layer_3.cdt_ext.runner_ext import build_scenario
 from overtourism.layer_3.model.common.sustainability_field import (
     OvertourismEvaluationConfig,
     OvertourismParameterMeta,

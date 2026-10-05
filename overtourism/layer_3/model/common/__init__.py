@@ -6,6 +6,6 @@ Fazzon, Molveno; Portofino as a future migration — see
 
 Not a `runner.py` staging area: everything here is specific to the "2D
 presence-vs-presence sustainability field" model family and has no meaning
-to a generic `dt_model` domain. `runner.py`-track proposals live in
-`cdt_ext` instead.
+to a generic `dt_model` domain. Generic, model-agnostic utilities belong
+upstream in `civic_digital_twins.dt_model` instead.
 """

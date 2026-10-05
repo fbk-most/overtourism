@@ -5,7 +5,7 @@ The adapter interface decouples the Streamlit UI from any concrete
 overtourism model.  String IDs (``index.name``) cross the interface boundary
 — no live Python objects — making the schema fully serialisable and
 API-ready.  The name→Index map-back lives inside each concrete backend's
-``evaluate()`` method (see ``overtourism.cdt_ext.runner_ext.build_scenario``).
+``evaluate()`` method (see ``civic_digital_twins.dt_model.build_scenario``).
 
 Widget specifications are typed structurally, via the :class:`ParameterSpec`
 ``Protocol`` below, rather than by importing the concrete

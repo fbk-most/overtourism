@@ -18,15 +18,15 @@ from numbers import Real
 from typing import Any
 
 import numpy as np
-from civic_digital_twins.dt_model import DistributionIndex, EvaluationResult
+from civic_digital_twins.dt_model import (
+    DistributionIndex,
+    EvaluationConfig,
+    EvaluationResult,
+    ParameterMeta,
+)
 from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 from scipy import interpolate, ndimage
 from scipy import stats as scipy_stats
-
-from overtourism.layer_3.cdt_ext.runner_ext import (
-    EnsembleEvaluationConfig,
-    ParameterMeta,
-)
 
 __all__ = [
     "OvertourismEvaluationConfig",
@@ -51,7 +51,7 @@ class OvertourismParameterMeta(ParameterMeta):
     """`ParameterMeta` extended with presentation content for the dashboards.
 
     Built via plain dataclass inheritance (see the rationale on
-    `cdt_ext.runner_ext.ParameterMeta`). Superset of the fields
+    `civic_digital_twins.dt_model.ParameterMeta`). Superset of the fields
     `overtourism.dt_studio.dashboard.adapter.ParameterSpec` used to carry separately —
     that class is removed since it duplicated this one exactly.
     """
@@ -72,8 +72,8 @@ class OvertourismParameterMeta(ParameterMeta):
 
 
 @dataclass
-class OvertourismEvaluationConfig(EnsembleEvaluationConfig):
-    """`EnsembleEvaluationConfig` extended with presence-sampling/statistical parameters.
+class OvertourismEvaluationConfig(EvaluationConfig):
+    """`EvaluationConfig` extended with presence-sampling/statistical parameters.
 
     Concepts — scatter-overlay sampling, a sustainability-index confidence
     interval — that don't exist outside this model family.
