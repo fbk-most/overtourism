@@ -283,6 +283,13 @@ non-duplicate capability those fields provided. `kpis` stays English-only —
 locale translation was already a separate presentation-layer post-processing
 step in the pre-reorg code, not part of this computation.
 
+`kpis` reports **sustainability**, not overtourism: `sustainability_level`
+(the overall `sustainability_index`), `critical constraint` (the constraint
+with the lowest sustainability), and one `constraint level <name>` entry per
+constraint (its `sustainability_by_constraint` value) — each as `{"level",
+"confidence"}` percentages. (Earlier versions reported the complement,
+`1 - sustainability`, under an `overtourism_level` key.)
+
 `to_snapshot()` returns a JSON-serialisable dict (base64-encoded array
 fields) including all of the above — see §Layer 5 — REST API for why the
 live `/evaluate` response uses a different, plain-JSON shape instead.
@@ -400,8 +407,9 @@ alone:
   on the backend;
 - derives `kpi_mapper`'s per-constraint `"constraint level X"` entries
   mechanically, one per non-`"default"` `mapper` key, following the
-  `"Giorni di criticità {label}"` template every existing model used with
-  zero exceptions;
+  `"Sostenibilità {label}"` template (`"sustainability_level"` is labelled
+  `"Sostenibilità complessiva"`), matching the sustainability values
+  `SustainabilityFieldOutput.kpis` reports (§Layer 2);
 - hardcodes the handful of presentation constants that never varied across
   models (`color_map`, `kpi_mapper`'s static keys, `plot_mapper.monodimensional`).
 

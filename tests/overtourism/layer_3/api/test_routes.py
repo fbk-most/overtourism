@@ -186,10 +186,10 @@ def test_get_schema_builds_full_metadata_from_backend_minimal_set(monkeypatch) -
 
     # Derived mechanically from `mapper` (one per non-"default" key).
     assert body["metadata"]["kpi_mapper"]["constraint level parking"] == (
-        "Giorni di criticità FAKE-PARK"
+        "Sostenibilità FAKE-PARK"
     )
     assert body["metadata"]["kpi_mapper"]["constraint level beach"] == (
-        "Giorni di criticità FAKE-BEACH"
+        "Sostenibilità FAKE-BEACH"
     )
     assert "constraint level default" not in body["metadata"]["kpi_mapper"]
 
@@ -233,11 +233,11 @@ def test_get_fazzon_schema_returns_fazzon_frontend_metadata() -> None:
         "kpi_mapper": {
             "title": "Indici",
             "area": "Area Totale",
-            "overtourism_level": "Giorni di criticità complessiva",
-            "constraint level parking": "Giorni di criticità Parcheggi",
-            "constraint level road": "Giorni di criticità Viabilità",
-            "constraint level food": "Giorni di criticità Ristorazione",
-            "constraint level lakeside": "Giorni di criticità Lungolago",
+            "sustainability_level": "Sostenibilità complessiva",
+            "constraint level parking": "Sostenibilità Parcheggi",
+            "constraint level road": "Sostenibilità Viabilità",
+            "constraint level food": "Sostenibilità Ristorazione",
+            "constraint level lakeside": "Sostenibilità Lungolago",
             "critical constraint": "Vincolo Critico",
         },
         "plot_mapper": {

@@ -67,14 +67,14 @@ def _build_metadata(minimal: dict[str, Any]) -> dict[str, Any]:
     """Build the full `/schema` presentation metadata from a backend's minimal set."""
     mapper = minimal["mapper"] | {"default": "Tutti"}
     constraint_kpis = {
-        f"constraint level {key}": f"Giorni di criticità {label}"
+        f"constraint level {key}": f"Sostenibilità {label}"
         for key, label in mapper.items()
         if key != "default"
     }
     kpi_mapper = {
         "title": "Indici",
         "area": "Area Totale",
-        "overtourism_level": "Giorni di criticità complessiva",
+        "sustainability_level": "Sostenibilità complessiva",
         **constraint_kpis,
         "critical constraint": "Vincolo Critico",
     }
