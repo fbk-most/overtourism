@@ -39,14 +39,39 @@ def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    df = df.merge(
+
+    len_pre = len(df)
+    df_mg = df.merge(
         df_vodafone[["DATA", "ID_COMUNE", "presenze"]].rename(
             columns={"presenze": "presenze_vodafone"}
         ),
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    return df.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
+
+    if len(df_mg) < len_pre:
+        records_lost = len_pre - len(df_mg)
+        perc_lost = (records_lost / len_pre) * 100
+        missing_dates = sorted(set(df["DATA"].unique()) - set(df_vodafone["DATA"].unique()))
+
+        logging.warning(
+            f"Filtered: {records_lost} disjoint record ({perc_lost:.2f}%)."
+        )
+        
+        if missing_dates:
+            logging.warning(
+                f"Vodafone days missing: {len(missing_dates)}."
+            )
+            logging.warning(
+                f"First day missing: {missing_dates[0]} | Last: {missing_dates[-1]}"
+            )
+
+        missing_ids = sorted(set(df["ID_COMUNE"].unique()) - set(df_vodafone["ID_COMUNE"].unique()))
+        
+        if missing_ids:
+            logging.warning(f"Vodafone IDs missing: {missing_ids}")
+            
+    return df_mg.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
 
 
 def calculate_phenomena(
