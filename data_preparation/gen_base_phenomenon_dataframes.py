@@ -52,25 +52,31 @@ def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
     if len(df_mg) < len_pre:
         records_lost = len_pre - len(df_mg)
         perc_lost = (records_lost / len_pre) * 100
-        missing_dates = sorted(set(df["DATA"].unique()) - set(df_vodafone["DATA"].unique()))
+        missing_dates = set(df["DATA"].dropna()) - set(df_vodafone["DATA"].dropna())
+
+        rows_missing_dates = int(df["DATA"].isin(missing_dates).sum())
+        rows_missing_keys = records_lost - rows_missing_dates
 
         logging.warning(
-            f"Filtered: {records_lost} disjoint record ({perc_lost:.2f}%)."
-        )
-        
+            "Filtered Vodafone: %d/%d records discarded (%.2f%%).", records_lost, len_pre, perc_lost,)
         if missing_dates:
+            min_d, max_d = min(missing_dates), max(missing_dates)
             logging.warning(
-                f"Vodafone days missing: {len(missing_dates)}."
+                "Records lost on dates not covered by Vodafone: %d records across "
+                "%d days (%s..%s).",
+                rows_missing_dates,
+                len(missing_dates),
+                min_d,
+                max_d,
             )
             logging.warning(
-                f"First day missing: {missing_dates[0]} | Last: {missing_dates[-1]}"
+                "First day missing: %s | Last: %s", min_d, max_d
             )
-
-        missing_ids = sorted(set(df["ID_COMUNE"].unique()) - set(df_vodafone["ID_COMUNE"].unique()))
-        
-        if missing_ids:
-            logging.warning(f"Vodafone IDs missing: {missing_ids}")
-            
+        if rows_missing_keys:
+            logging.warning(
+                "%d Records lost because of missing ID_COMUNE on common dates.",
+                rows_missing_keys,
+            )
     return df_mg.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
 
 

@@ -200,8 +200,7 @@ def process_updated_data(out_dir=UPDATE_PROCESSED_DIR, type_format="csv", datase
 # ---------------------------------------------------------------------------
 # MERGE
 # ---------------------------------------------------------------------------
-
-def merge_new_pr_dataframe(df_old, df_new, value_cols):
+def merge_new_pr_dataframe(df_old, df_new, value_cols, dataset_name="dataset"):
     """Merges old and new: checks the columns and updates the data if there is some intersection.
     If common_cols is set to None, df_old.columns are used as reference
     Merge using DATA + ID_COMUNE (via _make_hashable, to deal with ID_COMUNE lists)"""
@@ -209,6 +208,17 @@ def merge_new_pr_dataframe(df_old, df_new, value_cols):
     ## si presume questi assert passino dopo la standardizzazione
     assert required.issubset(df_old.columns), "Columns required not all found in old DF"
     assert required.issubset(df_new.columns), "Columns required not all found in new DF"
+
+    replaced_keys = set(zip(df_old["DATA"], df_old["ID_COMUNE"].map(_make_hashable))) & set(zip(df_new["DATA"], df_new["ID_COMUNE"].map(_make_hashable)))
+    replaced_dates = {k[0] for k in replaced_keys if pd.notna(k[0])}
+    num_replaced_dates = len(replaced_dates)
+
+    if replaced_dates:
+        range_str = f"dal {min(replaced_dates)} al {max(replaced_dates)}"
+    else:
+        range_str = "no interval"
+
+    logging.info( "Merge stats [%s - %s]: %d new rows -> %d records replaced on %d dates (%s).", dataset_name, ", ".join(value_cols), len(df_new), len(replaced_keys), num_replaced_dates, range_str) 
 
     cols = ["DATA", "ID_COMUNE", *value_cols]
     merged = pd.concat(
@@ -223,9 +233,8 @@ def merge_new_pr_dataframe(df_old, df_new, value_cols):
         .sort_values(["DATA", "_ID_KEY"])
         .drop(columns="_ID_KEY")
         .reset_index(drop=True)
-    )    # print(merged["ID_COMUNE"].apply(type).value_counts())
+    )
     return standard_ordering_cols(merged)
-
 def merge_all_processed_dataframes(old_dfs: dict, new_dfs: dict) -> dict:
     """Merge existing processed data with the update.
     Returns only the dataframes that were actually updated."""
