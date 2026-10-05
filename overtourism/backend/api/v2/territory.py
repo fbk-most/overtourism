@@ -16,12 +16,12 @@ from overtourism.backend.utils.config import BASE_ROUTE
 
 territory_router = APIRouter(
     prefix=f"{BASE_ROUTE}/default",
-    tags=["Territorys"],
+    tags=["Territories"],
 )
 
 
-@territory_router.get("/territorys", response_model=list[str])
-async def list_territorys(
+@territory_router.get("/territories", response_model=list[str])
+async def list_territories(
     context: Annotated[AuthContext, Depends(get_auth_context)],
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> list[str]:

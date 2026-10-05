@@ -126,8 +126,8 @@ def test_create_app_groups_routes_by_domain_tags_in_openapi(handler) -> None:
             "description": "Authentication and current user context.",
         },
         {
-            "name": "Territorys",
-            "description": "List territorys available to the current user.",
+            "name": "Territories",
+            "description": "List territories available to the current user.",
         },
         {
             "name": "Health",

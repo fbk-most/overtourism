@@ -23,7 +23,7 @@ def user_manager(handler):
     return user_manager
 
 
-def test_list_territorys_returns_model_keys_when_auth_is_disabled(
+def test_list_territories_returns_model_keys_when_auth_is_disabled(
     handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -35,13 +35,13 @@ def test_list_territorys_returns_model_keys_when_auth_is_disabled(
     )
 
     with TestClient(app) as client:
-        response = client.get("/api/v2/default/territorys")
+        response = client.get("/api/v2/default/territories")
 
     assert response.status_code == 200
     assert response.json() == ["territory-alpha", "territory-beta"]
 
 
-def test_list_territorys_filters_model_keys_to_database_assignments(
+def test_list_territories_filters_model_keys_to_database_assignments(
     handler,
     user_manager: UserManager,
     monkeypatch: pytest.MonkeyPatch,
@@ -73,7 +73,7 @@ def test_list_territorys_filters_model_keys_to_database_assignments(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territorys",
+            "/api/v2/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -81,7 +81,7 @@ def test_list_territorys_filters_model_keys_to_database_assignments(
     assert response.json() == ["territory-alpha", "territory-beta"]
 
 
-def test_list_territorys_returns_all_model_keys_for_global_admin(
+def test_list_territories_returns_all_model_keys_for_global_admin(
     handler,
     user_manager: UserManager,
     monkeypatch: pytest.MonkeyPatch,
@@ -109,7 +109,7 @@ def test_list_territorys_returns_all_model_keys_for_global_admin(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territorys",
+            "/api/v2/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -121,7 +121,7 @@ def test_list_territorys_returns_all_model_keys_for_global_admin(
     ]
 
 
-def test_list_territorys_rejects_authenticated_unregistered_users(
+def test_list_territories_rejects_authenticated_unregistered_users(
     handler,
     user_manager: UserManager,
     monkeypatch: pytest.MonkeyPatch,
@@ -142,7 +142,7 @@ def test_list_territorys_rejects_authenticated_unregistered_users(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territorys",
+            "/api/v2/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 

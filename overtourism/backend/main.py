@@ -87,8 +87,8 @@ OPENAPI_TAGS = [
         "description": "Authentication and current user context.",
     },
     {
-        "name": "Territorys",
-        "description": "List territorys available to the current user.",
+        "name": "Territories",
+        "description": "List territories available to the current user.",
     },
     {
         "name": "Health",
