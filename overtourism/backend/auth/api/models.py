@@ -14,7 +14,6 @@ class AuthMeResponse(BaseModel):
     subject: str | None = None
     user_id: str | None = None
     role: UserRole | None = None
-    is_global_admin: bool = False
     territories: list[str] = Field(default_factory=list)
 
 

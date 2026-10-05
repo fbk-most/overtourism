@@ -74,7 +74,6 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
         "subject": None,
         "user_id": None,
         "role": None,
-        "is_global_admin": False,
         "territories": [],
     }
 
@@ -138,7 +137,6 @@ def test_auth_me_returns_authenticated_context_and_database_territory(
     assert user_data["subject"] == "101"
     assert user_data["user_id"]
     assert user_data["role"] == "viewer"
-    assert user_data["is_global_admin"] is False
     assert user_data["territories"] == ["territory-alpha"]
 
 
@@ -322,7 +320,6 @@ def test_auth_me_returns_all_model_territories_for_admin(
         )
 
     assert response.status_code == 200
-    assert response.json()["is_global_admin"] is True
     assert response.json()["territories"] == ["territory-alpha", "territory-beta"]
 
 
