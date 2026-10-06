@@ -305,7 +305,6 @@ def get_index_data(
             end_date=end_date,
             **extra,
         )
-        print(computed_index)
         if computed_index is None:
             raise RuntimeError("It was not possible to compute the indicator")
 
@@ -355,20 +354,28 @@ def get_variation_data(
     start_date: str | None = Query(None),
     end_date: str | None = Query(None),
     granularity: str | None = Query(None),
+    selected_territories: list[str] | None = Query(
+        None,
+        description="Optional comune IDs or macro-area IDs to include in the result.",
+    ),
 ):
     """
-    Time-series variation for the region and selected spatial units. With
-    ``spatial_granularity=provincia``, only the province-wide series is returned.
+    Time-series variation for spatial units. When ``selected_territories`` is
+    provided, only the matching comune or macro-area series are returned. With
+    ``spatial_granularity=provincia``, only the province-wide series is returned
+    when no territories are selected.
 
-    ``granularity`` here is *temporal* (giornaliero / settimanale / mensile / annuale).
+    ``granularity`` accepts daily/weekly/monthly/yearly values; these are normalized before computing the time series.
     ``spatial_granularity`` (query param) accepts ``comune``, ``macro_area``,
     or ``provincia`` and controls the territorial grain.
     """
     try:
         tc = _build_tc(request)
+
         logger.info(
             f"[{index} variation] start_date={start_date}, end_date={end_date}, "
-            f"temporal={granularity}, spatial={tc.spatial_granularity}"
+            f"temporal={granularity}, spatial={tc.spatial_granularity}, "
+            f"selected_territories={selected_territories}"
         )
 
         start_dt = _parse_date(start_date, "start_date")
@@ -389,6 +396,19 @@ def get_variation_data(
         )
 
         series = tc.apply_to_series(raw_series)
+        if selected_territories is not None:
+            selected_ids = {str(territory) for territory in selected_territories}
+            series = [s for s in series if str(s["label"]) in selected_ids]
+
+            # Keep the series contract intact, but show human-readable names
+            # instead of IDs when the caller explicitly selected territories.
+            names_by_id = {
+                str(area["code"]): area["name"]
+                for area in get_list_comuni(CODICI_COMUNI_FILE)
+            }
+            for item in series:
+                territory_id = str(item["label"])
+                item["label"] = names_by_id.get(territory_id, territory_id)
 
         return {
             "labels": labels,

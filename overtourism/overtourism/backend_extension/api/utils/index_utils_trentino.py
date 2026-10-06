@@ -71,8 +71,6 @@ def _load_map_geometry_cached(map_shapefile: Path) -> gpd.GeoDataFrame:
     Read and reproject the shapefile once.  Reprojection is expensive CPU
     work; doing it on every request was the dominant cost for map endpoints.
     """
-    print(map_shapefile)
-
     gdf = gpd.read_file(map_shapefile).to_crs(epsg=4326)
     return gdf[gdf.COD_PROV == 22]
 

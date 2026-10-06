@@ -51,8 +51,6 @@ def _compute_min_max(gdf_final):
         min_val = float(gdf_final["INDICE"].min())
         max_val = float(gdf_final["INDICE"].max())
 
-        print(f"MIN VAL {min_val}, MAX VAL {max_val}")
-
         if 0 <= min_val <= 1:
             min_val = 0.0
 
@@ -72,8 +70,6 @@ def _compute_min_max(gdf_final):
 
         if min_val == max_val == 100.0:
             min_val = 0.0
-
-        print(f"RES MIN VAL {min_val}, MAX VAL {max_val}")
 
         return min_val, max_val
 
