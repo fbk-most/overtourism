@@ -18,15 +18,15 @@ from numbers import Real
 from typing import Any
 
 import numpy as np
-from civic_digital_twins.dt_model import DistributionIndex, EvaluationResult
+from civic_digital_twins.dt_model import (
+    DistributionIndex,
+    EvaluationConfig,
+    EvaluationResult,
+    ParameterMeta,
+)
 from civic_digital_twins.dt_model.simulation.runner import ModelOutput
 from scipy import interpolate, ndimage
 from scipy import stats as scipy_stats
-
-from overtourism.layer_3.cdt_ext.runner_ext import (
-    EnsembleEvaluationConfig,
-    ParameterMeta,
-)
 
 __all__ = [
     "OvertourismEvaluationConfig",
@@ -51,7 +51,7 @@ class OvertourismParameterMeta(ParameterMeta):
     """`ParameterMeta` extended with presentation content for the dashboards.
 
     Built via plain dataclass inheritance (see the rationale on
-    `cdt_ext.runner_ext.ParameterMeta`). Superset of the fields
+    `civic_digital_twins.dt_model.ParameterMeta`). Superset of the fields
     `overtourism.dt_studio.dashboard.adapter.ParameterSpec` used to carry separately —
     that class is removed since it duplicated this one exactly.
     """
@@ -72,8 +72,8 @@ class OvertourismParameterMeta(ParameterMeta):
 
 
 @dataclass
-class OvertourismEvaluationConfig(EnsembleEvaluationConfig):
-    """`EnsembleEvaluationConfig` extended with presence-sampling/statistical parameters.
+class OvertourismEvaluationConfig(EvaluationConfig):
+    """`EvaluationConfig` extended with presence-sampling/statistical parameters.
 
     Concepts — scatter-overlay sampling, a sustainability-index confidence
     interval — that don't exist outside this model family.
@@ -578,26 +578,26 @@ class SustainabilityFieldOutput(ModelOutput):
 
     @functools.cached_property
     def kpis(self) -> dict[str, Any]:
-        """KPI dict: overtourism level, critical constraint, per-constraint levels. English-only —
+        """KPI dict: sustainability level, critical constraint, per-constraint levels. English-only —
         locale translation is a presentation-layer concern, not part of this computation.
         """
         idx, ci = self.sustainability_index
         sbc = self.sustainability_by_constraint
         kpis: dict[str, Any] = {}
-        kpis["overtourism_level"] = {
-            "level": round((1 - idx) * 100, 4),
+        kpis["sustainability_level"] = {
+            "level": round(idx * 100, 4),
             "confidence": round(ci * 100, 4),
         }
         critical_name = min(sbc, key=lambda k: sbc[k][0])
         c_mean, c_ci = sbc[critical_name]
         kpis["critical constraint"] = {
             "name": critical_name,
-            "level": round((1 - c_mean) * 100, 4),
+            "level": round(c_mean * 100, 4),
             "confidence": round(c_ci * 100, 4),
         }
         for name, (c_mean, c_ci) in sbc.items():
             kpis["constraint level " + name] = {
-                "level": round((1 - c_mean) * 100, 4),
+                "level": round(c_mean * 100, 4),
                 "confidence": round(c_ci * 100, 4),
             }
         return kpis

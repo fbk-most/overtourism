@@ -456,15 +456,15 @@ wheels = [
 
 [[package]]
 name = "civic-digital-twins"
-version = "0.11.0"
+version = "0.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/68/852dade40d7df01e978f193fed4235019e1374930a2c598656a847a54d38/civic_digital_twins-0.11.0.tar.gz", hash = "sha256:8851ab971354f8469fbe87ddeff5617859ab2165ba8f51207273072a1c51ccd2", size = 422704, upload-time = "2026-07-24T17:30:22.99Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/46/bc226d4c6cac84ae2fad204dbaff483f68c7f177630d6ca49077e0d3c2d3/civic_digital_twins-0.12.0.tar.gz", hash = "sha256:5039912b29acfe8cfdd06b1c14fa407f611e026c1eed6e6481aa93d8e5fef8c3", size = 513672, upload-time = "2026-09-24T10:13:11.986Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/a6/e822b46718db5618d48372570f48bb555ae8981fcdbfc91f141d4396b572/civic_digital_twins-0.11.0-py3-none-any.whl", hash = "sha256:b47aaf6d6f210f244cd4145103a440f4f0e41e6f5ce3ae05f1a98a350c250030", size = 141281, upload-time = "2026-07-24T17:30:21.527Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/e5/20144545c5cc8972ea6eece7654451ef1df244adb501291423186a7cfda6/civic_digital_twins-0.12.0-py3-none-any.whl", hash = "sha256:8081b266aadb13e638ed79686ca45214f0b27d06149946b58cff9773040ae03e", size = 175073, upload-time = "2026-09-24T10:13:10.527Z" },
 ]
 
 [[package]]
@@ -2082,7 +2082,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "civic-digital-twins", specifier = "==0.11.0" },
+    { name = "civic-digital-twins", specifier = ">=0.12.0,<0.13" },
     { name = "contextily", specifier = "==1.7.1" },
     { name = "digitalhub", specifier = "==0.15.11" },
     { name = "fastapi", extras = ["standard"], specifier = "==0.141.1" },

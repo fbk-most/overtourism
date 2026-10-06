@@ -33,7 +33,7 @@ def _dist_to_range(frozen_dist: Any) -> tuple[float, float]:
     """Extract ``(lo, hi)`` endpoints from a frozen scipy distribution.
 
     The convention is ``lo = loc`` and ``hi = loc + scale``, matching the
-    convention documented on :func:`cdt_ext.runner_ext.build_scenario`.
+    convention documented on :func:`civic_digital_twins.dt_model.build_scenario`.
     Used only to translate the *predefined* scenario catalogue
     (``fazzon_scenarios.ALL_SCENARIOS``, which is expressed against live
     ``Index`` objects) into the string-keyed vocabulary the dashboard uses —
