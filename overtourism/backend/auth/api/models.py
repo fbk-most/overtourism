@@ -24,7 +24,6 @@ class AuthRoleResponse(BaseModel):
 
 class AuthUserResponse(BaseModel):
     user_id: str
-    identifier: str
     subject: str | None = None
     role: UserRole
     is_active: bool

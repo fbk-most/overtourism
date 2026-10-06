@@ -47,7 +47,7 @@ def test_create_session_requires_territory(tmp_path) -> None:
     manager = _make_manager(tmp_path)[0]
 
     with pytest.raises(TypeError):
-        getattr(manager, "create_session")()
+        manager.create_session()
 
 
 def test_manager_starts_empty_and_persists_an_explicit_graph(tmp_path) -> None:
