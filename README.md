@@ -12,46 +12,53 @@ for managing the Python version, the virtual environment, and the
 dependencies. Please, refer to `uv` documentation regarding how to
 install it for your operating system.
 
-Once `uv` is installed, use these commands:
+This repository has separate Python environments for data preparation and for each backend. Clone the repository first:
 
 ```bash
 git clone git@github.com/tn-aixpa/overtourism
 cd overtourism
-uv venv
-source .venv/bin/activate
+```
+
+Run the setup for each component from the repository root, using a separate terminal for each environment:
+
+```bash
+# Data preparation (repository-level pyproject.toml)
 uv sync --dev
+source .venv/bin/activate
+```
+
+```bash
+# CRUD API backend
+cd overtourism-backend
+uv sync --dev
+source .venv/bin/activate
+```
+
+```bash
+# Model API backend
+cd executor-backend
+uv sync --dev
+source .venv/bin/activate
 ```
 
 ## Dependencies
 
-See [pyproject.toml](pyproject.toml) for the full list of dependencies. In terms of
-code developed at [Fondazione Bruno Kessler](https://www.fbk.eu/en/), the main
-dependencies are the following:
-
-- [dt-model](https://github.com/tn-aixpa/dt-model): Digital Twin modeling library.
-
-Dependencies are anyway automatically installed by `uv sync --dev`.
+Each component's dependencies are defined in its own project file: [data preparation](pyproject.toml), [CRUD API](overtourism-backend/pyproject.toml), and [Model API](executor-backend/pyproject.toml). Running `uv sync --dev` in a component directory installs that project's dependencies into its `.venv`.
 
 ### Updating specific dependencies
 
-To update a specific dependency, use the following command:
+Update a dependency in the project that declares it. Use the repository root for data preparation, `overtourism-backend` for the CRUD API, or `executor-backend` for the Model API:
 
 ```bash
 uv sync --dev -P "${dependency}"
 ```
 
-For example,
-
-```bash
-uv sync --dev -P dt-model
-```
-
-updates `dt-model` to the latest version.
+This updates only that project's environment.
 
 ## Usage
 
 - [Data Preparation](./docs/howto/data.md)
-- [Build and run Backend application](./docs/howto/backend.md)
+- [Build and run Backend services](./docs/howto/backend.md)
 - [Build and run Frontend application](./docs/howto/frontend.md)
 
 ## License
