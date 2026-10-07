@@ -34,6 +34,17 @@ When running outside standalone mode, the CRUD API needs credentials to download
 ./dhcli login dhcore
 ```
 
+Before starting the services, initialize the database schema with the standalone bootstrap project:
+
+```bash
+cd db-bootstrap
+uv sync
+source .venv/bin/activate
+python bootstrap_db.py
+```
+
+The script creates the schema and, for SQLite, the database file and parent directories. Pass an email to also provision the first admin, for example `python bootstrap_db.py admin@example.org`. It uses `OVERTOURISM_DATABASE` when set; otherwise it targets the same local SQLite file as the CRUD API.
+
 Run the services in separate terminals from the repository root. Start the Model API first:
 
 ```bash

@@ -12,7 +12,7 @@ for managing the Python version, the virtual environment, and the
 dependencies. Please, refer to `uv` documentation regarding how to
 install it for your operating system.
 
-This repository has separate Python environments for data preparation and for each backend. Clone the repository first:
+This repository has separate Python environments for data preparation, each backend, and the database bootstrap utility. Clone the repository first:
 
 ```bash
 git clone git@github.com/tn-aixpa/overtourism
@@ -41,19 +41,26 @@ uv sync --dev
 source .venv/bin/activate
 ```
 
+```bash
+# Database schema and optional admin bootstrap
+cd db-bootstrap
+uv sync
+source .venv/bin/activate
+```
+
 ## Dependencies
 
-Each component's dependencies are defined in its own project file: [data preparation](pyproject.toml), [CRUD API](overtourism-backend/pyproject.toml), and [Model API](executor-backend/pyproject.toml). Running `uv sync --dev` in a component directory installs that project's dependencies into its `.venv`.
+Each component's dependencies are defined in its own project file: [data preparation](pyproject.toml), [CRUD API](overtourism-backend/pyproject.toml), [Model API](executor-backend/pyproject.toml), and [database bootstrap](db-bootstrap/pyproject.toml). Run `uv sync` in a component directory to install its dependencies into that project's `.venv`; use `--dev` for data preparation and the two backend projects.
 
 ### Updating specific dependencies
 
-Update a dependency in the project that declares it. Use the repository root for data preparation, `overtourism-backend` for the CRUD API, or `executor-backend` for the Model API:
+Update a dependency in the project that declares it. Use the repository root for data preparation, `overtourism-backend` for the CRUD API, `executor-backend` for the Model API, or `db-bootstrap` for the schema utility. For data preparation and the backend projects:
 
 ```bash
 uv sync --dev -P "${dependency}"
 ```
 
-This updates only that project's environment.
+For the bootstrap utility, run `uv sync -P "${dependency}"` from `db-bootstrap` (it has no development dependency group). Each command updates only that project's environment.
 
 ## Usage
 
