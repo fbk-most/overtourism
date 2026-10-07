@@ -58,7 +58,11 @@ DATASETS = {
         _spec("strutture", STRUTTURE_VALUE_COLS, [REF_MAPPING_COMUNI]),
         _spec("vodafone", VODAFONE_VALUE_COLS, [REF_MAPPING_VODAFONE, REF_GEOJSON]),
         _spec("presenze_alb", PRESENZE_ALB_VALUE_COLS, [REF_MAPPING_APT]),
-        _spec("presenze_extralb", PRESENZE_XALB_VALUE_COLS, [REF_MAPPING_APT, REF_MAPPING_COMUNI]),
+        _spec(
+            "presenze_extralb",
+            PRESENZE_XALB_VALUE_COLS,
+            [REF_MAPPING_APT, REF_MAPPING_COMUNI],
+        ),
     )
 }
 ALL_DATASETS = tuple(DATASETS)

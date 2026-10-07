@@ -24,7 +24,14 @@ from data_preparation.utils.cleaning import (
     resolve_id_comune,
     standard_ordering_cols,
 )
-from data_preparation.utils.config import MAPPING_DIR, NORMALIZED_DIR, PROCESSED_DIR, TYPE_FORMAT, setup_logging
+from data_preparation.utils.config import (
+    MAPPING_DIR,
+    NORMALIZED_DIR,
+    PROCESSED_DIR,
+    TYPE_FORMAT,
+    MAPPING_FILES,
+    setup_logging,
+)
 from data_preparation.utils.datasets import (  # noqa: F401  (re-exported for convenience)
     DATASETS,
     POPOLAZIONE_VALUE_COLS,
@@ -38,26 +45,6 @@ from data_preparation.utils.io import read_df, read_json, save_computed_dfs
 
 logger = logging.getLogger(__name__)
 
-# standardized (aligned) strutture column -> processed column
-STRUTTURE_STD_RENAMING = {
-    "alberghieri posti_letto": "tot_postiletto_alberghieri",
-    "extra alb. Posti_letto": "tot_postiletto_extralberghieri",
-    "alberghieri strutture": "tot_strutture_alberghiere",
-    "extra alb. Strutture": "tot_strutture_extralberghiere",
-    "all. privati numero": "tot_strutture_non_conv",
-    "all. privati posti_letto": "tot_postiletto_non_conv",
-}
-
-# Raw "convenzionali" totals: discarded here (they are supposed to be alberghieri + extralberghieri),
-# the totals are computed from the raw components instead.
-STRUTTURE_DISCARDED_COLS = ["tot convenzionali strutture", "tot convenzionali posti_letto"]
-
-MAPPING_FILES = {
-    "mapping_comuni": "mapping_comuni_ISTAT.json",
-    "mapping_vodafone": "mapping_comuni_into_vodafone_Trento.json",
-    "mapping_apt": "map_comuni_into_apt.json",
-}
-
 
 def _filtering_strutture(df, min_year, year_col="DATA"):
     """Excludes years pre-2020, geography changes for municipalities aggregations"""
@@ -66,11 +53,15 @@ def _filtering_strutture(df, min_year, year_col="DATA"):
 
 def _filtering_vodafone_attendences(df):
     """Filtering presences on tourists and municipalities"""
-    return df[(df["userProfile"] == "TOURIST") & (df["locType"] == "TN_MKT_AL_3")].copy()
+    return df[
+        (df["userProfile"] == "TOURIST") & (df["locType"] == "TN_MKT_AL_3")
+    ].copy()
 
 
 def process_popolazione(df, mapping_comuni):
-    df["ID_COMUNE"] = df["LOCATION"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+    df["ID_COMUNE"] = df["LOCATION"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
+    )
     df = remove_provincia(df, comune_col="LOCATION")
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
     return standard_ordering_cols(df[["DATA", "ID_COMUNE"] + POPOLAZIONE_VALUE_COLS])
@@ -79,22 +70,33 @@ def process_popolazione(df, mapping_comuni):
 def process_strutture(df, mapping_comuni):
     df = _filtering_strutture(df, 2019)
     df = remove_provincia(df, comune_col="LOCATION")
-    df = df.drop(columns=STRUTTURE_DISCARDED_COLS, errors="ignore").rename(columns=STRUTTURE_STD_RENAMING)
 
     # CONV = alberghieri + extralberghieri (from the raw components, not from the raw CONV totals)
-    df["tot_strutture_conv"] = df["tot_strutture_alberghiere"] + df["tot_strutture_extralberghiere"]
-    df["tot_postiletto_conv"] = df["tot_postiletto_alberghieri"] + df["tot_postiletto_extralberghieri"]
+    df["tot_strutture_conv"] = df["alberghieri strutture"] + df["extra alb. Strutture"]
+    df["tot_postiletto_conv"] = (
+        df["alberghieri posti_letto"] + df["extra alb. Posti_letto"]
+    )
+
+    df["tot_strutture_non_conv"] = (
+        df["all. privati numero"] + df["all.disposizione numero"]
+    )
+    df["tot_postiletto_non_conv"] = (
+        df["all. privati posti_letto"] + df["all. disposizione posti_letto"]
+    )
 
     # Compute total as the sum of CONV and NON CONV
     df["tot_strutture"] = df["tot_strutture_conv"] + df["tot_strutture_non_conv"]
     df["tot_postiletto"] = df["tot_postiletto_conv"] + df["tot_postiletto_non_conv"]
 
     # Set ID_COMUNE (resolving the bilingual overrides)
-    df["ID_COMUNE"] = df["LOCATION"].apply(lambda x: resolve_id_comune(x, mapping_comuni))
+    df["ID_COMUNE"] = df["LOCATION"].apply(
+        lambda x: resolve_id_comune(x, mapping_comuni)
+    )
     missing = df.loc[df["ID_COMUNE"].isna(), "LOCATION"].unique()
     if len(missing) > 0:
         logger.warning(
-            "[process_strutture] No ID_COMUNE found (even with overrides) for: %s", sorted(missing)
+            "[process_strutture] No ID_COMUNE found (even with overrides) for: %s",
+            sorted(missing),
         )
 
     df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"])
@@ -108,9 +110,13 @@ def process_vodafone(df, mapping_vodafone, **disagg_kwargs):
     df = _filtering_vodafone_attendences(df)  # only COMUNI & TURISTI
     df["ID_COMUNE"] = df["LOCATION"].map(mapping_vodafone)
     mask = df["LOCATION"] == "SAN GIOVANNI DI FASSA"
-    df.loc[mask, "ID_COMUNE"] = pd.Series([[22250]] * mask.sum(), index=df.index[mask], dtype=object)
+    df.loc[mask, "ID_COMUNE"] = pd.Series(
+        [[22250]] * mask.sum(), index=df.index[mask], dtype=object
+    )
     if df["ID_COMUNE"].isna().any():
-        locations = sorted(df.loc[df["ID_COMUNE"].isna(), "LOCATION"].dropna().unique().tolist())
+        locations = sorted(
+            df.loc[df["ID_COMUNE"].isna(), "LOCATION"].dropna().unique().tolist()
+        )
         logger.warning(
             "[process_vodafone] %d rows Vodafone (%d aree) with no mapping ID_COMUNE; "
             "rows will be excluded by groupby: %s",
@@ -118,8 +124,12 @@ def process_vodafone(df, mapping_vodafone, **disagg_kwargs):
             len(locations),
             locations,
         )
-    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime("%Y-%m-%d")
-    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"]).apply(normalize_id_comune)  # hashable
+    df["DATA"] = pd.to_datetime(df["DATA"].astype(str), errors="coerce").dt.strftime(
+        "%Y-%m-%d"
+    )
+    df["ID_COMUNE"] = pad_id_comune(df["ID_COMUNE"]).apply(
+        normalize_id_comune
+    )  # hashable
 
     # Sum per (day, vodafone area), then split each area over its comuni
     df = df.groupby(["DATA", "ID_COMUNE"], as_index=False)[VODAFONE_VALUE_COLS].sum()
@@ -127,7 +137,9 @@ def process_vodafone(df, mapping_vodafone, **disagg_kwargs):
     return standard_ordering_cols(df)
 
 
-def process_presenze_ISPAT(df, mapping_comuni, value_cols, provincia=False, **disagg_kwargs):
+def process_presenze_ISPAT(
+    df, mapping_comuni, value_cols, provincia=False, **disagg_kwargs
+):
     """ISPAT presences (alb: APT, monthly / extralb: provincia, monthly) -> comune x day.
     disagg_kwargs (space / time weights) are passed to disaggregate: uniform split if empty.
     """
@@ -155,7 +167,10 @@ def load_mappings(mapping_dir):
 
 
 def process_data(
-    normalized_dir=NORMALIZED_DIR, mapping_dir=MAPPING_DIR, out_dir=PROCESSED_DIR, type_format=TYPE_FORMAT
+    normalized_dir=NORMALIZED_DIR,
+    mapping_dir=MAPPING_DIR,
+    out_dir=PROCESSED_DIR,
+    type_format=TYPE_FORMAT,
 ):
     normalized_dir = Path(normalized_dir)
 
@@ -184,11 +199,16 @@ def process_data(
             std["presenze_alb"], mapping_apt, PRESENZE_ALB_VALUE_COLS
         ),
         "presenze_extralb_pr": process_presenze_ISPAT(
-            std["presenze_extralb"], mapping_comuni, PRESENZE_XALB_VALUE_COLS, provincia=True
+            std["presenze_extralb"],
+            mapping_comuni,
+            PRESENZE_XALB_VALUE_COLS,
+            provincia=True,
         ),
     }
 
-    save_computed_dfs(dict_processed, local=True, type_format=type_format, path_saving=out_dir)
+    save_computed_dfs(
+        dict_processed, local=True, type_format=type_format, path_saving=out_dir
+    )
     logger.info("Processed data saved in %s", out_dir)
     return dict_processed
 

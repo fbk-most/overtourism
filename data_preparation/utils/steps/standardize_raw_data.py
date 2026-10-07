@@ -23,6 +23,7 @@ from data_preparation.utils.cleaning import (
 from data_preparation.utils.config import (
     NORMALIZED_DIR,
     RAW_DIR,
+    MAPPING_DIR,
     REFERENCES,
     TYPE_FORMAT,
     setup_logging,
@@ -104,11 +105,15 @@ def standardize_presenze_columns(df, cols_renaming: dict, date_col="data"):
 
 
 def standardize_raw_data(
-    raw_dir=RAW_DIR, out_dir=NORMALIZED_DIR, type_format=TYPE_FORMAT
+    raw_dir=RAW_DIR,
+    mapping_dir=MAPPING_DIR,
+    out_dir=NORMALIZED_DIR,
+    type_format=TYPE_FORMAT,
 ):
     from data_preparation.utils.readers import read_geojson
 
     raw_dir = Path(raw_dir)
+    mapping_dir = Path(MAPPING_DIR)
 
     logger.info("Reading raw data from %s", raw_dir)
     popolazione_df = read_df(raw_dir, "popolazione_2020_2024", type_format)
@@ -116,7 +121,7 @@ def standardize_raw_data(
     vodafone_df = read_df(raw_dir, "vodafone_attendences", type_format)
     presenze_alb_df = pd.read_csv(raw_dir / "presenze_Trentino_ISPAT.csv")
     presenze_extralb_df = pd.read_csv(raw_dir / "presenze_Trentino_ISPAT_alb_xalb.csv")
-    geojson = read_geojson(raw_dir / Path(REFERENCES["geojson"]).name)
+    geojson = read_geojson(mapping_dir / Path(REFERENCES["geojson"]).name)
 
     dict_std = {
         "popolazione_std": standardize_popolazione_columns(popolazione_df),

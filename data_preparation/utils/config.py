@@ -74,6 +74,13 @@ _LOCAL = (_S.get("update") or {}).get("local_source_dir")
 LOCAL_SOURCE_DIR = _resolve(PACKAGE_DIR, _LOCAL) if _LOCAL else None
 
 
+MAPPING_FILES = {
+    "mapping_comuni": "mapping_comuni_ISTAT.json",
+    "mapping_vodafone": "mapping_comuni_into_vodafone_Trento.json",
+    "mapping_apt": "map_comuni_into_apt.json",
+}
+
+
 def setup_logging(level=logging.INFO):
     """Call from entry points only (libraries must not configure logging)."""
     logging.basicConfig(

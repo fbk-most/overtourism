@@ -25,7 +25,9 @@ def read_df(path, name, type_format="csv", parse_ids=False):
     brought back to its canonical form (lists are serialized as strings in csv)."""
     file = Path(path) / f"{name}.{type_format}"
     if not file.exists():
-        raise FileNotFoundError(f"{file} not found: run the previous step (download raw data)")
+        raise FileNotFoundError(
+            f"{file} not found: run the previous step (download raw data)"
+        )
     if type_format == "csv":
         df = pd.read_csv(file, dtype={"ID_COMUNE": str})
     else:
@@ -68,13 +70,19 @@ def save_computed_dfs(dict_dfs, local=False, type_format="parquet", path_saving=
     if path_saving is None:
         raise ValueError("path_saving is required")
     if type_format not in TYPE_FORMATS:
-        raise ValueError(f"type_format must be one of {TYPE_FORMATS}, got {type_format!r}")
+        raise ValueError(
+            f"type_format must be one of {TYPE_FORMATS}, got {type_format!r}"
+        )
     for key, value in dict_dfs.items():
-        logger.info("Saving dataframe '%s' in %s/%s.%s...", key, path_saving, key, type_format)
+        logger.info(
+            "Saving dataframe '%s' in %s/%s.%s...", key, path_saving, key, type_format
+        )
         file_path = put_dataframe(value, key, path=path_saving, type=type_format)
         if not local:
             from data_preparation.utils.remote import log_dataframe
 
-            logger.info("Logging dataframe '%s.%s' to the platform...", key, type_format)
+            logger.info(
+                "Logging dataframe '%s.%s' to the platform...", key, type_format
+            )
             log_dataframe(file_path, key, type=type_format)
     logger.info("## Saved.")

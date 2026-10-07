@@ -43,9 +43,7 @@ def download_raw_data(
     for name in S3_DATA:
         logger.info("Downloading object %s from S3...", name)
         (out_dir / name).write_bytes(get_s3(name).getvalue())
-    geojson = REFERENCES["geojson"]
-    logger.info("Downloading reference object %s from S3...", geojson)
-    (out_dir / geojson.split("/")[-1]).write_bytes(get_s3(geojson).getvalue())
+
     for name in DATAFRAMES:
         logger.info("Downloading dataframe %s...", name)
         save_computed_dfs(
@@ -58,6 +56,7 @@ def download_raw_data(
         REFERENCES["mapping_comuni"],
         REFERENCES["mapping_vodafone"],
         REFERENCES["mapping_apt"],
+        REFERENCES["geojson"],
     ):
         logger.info("Downloading mapping %s...", key)
         (mapping_dir / key.split("/")[-1]).write_bytes(get_s3(key).getvalue())

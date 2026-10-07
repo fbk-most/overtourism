@@ -37,7 +37,9 @@ def read_grouped_presenze_tsv(data_source, sep: str = "\t") -> pd.DataFrame:
 
     if len(names) != len(second) + 1:
         # Fallback: the file is already aligned, read it with a 2-level header.
-        return pd.read_csv(data_source if is_buffer else path_desc, sep=sep, header=[0, 1], dtype=str)
+        return pd.read_csv(
+            data_source if is_buffer else path_desc, sep=sep, header=[0, 1], dtype=str
+        )
 
     source = pd.io.common.StringIO(data) if is_buffer else path_desc
     return pd.read_csv(source, sep=sep, header=None, names=names, skiprows=2, dtype=str)
