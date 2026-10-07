@@ -42,7 +42,7 @@ def test_backend_model_schema_matches_layer_3_index_contract() -> None:
 
 def test_configuration_returns_the_model_schema(monkeypatch, client, territory) -> None:
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.parameters.call_schema",
+        "overtourism.backend.api.routes.parameters.call_schema",
         lambda requested_territory: {
             "metadata": {
                 "mapper": {},
@@ -50,13 +50,11 @@ def test_configuration_returns_the_model_schema(monkeypatch, client, territory) 
                 "kpi_mapper": {},
                 "plot_mapper": {"monodimensional": {}, "bidimensional": {}},
             },
-            "indexes": [
-                {"name": "visitors", "kind": "scalar", "support": []}
-            ],
+            "indexes": [{"name": "visitors", "kind": "scalar", "support": []}],
         },
     )
 
-    response = client.get(f"/api/v2/{territory}/configuration")
+    response = client.get(f"/api/{territory}/configuration")
 
     assert response.status_code == 200
     body = response.json()

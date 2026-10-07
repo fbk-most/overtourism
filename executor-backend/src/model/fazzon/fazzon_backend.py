@@ -10,7 +10,7 @@ directly via the shared field-math functions.
 from __future__ import annotations
 
 import functools
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 from civic_digital_twins.dt_model import (
@@ -44,7 +44,7 @@ class FazzonBackend:
     # minimal, structural presentation metadata, hardcoded here the same way
     # `_schema` hardcodes parameter metadata. `schema()` returns these
     # verbatim
-    MAPPER: dict[str, str] = {
+    MAPPER: ClassVar[dict[str, str]] = {
         "parking": "Parcheggi",
         "road": "Viabilità",
         "food": "Ristorazione",

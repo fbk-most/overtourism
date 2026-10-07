@@ -10,13 +10,13 @@ from threading import Event, Thread
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from overtourism.backend.api.v2.evaluation import evaluation_router
-from overtourism.backend.api.v2.parameters import configuration_router
-from overtourism.backend.api.v2.problem import problem_router
-from overtourism.backend.api.v2.proposal import proposal_router
-from overtourism.backend.api.v2.scenario import scenario_router
-from overtourism.backend.api.v2.session import session_router
-from overtourism.backend.api.v2.territory import territory_router
+from overtourism.backend.api.routes.evaluation import evaluation_router
+from overtourism.backend.api.routes.parameters import configuration_router
+from overtourism.backend.api.routes.problem import problem_router
+from overtourism.backend.api.routes.proposal import proposal_router
+from overtourism.backend.api.routes.scenario import scenario_router
+from overtourism.backend.api.routes.session import session_router
+from overtourism.backend.api.routes.territory import territory_router
 from overtourism.backend.auth.api.router import auth_router
 from overtourism.backend.handler import init_handler
 from overtourism.backend.health.checks import model_backend_is_ready, store_is_ready

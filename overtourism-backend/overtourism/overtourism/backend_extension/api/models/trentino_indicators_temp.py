@@ -17,7 +17,7 @@ from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena imp
 # Source paths
 # ---------------------------------------------------------------------------
 data_dir = (
-    Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data_v2"
+    Path(__file__).resolve().parents[4] / "overtourism" / "database" / "index_data"
 )  # TODO: replace this with dataloader
 
 MAP_SHAPEFILE = data_dir / "Com01012026_g" / "Com01012026_g_WGS84.shp"

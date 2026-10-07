@@ -7,19 +7,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.v2.problem import (
+from overtourism.backend.api.routes.problem import (
     create_problem as base_create_problem,
 )
-from overtourism.backend.api.v2.problem import (
+from overtourism.backend.api.routes.problem import (
     delete_problem as base_delete_problem,
 )
-from overtourism.backend.api.v2.problem import (
+from overtourism.backend.api.routes.problem import (
     list_problems as base_list_problems,
 )
-from overtourism.backend.api.v2.problem import (
+from overtourism.backend.api.routes.problem import (
     read_problem as base_read_problem,
 )
-from overtourism.backend.api.v2.problem import (
+from overtourism.backend.api.routes.problem import (
     update_problem as base_update_problem,
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access

@@ -11,7 +11,6 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from overtourism.backend.api.v2.scenario import scenario_router
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -29,8 +28,6 @@ from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
-from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
-from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
 from tests.overtourism.test_support import (
     DEFAULT_PROBLEM_ID,
     DEFAULT_PROPOSAL_ID,
@@ -122,13 +119,6 @@ def _make_evaluation_payload(
         finished=TIMESTAMP,
         result=result,
     ).to_dict()
-
-
-def _suite_kind(request: pytest.FixtureRequest) -> str:
-    path = request.node.path.as_posix()
-    if "/tests/overtourism/overtourism/api_v2/" in path:
-        return "layer3"
-    return "backend"
 
 
 @pytest.fixture
@@ -268,25 +258,9 @@ def handler(
     return handler
 
 
-def _build_app(handler: Handler, suite_kind: str):
-    if suite_kind == "layer3":
-        return create_app(
-            handler,
-            include_problem_router=False,
-            include_proposal_router=False,
-            include_scenario_router=False,
-            extra_routers=[
-                problem_router,
-                proposal_router,
-                scenario_router,
-            ],
-        )
-    return create_app(handler)
-
-
 @pytest.fixture
-def client(handler: Handler, request: pytest.FixtureRequest):
-    app = _build_app(handler, _suite_kind(request))
+def client(handler: Handler):
+    app = create_app(handler)
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         territory=TERRITORY,
@@ -300,8 +274,8 @@ def client(handler: Handler, request: pytest.FixtureRequest):
 
 
 @pytest.fixture
-def error_client(handler: Handler, request: pytest.FixtureRequest):
-    app = _build_app(handler, _suite_kind(request))
+def error_client(handler: Handler):
+    app = create_app(handler)
     app.dependency_overrides[get_auth_context] = lambda: AuthContext(
         authenticated=False,
         territory=TERRITORY,

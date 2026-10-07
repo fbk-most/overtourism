@@ -41,7 +41,7 @@ def test_list_problems_filters_by_territory(
         extras={},
     )
 
-    response = client.get(f"/api/v2/{territory}/problems")
+    response = client.get(f"/api/{territory}/problems")
 
     assert response.status_code == 200
     assert [item["problem_id"] for item in response.json()] == [
@@ -53,7 +53,7 @@ def test_create_problem_returns_slugified_problem_with_version(
     client, territory: str
 ) -> None:
     response = client.post(
-        f"/api/v2/{territory}/problems",
+        f"/api/{territory}/problems",
         json={
             "name": "Lake Cleanup",
             "description": "Reduce visitor pressure",
@@ -73,7 +73,7 @@ def test_create_problem_returns_slugified_problem_with_version(
 
 
 def test_read_problem_returns_current_version(client, territory: str) -> None:
-    response = client.get(f"/api/v2/{territory}/problems/{territory}_base_problem")
+    response = client.get(f"/api/{territory}/problems/{territory}_base_problem")
 
     assert response.status_code == 200
     assert response.json()["problem_id"] == f"{territory}_base_problem"
@@ -93,7 +93,7 @@ def test_read_problem_rejects_cross_territory_access(
         territory="territory-beta",
     )
 
-    response = client.get(f"/api/v2/{territory}/problems/{foreign_problem.problem_id}")
+    response = client.get(f"/api/{territory}/problems/{foreign_problem.problem_id}")
 
     assert response.status_code == 404
 
@@ -102,7 +102,7 @@ def test_update_problem_requires_matching_version_in_entity(
     client, territory: str
 ) -> None:
     missing_version = client.put(
-        f"/api/v2/{territory}/problems/{territory}_base_problem",
+        f"/api/{territory}/problems/{territory}_base_problem",
         json={"name": "Updated default"},
     )
 
@@ -110,7 +110,7 @@ def test_update_problem_requires_matching_version_in_entity(
     assert missing_version.json() == {"detail": "Missing version in entity payload"}
 
     response = client.put(
-        f"/api/v2/{territory}/problems/{territory}_base_problem",
+        f"/api/{territory}/problems/{territory}_base_problem",
         json={
             "version": 1,
             "name": "Updated default",
@@ -137,7 +137,7 @@ def test_delete_problem_removes_it_from_the_store(
 
     response = client.request(
         "DELETE",
-        f"/api/v2/{territory}/problems/{problem.problem_id}",
+        f"/api/{territory}/problems/{problem.problem_id}",
         json={"version": 2},
     )
 
@@ -154,7 +154,7 @@ def test_delete_problem_keeps_owned_sessions(
     problem_id: str,
 ) -> None:
     create_response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {}},
     )
@@ -167,7 +167,7 @@ def test_delete_problem_keeps_owned_sessions(
 
     delete_response = client.request(
         "DELETE",
-        f"/api/v2/{territory}/problems/{problem_id}",
+        f"/api/{territory}/problems/{problem_id}",
         json={"version": 1},
     )
 

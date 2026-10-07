@@ -6,7 +6,6 @@ import pytest
 import requests
 from fastapi import HTTPException
 
-from overtourism.backend.utils import executor_utils
 from overtourism.backend.api.utils.utils import (
     get_evaluation_or_404,
     get_problem_or_404,
@@ -18,6 +17,7 @@ from overtourism.backend.api.utils.utils import (
     get_session_scenario_or_404,
     scenario_index_diffs,
 )
+from overtourism.backend.utils import executor_utils
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 

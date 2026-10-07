@@ -25,7 +25,7 @@ def test_delete_all_sessions_removes_only_owned_sessions(
 ) -> None:
     for _ in range(2):
         response = client.post(
-            f"/api/v2/{territory}/sessions",
+            f"/api/{territory}/sessions",
             params={"problem_id": problem_id},
             json={"metadata": {}},
         )
@@ -41,7 +41,7 @@ def test_delete_all_sessions_removes_only_owned_sessions(
     )
 
     delete_response = client.delete(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={"problem_id": problem_id},
     )
 
@@ -66,7 +66,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     )
 
     create_response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={},
         json={"metadata": {"source": "ui"}},
     )
@@ -77,7 +77,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert create_response.json()["draft_ids"] == []
 
     list_response = client.get(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={},
     )
 
@@ -85,7 +85,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert [item["session_id"] for item in list_response.json()] == ["session-fixed"]
 
     read_response = client.get(
-        f"/api/v2/{territory}/sessions/session-fixed",
+        f"/api/{territory}/sessions/session-fixed",
         params={},
     )
 
@@ -94,7 +94,7 @@ def test_session_routes_manage_the_full_session_lifecycle(
     assert read_response.json()["evaluations"] == {}
 
     delete_response = client.delete(
-        f"/api/v2/{territory}/sessions/session-fixed",
+        f"/api/{territory}/sessions/session-fixed",
         params={},
     )
 
@@ -123,7 +123,7 @@ def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
     )
 
     unregistered_response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={},
         json={"metadata": {}},
     )
@@ -138,7 +138,7 @@ def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
     user_manager.reload()
 
     out_of_scope_response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={},
         json={"metadata": {}},
     )
@@ -146,7 +146,7 @@ def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
 
     user_manager.update_user(invited_user.user_id, territories=[territory])
     response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={},
         json={"metadata": {}},
     )
@@ -181,10 +181,8 @@ def test_admin_cannot_read_or_delete_another_users_session(
         owner_id="another-user-id",
     )
 
-    read_response = client.get(f"/api/v2/{territory}/sessions/{session.session_id}")
-    delete_response = client.delete(
-        f"/api/v2/{territory}/sessions/{session.session_id}"
-    )
+    read_response = client.get(f"/api/{territory}/sessions/{session.session_id}")
+    delete_response = client.delete(f"/api/{territory}/sessions/{session.session_id}")
 
     assert read_response.status_code == 404
     assert delete_response.status_code == 404
@@ -204,7 +202,7 @@ def test_expired_session_is_rejected_before_periodic_cleanup(
     session_data["created"] = "2000-01-01T00:00:00Z"
     manager.store.save_session(session_data)
 
-    response = client.get(f"/api/v2/{territory}/sessions/{session.session_id}")
+    response = client.get(f"/api/{territory}/sessions/{session.session_id}")
 
     assert response.status_code == 404
     assert response.json() == {"detail": f"Session '{session.session_id}' not found."}
@@ -222,7 +220,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.session.call_executor",
+        "overtourism.backend.api.routes.session.call_executor",
         lambda territory, param_overrides: {"values": param_overrides},
     )
     monkeypatch.setattr(
@@ -232,14 +230,14 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     )
 
     create_session_response = client.post(
-        f"/api/v2/{territory}/sessions",
+        f"/api/{territory}/sessions",
         params={"problem_id": problem_id},
         json={"metadata": {"source": "ui"}},
     )
     assert create_session_response.status_code == 200
 
     draft_response = client.post(
-        f"/api/v2/{territory}/sessions/session-detail/scenarios",
+        f"/api/{territory}/sessions/session-detail/scenarios",
         params={"problem_id": problem_id},
         json={
             "base_scenario_id": scenario_id,
@@ -251,7 +249,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     draft_id = draft_response.json()["scenario_id"]
 
     evaluation_response = client.post(
-        f"/api/v2/{territory}/sessions/session-detail/evaluations",
+        f"/api/{territory}/sessions/session-detail/evaluations",
         params={"problem_id": problem_id},
         json={"scenario_id": draft_id, "ensemble_size": 4},
     )
@@ -262,7 +260,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     manager.save_evaluation(stored_evaluation)
 
     response = client.get(
-        f"/api/v2/{territory}/sessions/session-detail",
+        f"/api/{territory}/sessions/session-detail",
         params={"problem_id": problem_id},
     )
 
@@ -278,7 +276,7 @@ def test_session_detail_embeds_evaluation_metadata_without_result(
     assert evaluation_data["finished"] == evaluation["finished"]
 
     data_response = client.get(
-        f"/api/v2/{territory}/sessions/session-detail/evaluations/"
+        f"/api/{territory}/sessions/session-detail/evaluations/"
         f"{evaluation['evaluation_id']}/data",
         params={"problem_id": problem_id},
     )

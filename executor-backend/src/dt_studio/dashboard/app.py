@@ -183,11 +183,11 @@ def _make_field_figure(data: PlotData, title: str | None = None) -> go.Figure:
             colorscale="RdBu",
             zmin=0.0,
             zmax=1.0,
-            colorbar=dict(
-                title=dict(text="P(sostenibile)", side="right"),
-                thickness=14,
-                len=0.85,
-            ),
+            colorbar={
+                "title": {"text": "P(sostenibile)", "side": "right"},
+                "thickness": 14,
+                "len": 0.85,
+            },
             hovertemplate=(
                 f"{data.x_label}: <b>%{{x:.0f}}</b><br>"
                 f"{data.y_label}: <b>%{{y:.0f}}</b><br>"
@@ -212,7 +212,7 @@ def _make_field_figure(data: PlotData, title: str | None = None) -> go.Figure:
                 y=list(y_coords),
                 mode="lines",
                 name=f"{label}  {sust_val * 100:.0f}%",
-                line=dict(color=color, width=3),
+                line={"color": color, "width": 3},
                 hovertemplate=(
                     f"<b>{label} — frontiera</b><br>"
                     f"Sostenibilità: {sust_val * 100:.1f}% ± {sust_ci * 100:.1f}%<br>"
@@ -234,12 +234,12 @@ def _make_field_figure(data: PlotData, title: str | None = None) -> go.Figure:
             y=ys[idx],
             mode="markers",
             name="Campioni (modello)",
-            marker=dict(
-                symbol="circle",
-                color="rgba(230,230,230,0.55)",
-                line=dict(color="rgba(80,80,80,0.6)", width=1),
-                size=7,
-            ),
+            marker={
+                "symbol": "circle",
+                "color": "rgba(230,230,230,0.55)",
+                "line": {"color": "rgba(80,80,80,0.6)", "width": 1},
+                "size": 7,
+            },
             hovertemplate=(
                 f"<b>Campione</b><br>{data.x_label}: %{{x:.0f}}<br>{data.y_label}: %{{y:.0f}}<extra></extra>"
             ),
@@ -248,26 +248,26 @@ def _make_field_figure(data: PlotData, title: str | None = None) -> go.Figure:
 
     # ── Layout ─────────────────────────────────────────────────────────────
     fig.update_layout(
-        title=dict(text=title, font=dict(size=13)) if title else None,
-        xaxis=dict(
-            title=data.x_label,
-            range=[0, float(np.asarray(data.x_values).max())],
-        ),
-        yaxis=dict(
-            title=data.y_label,
-            range=[0, float(np.asarray(data.y_values).max())],
-        ),
+        title={"text": title, "font": {"size": 13}} if title else None,
+        xaxis={
+            "title": data.x_label,
+            "range": [0, float(np.asarray(data.x_values).max())],
+        },
+        yaxis={
+            "title": data.y_label,
+            "range": [0, float(np.asarray(data.y_values).max())],
+        },
         height=560,
-        legend=dict(
-            orientation="v",
-            x=1.18,
-            y=1.0,
-            bgcolor="rgba(255,255,255,0.85)",
-            bordercolor="#cccccc",
-            borderwidth=1,
-        ),
-        margin=dict(r=180, t=50 if title else 20, l=60, b=60),
-        hoverlabel=dict(bgcolor="white", font_size=13),
+        legend={
+            "orientation": "v",
+            "x": 1.18,
+            "y": 1.0,
+            "bgcolor": "rgba(255,255,255,0.85)",
+            "bordercolor": "#cccccc",
+            "borderwidth": 1,
+        },
+        margin={"r": 180, "t": 50 if title else 20, "l": 60, "b": 60},
+        hoverlabel={"bgcolor": "white", "font_size": 13},
     )
     return fig
 
@@ -450,7 +450,7 @@ def run_dashboard(adapter: OvertourismAdapter) -> None:
 
     current_params = _read_current_params(specs)
 
-    col_title_spacer, col_save, col_load, col_compare = st.columns([6, 1, 1, 1])
+    _col_title_spacer, col_save, col_load, col_compare = st.columns([6, 1, 1, 1])
     with col_save:
         if st.button(
             "💾 Salva", width="stretch", help="Salva i parametri correnti con un nome"

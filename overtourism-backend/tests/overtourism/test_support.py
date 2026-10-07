@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
 
-from civic_digital_twins.dt_model.simulation.runner import ModelEvaluator
-
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.utils.utils import get_timestamp
 
@@ -28,9 +26,9 @@ class FakeModelOutput:
         return self.payload
 
 
-class FakeModelEvaluator(ModelEvaluator):
+class FakeModelEvaluator:
     def __init__(self, model: Any = None) -> None:
-        super().__init__(model or SimpleNamespace(name="fake-model", indexes=[]))
+        self.model = model or SimpleNamespace(name="fake-model", indexes=[])
         self.evaluate_calls: list[dict[str, Any]] = []
         self.build_output_calls: list[dict[str, Any]] = []
         self._last_raw_values: dict[str, Any] = {}

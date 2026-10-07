@@ -201,7 +201,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     user_manager, _ = _register_admin(client, handler, manager)
 
     created_response = client.post(
-        "/api/v2/auth/users",
+        "/api/auth/users",
         json={
             "identifier": " Editor@Example.org ",
             "role": "multieditor",
@@ -222,7 +222,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     assert linked_user is not None
 
     updated_response = client.patch(
-        f"/api/v2/auth/users/{created['user_id']}",
+        f"/api/auth/users/{created['user_id']}",
         json={"role": "editor", "territories": ["molveno"]},
     )
     assert updated_response.status_code == 200
@@ -232,7 +232,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
         "molveno"
     }
 
-    deleted_response = client.delete(f"/api/v2/auth/users/{created['user_id']}")
+    deleted_response = client.delete(f"/api/auth/users/{created['user_id']}")
     assert deleted_response.status_code == 200
     assert deleted_response.json()["is_active"] is False
     assert deleted_response.json()["identifier"] == "editor@example.org"
@@ -252,7 +252,7 @@ def test_multieditor_defaults_to_all_model_territories(
     )
 
     created_response = client.post(
-        "/api/v2/auth/users",
+        "/api/auth/users",
         json={
             "identifier": "editor@example.org",
             "role": "multieditor",
@@ -264,13 +264,13 @@ def test_multieditor_defaults_to_all_model_territories(
     assert created["territories"] == ["fazzon", "molveno"]
 
     editor_response = client.patch(
-        f"/api/v2/auth/users/{created['user_id']}",
+        f"/api/auth/users/{created['user_id']}",
         json={"role": "editor", "territories": ["molveno"]},
     )
     assert editor_response.status_code == 200
 
     restored_multieditor_response = client.patch(
-        f"/api/v2/auth/users/{created['user_id']}",
+        f"/api/auth/users/{created['user_id']}",
         json={"role": "multieditor"},
     )
 
@@ -305,13 +305,13 @@ def test_current_user_and_role_list_require_no_admin_role(
         claims={"sub": "viewer-sub"},
     )
 
-    me_response = client.get("/api/v2/auth/me")
+    me_response = client.get("/api/auth/me")
     assert me_response.status_code == 200
     assert me_response.json()["user_id"] == user.user_id
     assert me_response.json()["role"] == "viewer"
     assert me_response.json()["territories"] == ["molveno"]
 
-    roles_response = client.get("/api/v2/auth/roles")
+    roles_response = client.get("/api/auth/roles")
     assert roles_response.status_code == 200
     assert {role["role"] for role in roles_response.json()} == {
         "admin",
@@ -320,7 +320,7 @@ def test_current_user_and_role_list_require_no_admin_role(
         "viewer",
     }
 
-    users_response = client.get("/api/v2/auth/users")
+    users_response = client.get("/api/auth/users")
     assert users_response.status_code == 403
 
 
@@ -363,7 +363,7 @@ def test_verified_email_claims_first_admin_and_allows_user_registration(
     )
 
     response = client.post(
-        "/api/v2/auth/users",
+        "/api/auth/users",
         json={
             "identifier": "editor@example.org",
             "role": "editor",
@@ -386,7 +386,7 @@ def test_verified_email_claims_first_admin_and_allows_user_registration(
         }
     )
     editor_response = client.get(
-        "/api/v2/auth/me",
+        "/api/auth/me",
         headers={"Authorization": "Bearer editor-token"},
     )
 
@@ -418,7 +418,7 @@ def test_unverified_or_mismatched_email_cannot_claim_pending_admin(
         claims={"sub": "first-admin-sub", **claims},
     )
 
-    response = client.get("/api/v2/auth/me")
+    response = client.get("/api/auth/me")
 
     assert response.status_code == 403
     assert user_manager.get_active_user_by_subject("first-admin-sub") is None

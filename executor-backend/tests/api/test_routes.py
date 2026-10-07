@@ -5,8 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from src.api.main import app
+
 from src.api import health as health_api
+from src.api.main import app
 from src.model.common.sustainability_field import arrange_frontend_data
 
 

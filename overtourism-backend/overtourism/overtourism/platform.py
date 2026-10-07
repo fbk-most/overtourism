@@ -33,7 +33,7 @@ artifacts = [
 ]
 
 
-def download_index_data() -> None:
+def download_index_data_old() -> None:
     """Download the index data from the digitalhub platform."""
 
     project = dh.get_project(project_name)
@@ -55,7 +55,7 @@ def download_index_data() -> None:
             print(f"Failed to download artifact {artifact}: {e}")
 
 
-def download_index_data_v2() -> None:
+def download_index_data() -> None:
     """Download the index data from the digitalhub platform."""
     dataitems = [
         "phen_arrivi.parquet",
@@ -72,7 +72,7 @@ def download_index_data_v2() -> None:
     ]
 
     project = dh.get_project(project_name)
-    download_dir = Path(__file__).parent / "database" / "index_data_v2"
+    download_dir = Path(__file__).parent / "database" / "index_data"
 
     if download_dir.exists():
         return  # Skip download if the directory already exists

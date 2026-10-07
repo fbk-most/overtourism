@@ -91,9 +91,8 @@ class OvertourismEvaluationConfig(EvaluationConfig):
 
 def _format_index_value(value: Any) -> str:
     """Format a scalar or categorical value for an index-diff label."""
-    if isinstance(value, Real) and not isinstance(value, bool):
-        if value == int(value):
-            return str(int(value))
+    if isinstance(value, Real) and not isinstance(value, bool) and value == int(value):
+        return str(int(value))
     return str(value)
 
 
@@ -105,9 +104,12 @@ def _distribution_range(value: Any) -> tuple[Any, Any] | None:
         if loc is None or scale is None:
             return None
         return loc, loc + scale
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        if len(value) == 2:
-            return value[0], value[1]
+    if (
+        isinstance(value, Sequence)
+        and not isinstance(value, (str, bytes))
+        and len(value) == 2
+    ):
+        return value[0], value[1]
     return None
 
 

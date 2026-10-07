@@ -17,4 +17,4 @@ USER 8877
 EXPOSE 8000
 
 # Run the CRUD FastAPI application by default.
-ENTRYPOINT ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000", "/app/overtourism/overtourism/app_v2.py"]
+ENTRYPOINT ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000", "/app/overtourism/overtourism/app.py"]

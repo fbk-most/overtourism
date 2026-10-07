@@ -89,7 +89,7 @@ if ! wait_for_readiness "Executor backend" "$MAIN_PORT" "$MAIN_PID" "$EXECUTOR_D
 	exit 1
 fi
 
-"$API_FASTAPI" run "$API_DIR/overtourism/overtourism/app_v2.py" \
+"$API_FASTAPI" run "$API_DIR/overtourism/overtourism/app.py" \
 	--host "$HOST" --port "$PORT" &
 API_PID=$!
 

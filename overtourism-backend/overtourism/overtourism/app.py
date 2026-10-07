@@ -5,14 +5,16 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from overtourism.backend.main import create_app
-from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
-from overtourism.overtourism.backend_extension.api.v2.problem import problem_router
-from overtourism.overtourism.backend_extension.api.v2.proposal import proposal_router
+from overtourism.overtourism.backend_extension.api.routes.indexes import indexes_router
+from overtourism.overtourism.backend_extension.api.routes.problem import problem_router
+from overtourism.overtourism.backend_extension.api.routes.proposal import (
+    proposal_router,
+)
 from overtourism.overtourism.setup import build_handler
 
 
 def build_app() -> FastAPI:
-    """Build the FastAPI application for the overtourism v2 backend."""
+    """Build the FastAPI application for the overtourism backend."""
     return create_app(
         build_handler(),
         title="Overtourism API",

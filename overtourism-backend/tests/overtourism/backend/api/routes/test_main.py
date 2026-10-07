@@ -57,7 +57,6 @@ def test_create_app_registers_configuration_route_by_default(handler) -> None:
     paths = app.openapi()["paths"]
 
     assert "/api/{territory}/configuration" in paths
-    assert not any(path.startswith("/api/v2/") for path in paths)
 
 
 def test_indexes_router_registers_under_default_api_namespace(handler) -> None:

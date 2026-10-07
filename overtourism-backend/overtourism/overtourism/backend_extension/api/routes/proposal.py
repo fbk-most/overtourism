@@ -7,19 +7,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from overtourism.backend.api.v2.proposal import (
+from overtourism.backend.api.routes.proposal import (
     create_proposal as base_create_proposal,
 )
-from overtourism.backend.api.v2.proposal import (
+from overtourism.backend.api.routes.proposal import (
     delete_proposal as base_delete_proposal,
 )
-from overtourism.backend.api.v2.proposal import (
+from overtourism.backend.api.routes.proposal import (
     list_proposals as base_list_proposals,
 )
-from overtourism.backend.api.v2.proposal import (
+from overtourism.backend.api.routes.proposal import (
     read_proposal as base_read_proposal,
 )
-from overtourism.backend.api.v2.proposal import (
+from overtourism.backend.api.routes.proposal import (
     update_proposal as base_update_proposal,
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access

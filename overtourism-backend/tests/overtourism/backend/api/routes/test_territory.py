@@ -30,12 +30,12 @@ def test_list_territories_returns_model_keys_when_auth_is_disabled(
     app = create_app(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(enabled=False)
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.territory.list_models",
+        "overtourism.backend.api.routes.territory.list_models",
         lambda: [{"key": "territory-alpha"}, {"key": "territory-beta"}],
     )
 
     with TestClient(app) as client:
-        response = client.get("/api/v2/default/territories")
+        response = client.get("/api/default/territories")
 
     assert response.status_code == 200
     assert response.json() == ["territory-alpha", "territory-beta"]
@@ -63,7 +63,7 @@ def test_list_territories_returns_all_model_keys_for_multieditor(
         lambda token, settings: {"sub": "user-1"},
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.territory.list_models",
+        "overtourism.backend.api.routes.territory.list_models",
         lambda: [
             {"key": "territory-alpha"},
             {"key": "territory-gamma"},
@@ -73,7 +73,7 @@ def test_list_territories_returns_all_model_keys_for_multieditor(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territories",
+            "/api/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -122,7 +122,7 @@ def test_list_territories_limits_editor_and_viewer_to_assignments(
         lambda token, settings: {"sub": "user-1"},
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.territory.list_models",
+        "overtourism.backend.api.routes.territory.list_models",
         lambda: [
             {"key": "territory-alpha"},
             {"key": "territory-gamma"},
@@ -132,7 +132,7 @@ def test_list_territories_limits_editor_and_viewer_to_assignments(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territories",
+            "/api/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -158,7 +158,7 @@ def test_list_territories_returns_all_model_keys_for_global_admin(
         lambda token, settings: {"sub": "admin-1"},
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.territory.list_models",
+        "overtourism.backend.api.routes.territory.list_models",
         lambda: [
             {"key": "territory-alpha"},
             {"key": "territory-gamma"},
@@ -168,7 +168,7 @@ def test_list_territories_returns_all_model_keys_for_global_admin(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territories",
+            "/api/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -195,13 +195,13 @@ def test_list_territories_rejects_authenticated_unregistered_users(
         lambda token, settings: {"sub": "user-1"},
     )
     monkeypatch.setattr(
-        "overtourism.backend.api.v2.territory.list_models",
+        "overtourism.backend.api.routes.territory.list_models",
         lambda: [{"key": "territory-alpha"}],
     )
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/default/territories",
+            "/api/default/territories",
             headers={"Authorization": "Bearer signed-token"},
         )
 

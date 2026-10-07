@@ -14,17 +14,17 @@ from overtourism.backend.auth.identity.users import UserRole
 from overtourism.backend.auth.tokens import jwt as auth_jwt
 from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 from overtourism.backend.handler import Handler
-from overtourism.backend.main import create_app as create_app_v2
+from overtourism.backend.main import create_app
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
-from overtourism.overtourism.backend_extension.api.v2 import indexes as indexes_api
-from overtourism.overtourism.backend_extension.api.v2.indexes import indexes_router
-from overtourism.overtourism.backend_extension.api.v2.problem import (
+from overtourism.overtourism.backend_extension.api.routes import indexes as indexes_api
+from overtourism.overtourism.backend_extension.api.routes.indexes import indexes_router
+from overtourism.overtourism.backend_extension.api.routes.problem import (
     problem_router as overtourism_problem_router,
 )
-from overtourism.overtourism.backend_extension.api.v2.proposal import (
+from overtourism.overtourism.backend_extension.api.routes.proposal import (
     proposal_router as overtourism_proposal_router,
 )
 
@@ -54,7 +54,7 @@ def handler(tmp_path) -> Handler:
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app, "/api/auth/me"),
     ],
 )
 def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
@@ -82,7 +82,7 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app, "/api/auth/me"),
     ],
 )
 def test_auth_me_requires_bearer_token_when_auth_is_enabled(
@@ -106,7 +106,7 @@ def test_auth_me_requires_bearer_token_when_auth_is_enabled(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app, "/api/auth/me"),
     ],
 )
 def test_auth_me_returns_authenticated_context_and_database_territory(
@@ -153,7 +153,7 @@ def test_auth_me_returns_all_assigned_territories_without_singular_field(
     )
     handler.user_manager.claim_user_by_email(user.identifier, "multi-viewer")
 
-    app = create_app_v2(handler)
+    app = create_app(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
@@ -165,7 +165,7 @@ def test_auth_me_returns_all_assigned_territories_without_singular_field(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/auth/me",
+            "/api/auth/me",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -178,7 +178,7 @@ def test_auth_me_returns_all_assigned_territories_without_singular_field(
 @pytest.mark.parametrize(
     ("app_factory", "problems_path"),
     [
-        (create_app_v2, "/api/v2/territory-alpha/problems"),
+        (create_app, "/api/territory-alpha/problems"),
     ],
 )
 @pytest.mark.parametrize("tenant_claim", [None, "territory-beta"])
@@ -214,12 +214,12 @@ def test_territory_scoped_routes_allow_database_assignment_without_territory_cla
 @pytest.mark.parametrize(
     ("app_factory", "route_path"),
     [
-        (create_app_v2, "/api/v2/territory-gamma/problems"),
-        (create_app_v2, "/api/v2/territory-gamma/proposals"),
-        (create_app_v2, "/api/v2/territory-gamma/scenarios"),
-        (create_app_v2, "/api/v2/territory-gamma/evaluations"),
-        (create_app_v2, "/api/v2/territory-gamma/configuration"),
-        (create_app_v2, "/api/v2/territory-gamma/sessions"),
+        (create_app, "/api/territory-gamma/problems"),
+        (create_app, "/api/territory-gamma/proposals"),
+        (create_app, "/api/territory-gamma/scenarios"),
+        (create_app, "/api/territory-gamma/evaluations"),
+        (create_app, "/api/territory-gamma/configuration"),
+        (create_app, "/api/territory-gamma/sessions"),
     ],
 )
 def test_territory_scoped_routes_reject_database_unassigned_territory_despite_jwt_claim(
@@ -267,7 +267,7 @@ def test_global_admin_can_access_unassigned_application_territories(
     user_manager.reload()
     handler.user_manager = user_manager
 
-    app = create_app_v2(handler)
+    app = create_app(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
@@ -279,7 +279,7 @@ def test_global_admin_can_access_unassigned_application_territories(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/territory-gamma/problems",
+            "/api/territory-gamma/problems",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -302,7 +302,7 @@ def test_auth_me_returns_all_model_territories_for_admin(
     user_manager.reload()
     handler.user_manager = user_manager
 
-    app = create_app_v2(handler)
+    app = create_app(handler)
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         enabled=True,
         jwks_url="https://example.com/.well-known/jwks.json",
@@ -318,7 +318,7 @@ def test_auth_me_returns_all_model_territories_for_admin(
 
     with TestClient(app) as client:
         response = client.get(
-            "/api/v2/auth/me",
+            "/api/auth/me",
             headers={"Authorization": "Bearer signed-token"},
         )
 
@@ -331,7 +331,7 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
     handler,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app_v2(
+    app = create_app(
         handler,
         include_problem_router=False,
         include_proposal_router=False,
@@ -353,19 +353,19 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
 
     with TestClient(app) as client:
         problem_response = client.get(
-            "/api/v2/territory-gamma/problems",
+            "/api/territory-gamma/problems",
             headers={"Authorization": "Bearer signed-token"},
         )
         proposal_response = client.get(
-            "/api/v2/territory-gamma/proposals",
+            "/api/territory-gamma/proposals",
             headers={"Authorization": "Bearer signed-token"},
         )
         index_response = client.get(
-            "/api/v2/default/indexes/get-index-list",
+            "/api/default/indexes/get-index-list",
             headers={"Authorization": "Bearer signed-token"},
         )
         unauthenticated_index_response = client.get(
-            "/api/v2/default/indexes/get-index-list"
+            "/api/default/indexes/get-index-list"
         )
 
     assert problem_response.status_code == 403
@@ -377,7 +377,7 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
 @pytest.mark.parametrize(
     ("app_factory", "auth_path"),
     [
-        (create_app_v2, "/api/v2/auth/me"),
+        (create_app, "/api/auth/me"),
     ],
 )
 def test_auth_me_does_not_require_tenant_claim(
