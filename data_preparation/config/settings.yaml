@@ -1,0 +1,37 @@
+# Settings of the data-preparation pipeline. Edit this file to change directories, format or platform.
+# Used by BOTH gen_base_phenomenon_dataframes.py and update_phenomenon_dataframes.py.
+
+# Root of everything the pipeline writes. A relative path is resolved from the data_preparation folder.
+output_dir: Output
+
+# Sub-directories, relative to output_dir (absolute paths are accepted too).
+paths:
+  # reference mappings (json): ONE place, used by the base build AND the update
+  mapping: mapping
+  # base build (gen_base_phenomenon_dataframes.py)
+  raw: data/raw_data
+  normalized: data/normalized
+  processed: data/data_processed        # also: current data that the yearly update merges into
+  final: data/final_data
+
+# Shared reference objects (data-lake object keys). Used by both pipelines.
+references:
+  mapping_comuni: mapping_ids/mapping_comuni_ISTAT.json
+  mapping_vodafone: mapping_ids/mapping_comuni_into_vodafone_Trento.json
+  mapping_apt: mapping_ids/map_comuni_into_apt.json
+  geojson: TRENTINO-comuni_Vodafone_2023.geojson
+
+# File format of ALL the files (csv | parquet). Keep it the same in base build and update:
+# the uploaded files are named <phenomenon>.<format>, so a different format would not replace them.
+type_format: parquet
+
+# Data lake / platform
+platform:
+  project: overtourism
+  s3_bucket: most-datalake
+  s3_prefix: overtourism/inputdata/
+  dhcore_env: aixpa                     # section of ~/.dhcore.ini holding the S3 credentials
+
+update:
+  # Read the raw files of the update from this local folder instead of S3 (null = S3)
+  local_source_dir: null

@@ -1,0 +1,57 @@
+# Update round that reproduces what the previous hard-coded version of the script did:
+# 2024 + 2025 strutture, 2025 presences, 1.1.2025 residents.
+# For the next year: copy this file, change file names / years, and add an adapter in
+# data_preparation/utils/adapters/ ONLY if the provider changed the layout.
+#
+# File names are relative to the data-lake prefix (or to update.local_source_dir in settings.yaml).
+# Directories and file format are NOT set here: see config/settings.yaml.
+# DATASETS TO UPDATE: the ones listed below. Set `enabled: false` on a dataset to skip it this round.
+# Structure sources use the 2025 layout as the default; select a dedicated adapter for a different layout.
+
+datasets:
+  popolazione:
+    enabled: true
+    sources:
+      - file: popolazione_2026_ISPAT.csv
+        reader: csv
+        adapter: popolazione_ispat_1jan
+        adapter_kwargs: {year: 2025}        # uses column "Popolazione residente al 1.1.2025"
+
+  strutture:
+    enabled: true
+    sources:
+      - file: strutture_annuario_2024.ods
+        reader: excel
+        reader_kwargs: {engine: odf}
+        adapter: strutture_annuario_2024
+        adapter_kwargs: {year: 2024}
+        label: "2024"                        # kept separate until structure parts are merged
+      - file: numero_strutture_ISPAT_2025.xlsx
+        reader: excel
+        reader_kwargs: {header: [0, 1]}
+        adapter: strutture_annuario
+        adapter_kwargs: {year: 2025}
+        label: "2025"                        # kept separate until structure parts are merged
+
+  vodafone:
+    enabled: true
+    sources:
+      - file: vodafone_attendences_new.csv
+        reader: csv
+        adapter: vodafone_raw
+
+  presenze_alb:
+    enabled: true
+    sources:
+      - file: presenze_alb_2025.csv
+        reader: ispat_apt_tsv
+        adapter: presenze_ispat_apt
+        adapter_kwargs: {year: 2025}
+
+  presenze_extralb:
+    enabled: true
+    sources:
+      - file: presenze_xalb_2025_prov.csv
+        reader: ispat_grouped_tsv
+        adapter: presenze_ispat_prov
+        adapter_kwargs: {year: 2025}

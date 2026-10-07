@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Single source of truth about the datasets of the pipeline.
+
+Everything that used to be repeated (dataset keys, processed file names, value columns used
+for merging, which reference mappings each dataset needs, which datasets feed which phenomenon)
+is defined here once.
+"""
+
+from dataclasses import dataclass
+
+# value columns of the processed dataframes
+POPOLAZIONE_VALUE_COLS = ["popolazione"]
+STRUTTURE_VALUE_COLS = [
+    "tot_postiletto_non_conv",
+    "tot_postiletto",
+    "tot_strutture_non_conv",
+    "tot_strutture",
+]
+VODAFONE_VALUE_COLS = ["presenze"]
+PRESENZE_ALB_VALUE_COLS = ["presenze_alb"]
+PRESENZE_XALB_VALUE_COLS = ["presenze_xalb"]
+
+# reference files that a dataset may need to be standardized / processed
+REF_MAPPING_COMUNI = "mapping_comuni"
+REF_MAPPING_VODAFONE = "mapping_vodafone"
+REF_MAPPING_APT = "mapping_apt"
+REF_GEOJSON = "geojson"
+
+
+@dataclass(frozen=True)
+class DatasetSpec:
+    name: str  # key used for selection, e.g. "presenze_alb"
+    value_cols: tuple  # columns merged on (DATA, ID_COMUNE) when updating
+    references: tuple  # reference files needed to process it
+    std_name: str = ""  # standardized dataframe name (step 1)
+    processed_name: str = ""  # processed dataframe name (step 2)
+
+    @property
+    def update_name(self) -> str:
+        """Name of the processed-only dataframe produced by an update run."""
+        return f"{self.name}_update_pr"
+
+
+def _spec(name, value_cols, references):
+    return DatasetSpec(
+        name=name,
+        value_cols=tuple(value_cols),
+        references=tuple(references),
+        std_name=f"{name}_std",
+        processed_name=f"{name}_pr",
+    )
+
+
+DATASETS = {
+    spec.name: spec
+    for spec in (
+        _spec("popolazione", POPOLAZIONE_VALUE_COLS, [REF_MAPPING_COMUNI]),
+        _spec("strutture", STRUTTURE_VALUE_COLS, [REF_MAPPING_COMUNI]),
+        _spec("vodafone", VODAFONE_VALUE_COLS, [REF_MAPPING_VODAFONE, REF_GEOJSON]),
+        _spec("presenze_alb", PRESENZE_ALB_VALUE_COLS, [REF_MAPPING_APT]),
+        _spec("presenze_extralb", PRESENZE_XALB_VALUE_COLS, [REF_MAPPING_APT, REF_MAPPING_COMUNI]),
+    )
+}
+ALL_DATASETS = tuple(DATASETS)
+
+# final phenomenon -> datasets that must ALL be updated for it to be recomputed
+PHENOMENA = {
+    "phen_popolazione": frozenset({"popolazione"}),
+    "phen_strutture": frozenset({"strutture"}),
+    "phen_presenze": frozenset({"vodafone", "presenze_alb", "presenze_extralb"}),
+}
+PRESENZE_DATASETS = PHENOMENA["phen_presenze"]
+
+
+def phenomena_to_recompute(selected) -> list:
+    """Phenomena whose inputs are all among the selected datasets."""
+    return [p for p, required in PHENOMENA.items() if required <= set(selected)]
