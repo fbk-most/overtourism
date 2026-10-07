@@ -47,6 +47,18 @@ class ModelSchema(BaseModel):
     indexes: list[OvertourismParameterMeta]
 
 
+class IndexDiffsRequest(BaseModel):
+    """Parameter overrides grouped by scenario for diff generation."""
+
+    param_overrides_by_scenario: dict[str, dict[str, Any]]
+
+
+class IndexDiffsResponse(BaseModel):
+    """Human-readable parameter diffs grouped by scenario."""
+
+    index_diffs_by_scenario: dict[str, dict[str, str]]
+
+
 class EvaluateRequest(BaseModel):
     """Body of `POST /models/{model_key}/evaluate`.
 

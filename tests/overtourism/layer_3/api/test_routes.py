@@ -206,6 +206,46 @@ def test_get_schema_builds_full_metadata_from_backend_minimal_set(monkeypatch) -
     assert body["indexes"][0]["kind"] == "scalar"
 
 
+def test_index_diffs_returns_changes_for_a_batch_of_scenarios(monkeypatch) -> None:
+    class FakeBackend:
+        def schema(self):
+            return {
+                "indexes": [
+                    {
+                        "name": "season",
+                        "kind": "categorical",
+                        "default_category": "base",
+                    },
+                    {"name": "car mode share", "kind": "scalar", "default": 0.69},
+                ]
+            }
+
+    monkeypatch.setattr(
+        "overtourism.layer_3.api.routes.get_backend", lambda model_key: FakeBackend()
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/models/molveno/index-diffs",
+            json={
+                "param_overrides_by_scenario": {
+                    "draft-1": {"season": "peak"},
+                    "draft-2": {"car mode share": 0.8},
+                    "draft-3": {"season": "base"},
+                }
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "index_diffs_by_scenario": {
+            "draft-1": {"season": "base -> peak"},
+            "draft-2": {"car mode share": "0.69 -> 0.8"},
+            "draft-3": {},
+        }
+    }
+
+
 def test_get_fazzon_schema_returns_fazzon_frontend_metadata() -> None:
     with TestClient(app) as client:
         response = client.get("/models/fazzon/schema")

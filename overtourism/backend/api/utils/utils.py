@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import typing
+from collections.abc import Sequence
 
 import requests
 from fastapi import HTTPException, status
 
-from overtourism.backend.api.utils.executor_utils import call_schema
+from overtourism.backend.api.utils.executor_utils import call_index_diffs
 from overtourism.backend.handler import Handler
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.problem.problem import Problem
 from overtourism.dt_manager.proposal.proposal import Proposal
 from overtourism.dt_manager.scenario.scenario import Scenario
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
-from overtourism.layer_3.model.common.sustainability_field import get_index_diffs
 
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
@@ -74,26 +74,56 @@ def raise_immutable_base_scenario_error(
         )
 
 
-def scenario_index_diffs(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
-    """Return scenario parameter changes relative to the Layer 3 base model."""
-    if not scenario.param_overrides:
-        return {}
-    try:
-        schema = call_schema(scenario.territory)
-    except requests.RequestException:
-        return {}
-    return get_index_diffs(schema, scenario.param_overrides)
+def scenario_index_diffs(
+    scenarios: Sequence[Scenario],
+) -> dict[str, dict[str, str]]:
+    """Return parameter diffs grouped into one request per territory."""
+    overrides_by_territory: dict[str, dict[str, dict[str, typing.Any]]] = {}
+    for scenario in scenarios:
+        if scenario.param_overrides:
+            overrides_by_territory.setdefault(scenario.territory, {})[
+                scenario.scenario_id
+            ] = dict(scenario.param_overrides)
+
+    index_diffs_by_scenario: dict[str, dict[str, str]] = {}
+    for territory, overrides_by_scenario in overrides_by_territory.items():
+        try:
+            index_diffs_by_scenario.update(
+                call_index_diffs(territory, overrides_by_scenario)
+            )
+        except requests.RequestException:
+            continue
+    return index_diffs_by_scenario
 
 
-def scenario_to_api(handler: Handler, scenario: Scenario) -> dict[str, typing.Any]:
-    """Convert a scenario entity to the API response shape."""
+def _scenario_to_api(
+    scenario: Scenario,
+    index_diffs: dict[str, str],
+) -> dict[str, typing.Any]:
     payload = scenario.to_dict()
     payload["param_overrides"] = dict(scenario.param_overrides)
     payload["extras"] = {
         **payload.get("extras", {}),
-        "index_diffs": scenario_index_diffs(handler, scenario),
+        "index_diffs": index_diffs,
     }
     return payload
+
+
+def scenarios_to_api(scenarios: Sequence[Scenario]) -> list[dict[str, typing.Any]]:
+    """Convert scenarios to API payloads after resolving diffs in batches."""
+    index_diffs_by_scenario = scenario_index_diffs(scenarios)
+    return [
+        _scenario_to_api(
+            scenario,
+            index_diffs_by_scenario.get(scenario.scenario_id, {}),
+        )
+        for scenario in scenarios
+    ]
+
+
+def scenario_to_api(scenario: Scenario) -> dict[str, typing.Any]:
+    """Convert one scenario using the same batched diff path as scenario lists."""
+    return scenarios_to_api([scenario])[0]
 
 
 # ──────────────────────────────────────────────

@@ -31,6 +31,7 @@ from overtourism.backend.api.utils.utils import (
     get_session_or_404,
     get_session_scenario_or_404,
     scenario_to_api,
+    scenarios_to_api,
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.auth.tokens.context import AuthContext
@@ -214,8 +215,8 @@ async def read_session(
             active_scenario_id=session.active_scenario_id,
             draft_ids=list(session.scenarios),
             drafts=[
-                ScenarioData(**scenario_to_api(handler, draft))
-                for draft in session.scenarios.values()
+                ScenarioData(**scenario_data)
+                for scenario_data in scenarios_to_api(list(session.scenarios.values()))
             ],
             evaluations={
                 scenario_id: EvaluationData.from_domain(evaluation)
@@ -282,7 +283,7 @@ async def create_session_scenario(
             summary=data.summary,
         )
         logger.info(f"Session draft created: {scenario.scenario_id}")
-        return scenario_to_api(handler, scenario)
+        return scenario_to_api(scenario)
     except Exception as e:
         logger.error(f"Error creating session scenario: {e}")
         raise
@@ -307,7 +308,7 @@ async def read_session_scenario(
     try:
         _require_owned_session(handler, territory, session_id, context)
         scenario = get_session_scenario_or_404(handler, session_id, scenario_id)
-        return scenario_to_api(handler, scenario)
+        return scenario_to_api(scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
         raise
@@ -340,7 +341,7 @@ async def save_scenario(
             **data.model_dump(exclude={"version"}, exclude_none=True),
         )
         logger.info(f"Scenario saved: {scenario_id}")
-        return scenario_to_api(handler, saved_scenario)
+        return scenario_to_api(saved_scenario)
     except Exception as e:
         logger.error(f"Error saving scenario {scenario_id}: {e}")
         raise

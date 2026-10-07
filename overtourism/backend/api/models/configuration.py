@@ -10,19 +10,19 @@ from pydantic import BaseModel
 class Index(BaseModel):
     name: str
     kind: str
-    distribution_family: str | None
-    distribution_fixed_params: dict[str, Any] | None
-    support: list[Any] | None
-    default: Any | None
-    default_category: Any | None
-    label: str
-    description: str
-    unit: str
-    category: str
-    step: float | None
-    min_value: float | None
-    max_value: float | None
-    default_range: list[Any] | None
+    distribution_family: str | None = None
+    distribution_fixed_params: dict[str, Any] | None = None
+    support: list[str]
+    default: float | None = None
+    default_category: str | None = None
+    label: str = ""
+    description: str = ""
+    unit: str = ""
+    category: str = ""
+    step: float | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+    default_range: tuple[float, float] | None = None
 
 
 class Metadata(BaseModel):
@@ -32,6 +32,6 @@ class Metadata(BaseModel):
     plot_mapper: dict[str, dict[str, Any]]
 
 
-class Configuration(BaseModel):
+class ModelSchema(BaseModel):
     metadata: Metadata
     indexes: list[Index]

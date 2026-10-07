@@ -17,6 +17,7 @@ from overtourism.backend.api.utils.utils import (
     get_scenario_or_404,
     raise_immutable_base_scenario_error,
     scenario_to_api,
+    scenarios_to_api,
 )
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.handler import Handler, get_handler
@@ -52,15 +53,13 @@ async def list_scenarios(
         if base_only:
             names_cfg = BootstrapConfig(territory)
             scenario = get_scenario_or_404(territory, handler, names_cfg.scenario_id)
-            return scenario_to_api(handler, scenario)
+            return scenario_to_api(scenario)
         scenarios = handler.manager.list_scenarios(
             territory=territory, proposal_id=proposal_id
         )
-        return [
-            scenario_to_api(handler, scenario)
-            for scenario in scenarios
-            if scenario.session_id is None
-        ]
+        return scenarios_to_api(
+            [scenario for scenario in scenarios if scenario.session_id is None]
+        )
     except Exception as e:
         logger.error(f"Error listing scenarios: {e}")
         raise
@@ -82,7 +81,7 @@ async def read_scenario(
 ) -> dict[str, Any]:
     try:
         scenario = get_scenario_or_404(territory, handler, scenario_id)
-        return scenario_to_api(handler, scenario)
+        return scenario_to_api(scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
         raise
@@ -108,7 +107,7 @@ async def create_scenario(
             territory=territory, **scenario_payload
         )
         logger.info(f"Scenario created: {scenario.scenario_id}")
-        return scenario_to_api(handler, scenario)
+        return scenario_to_api(scenario)
     except Exception as e:
         logger.error(f"Error creating scenario: {e}")
         raise
@@ -140,7 +139,7 @@ async def update_scenario(
         )
         scenario = handler.manager.read_scenario(scenario_id)
         logger.info(f"Scenario updated: {scenario_id}")
-        return scenario_to_api(handler, scenario)
+        return scenario_to_api(scenario)
     except Exception as e:
         logger.error(f"Error updating scenario {scenario_id}: {e}")
         raise

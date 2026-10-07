@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import pytest
+import requests
 from fastapi import HTTPException
 
+from overtourism.backend.api.utils import executor_utils
 from overtourism.backend.api.utils.utils import (
     get_evaluation_or_404,
     get_problem_or_404,
@@ -47,50 +49,112 @@ def test_session_helpers_do_not_mask_internal_errors(handler) -> None:
         get_session_evaluation_by_id_or_404(handler, "session", "evaluation")
 
 
-def test_scenario_index_diffs_uses_the_layer_3_schema(
-    handler,
+def test_scenario_index_diffs_batches_scenarios_by_territory(
+    manager: Manager,
+    territory: str,
+    monkeypatch,
+) -> None:
+    first_scenario = manager.scenario_manager.create_scenario(
+        "scenario-diff-first",
+        territory,
+        param_overrides={"season": "peak"},
+    )
+    second_scenario = manager.scenario_manager.create_scenario(
+        "scenario-diff-second",
+        territory,
+        param_overrides={"car mode share": 0.8},
+    )
+    unchanged_scenario = manager.scenario_manager.create_scenario(
+        "scenario-diff-unchanged",
+        territory,
+    )
+    calls: list[tuple[str, dict[str, dict[str, object]]]] = []
+
+    def fake_call_index_diffs(
+        requested_territory: str,
+        overrides_by_scenario: dict[str, dict[str, object]],
+    ) -> dict[str, dict[str, str]]:
+        calls.append((requested_territory, overrides_by_scenario))
+        return {
+            "scenario-diff-first": {"season": "base -> peak"},
+            "scenario-diff-second": {"car mode share": "0.69 -> 0.8"},
+        }
+
+    monkeypatch.setattr(
+        "overtourism.backend.api.utils.utils.call_index_diffs",
+        fake_call_index_diffs,
+    )
+
+    assert scenario_index_diffs(
+        [first_scenario, second_scenario, unchanged_scenario]
+    ) == {
+        "scenario-diff-first": {"season": "base -> peak"},
+        "scenario-diff-second": {"car mode share": "0.69 -> 0.8"},
+    }
+    assert calls == [
+        (
+            territory,
+            {
+                "scenario-diff-first": {"season": "peak"},
+                "scenario-diff-second": {"car mode share": 0.8},
+            },
+        ),
+    ]
+
+
+def test_scenario_index_diffs_returns_empty_when_layer_3_is_unavailable(
     manager: Manager,
     territory: str,
     monkeypatch,
 ) -> None:
     scenario = manager.scenario_manager.create_scenario(
-        "scenario-diff",
+        "scenario-diff-unavailable",
         territory,
-        param_overrides={
-            "season": "peak",
-            "parking capacity": [120.0, 240.0],
-            "car mode share": 0.8,
-        },
-    )
-    schema_calls: list[str] = []
-    monkeypatch.setattr(
-        "overtourism.backend.api.utils.utils.call_schema",
-        lambda requested_territory: (
-            schema_calls.append(requested_territory)
-            or {
-                "indexes": [
-                    {
-                        "name": "season",
-                        "kind": "categorical",
-                        "default_category": "base",
-                    },
-                    {
-                        "name": "parking capacity",
-                        "kind": "distribution",
-                        "default_range": [100.0, 200.0],
-                    },
-                    {"name": "car mode share", "kind": "scalar", "default": 0.69},
-                ]
-            }
-        ),
+        param_overrides={"season": "peak"},
     )
 
-    assert scenario_index_diffs(handler, scenario) == {
-        "season": "base -> peak",
-        "parking capacity": "100-200 -> 120-240",
-        "car mode share": "0.69 -> 0.8",
+    def raise_connection_error(*args, **kwargs):
+        raise requests.ConnectionError("Layer 3 unavailable")
+
+    monkeypatch.setattr(
+        "overtourism.backend.api.utils.utils.call_index_diffs",
+        raise_connection_error,
+    )
+
+    assert scenario_index_diffs([scenario]) == {}
+
+
+def test_call_index_diffs_posts_batched_overrides(monkeypatch) -> None:
+    expected_diffs = {"scenario-1": {"season": "base -> peak"}}
+    captured_request = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, dict[str, dict[str, str]]]:
+            return {"index_diffs_by_scenario": expected_diffs}
+
+    def fake_post(url: str, *, json: dict[str, dict[str, dict[str, int | str]]]):
+        captured_request["url"] = url
+        captured_request["json"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(executor_utils, "model_backend_url", "http://model.test")
+    monkeypatch.setattr(executor_utils.requests, "post", fake_post)
+
+    actual_diffs = executor_utils.call_index_diffs(
+        "molveno",
+        {"scenario-1": {"season": "peak"}},
+    )
+
+    assert captured_request == {
+        "url": "http://model.test/models/molveno/index-diffs",
+        "json": {
+            "param_overrides_by_scenario": {"scenario-1": {"season": "peak"}}
+        },
     }
-    assert schema_calls == [territory]
+    assert actual_diffs == expected_diffs
 
 
 def test_not_found_helpers_translate_backend_errors_to_http_exceptions(

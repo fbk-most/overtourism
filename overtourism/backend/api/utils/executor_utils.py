@@ -36,3 +36,17 @@ def call_schema(
     r = requests.get(base_url)
     r.raise_for_status()
     return r.json()
+
+
+def call_index_diffs(
+    territory: str,
+    param_overrides_by_scenario: dict[str, dict[str, typing.Any]],
+) -> dict[str, dict[str, str]]:
+    """Request batched scenario parameter diffs from the model backend."""
+    url = f"{model_backend_url}/models/{territory}/index-diffs"
+    response = requests.post(
+        url,
+        json={"param_overrides_by_scenario": param_overrides_by_scenario},
+    )
+    response.raise_for_status()
+    return response.json()["index_diffs_by_scenario"]

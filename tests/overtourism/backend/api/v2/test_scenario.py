@@ -61,7 +61,9 @@ def test_scenario_routes_expose_index_diffs_in_extras(
     monkeypatch.setattr(
         api_utils,
         "scenario_index_diffs",
-        lambda handler, scenario: {"visits": "+3"},
+        lambda scenarios: {
+            scenario.scenario_id: {"visits": "+3"} for scenario in scenarios
+        },
     )
 
     list_response = client.get(
@@ -316,7 +318,9 @@ def test_session_scenario_routes_expose_index_diffs_in_extras(
     monkeypatch.setattr(
         api_utils,
         "scenario_index_diffs",
-        lambda handler, scenario: {"visits": "+7"},
+        lambda scenarios: {
+            scenario.scenario_id: {"visits": "+7"} for scenario in scenarios
+        },
     )
 
     create_response = client.post(

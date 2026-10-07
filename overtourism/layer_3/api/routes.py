@@ -22,8 +22,13 @@ from overtourism.layer_3.api.registry import (
 from overtourism.layer_3.api.schemas import (
     EvaluateRequest,
     EvaluateResponse,
+    IndexDiffsRequest,
+    IndexDiffsResponse,
     ModelInfo,
     ModelSchema,
+)
+from overtourism.layer_3.model.common.sustainability_field import (
+    get_index_diffs as calculate_index_diffs,
 )
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -100,6 +105,28 @@ def get_schema(model_key: str) -> ModelSchema:
     metadata = _build_metadata(schema["metadata"])
     return ModelSchema.model_validate(
         {"metadata": metadata, "indexes": schema["indexes"]}
+    )
+
+
+@router.post(
+    "/{model_key}/index-diffs",
+    response_model=IndexDiffsResponse,
+)
+def get_index_diffs_for_scenarios(
+    model_key: str,
+    body: IndexDiffsRequest,
+) -> IndexDiffsResponse:
+    """Return parameter diffs for a batch of scenarios."""
+    backend = _get_backend_or_404(model_key)
+    if not body.param_overrides_by_scenario:
+        return IndexDiffsResponse(index_diffs_by_scenario={})
+
+    schema = backend.schema()
+    return IndexDiffsResponse(
+        index_diffs_by_scenario={
+            scenario_id: calculate_index_diffs(schema, param_overrides)
+            for scenario_id, param_overrides in body.param_overrides_by_scenario.items()
+        }
     )
 
 
