@@ -11,6 +11,8 @@ fi
 
 EXECUTOR_DIR="$ROOT_DIR/executor-backend"
 API_DIR="$ROOT_DIR/overtourism-backend"
+DB_BOOTSTRAP_DIR="$ROOT_DIR/db-bootstrap"
+DB_BOOTSTRAP_PYTHON="$DB_BOOTSTRAP_DIR/.venv/bin/python"
 EXECUTOR_FASTAPI="$EXECUTOR_DIR/.venv/bin/fastapi"
 API_FASTAPI="$API_DIR/.venv/bin/fastapi"
 
@@ -24,6 +26,15 @@ for project_dir in "$EXECUTOR_DIR" "$API_DIR"; do
 	fi
 	uv sync --project "$project_dir"
 done
+
+if [[ ! -f "$DB_BOOTSTRAP_DIR/pyproject.toml" ]]; then
+	printf 'Project pyproject.toml not found: %s\n' "$DB_BOOTSTRAP_DIR/pyproject.toml" >&2
+	exit 1
+fi
+if [[ ! -d "$DB_BOOTSTRAP_DIR/.venv" ]]; then
+	uv venv "$DB_BOOTSTRAP_DIR/.venv"
+fi
+uv sync --project "$DB_BOOTSTRAP_DIR"
 
 export OVERTOURISM_DATABASE="${OVERTOURISM_DATABASE:-sqlite:///$API_DIR/overtourism/overtourism/database/overtourism.sqlite}"
 export DT_OVERTURISM_STANDALONE_MODE="${DT_OVERTOURISM_STANDALONE_MODE:-true}"
@@ -46,6 +57,12 @@ kill -9 $(lsof -t -i:$PORT) >/dev/null 2>&1 || true
 if ! [[ "$HEALTH_CHECK_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
 	printf 'HEALTH_CHECK_TIMEOUT_SECONDS must be a positive integer.\n' >&2
 	exit 2
+fi
+
+if [[ $# -eq 1 ]]; then
+	"$DB_BOOTSTRAP_PYTHON" "$DB_BOOTSTRAP_DIR/bootstrap_db.py" "$1"
+else
+	"$DB_BOOTSTRAP_PYTHON" "$DB_BOOTSTRAP_DIR/bootstrap_db.py"
 fi
 
 wait_for_readiness() {
@@ -97,7 +114,6 @@ if [[ $# -eq 1 ]]; then
 	if ! wait_for_readiness "API backend" "$PORT" "$API_PID" "$API_DIR/.venv/bin/python"; then
 		exit 1
 	fi
-	"$API_DIR/.venv/bin/python" "$API_DIR/bootstrap_admin.py" "$1"
 fi
 
 wait "$API_PID"
