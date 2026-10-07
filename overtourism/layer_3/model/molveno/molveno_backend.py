@@ -142,10 +142,9 @@ class MolvenoBackend:
     def _schema(self) -> dict[str, OvertourismParameterMeta]:
         """Hand-authored parameter metadata; the single source of truth (§3.1).
 
-        Curated subset matching the current dashboard: exposes the three
-        context variables and the parking/beach/food capacities, but not
-        `i_c_accommodation` or `i_xo_tourists_beach` (both distribution-backed
-        on the model but not surfaced as sliders today).
+        Exposes the three context variables and the full set of model
+        parameters, except the presence variables. Percentages are expressed
+        as fractions, matching the model's units.
         """
         inp = self._model.inputs
         return {
@@ -176,8 +175,8 @@ class MolvenoBackend:
                 kind="categorical",
                 label="Meteo",
                 description=(
-                    "Con tempo 'bad' la quota di escursionisti al lago cala drasticamente; "
-                    "la ristorazione assorbe una maggiore quota di visitatori."
+                    "Con tempo 'bad' la ristorazione assorbe una maggiore quota "
+                    "di escursionisti."
                 ),
                 category="Contesto",
                 support=list(inp.cv_weather.support),
@@ -185,52 +184,349 @@ class MolvenoBackend:
             inp.i_c_parking.name: OvertourismParameterMeta(
                 name=inp.i_c_parking.name,
                 kind="distribution",
-                label="Capacità parcheggio (auto)",
+                label="Numero di parcheggi disponibili",
                 description=(
-                    "Range [min, max] della capacità del parcheggio. Valore di riferimento: uniform[350, 450] auto."
+                    "Numero di posti auto disponibili a Molveno. "
+                    "Range [min, max]; riferimento: uniform[350, 450]."
                 ),
-                unit="auto",
-                category="Capacità",
+                category="Parcheggi",
                 default_range=(350.0, 450.0),
-                min_value=100.0,
-                max_value=800.0,
+                min_value=0.0,
+                max_value=1000.0,
                 step=10.0,
                 distribution_family="uniform",
                 distribution_fixed_params={},
             ),
+            inp.i_u_tourists_parking.name: OvertourismParameterMeta(
+                name=inp.i_u_tourists_parking.name,
+                kind="scalar",
+                label="Percentuale di turisti che usano i parcheggi",
+                description=("Frazione di turisti che usano i parcheggi."),
+                category="Parcheggi",
+                default=0.02,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_u_excursionists_parking.name: OvertourismParameterMeta(
+                name=inp.i_u_excursionists_parking.name,
+                kind="scalar",
+                label="Percentuale di escursionisti che usano i parcheggi",
+                description=("Frazione di escursionisti che usano i parcheggi."),
+                category="Parcheggi",
+                default=0.80,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_xa_tourists_per_vehicle.name: OvertourismParameterMeta(
+                name=inp.i_xa_tourists_per_vehicle.name,
+                kind="scalar",
+                label="Numero medio di turisti per veicolo",
+                description=(
+                    "Occupazione media (numero medio di persone) nei veicoli "
+                    "utilizzati dai turisti."
+                ),
+                category="Parcheggi",
+                default=2.5,
+                min_value=0.1,
+                max_value=5.0,
+                step=0.1,
+            ),
+            inp.i_xa_excursionists_per_vehicle.name: OvertourismParameterMeta(
+                name=inp.i_xa_excursionists_per_vehicle.name,
+                kind="scalar",
+                label="Numero medio di escursionisti per veicolo",
+                description=(
+                    "Occupazione media (numero medio di persone) nei veicoli "
+                    "utilizzati dagli escursionisti."
+                ),
+                category="Parcheggi",
+                default=2.5,
+                min_value=0.1,
+                max_value=5.0,
+                step=0.1,
+            ),
+            inp.i_xo_tourists_parking.name: OvertourismParameterMeta(
+                name=inp.i_xo_tourists_parking.name,
+                kind="scalar",
+                label="Ricambi giornalieri per posto auto (turisti)",
+                description=(
+                    "Numero di veicoli di turisti che possono occupare lo stesso "
+                    "posto auto nell'arco della giornata."
+                ),
+                category="Parcheggi",
+                default=1.05,
+                min_value=1.0,
+                max_value=4.0,
+                step=0.05,
+            ),
+            inp.i_xo_excursionists_parking.name: OvertourismParameterMeta(
+                name=inp.i_xo_excursionists_parking.name,
+                kind="scalar",
+                label="Ricambi giornalieri per posto auto (escursionisti)",
+                description=(
+                    "Numero di veicoli di escursionisti che possono occupare lo stesso "
+                    "posto auto nell'arco della giornata."
+                ),
+                category="Parcheggi",
+                default=3.5,
+                min_value=1.0,
+                max_value=4.0,
+                step=0.05,
+            ),
             inp.i_c_beach.name: OvertourismParameterMeta(
                 name=inp.i_c_beach.name,
                 kind="distribution",
-                label="Capacità spiaggia (persone)",
+                label="Numero di posti disponibili in spiaggia",
                 description=(
-                    "Range [min, max] della capacità della spiaggia. "
-                    "Valore di riferimento: uniform[6000, 7000] persone."
+                    "Numero massimo di presenze nella spiaggia di Molveno che garantiscono "
+                    "un distanziamento adeguato fra le persone. "
+                    "Range [min, max]; riferimento: uniform[6000, 7000]."
                 ),
-                unit="persone",
-                category="Capacità",
+                category="Spiaggia",
                 default_range=(6000.0, 7000.0),
-                min_value=3000.0,
-                max_value=12000.0,
-                step=250.0,
+                min_value=0.0,
+                max_value=10000.0,
+                step=100.0,
                 distribution_family="uniform",
                 distribution_fixed_params={},
+            ),
+            inp.i_u_tourists_beach.name: OvertourismParameterMeta(
+                name=inp.i_u_tourists_beach.name,
+                kind="scalar",
+                label="Percentuale di turisti che usano la spiaggia",
+                description=("Frazione di turisti che usano la spiaggia."),
+                category="Spiaggia",
+                default=0.50,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_u_excursionists_beach.name: OvertourismParameterMeta(
+                name=inp.i_u_excursionists_beach.name,
+                kind="scalar",
+                label="Percentuale di escursionisti che usano la spiaggia",
+                description=("Frazione di escursionisti che usano la spiaggia."),
+                category="Spiaggia",
+                default=0.80,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_xo_tourists_beach.name: OvertourismParameterMeta(
+                name=inp.i_xo_tourists_beach.name,
+                kind="distribution",
+                label="Ricambi giornalieri per posto in spiaggia (turisti)",
+                description=(
+                    "Numero di turisti che possono occupare lo stesso posto in spiaggia "
+                    "nell'arco della giornata. Range [min, max]; riferimento: uniform[1, 3]."
+                ),
+                category="Spiaggia",
+                default_range=(1.0, 3.0),
+                min_value=1.0,
+                max_value=4.0,
+                step=0.05,
+                distribution_family="uniform",
+                distribution_fixed_params={},
+            ),
+            inp.i_xo_excursionists_beach.name: OvertourismParameterMeta(
+                name=inp.i_xo_excursionists_beach.name,
+                kind="scalar",
+                label="Ricambi giornalieri per posto in spiaggia (escursionisti)",
+                description=(
+                    "Numero di escursionisti che possono occupare lo stesso posto in "
+                    "spiaggia nell'arco della giornata."
+                ),
+                category="Spiaggia",
+                default=1.05,
+                min_value=1.0,
+                max_value=4.0,
+                step=0.05,
+            ),
+            inp.i_c_accommodation.name: OvertourismParameterMeta(
+                name=inp.i_c_accommodation.name,
+                kind="distribution",
+                label="Posti letto disponibili",
+                description=(
+                    "Totale posti letto nelle strutture ricettive alberghiere e "
+                    "extralberghiere a Molveno. Distribuzione lognormale (s = 0.125) "
+                    "con loc = min e scale = max - min; riferimento: loc 0, scale 5000."
+                ),
+                category="Alberghi",
+                default_range=(0.0, 5000.0),
+                min_value=0.0,
+                max_value=10000.0,
+                step=100.0,
+                distribution_family="lognorm",
+                distribution_fixed_params={"s": 0.125},
+            ),
+            inp.i_u_tourists_accommodation.name: OvertourismParameterMeta(
+                name=inp.i_u_tourists_accommodation.name,
+                kind="scalar",
+                label="Percentuale di turisti che alloggiano in strutture ricettive",
+                description=(
+                    "Frazione di turisti che alloggiano in strutture ricettive alberghiere "
+                    "o extralberghiere a Molveno."
+                ),
+                category="Alberghi",
+                default=0.90,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_xa_tourists_accommodation.name: OvertourismParameterMeta(
+                name=inp.i_xa_tourists_accommodation.name,
+                kind="scalar",
+                label="Fattore massimo di allocazione dei posti letto",
+                description=(
+                    "Fattore di allocazione che rappresenta la frazione di posti letto "
+                    "occupati nel caso di alberghi pieni (tenendo conto ad es. di camere "
+                    "doppie uso singola)."
+                ),
+                category="Alberghi",
+                default=0.85,
+                min_value=0.5,
+                max_value=1.25,
+                step=0.05,
             ),
             inp.i_c_food.name: OvertourismParameterMeta(
                 name=inp.i_c_food.name,
                 kind="distribution",
-                label="Capacità ristorazione (coperti)",
+                label="Posti a sedere nei ristoranti",
                 description=(
-                    "Range [min, max] della capacità di ristorazione. "
-                    "Valore di riferimento: triang moda 3500, range [3000, 4000] coperti."
+                    "Totale posti a sedere nella ristorazione commerciale a Molveno. "
+                    "Range [min, max]; riferimento: triang moda 2800, range [2400, 3200]."
                 ),
-                unit="coperti",
-                category="Capacità",
-                default_range=(3000.0, 4000.0),
-                min_value=1000.0,
+                category="Ristoranti",
+                default_range=(2400.0, 3200.0),
+                min_value=0.0,
                 max_value=6000.0,
                 step=100.0,
                 distribution_family="triang",
                 distribution_fixed_params={"c": 0.5},
+            ),
+            inp.i_u_tourists_food.name: OvertourismParameterMeta(
+                name=inp.i_u_tourists_food.name,
+                kind="scalar",
+                label="Percentuale di turisti che usano i ristoranti",
+                description=("Frazione di turisti che usano i ristoranti."),
+                category="Ristoranti",
+                default=0.20,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_u_excursionists_food_bad_weather.name: OvertourismParameterMeta(
+                name=inp.i_u_excursionists_food_bad_weather.name,
+                kind="scalar",
+                label="Percentuale di escursionisti che usano i ristoranti (maltempo)",
+                description=(
+                    "Frazione di escursionisti che usano i ristoranti con meteo 'bad'."
+                ),
+                category="Ristoranti",
+                default=0.80,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_u_excursionists_food_good_unsettled_weather.name: OvertourismParameterMeta(
+                name=inp.i_u_excursionists_food_good_unsettled_weather.name,
+                kind="scalar",
+                label="Percentuale di escursionisti che usano i ristoranti (tempo bello / variabile)",
+                description=(
+                    "Frazione di escursionisti che usano i ristoranti "
+                    "con meteo 'good' o 'unsettled'."
+                ),
+                category="Ristoranti",
+                default=0.40,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.01,
+            ),
+            inp.i_xa_visitors_food.name: OvertourismParameterMeta(
+                name=inp.i_xa_visitors_food.name,
+                kind="scalar",
+                label="Fattore massimo di allocazione dei posti a sedere nei ristoranti",
+                description=(
+                    "Fattore di allocazione che rappresenta la frazione di posti a sedere "
+                    "occupati nel caso di ristoranti pieni (tenendo conto ad es. di tavoli "
+                    "non completi)."
+                ),
+                category="Ristoranti",
+                default=0.90,
+                min_value=0.5,
+                max_value=1.5,
+                step=0.05,
+            ),
+            inp.i_xo_visitors_food.name: OvertourismParameterMeta(
+                name=inp.i_xo_visitors_food.name,
+                kind="scalar",
+                label="Tasso di rotazione dei tavoli",
+                description=(
+                    "Numero di volte in cui un tavolo viene occupato nell'arco di un servizio."
+                ),
+                category="Ristoranti",
+                default=2.0,
+                min_value=0.5,
+                max_value=4.0,
+                step=0.05,
+            ),
+            inp.i_p_tourists_reduction_factor.name: OvertourismParameterMeta(
+                name=inp.i_p_tourists_reduction_factor.name,
+                kind="scalar",
+                label="Fattore di variazione di presenze turistiche",
+                description=(
+                    "Aumenta (> 1) o diminuisce (< 1) la presenza stimata di "
+                    "turisti rispetto al valore storico."
+                ),
+                category="Flussi",
+                default=1.0,
+                min_value=0.05,
+                max_value=4.0,
+                step=0.05,
+            ),
+            inp.i_p_excursionists_reduction_factor.name: OvertourismParameterMeta(
+                name=inp.i_p_excursionists_reduction_factor.name,
+                kind="scalar",
+                label="Fattore di variazione di presenze escursionistiche",
+                description=(
+                    "Aumenta (> 1) o diminuisce (< 1) la presenza stimata di "
+                    "escursionisti rispetto al valore storico."
+                ),
+                category="Flussi",
+                default=1.0,
+                min_value=0.05,
+                max_value=4.0,
+                step=0.05,
+            ),
+            inp.i_p_tourists_saturation_level.name: OvertourismParameterMeta(
+                name=inp.i_p_tourists_saturation_level.name,
+                kind="scalar",
+                label="Soglia di saturazione massima turisti",
+                description=(
+                    "Livello massimo che può raggiungere la presenza di "
+                    "turisti a Molveno durante una giornata."
+                ),
+                category="Flussi",
+                default=10000.0,
+                min_value=1000.0,
+                max_value=20000.0,
+                step=100.0,
+            ),
+            inp.i_p_excursionists_saturation_level.name: OvertourismParameterMeta(
+                name=inp.i_p_excursionists_saturation_level.name,
+                kind="scalar",
+                label="Soglia di saturazione massima escursionisti",
+                description=(
+                    "Livello massimo che può raggiungere la presenza di "
+                    "escursionisti a Molveno durante una giornata."
+                ),
+                category="Flussi",
+                default=10000.0,
+                min_value=1000.0,
+                max_value=20000.0,
+                step=100.0,
             ),
         }
 

@@ -28,7 +28,8 @@ sub-model through its ``Inputs`` dataclass.
 
 :class:`FoodModel` — *Food-service usage*
     **Inputs**: ``pv_tourists``, ``pv_excursionists``, ``cv_weather``,
-    ``i_u_tourists_food``, ``i_u_excursionists_food``,
+    ``i_u_tourists_food``, ``i_u_excursionists_food_bad_weather``,
+    ``i_u_excursionists_food_good_unsettled_weather``,
     ``i_xa_visitors_food``, ``i_xo_visitors_food``, ``i_c_food``
     **Outputs**: ``i_u_food``
 
@@ -296,6 +297,11 @@ class AccommodationModel(Model):
 class FoodModel(Model):
     """Concern sub-model — food-service usage.
 
+    The excursionist usage factor depends on the weather: it is
+    ``i_u_excursionists_food_bad_weather`` when ``cv_weather`` is ``"bad"``
+    and ``i_u_excursionists_food_good_unsettled_weather`` when it is
+    ``"good"`` or ``"unsettled"``.
+
     Attributes
     ----------
     constraint : Constraint
@@ -310,7 +316,8 @@ class FoodModel(Model):
         pv_excursionists: ConditionalDistributionIndex
         cv_weather: CategoricalIndex
         i_u_tourists_food: Index
-        i_u_excursionists_food: Index
+        i_u_excursionists_food_bad_weather: Index
+        i_u_excursionists_food_good_unsettled_weather: Index
         i_xa_visitors_food: Index
         i_xo_visitors_food: Index
         i_c_food: DistributionIndex
@@ -323,11 +330,18 @@ class FoodModel(Model):
 
     def compute(self, inputs: Inputs) -> Outputs:
         """Compute food-service usage from inputs."""
+        i_u_excursionists_food = Index(
+            "excursionist food service usage factor",
+            graph.piecewise(
+                (inputs.i_u_excursionists_food_bad_weather, inputs.cv_weather == "bad"),
+                (inputs.i_u_excursionists_food_good_unsettled_weather, True),
+            ),
+        )
         i_u_food = Index(
             "food usage",
             (
                 inputs.pv_tourists * inputs.i_u_tourists_food
-                + inputs.pv_excursionists * inputs.i_u_excursionists_food
+                + inputs.pv_excursionists * i_u_excursionists_food
             )
             / (inputs.i_xa_visitors_food * inputs.i_xo_visitors_food),
         )
@@ -387,7 +401,8 @@ class MolvenoModel(Model):
         i_xa_tourists_accommodation: Index
         # Food parameters
         i_u_tourists_food: Index
-        i_u_excursionists_food: Index
+        i_u_excursionists_food_bad_weather: Index
+        i_u_excursionists_food_good_unsettled_weather: Index
         i_xa_visitors_food: Index
         i_xo_visitors_food: Index
         # Presence-transformation parameters
@@ -456,7 +471,7 @@ class MolvenoModel(Model):
             i_c_food=DistributionIndex(
                 "food service capacity",
                 stats.triang,
-                {"loc": 3000.0, "scale": 1000.0, "c": 0.5},
+                {"loc": 2400.0, "scale": 800.0, "c": 0.5},
             ),
             i_xo_tourists_beach=DistributionIndex(
                 "tourists on beach rotation factor",
@@ -465,44 +480,38 @@ class MolvenoModel(Model):
             ),
             # Parking parameters
             i_u_tourists_parking=Index("tourist parking usage factor", 0.02),
-            i_u_excursionists_parking=Index(
-                "excursionist parking usage factor",
-                graph.piecewise((0.55, cv_weather == "bad"), (0.80, True)),
-            ),
+            i_u_excursionists_parking=Index("excursionist parking usage factor", 0.80),
             i_xa_tourists_per_vehicle=Index(
                 "tourists per vehicle allocation factor", 2.5
             ),
             i_xa_excursionists_per_vehicle=Index(
                 "excursionists per vehicle allocation factor", 2.5
             ),
-            i_xo_tourists_parking=Index("tourists in parking rotation factor", 1.02),
+            i_xo_tourists_parking=Index("tourists in parking rotation factor", 1.05),
             i_xo_excursionists_parking=Index(
                 "excursionists in parking rotation factor", 3.5
             ),
             # Beach parameters
-            i_u_tourists_beach=Index(
-                "tourist beach usage factor",
-                graph.piecewise((0.25, cv_weather == "bad"), (0.50, True)),
-            ),
-            i_u_excursionists_beach=Index(
-                "excursionist beach usage factor",
-                graph.piecewise((0.35, cv_weather == "bad"), (0.80, True)),
-            ),
+            i_u_tourists_beach=Index("tourist beach usage factor", 0.50),
+            i_u_excursionists_beach=Index("excursionist beach usage factor", 0.80),
             i_xo_excursionists_beach=Index(
-                "excursionists on beach rotation factor", 1.02
+                "excursionists on beach rotation factor", 1.05
             ),
             # Accommodation parameters
             i_u_tourists_accommodation=Index(
                 "tourist accommodation usage factor", 0.90
             ),
             i_xa_tourists_accommodation=Index(
-                "tourists per accommodation allocation factor", 1.05
+                "tourists per accommodation allocation factor", 0.85
             ),
             # Food parameters
             i_u_tourists_food=Index("tourist food service usage factor", 0.20),
-            i_u_excursionists_food=Index(
-                "excursionist food service usage factor",
-                graph.piecewise((0.80, cv_weather == "bad"), (0.40, True)),
+            i_u_excursionists_food_bad_weather=Index(
+                "excursionist food service usage factor (bad weather)", 0.80
+            ),
+            i_u_excursionists_food_good_unsettled_weather=Index(
+                "excursionist food service usage factor (good / unsettled weather)",
+                0.40,
             ),
             i_xa_visitors_food=Index("visitors in food service allocation factor", 0.9),
             i_xo_visitors_food=Index("visitors in food service rotation factor", 2.0),
@@ -559,7 +568,12 @@ class MolvenoModel(Model):
                 pv_excursionists=inputs.pv_excursionists,
                 cv_weather=inputs.cv_weather,
                 i_u_tourists_food=inputs.i_u_tourists_food,
-                i_u_excursionists_food=inputs.i_u_excursionists_food,
+                i_u_excursionists_food_bad_weather=(
+                    inputs.i_u_excursionists_food_bad_weather
+                ),
+                i_u_excursionists_food_good_unsettled_weather=(
+                    inputs.i_u_excursionists_food_good_unsettled_weather
+                ),
                 i_xa_visitors_food=inputs.i_xa_visitors_food,
                 i_xo_visitors_food=inputs.i_xo_visitors_food,
                 i_c_food=inputs.i_c_food,
