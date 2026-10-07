@@ -8,9 +8,9 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from overtourism.backend.api.models.configuration import ModelSchema
-from overtourism.backend.api.utils.executor_utils import call_schema
 from overtourism.backend.auth.identity.authorization import require_territory_access
 from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
+from overtourism.backend.utils.executor_utils import call_schema
 
 logger = logging.getLogger(__name__)
 

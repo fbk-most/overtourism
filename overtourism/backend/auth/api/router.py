@@ -7,7 +7,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 
-from overtourism.backend.api.utils.executor_utils import list_models
 from overtourism.backend.auth.api.models import (
     AuthMeResponse,
     AuthRoleResponse,
@@ -26,6 +25,7 @@ from overtourism.backend.auth.identity.users import User, UserRole
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler, get_handler
+from overtourism.backend.utils.executor_utils import list_models
 
 auth_router = APIRouter(prefix="/auth")
 

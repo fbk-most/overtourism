@@ -6,7 +6,7 @@ import pytest
 import requests
 from fastapi import HTTPException
 
-from overtourism.backend.api.utils import executor_utils
+from overtourism.backend.utils import executor_utils
 from overtourism.backend.api.utils.utils import (
     get_evaluation_or_404,
     get_problem_or_404,
@@ -135,12 +135,18 @@ def test_call_index_diffs_posts_batched_overrides(monkeypatch) -> None:
         def json(self) -> dict[str, dict[str, dict[str, str]]]:
             return {"index_diffs_by_scenario": expected_diffs}
 
-    def fake_post(url: str, *, json: dict[str, dict[str, dict[str, int | str]]]):
+    def fake_post(
+        url: str,
+        *,
+        json: dict[str, dict[str, dict[str, int | str]]],
+        auth=None,
+    ):
         captured_request["url"] = url
         captured_request["json"] = json
+        captured_request["auth"] = auth
         return FakeResponse()
 
-    monkeypatch.setattr(executor_utils, "model_backend_url", "http://model.test")
+    monkeypatch.setattr(executor_utils, "MODEL_BACKEND_URL", "http://model.test")
     monkeypatch.setattr(executor_utils.requests, "post", fake_post)
 
     actual_diffs = executor_utils.call_index_diffs(
@@ -150,11 +156,72 @@ def test_call_index_diffs_posts_batched_overrides(monkeypatch) -> None:
 
     assert captured_request == {
         "url": "http://model.test/models/molveno/index-diffs",
-        "json": {
-            "param_overrides_by_scenario": {"scenario-1": {"season": "peak"}}
-        },
+        "json": {"param_overrides_by_scenario": {"scenario-1": {"season": "peak"}}},
+        "auth": None,
     }
     assert actual_diffs == expected_diffs
+
+
+@pytest.mark.parametrize(
+    ("username", "password", "expected_auth"),
+    [
+        (None, None, None),
+        ("model-user", None, None),
+        (None, "model-password", None),
+        ("model-user", "model-password", ("model-user", "model-password")),
+    ],
+)
+def test_model_backend_requests_use_basic_auth_only_with_both_credentials(
+    monkeypatch,
+    username: str | None,
+    password: str | None,
+    expected_auth: tuple[str, str] | None,
+) -> None:
+    monkeypatch.setattr(executor_utils, "MODEL_BACKEND_USER", username)
+    monkeypatch.setattr(executor_utils, "MODEL_BACKEND_PASSWORD", password)
+
+    observed_auth: list[tuple[str, str] | None] = []
+    observed_gets: list[tuple[str, dict[str, object]]] = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+            self.status_code = 200
+
+        def json(self):
+            return self.payload
+
+        def raise_for_status(self) -> None:
+            pass
+
+    def fake_get(url: str, **kwargs):
+        observed_auth.append(kwargs.get("auth"))
+        observed_gets.append((url, kwargs))
+        if url.endswith("/models"):
+            return FakeResponse([{"key": "molveno"}])
+        return FakeResponse({"schema": []})
+
+    def fake_post(url: str, **kwargs):
+        observed_auth.append(kwargs.get("auth"))
+        if url.endswith("/index-diffs"):
+            return FakeResponse({"index_diffs_by_scenario": {}})
+        return FakeResponse({"result": "ok"})
+
+    monkeypatch.setattr(executor_utils.requests, "get", fake_get)
+    monkeypatch.setattr(executor_utils.requests, "post", fake_post)
+    monkeypatch.setattr(executor_utils, "MODEL_BACKEND_URL", "http://model.test")
+
+    executor_utils.call_executor("molveno")
+    executor_utils.list_models()
+    executor_utils.call_schema("molveno")
+    executor_utils.call_index_diffs("molveno", {"scenario-1": {}})
+    executor_utils.call_health_ready()
+
+    assert observed_auth == [expected_auth] * 5
+    assert observed_gets[-1] == (
+        "http://model.test/health/ready",
+        {"auth": expected_auth, "timeout": 1},
+    )
 
 
 def test_not_found_helpers_translate_backend_errors_to_http_exceptions(

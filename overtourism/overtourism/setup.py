@@ -5,13 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from overtourism.backend.api.utils.executor_utils import (
-    call_executor,
-    list_models,
-)
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.handler import Handler
+from overtourism.backend.utils.executor_utils import (
+    call_executor,
+    list_models,
+)
 from overtourism.dt_manager.manager.config import BootstrapConfig
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session.config import SessionCleanupConfig

@@ -6,15 +6,12 @@ import requests
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from overtourism.backend.api.utils.executor_utils import model_backend_url
+from overtourism.backend.utils.executor_utils import call_health_ready
 
 
 def model_backend_is_ready() -> bool:
     try:
-        response = requests.get(
-            f"{model_backend_url.rstrip('/')}/health/ready",
-            timeout=1,
-        )
+        response = call_health_ready()
     except requests.RequestException:
         return False
     return response.status_code == 200
