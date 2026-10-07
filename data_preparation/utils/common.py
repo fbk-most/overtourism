@@ -13,10 +13,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 OUTPUT_DIR = Path(__file__).parent.parent / "Output"
-RAW_DIR = OUTPUT_DIR / "raw_data"
-NORMALIZED_DIR = OUTPUT_DIR / "normalized"
-PROCESSED_DIR = OUTPUT_DIR / "data_processed"
-FINAL_DIR = OUTPUT_DIR / "final_data"
+RAW_DIR = OUTPUT_DIR / "data" / "raw_data"
+NORMALIZED_DIR = OUTPUT_DIR / "data" / "normalized"
+PROCESSED_DIR = OUTPUT_DIR / "data" / "data_processed"
+FINAL_DIR = OUTPUT_DIR / "data" / "final_data"
 
 
 # Explicit overrides for comuni whose official Italian name differs from
@@ -49,6 +49,17 @@ def customize_unidecode(x):
     return unidecode(x.strip().upper()).replace("0", "-")
 
 
+def _make_hashable(value):
+    """Canonical representation used exclusively for deduplication."""
+    value = normalize_id_comune(value)
+
+    if isinstance(value, tuple):
+        return tuple(str(x).zfill(6) for x in value)
+
+    if pd.isna(value):
+        return value
+
+    return str(value).zfill(6)
 def pad_id_comune(series, width=6):
     """Zero-pad an ID_COMUNE column to `width` digits (e.g. 22001 -> '022001').
 
@@ -135,6 +146,74 @@ def read_df(path, name, type_format="csv", parse_ids=False):
         df["ID_COMUNE"] = df["ID_COMUNE"].apply(normalize_id_comune)
     return df
 
+
+def _remove_unnamed(df):
+    """Removes unnamed from header.
+    If the columns are already flat strings (as in the reconstructed TSVs), this is a no-op and we leave them untouched.
+    """
+    if not isinstance(df.columns, pd.MultiIndex):
+        return df.copy()
+
+    top = pd.Series([c[0] for c in df.columns])
+    top = top.where(~top.astype(str).str.startswith("Unnamed"), pd.NA).ffill()
+    bottom = pd.Series([c[1] for c in df.columns])
+
+    df = df.copy()
+    df.columns = [
+        str(t).strip() if str(b).startswith("Unnamed") or pd.isna(b)
+        else f"{str(t).strip()} {str(b).strip()}"
+        for t, b in zip(top, bottom)
+    ]
+    return df
+
+def _read_grouped_presenze_tsv(data_source, sep: str = "\t") -> pd.DataFrame:
+    """
+    This function reshapes the grouped header into flat columns, like: Mese, Esercizi alberghieri Italiani, Esercizi alberghieri Stranieri, ...
+    """
+    if hasattr(data_source, "read"):
+        data = data_source.getvalue().decode("utf-8")
+        lines = [ln.rstrip("\n") for ln in data.splitlines() if ln.strip()]
+        path_desc = "buffer"
+    else:
+        path = str(data_source)
+        with open(path, "r", encoding="utf-8") as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        path_desc = path
+    if len(lines) < 2:
+        raise ValueError(f"File troppo corto per header a 2 righe: {path_desc}")
+    first = [c.strip() for c in lines[0].split(sep)]
+    second = [c.strip() for c in lines[1].split(sep)]
+    groups = [c for c in first if c and c.lower() != "mese"]
+    if not groups:
+        raise ValueError(f"Header della prima riga non riconosciuto: {first}")
+    names = ["Mese"]
+    for group in groups:
+        names.extend([f"{group} Italiani", f"{group} Stranieri", f"{group} Totale"])
+    if len(names) != len(second) + 1:
+        # Fallback: if the file is already sufficiently aligned, read it with a
+        # MultiIndex-like structure instead of manually reconstructing names.
+        if hasattr(data_source, "read"):
+            return pd.read_csv(data_source, sep=sep, header=[0, 1], dtype=str)
+        return pd.read_csv(path_desc, sep=sep, header=[0, 1], dtype=str)
+
+    if hasattr(data_source, "read"):
+        return pd.read_csv(
+            pd.io.common.StringIO(data),
+            sep=sep,
+            header=None,
+            names=names,
+            skiprows=2,
+            dtype=str,
+        )
+
+    return pd.read_csv(
+        path_desc,
+        sep=sep,
+        header=None,
+        names=names,
+        skiprows=2,
+        dtype=str,
+    )
 
 def read_json(path):
     with open(path, encoding="utf-8") as f:

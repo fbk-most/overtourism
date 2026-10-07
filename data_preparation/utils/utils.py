@@ -33,10 +33,6 @@ PATH_AIXPA_INDEX_DFS = (
 )
 PATH_AIXPA_INDEX_DFS.mkdir(parents=True, exist_ok=True)
 
-MAPPING_PATH = (
-    Path(__file__).resolve().parents[2] / "mapping" 
-)
-
 ## S3 utilities and getter functions from platform
 
 def get_dataframe(name: str) -> DataFrame:
@@ -165,12 +161,8 @@ def read_shapefile_s3(base_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def get_mapping(mapping_name, local = False):
-    if local: 
-        with (MAPPING_PATH / mapping_name).open("r", encoding="utf-8") as f:
-            json.load(f)
-    else:
-        return get_json_s3(f"mapping_ids/{mapping_name}")
+def get_mapping(mapping_name):
+    return get_json_s3(f"mapping_ids/{mapping_name}")
 
 
 def save_computed_dfs(dict_dfs, local=False, type_format = 'parquet', path_saving = PATH_AIXPA_INDEX_DFS):

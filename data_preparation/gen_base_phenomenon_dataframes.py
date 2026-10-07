@@ -39,21 +39,51 @@ def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    df = df.merge(
+
+    len_pre = len(df)
+    df_mg = df.merge(
         df_vodafone[["DATA", "ID_COMUNE", "presenze"]].rename(
             columns={"presenze": "presenze_vodafone"}
         ),
         on=["DATA", "ID_COMUNE"],
         how="inner",
     )
-    return df.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
+
+    if len(df_mg) < len_pre:
+        records_lost = len_pre - len(df_mg)
+        perc_lost = (records_lost / len_pre) * 100
+        missing_dates = set(df["DATA"].dropna()) - set(df_vodafone["DATA"].dropna())
+
+        rows_missing_dates = int(df["DATA"].isin(missing_dates).sum())
+        rows_missing_keys = records_lost - rows_missing_dates
+
+        logging.warning(
+            "Filtered Vodafone: %d/%d records discarded (%.2f%%).", records_lost, len_pre, perc_lost,)
+        if missing_dates:
+            min_d, max_d = min(missing_dates), max(missing_dates)
+            logging.warning(
+                "Records lost on dates not covered by Vodafone: %d records across "
+                "%d days (%s..%s).",
+                rows_missing_dates,
+                len(missing_dates),
+                min_d,
+                max_d,
+            )
+            logging.warning(
+                "First day missing: %s | Last: %s", min_d, max_d
+            )
+        if rows_missing_keys:
+            logging.warning(
+                "%d Records lost because of missing ID_COMUNE on common dates.",
+                rows_missing_keys,
+            )
+    return df_mg.sort_values(by=["DATA", "ID_COMUNE"]).reset_index(drop=True)
 
 
 def calculate_phenomena(
     popolazione_df, strutture_df, vodafone_df, presenze_df_alb, presenze_df_extralb
 ):
     """Builds the final phenomenon dataframes from the processed ones.
-
     Returns a dict with keys "phen_popolazione", "phen_strutture", "phen_presenze".
     """
     logging.info("## Computing presences phenomenon dataframe")
@@ -69,7 +99,7 @@ def calculate_phenomena(
 
 
 ## STEP computation of phenomena
-def compute_phenomenon_dataframes(
+def main_compute_phenomena_dfs(
     processed_dir=PROCESSED_DIR, out_dir=FINAL_DIR, type_format="csv", local=True
 ):
     """Main orchestrator,
@@ -108,4 +138,4 @@ if __name__ == "__main__":
     dir_out = FINAL_DIR
     type_format = "csv"
     local = True
-    compute_phenomenon_dataframes(dir_in, dir_out, type_format, local=local)
+    main_compute_phenomena_dfs(dir_in, dir_out, type_format, local=local)
