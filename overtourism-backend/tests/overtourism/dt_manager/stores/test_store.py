@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
-from sqlalchemy import inspect
-
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+from sqlalchemy import inspect
 
 
 def test_problem_round_trip_and_delete_problem(

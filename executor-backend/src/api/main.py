@@ -9,6 +9,7 @@ Run with::
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,24 +22,34 @@ APP_VERSION = "0.1.0"
 
 logging.basicConfig(
     level=logging.INFO,
-    format=service_log_format("layer-3-models", APP_VERSION),
+    format=service_log_format("executor-backend", APP_VERSION),
     handlers=[logging.StreamHandler()],
 )
 
-app = FastAPI(
-    title="Overtourism Digital Twin API",
-    version=APP_VERSION,
-    description="REST layer over the Fazzon/Molveno computation backends (Layer 3).",
-)
 
-# Permissive development CORS.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def _get_cors_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS", "*")
+    return [
+        origin.strip() for origin in configured_origins.split(",") if origin.strip()
+    ]
 
-app.include_router(router)
-app.include_router(health_router)
+
+def create_app() -> FastAPI:
+    application = FastAPI(
+        title="Overtourism Digital Twin API",
+        version=APP_VERSION,
+        description="REST layer over the CDT computation backends.",
+    )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=_get_cors_allowed_origins(),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    application.include_router(router)
+    application.include_router(health_router)
+    return application
+
+
+app = create_app()

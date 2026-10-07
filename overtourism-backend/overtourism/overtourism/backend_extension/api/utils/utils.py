@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any, overload
 
-from pydantic import BaseModel
-
 from overtourism.backend.api.models.problem import (
     PostProblemData as BasePostProblemData,
 )
@@ -25,6 +23,7 @@ from overtourism.overtourism.backend_extension.api.models.problem import (
 from overtourism.overtourism.backend_extension.api.models.proposal import (
     OvertourismProposalData,
 )
+from pydantic import BaseModel
 
 # ──────────────────────────────────────────────
 # Conversion functions for overtourism API models

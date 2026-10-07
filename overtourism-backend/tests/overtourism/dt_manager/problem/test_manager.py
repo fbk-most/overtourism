@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.problem.manager import ProblemManager
 from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist

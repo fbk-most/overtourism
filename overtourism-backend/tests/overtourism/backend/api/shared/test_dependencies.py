@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-
 from overtourism.backend import handler as handler_module
 from overtourism.backend.handler import Handler, get_handler, init_handler
 

@@ -6,7 +6,6 @@ import threading
 
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
-
 from overtourism.backend.main import create_app
 from overtourism.dt_manager.session.config import SessionCleanupConfig
 

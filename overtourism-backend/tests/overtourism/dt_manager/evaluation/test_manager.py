@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.evaluation import evaluation as evaluation_module
 from overtourism.dt_manager.evaluation.evaluation import (
     DEFAULT_EVALUATION_TYPE,
@@ -16,6 +15,7 @@ from overtourism.dt_manager.utils.exception import (
     EntityDoesNotExist,
     EvaluationAlreadyExists,
 )
+
 from tests.overtourism import test_support as execution_helper_module
 from tests.overtourism.test_support import FakeExecutionService
 

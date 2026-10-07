@@ -6,7 +6,6 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-
 from overtourism.backend.api.routes.problem import (
     create_problem as base_create_problem,
 )

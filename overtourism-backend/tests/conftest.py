@@ -10,7 +10,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler
@@ -28,6 +27,7 @@ from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
+
 from tests.overtourism.test_support import (
     DEFAULT_PROBLEM_ID,
     DEFAULT_PROPOSAL_ID,

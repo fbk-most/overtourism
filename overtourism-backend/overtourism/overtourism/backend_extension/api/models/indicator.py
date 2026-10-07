@@ -4,7 +4,6 @@ from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
-
 from overtourism.overtourism.backend_extension.api.models.phenomenon import Phenomenon
 from overtourism.overtourism.backend_extension.api.utils.index_utils import (
     _italian_festivities,

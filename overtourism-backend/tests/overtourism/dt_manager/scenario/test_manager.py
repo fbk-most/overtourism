@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from overtourism.dt_manager.scenario import manager as scenario_manager_module
 from overtourism.dt_manager.scenario import scenario as scenario_module
 from overtourism.dt_manager.scenario.manager import ScenarioManager

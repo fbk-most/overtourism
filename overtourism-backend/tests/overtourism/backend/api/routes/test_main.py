@@ -6,7 +6,6 @@ import threading
 
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
-
 from overtourism.backend.main import create_app
 from overtourism.dt_manager.session.config import SessionCleanupConfig
 
@@ -38,6 +37,47 @@ def test_create_app_includes_extra_routers_and_metadata(handler) -> None:
     }
     assert ping_response.status_code == 200
     assert ping_response.json() == {"status": "ok"}
+
+
+def test_create_app_applies_configured_cors_origins(handler, monkeypatch) -> None:
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS",
+        " https://frontend.example,https://admin.example, ",
+    )
+    app = create_app(handler)
+
+    with TestClient(app) as client:
+        frontend_response = client.get(
+            "/health/live", headers={"Origin": "https://frontend.example"}
+        )
+        admin_response = client.get(
+            "/health/live", headers={"Origin": "https://admin.example"}
+        )
+        rejected_response = client.get(
+            "/health/live", headers={"Origin": "https://unlisted.example"}
+        )
+
+    assert frontend_response.headers["access-control-allow-origin"] == (
+        "https://frontend.example"
+    )
+    assert admin_response.headers["access-control-allow-origin"] == (
+        "https://admin.example"
+    )
+    assert "access-control-allow-origin" not in rejected_response.headers
+
+
+def test_create_app_defaults_cors_origins_to_wildcard(handler, monkeypatch) -> None:
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    app = create_app(handler)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/health/live", headers={"Origin": "https://frontend.example"}
+        )
+
+    assert response.headers["access-control-allow-origin"] == (
+        "https://frontend.example"
+    )
 
 
 def test_create_app_does_not_register_overtourism_extension_routes_by_default(

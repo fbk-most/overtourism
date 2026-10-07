@@ -5,13 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from overtourism.dt_manager.evaluation.evaluation import EvaluationState
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.session.config import SessionCleanupConfig
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
+
 from tests.overtourism.test_support import (
     DEFAULT_TERRITORY,
     FakeExecutionService,

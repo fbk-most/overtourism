@@ -7,7 +7,6 @@ from datetime import UTC
 from typing import cast
 
 import pytest
-
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole

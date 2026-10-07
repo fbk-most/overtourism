@@ -64,10 +64,11 @@ With `AUTH_ENABLED=true`, the CRUD API verifies the token signature using the id
 
 ## Environment variables
 
-Set these on the CRUD API process unless otherwise noted. Authentication is disabled by default, so enable and configure it before exposing the API beyond local development.
+Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the CRUD API unless otherwise noted. Origins are comma-separated full browser origins, including scheme and port when applicable, for example `https://app.example.com,http://localhost:5173`. If unset, the default is `*`; configure an explicit list for deployment. Authentication is disabled by default, so enable and configure it before exposing the CRUD API beyond local development.
 
 | Variable | Required when | Default / purpose |
 | --- | --- | --- |
+| `CORS_ALLOWED_ORIGINS` | Optional; set on both APIs for deployment. | Comma-separated allowed origins; defaults to `*`. |
 | `AUTH_ENABLED` | Always choose explicitly for deployment. | `false`; set to `true` to validate bearer tokens. |
 | `AUTH_JWKS_URL` | `AUTH_ENABLED=true` | Identity provider's JWKS endpoint. |
 | `AUTH_ISSUER` | `AUTH_ENABLED=true` | Expected JWT issuer. |
@@ -97,15 +98,18 @@ docker network create overtourism
 cd executor-backend
 docker build -f Dockerfile.model -t overtourism-model .
 docker run -d --rm --name overtourism-model --network overtourism \
-    -p 127.0.0.1:8001:8001 overtourism-model
+    -p 127.0.0.1:8001:8001 \
+    -e CORS_ALLOWED_ORIGINS \
+    overtourism-model
 ```
 
-Wait for `curl --fail http://127.0.0.1:8001/health/ready` to return `200`. In another terminal, from the repository root, build and run the CRUD API. Export the OIDC variables and a persistent `OVERTOURISM_DATABASE` URL before starting it:
+Wait for `curl --fail http://127.0.0.1:8001/health/ready` to return `200`. In another terminal, from the repository root, build and run the CRUD API. Export `CORS_ALLOWED_ORIGINS`, the OIDC variables, and a persistent `OVERTOURISM_DATABASE` URL before starting it:
 
 ```bash
 cd overtourism-backend
 docker build -f Dockerfile.crud -t overtourism-crud .
 docker run -d --rm --name overtourism-crud --network overtourism -p 8000:8000 \
+    -e CORS_ALLOWED_ORIGINS \
     -e MODEL_BACKEND_URL=http://overtourism-model:8001 \
     -e AUTH_ENABLED=true \
     -e AUTH_JWKS_URL \

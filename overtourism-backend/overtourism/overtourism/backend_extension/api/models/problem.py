@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import Field
-
 from overtourism.backend.api.models.problem import (
     PostProblemData,
     ProblemData,
     UpdateProblemData,
 )
+from pydantic import Field
 
 
 class OvertourismProblemData(ProblemData):

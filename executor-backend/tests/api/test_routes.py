@@ -5,10 +5,50 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-
 from src.api import health as health_api
-from src.api.main import app
+from src.api.main import app, create_app
 from src.model.common.sustainability_field import arrange_frontend_data
+
+
+def test_layer_3_cors_uses_configured_origins(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS",
+        " https://frontend.example,https://admin.example, ",
+    )
+    configured_app = create_app()
+
+    with TestClient(configured_app) as client:
+        frontend_response = client.get(
+            "/health/live", headers={"Origin": "https://frontend.example"}
+        )
+        admin_response = client.get(
+            "/health/live", headers={"Origin": "https://admin.example"}
+        )
+        rejected_response = client.get(
+            "/health/live", headers={"Origin": "https://unlisted.example"}
+        )
+
+    assert frontend_response.headers["access-control-allow-origin"] == (
+        "https://frontend.example"
+    )
+    assert admin_response.headers["access-control-allow-origin"] == (
+        "https://admin.example"
+    )
+    assert "access-control-allow-origin" not in rejected_response.headers
+
+
+def test_layer_3_cors_defaults_to_wildcard(monkeypatch) -> None:
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    default_app = create_app()
+
+    with TestClient(default_app) as client:
+        response = client.get(
+            "/health/live", headers={"Origin": "https://frontend.example"}
+        )
+
+    assert response.headers["access-control-allow-origin"] == (
+        "https://frontend.example"
+    )
 
 
 def test_layer_3_health_probes_report_live_and_ready() -> None:

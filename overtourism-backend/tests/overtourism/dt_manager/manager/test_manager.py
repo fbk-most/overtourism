@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from overtourism.dt_manager.evaluation.evaluation import Evaluation, EvaluationState
 from overtourism.dt_manager.manager.manager import Manager
 from overtourism.dt_manager.scenario.scenario import Scenario
@@ -13,6 +12,7 @@ from overtourism.dt_manager.session import manager as session_manager_module
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.stores.enums import StoreType
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
+
 from tests.overtourism.test_support import (
     DEFAULT_TERRITORY,
     FakeExecutionService,

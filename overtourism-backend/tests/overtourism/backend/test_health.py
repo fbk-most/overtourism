@@ -4,10 +4,9 @@ from types import SimpleNamespace
 
 import requests
 from fastapi.testclient import TestClient
-from sqlalchemy.exc import SQLAlchemyError
-
 from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 from overtourism.backend.main import create_app
+from sqlalchemy.exc import SQLAlchemyError
 
 
 def _app_with_auth_enabled(handler):

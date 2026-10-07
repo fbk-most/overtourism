@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import typing
 from contextlib import asynccontextmanager
 from threading import Event, Thread
@@ -43,6 +44,13 @@ logging.basicConfig(
 logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+
+def _get_cors_allowed_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS", "*")
+    return [
+        origin.strip() for origin in configured_origins.split(",") if origin.strip()
+    ]
 
 
 def _run_session_cleanup(
@@ -147,7 +155,7 @@ def create_app(
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_get_cors_allowed_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

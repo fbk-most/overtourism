@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.utils.config import BASE_ROUTE
 from overtourism.overtourism.backend_extension.api.models.territorial_config import (

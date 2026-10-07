@@ -7,7 +7,6 @@ from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
-
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole
