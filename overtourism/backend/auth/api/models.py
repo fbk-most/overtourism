@@ -13,6 +13,7 @@ class AuthMeResponse(BaseModel):
     authenticated: bool
     subject: str | None = None
     user_id: str | None = None
+    identifier: str | None = None
     role: UserRole | None = None
     territories: list[str] = Field(default_factory=list)
 
@@ -24,6 +25,7 @@ class AuthRoleResponse(BaseModel):
 
 class AuthUserResponse(BaseModel):
     user_id: str
+    identifier: str
     subject: str | None = None
     role: UserRole
     is_active: bool

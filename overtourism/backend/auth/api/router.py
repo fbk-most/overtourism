@@ -44,6 +44,7 @@ def _all_model_territories() -> list[str]:
 def _user_response(user: User) -> AuthUserResponse:
     return AuthUserResponse(
         user_id=user.user_id,
+        identifier=user.identifier,
         subject=user.subject,
         role=user.role,
         is_active=user.is_active,
@@ -69,6 +70,7 @@ async def read_auth_me(
         authenticated=context.authenticated,
         subject=context.subject,
         user_id=None if user is None else user.user_id,
+        identifier=None if user is None else user.identifier,
         role=None if user is None else user.role,
         territories=territories,
     )

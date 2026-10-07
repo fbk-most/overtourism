@@ -211,7 +211,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     assert created_response.status_code == 201
     created = created_response.json()
     assert created["user_id"]
-    assert "identifier" not in created
+    assert created["identifier"] == "editor@example.org"
     assert created["territories"] == ["fazzon", "molveno"]
     assert user_manager.get_active_user_by_subject("editor-sub") is None
 
@@ -227,6 +227,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     )
     assert updated_response.status_code == 200
     assert updated_response.json()["role"] == "editor"
+    assert updated_response.json()["identifier"] == "editor@example.org"
     assert user_manager.get_active_user_by_subject("editor-sub").territories == {
         "molveno"
     }
@@ -234,6 +235,7 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     deleted_response = client.delete(f"/api/v2/auth/users/{created['user_id']}")
     assert deleted_response.status_code == 200
     assert deleted_response.json()["is_active"] is False
+    assert deleted_response.json()["identifier"] == "editor@example.org"
     assert user_manager.get_active_user_by_subject("editor-sub") is None
 
 

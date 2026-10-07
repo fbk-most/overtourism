@@ -73,6 +73,7 @@ def test_auth_me_returns_unauthenticated_context_when_auth_is_disabled(
         "authenticated": False,
         "subject": None,
         "user_id": None,
+        "identifier": None,
         "role": None,
         "territories": [],
     }
@@ -136,6 +137,7 @@ def test_auth_me_returns_authenticated_context_and_database_territory(
     assert "territory" not in user_data
     assert user_data["subject"] == "101"
     assert user_data["user_id"]
+    assert user_data["identifier"] == "101@example.org"
     assert user_data["role"] == "viewer"
     assert user_data["territories"] == ["territory-alpha"]
 
@@ -169,6 +171,7 @@ def test_auth_me_returns_all_assigned_territories_without_singular_field(
 
     assert response.status_code == 200
     assert "territory" not in response.json()
+    assert response.json()["identifier"] == "multi-viewer@example.org"
     assert response.json()["territories"] == ["territory-alpha", "territory-beta"]
 
 
@@ -320,6 +323,7 @@ def test_auth_me_returns_all_model_territories_for_admin(
         )
 
     assert response.status_code == 200
+    assert response.json()["identifier"] == "global-admin@example.org"
     assert response.json()["territories"] == ["territory-alpha", "territory-beta"]
 
 
