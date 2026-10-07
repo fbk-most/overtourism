@@ -70,6 +70,6 @@ For the bootstrap utility, run `uv sync -P "${dependency}"` from `db-bootstrap` 
 
 ## License
 
-```
+```text
 SPDX-License-Identifier: Apache-2.0
 ```
