@@ -1,0 +1,39 @@
+[project]
+name = "overtourism"
+version = "0.1.0"
+description = "Trentino overtourism analysis and modeling"
+requires-python = ">=3.12"
+dependencies = [
+    "digitalhub==0.15.11",
+    "fastapi[standard]==0.141.1",
+    "geopandas==1.1.4",
+    "numpy==2.5.3",
+    "pandas==3.0.5",
+    "pydantic>=2.12,<3",
+    "psycopg[binary,pool]==3.3.5",
+    "PyJWT[crypto]==2.14.0",
+    "requests==2.34.2",
+    "sqlalchemy==2.0.54",
+    "zstandard==0.25.0",
+]
+license = "Apache-2.0"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["overtourism"]
+
+[dependency-groups]
+dev = [
+    "black==26.5.1",
+    "civic-digital-twins>=0.12.0,<0.13",
+    "httpx2",
+    "mypy>=2.4.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+]

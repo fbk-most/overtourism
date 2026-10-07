@@ -4,15 +4,28 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-source "$ROOT_DIR/.venv/bin/activate"
-export OVERTOURISM_DATABASE="sqlite:///overtourism/overtourism/database/overtourism.sqlite"
-
 if [[ $# -gt 1 ]]; then
 	printf 'Usage: %s [admin-email]\n' "$0" >&2
 	exit 2
 fi
 
-#export OVERTOURISM_DATABASE="postgresql+psycopg://postgres:123@localhost:5432/postgres"
+EXECUTOR_DIR="$ROOT_DIR/executor-backend"
+API_DIR="$ROOT_DIR/overtourism-backend"
+EXECUTOR_FASTAPI="$EXECUTOR_DIR/.venv/bin/fastapi"
+API_FASTAPI="$API_DIR/.venv/bin/fastapi"
+
+for project_dir in "$EXECUTOR_DIR" "$API_DIR"; do
+	if [[ ! -f "$project_dir/pyproject.toml" ]]; then
+		printf 'Project pyproject.toml not found: %s\n' "$project_dir" >&2
+		exit 1
+	fi
+	if [[ ! -d "$project_dir/.venv" ]]; then
+		uv venv "$project_dir/.venv"
+	fi
+	uv sync --project "$project_dir"
+done
+
+export OVERTOURISM_DATABASE="${OVERTOURISM_DATABASE:-sqlite:///$API_DIR/overtourism/overtourism/database/overtourism.sqlite}"
 export DT_OVERTURISM_STANDALONE_MODE="${DT_OVERTOURISM_STANDALONE_MODE:-true}"
 export AUTH_ENABLED="${AUTH_ENABLED:-true}"
 export AUTH_ISSUER="${AUTH_ISSUER:-https://aac.platform.smartcommunitylab.it}"
@@ -26,6 +39,7 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 MAIN_PORT="${MAIN_PORT:-8001}"
 HEALTH_CHECK_TIMEOUT_SECONDS="${HEALTH_CHECK_TIMEOUT_SECONDS:-60}"
+
 kill -9 $(lsof -t -i:$MAIN_PORT) >/dev/null 2>&1 || true
 kill -9 $(lsof -t -i:$PORT) >/dev/null 2>&1 || true
 
@@ -38,10 +52,11 @@ wait_for_readiness() {
 	local service_name="$1"
 	local service_port="$2"
 	local process_id="$3"
+	local python_executable="$4"
 	local attempt
 
 	for ((attempt = 0; attempt < HEALTH_CHECK_TIMEOUT_SECONDS; attempt++)); do
-		if python -c 'import sys; from urllib.request import urlopen; urlopen(f"http://127.0.0.1:{sys.argv[1]}/health/ready", timeout=1)' "$service_port" >/dev/null 2>&1; then
+		if "$python_executable" -c 'import sys; from urllib.request import urlopen; urlopen(f"http://127.0.0.1:{sys.argv[1]}/health/ready", timeout=1)' "$service_port" >/dev/null 2>&1; then
 			return 0
 		fi
 		if ! kill -0 "$process_id" >/dev/null 2>&1; then
@@ -56,7 +71,8 @@ wait_for_readiness() {
 	return 1
 }
 
-fastapi run ./overtourism/layer_3/api/main.py --host "$HOST" --port "$MAIN_PORT" &
+"$EXECUTOR_FASTAPI" run "$ROOT_DIR/executor-backend/src/api/main.py" \
+	--host "$HOST" --port "$MAIN_PORT" &
 MAIN_PID=$!
 API_PID=""
 
@@ -69,18 +85,19 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-if ! wait_for_readiness "Layer 3 backend" "$MAIN_PORT" "$MAIN_PID"; then
+if ! wait_for_readiness "Executor backend" "$MAIN_PORT" "$MAIN_PID" "$EXECUTOR_DIR/.venv/bin/python"; then
 	exit 1
 fi
 
-fastapi run ./overtourism/overtourism/app_v2.py --host "$HOST" --port "$PORT" &
+"$API_FASTAPI" run "$API_DIR/overtourism/overtourism/app_v2.py" \
+	--host "$HOST" --port "$PORT" &
 API_PID=$!
 
 if [[ $# -eq 1 ]]; then
-	if ! wait_for_readiness "API backend" "$PORT" "$API_PID"; then
+	if ! wait_for_readiness "API backend" "$PORT" "$API_PID" "$API_DIR/.venv/bin/python"; then
 		exit 1
 	fi
-	python -m bootstrap_admin "$1"
+	"$API_DIR/.venv/bin/python" "$API_DIR/bootstrap_admin.py" "$1"
 fi
 
 wait "$API_PID"
