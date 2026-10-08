@@ -7,7 +7,10 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 from src.api import health as health_api
 from src.api.main import app, create_app
-from src.model.common.sustainability_field import arrange_frontend_data
+from src.model.common.sustainability_field import (
+    OvertourismParameterMeta,
+    arrange_frontend_data,
+)
 
 
 def test_layer_3_cors_uses_configured_origins(monkeypatch) -> None:
@@ -245,12 +248,11 @@ def test_index_diffs_returns_changes_for_a_batch_of_scenarios(monkeypatch) -> No
         def schema(self):
             return {
                 "indexes": [
-                    {
-                        "name": "season",
-                        "kind": "categorical",
-                        "default_category": "base",
-                    },
-                    {"name": "car mode share", "kind": "scalar", "default": 0.69},
+                    OvertourismParameterMeta(
+                        name="car mode share",
+                        kind="scalar",
+                        default=0.69,
+                    ),
                 ]
             }
 
@@ -261,9 +263,9 @@ def test_index_diffs_returns_changes_for_a_batch_of_scenarios(monkeypatch) -> No
             "/models/molveno/index-diffs",
             json={
                 "param_overrides_by_scenario": {
-                    "draft-1": {"season": "peak"},
-                    "draft-2": {"car mode share": 0.8},
-                    "draft-3": {"season": "base"},
+                    "draft-1": {"car mode share": 0.8},
+                    "draft-2": {"car mode share": 0.9},
+                    "draft-3": {"car mode share": 0.69},
                 }
             },
         )
@@ -271,8 +273,8 @@ def test_index_diffs_returns_changes_for_a_batch_of_scenarios(monkeypatch) -> No
     assert response.status_code == 200
     assert response.json() == {
         "index_diffs_by_scenario": {
-            "draft-1": {"season": "base -> peak"},
-            "draft-2": {"car mode share": "0.69 -> 0.8"},
+            "draft-1": {"car mode share": "0.69 -> 0.8"},
+            "draft-2": {"car mode share": "0.69 -> 0.9"},
             "draft-3": {},
         }
     }

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from numbers import Real
 from typing import Any
 
@@ -132,11 +132,19 @@ def get_index_diffs(
     A categorical schema without ``default_category`` represents the
     unfiltered base scenario and is displayed as ``(tutte)``.
     """
-    specs = {
-        spec.get("name"): spec
-        for spec in schema.get("indexes", [])
-        if isinstance(spec, Mapping) and spec.get("name")
-    }
+    specs: dict[str, Mapping[str, Any]] = {}
+    for raw_spec in schema.get("indexes", []):
+        if isinstance(raw_spec, Mapping):
+            spec = raw_spec
+        elif is_dataclass(raw_spec):
+            spec = asdict(raw_spec)
+        else:
+            continue
+
+        name = spec.get("name")
+        if name:
+            specs[name] = spec
+
     diffs: dict[str, str] = {}
 
     for name, new_value in param_overrides.items():
