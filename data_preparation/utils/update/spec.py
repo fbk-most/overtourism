@@ -179,3 +179,42 @@ def load_config(config) -> UpdateConfig:
     if isinstance(config, (str, Path)):
         config = _load_mapping(Path(config))
     return validate_config(parse_config(config))
+
+
+# ------------------------------------------------------------------ parts
+@dataclass(frozen=True)
+class UpdatePart:
+    """Set of sources that end up in the same files: <name>_std (normalized), then stacked per dataset
+    into <dataset>_update_pr (processed)."""
+
+    name: str  # base name: <name>_std
+    dataset: str
+    kind: str
+
+    @property
+    def std_name(self) -> str:
+        return f"{self.name}_std"
+
+
+def plan_parts(config: UpdateConfig) -> list:
+    """The parts of the update, in config order. Sources with the same part name are stacked."""
+    parts = {}
+    for dataset in config.datasets:
+        for src in config.sources[dataset]:
+            kind = get_adapter(src.adapter).kind
+            part = UpdatePart(src.part_name(dataset), dataset, kind)
+            if parts.setdefault(part.name, part) != part:
+                raise ValueError(
+                    f"Sources of '{part.name}' have different kind/dataset: "
+                    "give them a different `label`"
+                )
+    return list(parts.values())
+
+
+def config_from_argv(description: str, argv=None) -> Path:
+    """`--config` argument of the update steps run as scripts."""
+    import argparse
+
+    p = argparse.ArgumentParser(description=description)
+    p.add_argument("--config", required=True, type=Path, help="update config (.yaml/.yml/.json)")
+    return p.parse_args(argv).config

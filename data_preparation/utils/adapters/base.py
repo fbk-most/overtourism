@@ -35,7 +35,7 @@ KIND_SCHEMAS = {
         "all.disposizione numero",
         "all. disposizione posti_letto",
     ],
-    "vodafone": ["locId", "date", "value"],
+    "vodafone": ["locId", "date", "value", "userProfile", "locType"],
     "presenze_apt": ["Ambito", "Anno", "Mese", "Presenze"],
     "presenze_prov": ["Anno", "Mese", "Presenze alberghi", "Presenze extra-alberghi"],
 }

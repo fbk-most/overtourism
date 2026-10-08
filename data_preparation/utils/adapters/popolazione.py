@@ -17,7 +17,7 @@ def popolazione_ispat_1jan(
         by="comune"
     )
     df["anno"] = year
-    return df
+    return df[["comune", "popolazione", "anno"]]
 
 
 def popolazione_arithmetic_mean(df: pd.DataFrame, col_from: str, col_to: str) -> pd.Series:

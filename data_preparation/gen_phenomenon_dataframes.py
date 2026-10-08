@@ -23,8 +23,8 @@ import argparse
 import logging
 
 from data_preparation.utils.config import TYPE_FORMAT, setup_logging
-from data_preparation.utils.steps.compute_phenomena import compute_phenomena
-from data_preparation.utils.steps.download_raw_data import download_raw_data
+from data_preparation.utils.steps.create_phenomena_df import compute_phenomena
+from data_preparation.utils.steps.download_data import download_raw_base_data
 from data_preparation.utils.steps.process_std_data import process_data
 from data_preparation.utils.steps.standardize_raw_data import standardize_raw_data
 
@@ -41,7 +41,7 @@ def main_compute_phenomena_dfs(
         logger.info("Step 0/3: download skipped, using the existing raw data")
     else:
         logger.info("Step 0/3: download raw data")
-        download_raw_data(type_format=type_format)
+        download_raw_base_data(type_format=type_format)
     logger.info("Step 1/3: standardize raw data")
     standardize_raw_data(type_format=type_format)
     logger.info("Step 2/3: process standardized data")
@@ -63,7 +63,7 @@ def _parse_args(argv=None):
     )
     p.add_argument(
         "--upload",
-        action="store_false",
+        action="store_true",
         help="log the final phenomena to the platform too",
     )
     return p.parse_args(argv)

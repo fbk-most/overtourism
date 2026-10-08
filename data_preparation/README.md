@@ -30,9 +30,10 @@ data_preparation/
     ├── datasets.py        registry: datasets, value columns, references, phenomena
     ├── phenomena.py       processed -> phenomena computation
     ├── disaggregation.py  space / time disaggregation
-    ├── steps/             download_raw_data, standardize_raw_data, process_std_data, compute_phenomena
+    ├── steps/             download_data, standardize_raw_data, process_std_data, compute_phenomena (base build)
+    │                      standardize_update_raw_data, process_update_std_data (update; compute_phenomena is shared)
     ├── adapters/          year-specific layouts -> aligned layout (registry)
-    └── update/            sources (S3/local + readers), spec (config), transform, merge
+    └── update/            sources (readers), spec (config, parts)
 ```
 
 ## Base build: `gen_base_phenomenon_dataframes.py`
@@ -41,7 +42,7 @@ Runs all the steps, from the download to the final files:
 
 | Step | Module | Input | Output |
 |------|--------|-------|--------|
-| 0 Download | `utils/steps/download_raw_data.py` | server (S3) | `Output/data/raw_data/` |
+| 0 Download | `utils/steps/download_data.py` (`download_raw_base_data`) | server (S3) | `Output/data/raw_data/` |
 | 1 Standardization | `utils/steps/standardize_raw_data.py` | raw_data | `Output/data/normalized/` |
 | 2 Processing | `utils/steps/process_std_data.py` | normalized (+ mappings in `Output/mapping`) | `Output/data/data_processed/` |
 | 3 Phenomena | `utils/steps/compute_phenomena.py` | data_processed | `Output/data/final_data/` (+ platform with `--upload`) |
@@ -62,23 +63,40 @@ Each step can also be run alone, e.g. `python -m data_preparation.utils.steps.pr
 
 ## Yearly update: `update_phenomenon_dataframes.py`
 
-Brings new data into the already processed ones (`paths.processed` in `settings.yaml`, produced by the base build):
+Same steps of the base build, with update-specific versions of standardize and process:
 
-The update writes its artifacts into the same folders as the base build. New raw sources are archived in `Output/data/raw_data/`, standardized update parts go to `Output/data/normalized/`, merged processed datasets replace the touched files in `Output/data/data_processed/`, and phenomena are recomputed into `Output/data/final_data/`.
+| Step | Module | Input | Output |
+|------|--------|-------|--------|
+| 0 Download | `utils/steps/download_data.py` (`download_update_raw_data`) | server (S3) or `update.local_source_dir` | `Output/data/raw_data/` + `Output/mapping/` |
+| 1 Standardization | `utils/steps/standardize_update_raw_data.py` | raw_data | `Output/data/normalized/<dataset>_update_std` |
+| 2 Processing | `utils/steps/process_update_std_data.py` | normalized (+ mappings) | `Output/data/data_processed/<dataset>_update_pr` |
+| 3 Phenomena | `utils/steps/compute_phenomena.py` (`datasets=[...]`) | `<dataset>_update_pr` + existing `final_data` | `Output/data/final_data/` (appended) |
 
-1. for each dataset in the update config: fetch (raw copy to `paths.raw`) → **reader** → **adapter** (provider layout → aligned layout, checked against its schema) → **standardize** (saved in `paths.normalized`) → **process**
-2. read the current processed data (`paths.processed`) and merge on `DATA` + `ID_COMUNE`; new rows replace matching old rows, and touched merged datasets are written back to `paths.processed`
-3. recompute all phenomena from the resulting processed datasets and save them to `paths.final`
-
-The standardize and process functions are the same ones of the base build. Shared mapping and GeoJSON references are configured once in `settings.yaml`; mappings are read from `Output/mapping` (if one is missing it is fetched and saved there).
+* **Download**: `download_raw_base_data` and `download_update_raw_data` live in the same module and share
+  `download_mappings`: the mapping json files and the geojson go to `Output/mapping/` in both cases.
+  The update downloads the files listed in the update config.
+* **Standardization**: for each source it first **checks that the column structure is compatible with the
+  expected one** (the adapter of the source, then the columns required by its kind, `KIND_SCHEMAS`), renames the
+  columns to the standard names, and applies **the same standardize functions of the base build**.
+  The result is saved with the standard name `<dataset>_update_std` (`<dataset>_<label>_update_std` for labeled sources).
+* **Processing**: the same `process_*` functions of the base build, so `<dataset>_update_pr` has the same format of
+  `<dataset>_pr` (`DATA`, zero-padded `ID_COMUNE`, value columns; comune x day for the presences).
+  Sources of the same dataset are stacked, later ones win on a duplicated `DATA` + `ID_COMUNE`.
+* **Phenomena**: `compute_phenomena` creates the phenomenon dataframes in the base build; in the update it
+  **appends** the new ones to the existing files in `final_data`. On a duplicated `DATA` + `ID_COMUNE` the
+  update row is kept. A phenomenon is computed only if **all** its datasets are in the update
+  (`phen_presenze` needs `vodafone`, `presenze_alb` and `presenze_extralb`); the others are skipped with a warning.
+  The final data of the base build must already exist.
 
 ```bash
 python -m data_preparation.update_phenomenon_dataframes --config data_preparation/config/updates/update_2026.yaml
+python -m data_preparation.update_phenomenon_dataframes --config ... --skip-download   # reuse raw_data and mappings
+python -m data_preparation.update_phenomenon_dataframes --config ... --upload          # also log final data to the platform
 ```
-The update reuses the shared mappings in `Output/mapping/`; required GeoJSON and configured update source files are also archived in `Output/data/raw_data/`. To read source files from a local folder instead of S3 set `update.local_source_dir` in `settings.yaml`.
-Only `--config` and `--no-strict` (adapter schema mismatch → warning instead of error) are supported:
-directories, reference files and format come from `settings.yaml`, datasets from the update yaml.
-From Python: `update_pipeline(config)`.
+To read source files from a local folder instead of S3 set `update.local_source_dir` in `settings.yaml`.
+`--no-strict` turns an adapter schema mismatch into a warning. Directories, reference files and format come from
+`settings.yaml`, datasets from the update yaml. From Python: `update_pipeline(config)`.
+Each step can also be run alone: `python -m data_preparation.utils.steps.process_update_std_data --config ...`.
 
 ### The update config (`config/updates/<round>.yaml`)
 
@@ -97,15 +115,17 @@ datasets:                                      # only these are updated
         reader_kwargs: {header: [0, 1]}        # passed to the reader
         adapter: strutture_annuario            # default handler: 2025 two-row-header layout
         adapter_kwargs: {year: 2026}
-        # label: "2026"                        # optional: keeps this source separate until the merge
+        # label: "2026"                        # optional: keeps this source separate until the processed parts are stacked
 ```
       Sources without a label share the `<dataset>_update` part. A labeled source is kept separate during processing
-      (e.g. two strutture years) and parts of the same dataset are stacked before the merge (later sources win on overlap).
-To update a subset, list only those datasets or set `enabled: false` on the others; their processed datasets remain unchanged. Each run recomputes the final phenomena using all datasets in `paths.processed`.
+      (e.g. two strutture years) and parts of the same dataset are stacked in `<dataset>_update_pr` (later sources win on overlap).
+To update a subset, list only those datasets or set `enabled: false` on the others; their final data remain unchanged. A phenomenon is appended only if all its datasets are in the update (see Step 3).
 
 ### Outputs
 
-Update outputs follow the base-build layout. Merged processed datasets (for example `popolazione_pr.parquet`) are written to `Output/data/data_processed/`, replacing the touched dataset files; final phenomenon files (`phen_popolazione`, `phen_strutture`, `phen_presenze`) are refreshed in `Output/data/final_data/`. Raw source files and standardized parts are kept in their matching `raw_data` and `normalized` subfolders.
+Update files are kept next to the base ones: raw sources in `raw_data`, `<dataset>_update_std` in `normalized`,
+`<dataset>_update_pr` in `data_processed` (the base `<dataset>_pr` are **not** modified), and the final
+phenomenon files (`phen_popolazione`, `phen_strutture`, `phen_presenze`) in `final_data`, with the update rows appended.
 
 ### Strutture and popolazione
 
@@ -129,9 +149,9 @@ Update outputs follow the base-build layout. Merged processed datasets (for exam
        return raw.df.rename(columns={"Territorio": "comune", "Residenti": "popolazione"}).assign(anno=year)
    ```
    The output must contain the columns of its `kind` (`KIND_SCHEMAS` in `utils/adapters/base.py`); a mismatch
-   stops the run with a clear error. Config errors (unknown dataset/adapter/reader, wrong adapter parameters)
-   are also reported before anything is downloaded.
-4. Run the update and inspect the merged frames in `Output/data/data_processed/` and refreshed phenomena in `Output/data/final_data/`.
+   stops the standardization step with a clear error. Config errors (unknown dataset/adapter/reader, wrong adapter
+   parameters) are reported before anything is downloaded.
+4. Run the update and inspect `Output/data/data_processed/<dataset>_update_pr` and the appended phenomena in `Output/data/final_data/`.
 
 ## Requirements
 

@@ -11,8 +11,8 @@ paths:
   # base build (gen_base_phenomenon_dataframes.py)
   raw: data/raw_data
   normalized: data/normalized
-  processed: data/data_processed        # also: current data that the yearly update merges into
-  final: data/final_data
+  processed: data/data_processed        # base build <dataset>_pr; the update writes <dataset>_update_pr here
+  final: data/final_data                # the update appends its phenomena to the files here
 
 # Shared reference objects (data-lake object keys). Used by both pipelines.
 references:

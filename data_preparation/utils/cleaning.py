@@ -143,3 +143,27 @@ def grouped_presenze_columns(groups):
     for group in groups:
         names.extend([f"{group} Italiani", f"{group} Stranieri", f"{group} Totale"])
     return names
+
+
+def concat_keep_last(frames, name="dataset", key=("DATA", "ID_COMUNE")):
+    """Stacks dataframes; on a duplicated key (DATA + ID_COMUNE) the LAST frame wins.
+    ID_COMUNE may hold lists, hence make_hashable. Result sorted by key, columns as in the first frame."""
+    frames = list(frames)
+    if len(frames) == 1 and not frames[0].duplicated(list(key)).any():
+        return frames[0]
+    merged = pd.concat(frames, ignore_index=True)
+    merged["_ID_KEY"] = merged["ID_COMUNE"].map(make_hashable)
+    n_before = len(merged)
+    merged = (
+        merged.drop_duplicates(subset=["DATA", "_ID_KEY"], keep="last")
+        .sort_values(["DATA", "_ID_KEY"])
+        .drop(columns="_ID_KEY")
+        .reset_index(drop=True)
+    )
+    if n_before != len(merged):
+        logger.info(
+            "[%s] %d rows with a duplicated DATA + ID_COMUNE replaced by the last version",
+            name,
+            n_before - len(merged),
+        )
+    return standard_ordering_cols(merged)
