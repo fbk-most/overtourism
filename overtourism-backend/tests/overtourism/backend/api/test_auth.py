@@ -429,15 +429,70 @@ def test_auth_settings_from_env_reads_configured_values(
     )
 
 
+def test_create_app_rejects_incomplete_auth_configuration(
+    handler: Handler,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_JWKS_URL", "https://example.com/.well-known/jwks.json")
+    monkeypatch.setenv("AUTH_ISSUER", "issuer")
+    monkeypatch.delenv("AUTH_AUDIENCE", raising=False)
+    get_auth_settings.cache_clear()
+
+    with pytest.raises(ValueError, match="AUTH_AUDIENCE"):
+        create_app(handler)
+
+
+@pytest.mark.parametrize(
+    "missing_setting",
+    ["AUTH_JWKS_URL", "AUTH_ISSUER", "AUTH_AUDIENCE"],
+)
+def test_auth_settings_from_env_requires_validation_settings_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_setting: str,
+) -> None:
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_JWKS_URL", "https://example.com/.well-known/jwks.json")
+    monkeypatch.setenv("AUTH_ISSUER", "issuer")
+    monkeypatch.setenv("AUTH_AUDIENCE", "audience")
+    monkeypatch.delenv(missing_setting)
+
+    with pytest.raises(ValueError, match=missing_setting):
+        AuthSettings.from_env()
+
+
 def test_decode_jwt_requires_jwks_url_when_enabled() -> None:
     with pytest.raises(RuntimeError, match="AUTH_JWKS_URL"):
         auth_jwt.decode_jwt("signed-token", AuthSettings(enabled=True))
 
 
 @pytest.mark.parametrize(
+    ("issuer", "audience", "missing_setting"),
+    [
+        (None, "audience", "AUTH_ISSUER"),
+        ("issuer", None, "AUTH_AUDIENCE"),
+    ],
+)
+def test_decode_jwt_rejects_missing_issuer_or_audience(
+    issuer: str | None,
+    audience: str | None,
+    missing_setting: str,
+) -> None:
+    with pytest.raises(RuntimeError, match=missing_setting):
+        auth_jwt.decode_jwt(
+            "signed-token",
+            AuthSettings(
+                enabled=True,
+                issuer=issuer,
+                audience=audience,
+                jwks_url="https://example.com/.well-known/jwks.json",
+            ),
+        )
+
+
+@pytest.mark.parametrize(
     ("audience", "issuer", "verify_aud", "verify_iss"),
     [
-        (None, None, False, False),
         ("audience", "issuer", True, True),
     ],
 )

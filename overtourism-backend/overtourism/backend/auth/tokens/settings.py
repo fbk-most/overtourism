@@ -28,12 +28,14 @@ class AuthSettings:
         enabled_value = os.getenv(AuthEnvironmentVariable.ENABLED)
         algorithms_value = os.getenv(AuthEnvironmentVariable.ALGORITHMS)
         leeway_value = os.getenv(AuthEnvironmentVariable.LEEWAY_SECONDS)
-        return cls(
+        settings = cls(
             enabled=enabled_value is not None
             and enabled_value.strip().lower() in _TRUTHY_ENV_VALUES,
-            issuer=os.getenv(AuthEnvironmentVariable.ISSUER) or None,
-            audience=os.getenv(AuthEnvironmentVariable.AUDIENCE) or None,
-            jwks_url=os.getenv(AuthEnvironmentVariable.JWKS_URL) or None,
+            issuer=(os.getenv(AuthEnvironmentVariable.ISSUER) or "").strip() or None,
+            audience=(os.getenv(AuthEnvironmentVariable.AUDIENCE) or "").strip()
+            or None,
+            jwks_url=(os.getenv(AuthEnvironmentVariable.JWKS_URL) or "").strip()
+            or None,
             algorithms=(
                 tuple(
                     item.strip() for item in algorithms_value.split(",") if item.strip()
@@ -45,6 +47,22 @@ class AuthSettings:
                 int(leeway_value) if leeway_value and leeway_value.strip() else 30
             ),
         )
+        if settings.enabled:
+            missing_settings = [
+                name
+                for name, value in (
+                    (AuthEnvironmentVariable.JWKS_URL, settings.jwks_url),
+                    (AuthEnvironmentVariable.ISSUER, settings.issuer),
+                    (AuthEnvironmentVariable.AUDIENCE, settings.audience),
+                )
+                if value is None
+            ]
+            if missing_settings:
+                raise ValueError(
+                    f"{', '.join(missing_settings)} must be set when "
+                    f"{AuthEnvironmentVariable.ENABLED} is true"
+                )
+        return settings
 
 
 @lru_cache(maxsize=1)

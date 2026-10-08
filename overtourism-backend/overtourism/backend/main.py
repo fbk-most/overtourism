@@ -19,6 +19,7 @@ from overtourism.backend.api.routes.scenario import scenario_router
 from overtourism.backend.api.routes.session import session_router
 from overtourism.backend.api.routes.territory import territory_router
 from overtourism.backend.auth.api.router import auth_router
+from overtourism.backend.auth.tokens.settings import get_auth_settings
 from overtourism.backend.handler import init_handler
 from overtourism.backend.health.checks import model_backend_is_ready, store_is_ready
 from overtourism.backend.health.router import create_health_router
@@ -117,6 +118,7 @@ def create_app(
     include_scenario_router: bool = True,
 ) -> FastAPI:
     """Create a FastAPI app wired to the given handler."""
+    get_auth_settings()
     init_handler(handler)
 
     @asynccontextmanager

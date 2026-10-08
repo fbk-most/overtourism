@@ -24,10 +24,18 @@ def _jwks_client(jwks_url: str) -> PyJWKClient:
 
 def decode_jwt(token: str, settings: AuthSettings) -> dict[str, Any]:
     """Decode and validate a JWT using the configured auth settings.
-    Apply issuer and audience checks only when those settings are provided."""
+    Require and validate the configured issuer and audience."""
     if not settings.jwks_url:
         raise RuntimeError(
             f"{AuthEnvironmentVariable.JWKS_URL} must be set when {AuthEnvironmentVariable.ENABLED} is true"
+        )
+    if not settings.issuer:
+        raise RuntimeError(
+            f"{AuthEnvironmentVariable.ISSUER} must be set when {AuthEnvironmentVariable.ENABLED} is true"
+        )
+    if not settings.audience:
+        raise RuntimeError(
+            f"{AuthEnvironmentVariable.AUDIENCE} must be set when {AuthEnvironmentVariable.ENABLED} is true"
         )
 
     signing_key = _jwks_client(settings.jwks_url).get_signing_key_from_jwt(token).key
@@ -42,14 +50,11 @@ def decode_jwt(token: str, settings: AuthSettings) -> dict[str, Any]:
             JwtDecodeOption.VERIFY_EXP: True,
             JwtDecodeOption.VERIFY_NBF: True,
             JwtDecodeOption.VERIFY_IAT: False,
-            JwtDecodeOption.VERIFY_AUD: settings.audience is not None,
-            JwtDecodeOption.VERIFY_ISS: settings.issuer is not None,
+            JwtDecodeOption.VERIFY_AUD: True,
+            JwtDecodeOption.VERIFY_ISS: True,
         },
+        "audience": settings.audience,
+        "issuer": settings.issuer,
     }
-
-    if settings.audience is not None:
-        decode_kwargs["audience"] = settings.audience
-    if settings.issuer is not None:
-        decode_kwargs["issuer"] = settings.issuer
 
     return jwt.decode(token, signing_key, **decode_kwargs)
