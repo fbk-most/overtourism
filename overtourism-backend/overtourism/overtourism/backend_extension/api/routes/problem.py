@@ -21,7 +21,10 @@ from overtourism.backend.api.routes.problem import (
 from overtourism.backend.api.routes.problem import (
     update_problem as base_update_problem,
 )
-from overtourism.backend.auth.identity.authorization import require_territory_access
+from overtourism.backend.auth.identity.authorization import (
+    require_persistent_write_access,
+    require_territory_access,
+)
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.overtourism.backend_extension.api.models.problem import (
@@ -72,6 +75,7 @@ async def list_problems(
         400: {"description": "Problem already exists"},
         200: {"description": "Problem created"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def create_problem(
     territory: str,
@@ -126,6 +130,7 @@ async def read_problem(
         404: {"description": "Problem does not exist"},
         200: {"description": "Problem updated"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def update_problem(
     territory: str,
@@ -159,6 +164,7 @@ async def update_problem(
         404: {"description": "Problem does not exist"},
         200: {"description": "Problem deleted"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def delete_problem(
     territory: str,

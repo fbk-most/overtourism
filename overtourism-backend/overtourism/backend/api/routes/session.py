@@ -32,7 +32,10 @@ from overtourism.backend.api.utils.utils import (
     scenario_to_api,
     scenarios_to_api,
 )
-from overtourism.backend.auth.identity.authorization import require_territory_access
+from overtourism.backend.auth.identity.authorization import (
+    require_persistent_write_access,
+    require_territory_access,
+)
 from overtourism.backend.auth.tokens.context import AuthContext
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.handler import Handler, get_handler
@@ -322,6 +325,7 @@ async def read_session_scenario(
         404: {"description": "Session scenario does not exist"},
         200: {"description": "Scenario persisted"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def save_scenario(
     territory: str,

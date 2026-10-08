@@ -20,7 +20,10 @@ from overtourism.backend.api.utils.utils import (
     proposal_to_api,
     validate_related_scenario_ids,
 )
-from overtourism.backend.auth.identity.authorization import require_territory_access
+from overtourism.backend.auth.identity.authorization import (
+    require_persistent_write_access,
+    require_territory_access,
+)
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 
@@ -70,6 +73,7 @@ async def list_proposals(
         404: {"description": "Problem does not exist"},
         200: {"description": "Proposal created"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def create_proposal(
     territory: str,
@@ -127,6 +131,7 @@ async def read_proposal(
         404: {"description": "Proposal does not exist"},
         200: {"description": "Proposal updated"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def update_proposal(
     territory: str,
@@ -160,6 +165,7 @@ async def update_proposal(
         404: {"description": "Problem does not exist"},
         200: {"description": "Proposal deleted"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def delete_proposal(
     territory: str,

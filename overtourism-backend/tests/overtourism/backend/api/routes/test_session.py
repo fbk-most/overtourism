@@ -157,6 +157,70 @@ def test_session_owner_uses_internal_user_id_and_hides_it_from_response(
     assert session.owner_id == invited_user.user_id
 
 
+def test_viewer_can_edit_a_session_draft_but_cannot_save_it(
+    client,
+    handler: Handler,
+    manager: Manager,
+    territory: str,
+    scenario_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = cast(SQLStore, manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    viewer = user_manager.create_user(
+        identifier="viewer@example.org",
+        role=UserRole.VIEWER,
+        territories=[territory],
+    )
+    repository.save_user(replace(viewer, subject="viewer-sub"))
+    user_manager.reload()
+    handler.user_manager = user_manager
+    client.app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        authenticated=True,
+        subject="viewer-sub",
+        token="signed-token",
+        claims={"sub": "viewer-sub"},
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.api.routes.session.call_executor",
+        lambda territory, param_overrides: {"values": param_overrides},
+    )
+
+    session = manager.create_session(territory=territory, owner_id=viewer.user_id)
+    draft_response = client.post(
+        f"/api/{territory}/sessions/{session.session_id}/scenarios",
+        json={
+            "base_scenario_id": scenario_id,
+            "summary": "Viewer draft",
+        },
+    )
+
+    assert draft_response.status_code == 200
+    draft = draft_response.json()
+    assert draft["session_id"] == session.session_id
+    assert draft["summary"] == "Viewer draft"
+
+    save_response = client.post(
+        f"/api/{territory}/sessions/{session.session_id}/scenarios/{draft['scenario_id']}",
+        json={},
+    )
+
+    assert save_response.status_code == 403
+    assert (
+        manager.read_session_scenario(session.session_id, draft["scenario_id"]).summary
+        == "Viewer draft"
+    )
+
+    evaluation_response = client.post(
+        f"/api/{territory}/sessions/{session.session_id}/evaluations",
+        json={"scenario_id": draft["scenario_id"]},
+    )
+
+    assert evaluation_response.status_code == 200
+    assert evaluation_response.json()["session_id"] == session.session_id
+
+
 def test_admin_cannot_read_or_delete_another_users_session(
     client,
     handler: Handler,

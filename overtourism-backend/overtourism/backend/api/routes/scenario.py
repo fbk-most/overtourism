@@ -19,7 +19,10 @@ from overtourism.backend.api.utils.utils import (
     scenario_to_api,
     scenarios_to_api,
 )
-from overtourism.backend.auth.identity.authorization import require_territory_access
+from overtourism.backend.auth.identity.authorization import (
+    require_persistent_write_access,
+    require_territory_access,
+)
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.dt_manager.manager.config import BootstrapConfig
@@ -95,6 +98,7 @@ async def read_scenario(
         404: {"description": "Problem does not exist"},
         200: {"description": "Scenario created"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def create_scenario(
     territory: str,
@@ -122,6 +126,7 @@ async def create_scenario(
         400: {"description": "Base scenario cannot be updated"},
         200: {"description": "Scenario updated"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def update_scenario(
     territory: str,
@@ -153,6 +158,7 @@ async def update_scenario(
         400: {"description": "Base scenario cannot be deleted"},
         200: {"description": "Scenario deleted"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def delete_scenario(
     territory: str,

@@ -89,6 +89,17 @@ def require_territory_access(
     return user
 
 
+def require_persistent_write_access(
+    user: Annotated[User | None, Depends(require_territory_access)],
+) -> User | None:
+    if user is not None and user.role is UserRole.VIEWER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer role cannot modify persistent data",
+        )
+    return user
+
+
 def get_user_manager(
     handler: Annotated[Handler, Depends(get_handler)],
 ) -> UserManager:

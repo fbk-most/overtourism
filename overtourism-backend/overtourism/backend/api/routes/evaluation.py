@@ -19,7 +19,10 @@ from overtourism.backend.api.utils.utils import (
     get_evaluation_or_404,
     get_scenario_or_404,
 )
-from overtourism.backend.auth.identity.authorization import require_territory_access
+from overtourism.backend.auth.identity.authorization import (
+    require_persistent_write_access,
+    require_territory_access,
+)
 from overtourism.backend.handler import Handler, get_handler
 from overtourism.backend.utils.config import TERRITORY_ROUTE_PREFIX
 from overtourism.backend.utils.executor_utils import call_executor
@@ -42,6 +45,7 @@ evaluation_router = APIRouter(
         404: {"description": "Evaluation does not exist"},
         200: {"description": "Evaluation created"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def create_evaluation(
     territory: str,
@@ -127,6 +131,7 @@ async def read_evaluation(
         404: {"description": "Evaluation does not exist"},
         200: {"description": "Evaluation updated"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def update_evaluation(
     territory: str,
@@ -147,22 +152,14 @@ async def update_evaluation(
             type=current.type,
             version=current.version,
         )
-        execution_registry = getattr(handler, "execution_manager_registry", None)
-        if execution_registry is not None:
-            evaluation = execution_registry.get(territory).execute_evaluation(
-                evaluation,
-                scenario,
-                ensemble_size=data.ensemble_size,
-            )
+        evaluation.version += 1
+        try:
+            result = call_executor(territory, scenario.param_overrides)
+        except Exception as e:
+            logger.error(f"Error during evaluation execution: {e}")
+            evaluation = handler.manager.fail_evaluation(evaluation)
         else:
-            evaluation.version += 1
-            try:
-                result = call_executor(territory, scenario.param_overrides)
-            except Exception as e:
-                logger.error(f"Error during evaluation execution: {e}")
-                evaluation = handler.manager.fail_evaluation(evaluation)
-            else:
-                evaluation = handler.manager.complete_evaluation(evaluation, result)
+            evaluation = handler.manager.complete_evaluation(evaluation, result)
         logger.info(f"Evaluation updated: {evaluation_id}")
         return EvaluationData.from_domain(evaluation)
     except Exception as e:
@@ -177,6 +174,7 @@ async def update_evaluation(
         404: {"description": "Evaluation does not exist"},
         200: {"description": "Evaluation deleted"},
     },
+    dependencies=[Depends(require_persistent_write_access)],
 )
 async def delete_evaluation(
     territory: str,

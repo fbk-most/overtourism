@@ -7,10 +7,13 @@ from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
+from overtourism.backend.auth.identity.authorization import require_global_admin
 from overtourism.backend.auth.identity.sql_repository import SQLUserRepository
 from overtourism.backend.auth.identity.user_manager import UserManager
 from overtourism.backend.auth.identity.users import UserRole
 from overtourism.backend.auth.tokens import jwt as auth_jwt
+from overtourism.backend.auth.tokens.context import AuthContext
+from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.auth.tokens.settings import AuthSettings, get_auth_settings
 from overtourism.backend.handler import Handler
 from overtourism.backend.main import create_app
@@ -48,6 +51,64 @@ def handler(tmp_path) -> Handler:
         repository.save_user(replace(user, subject=subject))
     user_manager.reload()
     return Handler(manager=manager, user_manager=user_manager)
+
+
+def test_auth_roles_rejects_an_unauthenticated_request(handler: Handler) -> None:
+    app = create_app(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(enabled=False)
+
+    with TestClient(app) as client:
+        response = client.get("/api/auth/roles")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Authentication is required"}
+
+
+def test_auth_me_rejects_a_missing_subject_claim(handler: Handler) -> None:
+    app = create_app(handler)
+    app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        authenticated=True,
+        subject=None,
+        token="signed-token",
+        claims={},
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing user identity claim"}
+
+
+def test_auth_me_fails_when_user_manager_is_not_configured(handler: Handler) -> None:
+    handler.user_manager = None
+    app = create_app(handler)
+    app.dependency_overrides[get_auth_context] = lambda: AuthContext(
+        authenticated=True,
+        subject="viewer-sub",
+        token="signed-token",
+        claims={"sub": "viewer-sub"},
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/auth/me")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "User manager is not configured"}
+
+
+def test_auth_user_list_fails_when_user_manager_is_not_configured(
+    handler: Handler,
+) -> None:
+    handler.user_manager = None
+    app = create_app(handler)
+    app.dependency_overrides[require_global_admin] = lambda: None
+
+    with TestClient(app) as client:
+        response = client.get("/api/auth/users")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "User manager is not configured"}
 
 
 @pytest.mark.parametrize(
@@ -371,6 +432,77 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
     assert proposal_response.status_code == 403
     assert index_response.status_code == 200
     assert unauthenticated_index_response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("use_overtourism_routes", "method", "path", "payload"),
+    [
+        (
+            False,
+            "POST",
+            "/api/territory-alpha/problems",
+            {"name": "New", "description": "Problem"},
+        ),
+        (False, "PUT", "/api/territory-alpha/problems/missing", {"version": 1}),
+        (False, "DELETE", "/api/territory-alpha/problems/missing", None),
+        (False, "POST", "/api/territory-alpha/proposals", {"problem_id": "missing"}),
+        (False, "PUT", "/api/territory-alpha/proposals/missing", {"version": 1}),
+        (False, "DELETE", "/api/territory-alpha/proposals/missing", None),
+        (False, "POST", "/api/territory-alpha/scenarios", {}),
+        (False, "PUT", "/api/territory-alpha/scenarios/missing", {"version": 1}),
+        (False, "DELETE", "/api/territory-alpha/scenarios/missing", None),
+        (False, "POST", "/api/territory-alpha/evaluations", {"scenario_id": "missing"}),
+        (False, "PUT", "/api/territory-alpha/evaluations/missing", {}),
+        (False, "DELETE", "/api/territory-alpha/evaluations/missing", None),
+        (
+            True,
+            "POST",
+            "/api/territory-alpha/problems",
+            {"name": "New", "description": "Problem"},
+        ),
+        (True, "PUT", "/api/territory-alpha/problems/missing", {"version": 1}),
+        (True, "DELETE", "/api/territory-alpha/problems/missing", None),
+        (True, "POST", "/api/territory-alpha/proposals", {"problem_id": "missing"}),
+        (True, "PUT", "/api/territory-alpha/proposals/missing", {"version": 1}),
+        (True, "DELETE", "/api/territory-alpha/proposals/missing", None),
+    ],
+)
+def test_viewer_cannot_write_persistent_resources(
+    handler: Handler,
+    monkeypatch: pytest.MonkeyPatch,
+    use_overtourism_routes: bool,
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None,
+) -> None:
+    if use_overtourism_routes:
+        app = create_app(
+            handler,
+            include_problem_router=False,
+            include_proposal_router=False,
+            extra_routers=[overtourism_problem_router, overtourism_proposal_router],
+        )
+    else:
+        app = create_app(handler)
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": "user-1"},
+    )
+
+    request_kwargs: dict[str, Any] = {
+        "headers": {"Authorization": "Bearer signed-token"},
+    }
+    if payload is not None:
+        request_kwargs["json"] = payload
+
+    with TestClient(app) as client:
+        response = client.request(method, path, **request_kwargs)
+
+    assert response.status_code == 403
 
 
 @pytest.mark.parametrize(

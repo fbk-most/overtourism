@@ -235,7 +235,7 @@ def test_stored_evaluation_can_be_updated_and_deleted_with_payload_version(
         "DELETE",
         f"/api/{territory}/evaluations/{evaluation_id}",
         params={"problem_id": problem_id},
-        json={"version": 1},
+        json={"version": update_response.json()["version"]},
     )
 
     assert delete_response.status_code == 200
