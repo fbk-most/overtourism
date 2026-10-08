@@ -55,7 +55,7 @@ def download_index_data_old() -> None:
             print(f"Failed to download artifact {artifact}: {e}")
 
 
-def download_index_data() -> None:
+def download_index_data(overwrite: bool = False) -> None:
     """Download the index data from the digitalhub platform."""
     dataitems = [
         "phen_arrivi.parquet",
@@ -72,9 +72,9 @@ def download_index_data() -> None:
     ]
 
     project = dh.get_project(project_name)
-    download_dir = Path(__file__).parent / "database" / "index_data"
+    download_dir = Path(__file__).parent.parent / "database" / "index_data"
 
-    if download_dir.exists():
+    if download_dir.exists() and not overwrite:
         return  # Skip download if the directory already exists
 
     download_dir.mkdir(parents=True, exist_ok=True)
@@ -82,13 +82,17 @@ def download_index_data() -> None:
     for dataitem in dataitems:
         print(f"Downloading dataitem: {dataitem}")
         try:
-            project.get_dataitem(dataitem).download(str(download_dir))
+            project.get_dataitem(dataitem).download(
+                str(download_dir), overwrite=overwrite
+            )
         except StoreError as e:
             print(f"Failed to download dataitem {dataitem}: {e}")
 
     for artifact in artifacts:
         print(f"Downloading artifact: {artifact}")
         try:
-            project.get_artifact(artifact).download(str(download_dir))
+            project.get_artifact(artifact).download(
+                str(download_dir), overwrite=overwrite
+            )
         except StoreError as e:
             print(f"Failed to download artifact {artifact}: {e}")

@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from overtourism.backend.auth.identity.authorization import require_global_admin
 from overtourism.backend.auth.tokens.dependencies import get_auth_context
 from overtourism.backend.utils.config import BASE_ROUTE
 from overtourism.overtourism.backend_extension.api.models.territorial_config import (
@@ -33,6 +34,9 @@ from overtourism.overtourism.backend_extension.api.utils.index_utils_trentino im
     get_list_comuni,
     get_macro_areas,
     get_map_geometry,
+)
+from overtourism.overtourism.backend_extension.api.utils.platform import (
+    download_index_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -344,6 +348,17 @@ def get_index_data(
     except Exception as e:
         logger.error(e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@indexes_router.post(
+    "/download-index-data",
+    response_model=dict[str, str],
+    dependencies=[Depends(require_global_admin)],
+)
+def force_download_index_data() -> dict[str, str]:
+    """Force a fresh download of the index data from the platform."""
+    download_index_data(overwrite=True)
+    return {"message": "Index data download completed"}
 
 
 @indexes_router.get("/get-variation-data", response_model=dict[str, Any])

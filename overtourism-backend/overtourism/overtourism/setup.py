@@ -19,7 +19,9 @@ from overtourism.dt_manager.stores.classes.sql.store import SQLStore
 from overtourism.dt_manager.stores.config import StoreConfig
 from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 from overtourism.dt_manager.utils.metadata import ExtrasConfig
-from overtourism.overtourism.platform import download_index_data
+from overtourism.overtourism.backend_extension.api.utils.platform import (
+    download_index_data,
+)
 
 # ──────────────────────────────────────────────
 # Data
@@ -29,7 +31,6 @@ from overtourism.overtourism.platform import download_index_data
 standalone_mode = os.getenv("DT_OVERTURISM_STANDALONE_MODE", "true").lower() == "true"
 
 if not standalone_mode:
-    # download_index_data()
     download_index_data()
 
 # ──────────────────────────────────────────────

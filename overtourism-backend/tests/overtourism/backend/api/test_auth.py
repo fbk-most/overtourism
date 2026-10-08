@@ -435,6 +435,56 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
 
 
 @pytest.mark.parametrize(
+    ("subject", "expected_status"),
+    [("user-1", 403), ("global-admin", 200)],
+)
+def test_force_index_download_requires_global_admin(
+    handler: Handler,
+    monkeypatch: pytest.MonkeyPatch,
+    subject: str,
+    expected_status: int,
+) -> None:
+    store = cast(SQLStore, handler.manager.store)
+    repository = SQLUserRepository(store.engine, store.session_factory)
+    user_manager = UserManager(repository)
+    admin = user_manager.create_user(
+        identifier="global-admin@example.org",
+        role=UserRole.ADMIN,
+        territories=[],
+    )
+    repository.save_user(replace(admin, subject="global-admin"))
+    user_manager.reload()
+    handler.user_manager = user_manager
+
+    app = create_app(handler, extra_routers=[indexes_router])
+    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+        enabled=True,
+        jwks_url="https://example.com/.well-known/jwks.json",
+    )
+    monkeypatch.setattr(
+        "overtourism.backend.auth.tokens.dependencies.decode_jwt",
+        lambda token, settings: {"sub": subject},
+    )
+    download_calls: list[bool] = []
+    monkeypatch.setattr(
+        indexes_api,
+        "download_index_data",
+        lambda *, overwrite: download_calls.append(overwrite),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/default/indexes/download-index-data",
+            headers={"Authorization": "Bearer signed-token"},
+        )
+
+    assert response.status_code == expected_status
+    assert download_calls == ([True] if subject == "global-admin" else [])
+    if subject == "global-admin":
+        assert response.json() == {"message": "Index data download completed"}
+
+
+@pytest.mark.parametrize(
     ("use_overtourism_routes", "method", "path", "payload"),
     [
         (
