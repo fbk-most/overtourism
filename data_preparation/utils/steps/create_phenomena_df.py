@@ -21,15 +21,15 @@ plus the phenomenon's value columns.
 import logging
 from pathlib import Path
 
-from data_preparation.utils.cleaning import concat_keep_last
-from data_preparation.utils.config import (
+from utils.cleaning import concat_keep_last
+from utils.config import (
     FINAL_DIR,
     PROCESSED_DIR,
     TYPE_FORMAT,
     setup_logging,
 )
-from data_preparation.utils.datasets import DATASETS, PHENOMENA, phenomena_to_recompute
-from data_preparation.utils.io import ensure_dir, read_df, save_computed_dfs
+from utils.datasets import DATASETS, PHENOMENA, phenomena_to_recompute
+from utils.io import ensure_dir, read_df, save_computed_dfs
 
 logger = logging.getLogger(__name__)
 

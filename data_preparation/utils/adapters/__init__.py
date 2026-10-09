@@ -1,7 +1,7 @@
 """Adapters registry. Importing the package registers all the built-in adapters."""
 
-from data_preparation.utils.adapters import popolazione, presenze, strutture, vodafone  # noqa: F401
-from data_preparation.utils.adapters.base import (  # noqa: F401
+from utils.adapters import popolazione, presenze, strutture, vodafone  # noqa: F401
+from utils.adapters.base import (  # noqa: F401
     KIND_DATASETS,
     KIND_SCHEMAS,
     Adapter,

@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_preparation.utils.adapters import RawData
-from data_preparation.utils.readers import read_grouped_presenze_tsv
+from utils.adapters import RawData
+from utils.readers import read_grouped_presenze_tsv
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,9 @@ def read_excel(buffer, **kwargs) -> RawData:
 def read_ispat_apt_tsv(buffer, sep="\t", skiprows=2) -> RawData:
     """ISPAT APT-level TSV: 2-row header, no header parsing; first row (the APT names) goes to meta['apts']."""
     df = pd.read_csv(buffer, sep=sep, header=None, skiprows=skiprows, dtype=str)
-    apts = [x.strip() for x in buffer.getvalue().decode("utf-8").splitlines()[0].split(sep)]
+    apts = [
+        x.strip() for x in buffer.getvalue().decode("utf-8").splitlines()[0].split(sep)
+    ]
     return RawData(df, {"apts": apts})
 
 

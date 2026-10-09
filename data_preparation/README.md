@@ -49,17 +49,30 @@ Runs all the steps, from the download to the final files:
 
 * **Download** saves data as they arrive: no renaming, no normalization. The mappings go to `Output/mapping/`, not to raw_data.
 * **Standardization** uniforms column names, `DATA`/`LOCATION` schema, dates and comune names (no filtering/aggregation).
-  Output: `popolazione_std`, `strutture_std`, `vodafone_std`, `presenze_alb_std`, `presenze_extralb_std`.
+  Output: `popolazione_std`, `strutture_std`, `vodafone_std`. The ISPAT arrivals / presences (alb, extralb) are **not normalized**.
 * **Processing**: `ID_COMUNE` resolution/padding, filtering, column selection, spatial/temporal disaggregation
-  (comune x day). Output: `*_pr`.
+  (comune x day). Output: `*_pr`. The presences are processed **in this order**:
+  1. `vodafone`: areas mapping to more than one comune are split linearly to the beds (`tot_postiletto` of
+     `strutture_pr`, same year or nearest); single-comune areas are unchanged.
+  2. `presenze_alb` / 3. `presenze_extralb`: read as downloaded from `raw_data`
+     (`Presenze/<arrivi|presenze>_<alb|exalb>_<year>.csv`; base build: 2022, 2023, updates: later years).
+     alb: only the `<APT> - Totale` columns are used; extralb: only the first and the last column (provincial
+     total); the `Anno` row and the empty row are dropped. Monthly area presences are distributed over the days
+     with the **average stay** of the month (presences / arrivals): the arrivals of a month are uniform over its
+     days and each arrival adds presences on the following days, also across the end of the month. Daily values
+     are rescaled and rounded so that each area-month sums exactly to the official presences. Then area x day
+     is split over comuni proportionally to the beds of the normalized strutture (`alberghieri posti_letto` for
+     alb, `extra alb. Posti_letto` for extralb; same year or nearest). Arrivals are not in the output.
+     The sums are checked (ValueError otherwise). Details: `utils/stay_distribution.py`.
+  Every vodafone / ISPAT step checks that summing back gives the original totals.
 * **Phenomena**: `phen_popolazione`, `phen_strutture`, `phen_presenze` (alb + xalb + vodafone unified).
 
 ```bash
-python -m data_preparation.gen_base_phenomenon_dataframes                   # all steps, parquet
-python -m data_preparation.gen_base_phenomenon_dataframes --skip-download   # reuse Output/data/raw_data
-python -m data_preparation.gen_base_phenomenon_dataframes --upload          # also log final data to the platform
+python -m gen_base_phenomenon_dataframes                   # all steps, parquet
+python -m gen_base_phenomenon_dataframes --skip-download   # reuse Output/data/raw_data
+python -m gen_base_phenomenon_dataframes --upload          # also log final data to the platform
 ```
-Each step can also be run alone, e.g. `python -m data_preparation.utils.steps.process_std_data`.
+Each step can also be run alone, e.g. `python -m utils.steps.process_std_data`.
 
 ## Yearly update: `update_phenomenon_dataframes.py`
 
@@ -89,14 +102,14 @@ Same steps of the base build, with update-specific versions of standardize and p
   The final data of the base build must already exist.
 
 ```bash
-python -m data_preparation.update_phenomenon_dataframes --config data_preparation/config/updates/update_2026.yaml
-python -m data_preparation.update_phenomenon_dataframes --config ... --skip-download   # reuse raw_data and mappings
-python -m data_preparation.update_phenomenon_dataframes --config ... --upload          # also log final data to the platform
+python -m update_phenomenon_dataframes --config data_preparation/config/updates/update_2026.yaml
+python -m update_phenomenon_dataframes --config ... --skip-download   # reuse raw_data and mappings
+python -m update_phenomenon_dataframes --config ... --upload          # also log final data to the platform
 ```
 To read source files from a local folder instead of S3 set `update.local_source_dir` in `settings.yaml`.
 `--no-strict` turns an adapter schema mismatch into a warning. Directories, reference files and format come from
 `settings.yaml`, datasets from the update yaml. From Python: `update_pipeline(config)`.
-Each step can also be run alone: `python -m data_preparation.utils.steps.process_update_std_data --config ...`.
+Each step can also be run alone: `python -m utils.steps.process_update_std_data --config ...`.
 
 ### The update config (`config/updates/<round>.yaml`)
 

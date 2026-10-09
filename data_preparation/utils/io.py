@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_preparation.utils.cleaning import normalize_id_comune
-from data_preparation.utils.config import TYPE_FORMATS
+from utils.cleaning import normalize_id_comune
+from utils.config import TYPE_FORMATS
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def save_computed_dfs(dict_dfs, local=False, type_format="parquet", path_saving=
         )
         file_path = put_dataframe(value, key, path=path_saving, type=type_format)
         if not local:
-            from data_preparation.utils.remote import log_dataframe
+            from utils.remote import log_dataframe
 
             logger.info(
                 "Logging dataframe '%s.%s' to the platform...", key, type_format

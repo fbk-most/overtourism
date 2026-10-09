@@ -17,12 +17,12 @@ A new year with a new layout = a new adapter in utils/adapters/ + a new update y
 The final data of the base build (`paths.final` in settings.yaml) must exist, in the same `type_format`.
 
 Usage:
-    python -m data_preparation.update_phenomenon_dataframes --config data_preparation/config/updates/update_2025.yaml
-    python -m data_preparation.update_phenomenon_dataframes --config ... --skip-download   # raw_data already there
-    python -m data_preparation.update_phenomenon_dataframes --config ... --upload          # also log final data to the platform
+    python -m update_phenomenon_dataframes --config data_preparation/config/updates/update_2025.yaml
+    python -m update_phenomenon_dataframes --config ... --skip-download   # raw_data already there
+    python -m update_phenomenon_dataframes --config ... --upload          # also log final data to the platform
 
 Each step can also be run on its own, e.g.
-    python -m data_preparation.utils.steps.process_update_std_data --config ...
+    python -m utils.steps.process_update_std_data --config ...
 """
 
 import argparse
@@ -30,14 +30,14 @@ import logging
 import sys
 from pathlib import Path
 
-from data_preparation.utils.config import TYPE_FORMAT, setup_logging
-from data_preparation.utils.steps.create_phenomena_df import compute_phenomena
-from data_preparation.utils.steps.download_data import download_update_raw_data
-from data_preparation.utils.steps.process_update_std_data import process_update_std_data
-from data_preparation.utils.steps.standardize_update_raw_data import (
+from utils.config import TYPE_FORMAT, setup_logging
+from utils.steps.create_phenomena_df import compute_phenomena
+from utils.steps.download_data import download_update_raw_data
+from utils.steps.process_update_std_data import process_update_std_data
+from utils.steps.standardize_update_raw_data import (
     standardize_update_raw_data,
 )
-from data_preparation.utils.update.spec import load_config
+from utils.update.spec import load_config
 
 logger = logging.getLogger(__name__)
 

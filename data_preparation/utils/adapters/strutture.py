@@ -3,8 +3,8 @@
 
 import pandas as pd
 
-from data_preparation.utils.adapters.base import RawData, register_adapter
-from data_preparation.utils.cleaning import remove_unnamed
+from utils.adapters.base import RawData, register_adapter
+from utils.cleaning import remove_unnamed
 
 # 2025 raw column -> name of the base layout (Annuario-TavXIII), in the order of the base file.
 STRUTTURE_RAW_RENAMING = {

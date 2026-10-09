@@ -30,13 +30,13 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from data_preparation.utils.adapters import (
+from utils.adapters import (
     KIND_DATASETS,
     check_adapter_params,
     get_adapter,
 )
-from data_preparation.utils.datasets import ALL_DATASETS
-from data_preparation.utils.update.sources import READERS
+from utils.datasets import ALL_DATASETS
+from utils.update.sources import READERS
 
 logger = logging.getLogger(__name__)
 
@@ -216,5 +216,7 @@ def config_from_argv(description: str, argv=None) -> Path:
     import argparse
 
     p = argparse.ArgumentParser(description=description)
-    p.add_argument("--config", required=True, type=Path, help="update config (.yaml/.yml/.json)")
+    p.add_argument(
+        "--config", required=True, type=Path, help="update config (.yaml/.yml/.json)"
+    )
     return p.parse_args(argv).config

@@ -12,9 +12,9 @@ Every step reads the output of the previous one. Directories, file format (`type
 default) and platform settings are in config/settings.yaml.
 
 Usage:
-    python -m data_preparation.gen_base_phenomenon_dataframes                  # all steps
-    python -m data_preparation.gen_base_phenomenon_dataframes --skip-download  # raw_data already there
-    python -m data_preparation.gen_base_phenomenon_dataframes --upload         # also log final data to the platform
+    python -m gen_base_phenomenon_dataframes                  # all steps
+    python -m gen_base_phenomenon_dataframes --skip-download  # raw_data already there
+    python -m gen_base_phenomenon_dataframes --upload         # also log final data to the platform
 
 Each step can also be run on its own, see utils/steps/.
 """
@@ -22,11 +22,11 @@ Each step can also be run on its own, see utils/steps/.
 import argparse
 import logging
 
-from data_preparation.utils.config import TYPE_FORMAT, setup_logging
-from data_preparation.utils.steps.create_phenomena_df import compute_phenomena
-from data_preparation.utils.steps.download_data import download_raw_base_data
-from data_preparation.utils.steps.process_std_data import process_data
-from data_preparation.utils.steps.standardize_raw_data import standardize_raw_data
+from utils.config import TYPE_FORMAT, setup_logging
+from utils.steps.create_phenomena_df import compute_phenomena
+from utils.steps.download_data import download_raw_base_data
+from utils.steps.process_std_data import process_data
+from utils.steps.standardize_raw_data import standardize_raw_data
 
 logger = logging.getLogger(__name__)
 

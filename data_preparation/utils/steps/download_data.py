@@ -16,7 +16,7 @@ import io
 import logging
 from pathlib import Path
 
-from data_preparation.utils.config import (
+from utils.config import (
     LOCAL_SOURCE_DIR,
     MAPPING_DIR,
     RAW_DIR,
@@ -24,14 +24,25 @@ from data_preparation.utils.config import (
     TYPE_FORMAT,
     setup_logging,
 )
-from data_preparation.utils.io import ensure_dir, save_computed_dfs
+from utils.datasets import (
+    PRESENZE_BASE_YEARS,
+    PRESENZE_FOLDER,
+    PRESENZE_MEASURES,
+    PRESENZE_TAGS,
+)
+from utils.io import ensure_dir, save_computed_dfs
 
 logger = logging.getLogger(__name__)
 
 S3_DATA = [
     "Annuario-TavXIII-per-comune-csv.csv",
-    "presenze_Trentino_ISPAT.csv",
-    "presenze_Trentino_ISPAT_alb_xalb.csv",
+    # ISPAT arrivals / presences (alb, extralb) of the base years; later years come with the updates
+    *(
+        f"{PRESENZE_FOLDER}/{measure}_{tag}_{year}.csv"
+        for year in PRESENZE_BASE_YEARS
+        for tag in PRESENZE_TAGS.values()
+        for measure in PRESENZE_MEASURES
+    ),
 ]
 # dataframes returned by get_dataframe (saved as csv/parquet)
 DATAFRAMES = [
@@ -47,7 +58,7 @@ def fetch_bytes(key: str, *, local_dir=None, save_to=None) -> io.BytesIO:
     if local_dir is not None:
         buffer = io.BytesIO((Path(local_dir) / key).read_bytes())
     else:
-        from data_preparation.utils.remote import get_s3
+        from utils.remote import get_s3
 
         buffer = get_s3(key)
     if save_to is not None:
@@ -72,7 +83,7 @@ def download_raw_base_data(
     out_dir=RAW_DIR, type_format=TYPE_FORMAT, mapping_dir=MAPPING_DIR
 ):
     """Base build: the historical raw files + the mappings."""
-    from data_preparation.utils.remote import get_dataframe
+    from utils.remote import get_dataframe
 
     out_dir = ensure_dir(out_dir)
 
@@ -97,8 +108,9 @@ def download_update_raw_data(
     config, out_dir=RAW_DIR, mapping_dir=MAPPING_DIR, local_dir=LOCAL_SOURCE_DIR
 ):
     """Update: the source files listed in the update config + the mappings.
-    `local_dir` (settings.yaml: update.local_source_dir) reads them from a folder instead of S3."""
-    from data_preparation.utils.update.spec import load_config
+    `local_dir` (settings.yaml: update.local_source_dir) reads them from a folder instead of S3.
+    """
+    from utils.update.spec import load_config
 
     config = load_config(config)
     out_dir = ensure_dir(out_dir)

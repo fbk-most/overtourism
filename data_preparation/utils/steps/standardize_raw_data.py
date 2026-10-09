@@ -3,8 +3,9 @@
 STEP 1 - Standardization.
 
 Input : Output/data/raw_data/
-Output: Output/data/normalized/   (popolazione_std, strutture_std, vodafone_std,
-                                   presenze_alb_std, presenze_extralb_std)
+Output: Output/data/normalized/   (popolazione_std, strutture_std, vodafone_std)
+
+The ISPAT presences (alb / extralb arrivals and presences) are NOT normalized: they are processed from raw_data.
 
 Uniformation of the raw data (names, DATA/LOCATION, dates and comune format).
 No filtering and no aggregation.
@@ -15,12 +16,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_preparation.utils.cleaning import (
+from utils.cleaning import (
     customize_unidecode,
     standard_ordering_cols,
     to_data_location,
 )
-from data_preparation.utils.config import (
+from utils.config import (
     NORMALIZED_DIR,
     RAW_DIR,
     MAPPING_DIR,
@@ -28,16 +29,9 @@ from data_preparation.utils.config import (
     TYPE_FORMAT,
     setup_logging,
 )
-from data_preparation.utils.io import read_df, save_computed_dfs
+from utils.io import read_df, save_computed_dfs
 
 logger = logging.getLogger(__name__)
-
-# column renaming of the two ISPAT presences layouts (shared by base pipeline and update)
-PRESENZE_APT_RENAMING = {"Ambito": "comune", "Presenze": "presenze_alb"}
-PRESENZE_PROV_RENAMING = {
-    "Presenze alberghi": "presenze_alb",
-    "Presenze extra-alberghi": "presenze_xalb",
-}
 
 
 def convert_vodafone_comuni(df, geojson_comuni_json_data):
@@ -93,24 +87,13 @@ def standardize_vodafone_columns(
     return standard_ordering_cols(df)
 
 
-def standardize_presenze_columns(df, cols_renaming: dict, date_col="data"):
-    """ISPAT presences (alb / xalb): granularity APT or provincia, monthly"""
-    df.rename(columns=cols_renaming, inplace=True)
-    df[date_col] = pd.to_datetime(
-        {"year": df["Anno"].astype(int), "month": df["Mese"], "day": 1}
-    )
-    df = _standardize_columns(df, date_col=date_col, df_name="presenze_df")
-    df["DATA"] = pd.to_datetime(df["DATA"]).dt.strftime("%Y-%m-%d")
-    return standard_ordering_cols(df)
-
-
 def standardize_raw_data(
     raw_dir=RAW_DIR,
     mapping_dir=MAPPING_DIR,
     out_dir=NORMALIZED_DIR,
     type_format=TYPE_FORMAT,
 ):
-    from data_preparation.utils.readers import read_geojson
+    from utils.readers import read_geojson
 
     raw_dir = Path(raw_dir)
     mapping_dir = Path(MAPPING_DIR)
@@ -119,20 +102,12 @@ def standardize_raw_data(
     popolazione_df = read_df(raw_dir, "popolazione_2020_2024", type_format)
     strutture_df = pd.read_csv(raw_dir / "Annuario-TavXIII-per-comune-csv.csv")
     vodafone_df = read_df(raw_dir, "vodafone_attendences", type_format)
-    presenze_alb_df = pd.read_csv(raw_dir / "presenze_Trentino_ISPAT.csv")
-    presenze_extralb_df = pd.read_csv(raw_dir / "presenze_Trentino_ISPAT_alb_xalb.csv")
     geojson = read_geojson(mapping_dir / Path(REFERENCES["geojson"]).name)
 
     dict_std = {
         "popolazione_std": standardize_popolazione_columns(popolazione_df),
         "strutture_std": standardize_strutture_columns(strutture_df),
         "vodafone_std": standardize_vodafone_columns(vodafone_df, geojson),
-        "presenze_alb_std": standardize_presenze_columns(
-            presenze_alb_df, PRESENZE_APT_RENAMING
-        ),
-        "presenze_extralb_std": standardize_presenze_columns(
-            presenze_extralb_df, PRESENZE_PROV_RENAMING
-        ),
     }
     save_computed_dfs(
         dict_std, local=True, type_format=type_format, path_saving=out_dir

@@ -1,5 +1,6 @@
 # Settings of the data-preparation update pipeline.
 # Edit this file as needed or use it as template for new updates
+# This update covers 2024 AND 2025 (the former update_2024 is merged here)
 
 datasets:
   popolazione:
@@ -13,6 +14,12 @@ datasets:
   strutture:
     enabled: true
     sources:
+      - file: strutture_annuario_2024.ods
+        reader: excel
+        reader_kwargs: {engine: odf}
+        adapter: strutture_annuario_2024
+        adapter_kwargs: {year: 2024}
+        label: "2024"                       # kept separate until structure parts are merged
       - file: numero_strutture_ISPAT_2025.xlsx
         reader: excel
         reader_kwargs: {header: [0, 1]}
@@ -25,20 +32,44 @@ datasets:
     sources:
       - file: vodafone_attendences_new.csv
         reader: csv
-        adapter: vodafone_raw             # this includes year 2024 and 2025
+        adapter: vodafone_raw             # 2023-01-01 .. 2025-12-31 (the base build has vodafone_attendences, 2022-01-01 .. 2024-03-31; on the overlap this file wins)
 
   presenze_alb:
     enabled: true
-    sources:
-      - file: presenze_alb_2025.csv
-        reader: ispat_apt_tsv
-        adapter: presenze_ispat_apt
-        adapter_kwargs: {year: 2025}
+    sources:                                  # arrivals + presences, used as downloaded (no normalization)
+      - file: Presenze/presenze_alb_2024.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2024, measure: presenze}
+      - file: Presenze/arrivi_alb_2024.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2024, measure: arrivi}
+      - file: Presenze/presenze_alb_2025.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2025, measure: presenze}
+      - file: Presenze/arrivi_alb_2025.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2025, measure: arrivi}
 
   presenze_extralb:
     enabled: true
-    sources:
-      - file: presenze_xalb_2025_prov.csv
-        reader: ispat_grouped_tsv
-        adapter: presenze_ispat_prov
-        adapter_kwargs: {year: 2025}
+    sources:                                  # arrivals + presences, used as downloaded (no normalization)
+      - file: Presenze/presenze_exalb_2024.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2024, measure: presenze}
+      - file: Presenze/arrivi_exalb_2024.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2024, measure: arrivi}
+      - file: Presenze/presenze_exalb_2025.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2025, measure: presenze}
+      - file: Presenze/arrivi_exalb_2025.csv
+        reader: csv
+        adapter: ispat_presenze_raw
+        adapter_kwargs: {year: 2025, measure: arrivi}

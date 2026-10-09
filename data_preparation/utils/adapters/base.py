@@ -36,8 +36,7 @@ KIND_SCHEMAS = {
         "all. disposizione posti_letto",
     ],
     "vodafone": ["locId", "date", "value", "userProfile", "locType"],
-    "presenze_apt": ["Ambito", "Anno", "Mese", "Presenze"],
-    "presenze_prov": ["Anno", "Mese", "Presenze alberghi", "Presenze extra-alberghi"],
+    "presenze_raw": ["mese"],  # ISPAT monthly arrivals / presences, used as downloaded (not normalized)
 }
 
 # kind -> datasets it can feed
@@ -45,8 +44,7 @@ KIND_DATASETS = {
     "popolazione": {"popolazione"},
     "strutture": {"strutture"},
     "vodafone": {"vodafone"},
-    "presenze_apt": {"presenze_alb", "presenze_extralb"},
-    "presenze_prov": {"presenze_extralb"},
+    "presenze_raw": {"presenze_alb", "presenze_extralb"},
 }
 
 

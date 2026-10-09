@@ -20,12 +20,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_preparation.utils.adapters import (
+from utils.adapters import (
     KIND_DATASETS,
     get_adapter,
     validate_schema,
 )
-from data_preparation.utils.config import (
+from utils.config import (
     MAPPING_DIR,
     NORMALIZED_DIR,
     RAW_DIR,
@@ -33,17 +33,14 @@ from data_preparation.utils.config import (
     TYPE_FORMAT,
     setup_logging,
 )
-from data_preparation.utils.io import ensure_dir, save_computed_dfs
-from data_preparation.utils.steps.standardize_raw_data import (
-    PRESENZE_APT_RENAMING,
-    PRESENZE_PROV_RENAMING,
+from utils.io import ensure_dir, save_computed_dfs
+from utils.steps.standardize_raw_data import (
     standardize_popolazione_columns,
-    standardize_presenze_columns,
     standardize_strutture_columns,
     standardize_vodafone_columns,
 )
-from data_preparation.utils.update.sources import read_source
-from data_preparation.utils.update.spec import config_from_argv, load_config
+from utils.update.sources import read_source
+from utils.update.spec import config_from_argv, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +49,10 @@ STANDARDIZERS = {
     "popolazione": lambda df, geojson: standardize_popolazione_columns(df),
     "strutture": lambda df, geojson: standardize_strutture_columns(df),
     "vodafone": lambda df, geojson: standardize_vodafone_columns(df, geojson),
-    "presenze_apt": lambda df, geojson: standardize_presenze_columns(
-        df, PRESENZE_APT_RENAMING
-    ),
-    "presenze_prov": lambda df, geojson: standardize_presenze_columns(
-        df, PRESENZE_PROV_RENAMING
-    ),
 }
-assert set(STANDARDIZERS) == set(KIND_DATASETS)
+# kinds used as downloaded (no normalization): ISPAT arrivals / presences
+RAW_KINDS = {"presenze_raw"}
+assert set(STANDARDIZERS) | RAW_KINDS == set(KIND_DATASETS)
 
 
 def check_and_rename_columns(raw, src, strict=True) -> tuple:
@@ -91,7 +84,7 @@ def standardize_update_raw_data(
 
     geojson = None
     if "vodafone" in config.datasets:
-        from data_preparation.utils.readers import read_geojson
+        from utils.readers import read_geojson
 
         geojson = read_geojson(mapping_dir / Path(REFERENCES["geojson"]).name)
 
@@ -101,11 +94,20 @@ def standardize_update_raw_data(
             logger.info("[%s] %s with adapter '%s'", dataset, src.file, src.adapter)
             raw = read_source(src.file, src.reader, src.reader_kwargs, raw_dir=raw_dir)
             aligned, kind = check_and_rename_columns(raw, src, strict=strict)
+            if kind in RAW_KINDS:  # layout checked, nothing to normalize
+                logger.info(
+                    "[%s] %s is used as downloaded (no normalization)",
+                    dataset,
+                    src.file,
+                )
+                continue
             std = STANDARDIZERS[kind](aligned, geojson)
             frames.setdefault(src.part_name(dataset), []).append(std)
 
     dict_std = {
-        f"{name}_std": parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+        f"{name}_std": (
+            parts[0] if len(parts) == 1 else pd.concat(parts, ignore_index=True)
+        )
         for name, parts in frames.items()
     }
     save_computed_dfs(

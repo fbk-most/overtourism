@@ -198,7 +198,12 @@ class HiddenTourismIndicator(Indicator):
         df: pd.DataFrame,
         **extra,
     ) -> pd.Series:
-        return df["presenze_vodafone"] / (df["presenze_alb"] + df["presenze_xalb"])
+        denominator = df["presenze_alb"] + df["presenze_xalb"]
+        return (
+            df["presenze_vodafone"]
+            .div(denominator.where(denominator != 0))
+            .fillna(df["presenze_vodafone"])
+        )
 
 
 class VariationRateIndicator(Indicator):

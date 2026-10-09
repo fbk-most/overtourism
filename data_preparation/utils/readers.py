@@ -3,7 +3,7 @@
 
 import pandas as pd
 
-from data_preparation.utils.cleaning import grouped_presenze_columns
+from utils.cleaning import grouped_presenze_columns
 
 
 def read_geojson(source):

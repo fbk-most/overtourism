@@ -1,5 +1,9 @@
+import logging
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def _key(series, is_time=False, freq=None):
@@ -57,6 +61,17 @@ def _split(exp, cols, integer):
     size = exp.groupby("_STEP")["_W"].transform("size")
     # parents whose weights are all zero/missing fall back to a uniform split
     frac = np.where(denom > 0, exp["_W"] / denom.where(denom > 0, 1), 1 / size)
+
+    # report the fallbacks that actually matter (several children, something to split)
+    has_value = (
+        exp[list(cols)].apply(pd.to_numeric, errors="coerce").fillna(0).ne(0).any(axis=1)
+    )
+    fallback = (denom <= 0) & (size > 1) & has_value
+    if fallback.any():
+        logger.warning(
+            "[disaggregation] %d parent rows have no usable weight: split uniformly",
+            exp.loc[fallback, "_STEP"].nunique(),
+        )
 
     for c in cols:
         val = pd.to_numeric(exp[c], errors="coerce") * frac
@@ -215,3 +230,133 @@ def disaggregate(
         )
 
     return df.drop(columns="_ROW") if both else df
+
+
+# --------------------------------------------------------------------------- checks / generic API
+def is_whole(df, cols):
+    """True if every non-missing value of `cols` is an integer number."""
+    v = df[list(cols)].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    v = v[~np.isnan(v)]
+    return bool(np.all(v == np.round(v)))
+
+
+def assert_sums_match(before, after, cols, by, *, name="", rtol=1e-9, atol=1e-6):
+    """Check that summing `after` back on `by` gives the totals of `before`.
+
+    `by` is a list of columns present in both frames (e.g. ["_TID"], or ["DATA"]).
+    Raises ValueError listing the first mismatching keys, otherwise logs the grand totals.
+    """
+    by, cols = list(by), list(cols)
+
+    def _tot(d):
+        num = d[cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+        return num.groupby([d[c] for c in by]).sum()
+
+    b, a = _tot(before), _tot(after)
+    idx = b.index.union(a.index)
+    b, a = b.reindex(idx, fill_value=0.0), a.reindex(idx, fill_value=0.0)
+    bad = ((a - b).abs() > atol + rtol * b.abs()).any(axis=1)
+    if bad.any():
+        detail = pd.concat({"before": b[bad], "after": a[bad]}, axis=1).head(10)
+        raise ValueError(
+            f"[{name or 'check'}] sums not preserved on {int(bad.sum())} of {len(idx)} "
+            f"groups by {by}:\n{detail}"
+        )
+    logger.info(
+        "[%s] sum check OK on %d groups (before=%s, after=%s)",
+        name or "check",
+        len(idx),
+        b.sum().round(3).to_dict(),
+        a.sum().round(3).to_dict(),
+    )
+
+
+def distribute_like(
+    df,
+    reference,
+    cols,
+    ref_col,
+    *,
+    axis="both",
+    freq_from="M",
+    freq_to="D",
+    id_col="ID_COMUNE",
+    time_col="DATA",
+    group_col="LOCATION",
+    space_map=None,
+    id_to_name=None,
+    integer=None,
+    check=True,
+):
+    """Distribute the phenomenon `cols` of `df` following the distribution of another phenomenon.
+
+    df         coarse data: one row per (period, area). `time_col` holds the period start (granularity
+               `freq_from`, e.g. "M" month, "Y" year) and `id_col` the list of the target ids of the area
+               (or use `space_map` + `group_col`, see disaggregate_space).
+    reference  finer data (e.g. comune x day) with `id_col` (one id per row), `time_col` and `ref_col`.
+    cols       value columns of `df` to distribute.
+    ref_col    column of `reference` used as weight.
+    axis       "both" (default: space and time together), "space" or "time". For "space" only,
+               set `freq_from` to the time granularity of `df` (None = exact match of `time_col`).
+
+    Each value is split over the children (ids x sub-periods of the row) proportionally to `ref_col`,
+    both territorially and temporally: child weight = reference(id, day) / sum of the reference over the
+    area and the period. Rows whose reference is all zero / missing are split uniformly (warning).
+    integer=None keeps integers if the input is integer (largest remainder), floats otherwise.
+
+    With check=True the totals are summed back, for every input row, and a mismatch raises ValueError.
+    """
+    if axis not in {"space", "time", "both"}:
+        raise ValueError(f"Unknown axis: {axis}")
+    miss = [c for c in (id_col, time_col, ref_col) if c not in reference.columns]
+    if miss:
+        raise KeyError(f"reference is missing the columns {miss}")
+    cols = list(cols)
+    if integer is None:
+        integer = is_whole(df, cols)
+
+    src = df.copy().reset_index(drop=True)
+    src["_TID"] = np.arange(len(src))  # survives the explosion: used to sum back
+
+    out = disaggregate(
+        src,
+        cols,
+        axis=axis,
+        space_weights=reference,
+        space_weight_col=ref_col,
+        space_map=space_map,
+        space_time_freq=freq_from,
+        time_weights=reference,
+        time_weight_col=ref_col,
+        freq_from=freq_from,
+        freq_to=freq_to,
+        id_col=id_col,
+        group_col=group_col,
+        time_col=time_col,
+        id_to_name=id_to_name,
+        integer=integer,
+    )
+
+    if check:
+        assert_sums_match(src, out, cols, ["_TID"], name="distribute_like")
+    return out.drop(columns="_TID").reset_index(drop=True)
+
+
+def beds_weights(strutture, years, bed_col="tot_postiletto"):
+    """Beds per comune for each of `years` (columns DATA = 'YYYY-01-01', ID_COMUNE, bed_col).
+
+    strutture is the processed strutture (DATA = year). If a year is missing the nearest available
+    year is used (the earlier one on a tie).
+    """
+    st = strutture[["DATA", "ID_COMUNE", bed_col]].copy()
+    st["_Y"] = pd.to_datetime(st["DATA"].astype(str), errors="coerce").dt.year
+    available = np.sort(st["_Y"].dropna().unique())
+    frames = []
+    for y in sorted(set(years)):
+        near = available[np.argmin(np.abs(available - y))]
+        if near != y:
+            logger.warning("[beds_weights] no strutture for %s: using %s", y, int(near))
+        f = st.loc[st["_Y"] == near, ["ID_COMUNE", bed_col]].copy()
+        f["DATA"] = f"{int(y)}-01-01"
+        frames.append(f)
+    return pd.concat(frames, ignore_index=True)[["DATA", "ID_COMUNE", bed_col]]

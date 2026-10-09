@@ -12,7 +12,7 @@ import logging
 import tempfile
 from pathlib import Path
 
-from data_preparation.utils.config import PROJECT, S3_BUCKET, S3_ENV, S3_PREFIX
+from utils.config import PROJECT, S3_BUCKET, S3_ENV, S3_PREFIX
 
 logger = logging.getLogger(__name__)
 

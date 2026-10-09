@@ -20,6 +20,16 @@ VODAFONE_VALUE_COLS = ["presenze"]
 PRESENZE_ALB_VALUE_COLS = ["presenze_alb"]
 PRESENZE_XALB_VALUE_COLS = ["presenze_xalb"]
 
+# ISPAT presences (alb / extralb): arrivals + presences per month, read from the raw files (no normalization).
+# Files: Presenze/<arrivi|presenze>_<alb|exalb>_<year>.csv ; the base build downloads these years, the updates the others.
+PRESENZE_FOLDER = "Presenze"
+PRESENZE_BASE_YEARS = (2022, 2023)
+PRESENZE_MEASURES = ("arrivi", "presenze")
+# True: a stay that starts at the end of a month goes on in the next one (uses the previous month's arrivals and stay);
+# False: every month is distributed using only its own arrivals and stay
+PRESENZE_SPILL_OVER = True
+PRESENZE_TAGS = {"presenze_alb": "alb", "presenze_extralb": "exalb"}  # dataset -> tag in the file names
+
 # reference files that a dataset may need to be standardized / processed
 REF_MAPPING_COMUNI = "mapping_comuni"
 REF_MAPPING_VODAFONE = "mapping_vodafone"
@@ -32,8 +42,12 @@ class DatasetSpec:
     name: str  # key used for selection, e.g. "presenze_alb"
     value_cols: tuple  # columns merged on (DATA, ID_COMUNE) when updating
     references: tuple  # reference files needed to process it
-    std_name: str = ""  # standardized dataframe name (step 1)
+    std_name: str = ""  # standardized dataframe name (step 1); "" = not normalized, processed from raw_data
     processed_name: str = ""  # processed dataframe name (step 2)
+
+    @property
+    def normalized(self) -> bool:
+        return bool(self.std_name)
 
     @property
     def update_name(self) -> str:
@@ -41,12 +55,12 @@ class DatasetSpec:
         return f"{self.name}_update_pr"
 
 
-def _spec(name, value_cols, references):
+def _spec(name, value_cols, references, normalized=True):
     return DatasetSpec(
         name=name,
         value_cols=tuple(value_cols),
         references=tuple(references),
-        std_name=f"{name}_std",
+        std_name=f"{name}_std" if normalized else "",
         processed_name=f"{name}_pr",
     )
 
@@ -57,11 +71,17 @@ DATASETS = {
         _spec("popolazione", POPOLAZIONE_VALUE_COLS, [REF_MAPPING_COMUNI]),
         _spec("strutture", STRUTTURE_VALUE_COLS, [REF_MAPPING_COMUNI]),
         _spec("vodafone", VODAFONE_VALUE_COLS, [REF_MAPPING_VODAFONE, REF_GEOJSON]),
-        _spec("presenze_alb", PRESENZE_ALB_VALUE_COLS, [REF_MAPPING_APT]),
+        _spec(
+            "presenze_alb",
+            PRESENZE_ALB_VALUE_COLS,
+            [REF_MAPPING_APT, REF_MAPPING_COMUNI],
+            normalized=False,
+        ),
         _spec(
             "presenze_extralb",
             PRESENZE_XALB_VALUE_COLS,
-            [REF_MAPPING_APT, REF_MAPPING_COMUNI],
+            [REF_MAPPING_COMUNI],
+            normalized=False,
         ),
     )
 }

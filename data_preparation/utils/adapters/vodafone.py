@@ -3,7 +3,7 @@
 
 import pandas as pd
 
-from data_preparation.utils.adapters.base import RawData, register_adapter
+from utils.adapters.base import RawData, register_adapter
 
 
 @register_adapter("vodafone_raw", kind="vodafone")
