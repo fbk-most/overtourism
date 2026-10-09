@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 S3_DATA = [
     "Annuario-TavXIII-per-comune-csv.csv",
+    "popolazione_2020_2024.parquet",
+    "vodafone_attendences.parquet",
     # ISPAT arrivals / presences (alb, extralb) of the base years; later years come with the updates
     *(
         f"{PRESENZE_FOLDER}/{measure}_{tag}_{year}.csv"
@@ -43,11 +45,6 @@ S3_DATA = [
         for tag in PRESENZE_TAGS.values()
         for measure in PRESENZE_MEASURES
     ),
-]
-# dataframes returned by get_dataframe (saved as csv/parquet)
-DATAFRAMES = [
-    "popolazione_2020_2024",
-    "vodafone_attendences",
 ]
 
 
@@ -91,14 +88,6 @@ def download_raw_base_data(
         logger.info("Downloading object %s from S3...", name)
         fetch_bytes(name, save_to=out_dir)
 
-    for name in DATAFRAMES:
-        logger.info("Downloading dataframe %s...", name)
-        save_computed_dfs(
-            {name: get_dataframe(name)},
-            local=True,
-            type_format=type_format,
-            path_saving=out_dir,
-        )
     download_mappings(mapping_dir)
     logger.info("Raw data saved in %s, mappings in %s", out_dir, mapping_dir)
 

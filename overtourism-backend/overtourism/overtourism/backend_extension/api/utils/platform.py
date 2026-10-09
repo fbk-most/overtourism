@@ -58,12 +58,9 @@ def download_index_data_old() -> None:
 def download_index_data(overwrite: bool = False) -> None:
     """Download the index data from the digitalhub platform."""
     dataitems = [
-        "phen_arrivi.parquet",
         "phen_popolazione.parquet",
         "phen_presenze.parquet",
         "phen_strutture.parquet",
-        "phen_flussi.parquet",
-        "phen_flussi_temp_2023.parquet",
     ]
     artifacts = [
         "map_comuni_into_apt.json",
