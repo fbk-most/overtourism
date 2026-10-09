@@ -8,6 +8,8 @@ is defined here once.
 
 from dataclasses import dataclass
 
+from utils.config import DATASET_FILES, PHENOMENA_FILES
+
 # value columns of the processed dataframes
 POPOLAZIONE_VALUE_COLS = ["popolazione"]
 STRUTTURE_VALUE_COLS = [
@@ -28,7 +30,10 @@ PRESENZE_MEASURES = ("arrivi", "presenze")
 # True: a stay that starts at the end of a month goes on in the next one (uses the previous month's arrivals and stay);
 # False: every month is distributed using only its own arrivals and stay
 PRESENZE_SPILL_OVER = True
-PRESENZE_TAGS = {"presenze_alb": "alb", "presenze_extralb": "exalb"}  # dataset -> tag in the file names
+PRESENZE_TAGS = {
+    "presenze_alb": "alb",
+    "presenze_extralb": "exalb",
+}  # dataset -> tag in the file names
 
 # reference files that a dataset may need to be standardized / processed
 REF_MAPPING_COMUNI = "mapping_comuni"
@@ -42,26 +47,26 @@ class DatasetSpec:
     name: str  # key used for selection, e.g. "presenze_alb"
     value_cols: tuple  # columns merged on (DATA, ID_COMUNE) when updating
     references: tuple  # reference files needed to process it
-    std_name: str = ""  # standardized dataframe name (step 1); "" = not normalized, processed from raw_data
+    std_name: str = (
+        ""  # standardized dataframe name (step 1); "" = not normalized, processed from raw_data
+    )
     processed_name: str = ""  # processed dataframe name (step 2)
+    update_name: str = ""  # processed dataframe name in the yearly update
 
     @property
     def normalized(self) -> bool:
         return bool(self.std_name)
 
-    @property
-    def update_name(self) -> str:
-        """Name of the processed-only dataframe produced by an update run."""
-        return f"{self.name}_update_pr"
-
 
 def _spec(name, value_cols, references, normalized=True):
+    dataset_cfg = DATASET_FILES.get(name, {})
     return DatasetSpec(
         name=name,
         value_cols=tuple(value_cols),
         references=tuple(references),
-        std_name=f"{name}_std" if normalized else "",
-        processed_name=f"{name}_pr",
+        std_name=dataset_cfg.get("std", f"{name}_std" if normalized else ""),
+        processed_name=dataset_cfg.get("processed", f"{name}_pr"),
+        update_name=dataset_cfg.get("update", f"{name}_update_pr"),
     )
 
 
@@ -88,11 +93,7 @@ DATASETS = {
 ALL_DATASETS = tuple(DATASETS)
 
 # final phenomenon -> datasets that must ALL be updated for it to be recomputed
-PHENOMENA = {
-    "phen_popolazione": frozenset({"popolazione"}),
-    "phen_strutture": frozenset({"strutture"}),
-    "phen_presenze": frozenset({"vodafone", "presenze_alb", "presenze_extralb"}),
-}
+PHENOMENA = {name: frozenset(deps) for name, deps in PHENOMENA_FILES.items()}
 PRESENZE_DATASETS = PHENOMENA["phen_presenze"]
 
 

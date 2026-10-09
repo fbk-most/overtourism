@@ -61,15 +61,7 @@ datasets:
         reader: csv
         adapter: ispat_presenze_raw
         adapter_kwargs: {year: 2024, measure: presenze}
-      - file: Presenze/arrivi_exalb_2024.csv
-        reader: csv
-        adapter: ispat_presenze_raw
-        adapter_kwargs: {year: 2024, measure: arrivi}
       - file: Presenze/presenze_exalb_2025.csv
         reader: csv
         adapter: ispat_presenze_raw
         adapter_kwargs: {year: 2025, measure: presenze}
-      - file: Presenze/arrivi_exalb_2025.csv
-        reader: csv
-        adapter: ispat_presenze_raw
-        adapter_kwargs: {year: 2025, measure: arrivi}

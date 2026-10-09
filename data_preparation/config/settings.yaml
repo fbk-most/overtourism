@@ -25,6 +25,35 @@ references:
 # the uploaded files are named <phenomenon>.<format>, so a different format would not replace them.
 type_format: parquet
 
+# Dataset and phenomenon file names. Keep these aligned with the actual output files used by
+# the base build and the yearly update.
+datasets:
+  popolazione:
+    std: popolazione_std
+    processed: popolazione_pr
+    update: popolazione_update_pr
+  strutture:
+    std: strutture_std
+    processed: strutture_pr
+    update: strutture_update_pr
+  vodafone:
+    std: vodafone_std
+    processed: vodafone_pr
+    update: vodafone_update_pr
+  presenze_alb:
+    std: ""
+    processed: presenze_alb_pr
+    update: presenze_alb_update_pr
+  presenze_extralb:
+    std: ""
+    processed: presenze_extralb_pr
+    update: presenze_extralb_update_pr
+
+phenomena:
+  phen_popolazione: [popolazione]
+  phen_strutture: [strutture]
+  phen_presenze: [vodafone, presenze_alb, presenze_extralb]
+
 # Data lake / platform
 platform:
   project: overtourism

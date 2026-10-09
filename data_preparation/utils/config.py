@@ -21,6 +21,7 @@ _PATH_KEYS = (
 )
 _PLATFORM_KEYS = ("project", "s3_bucket", "s3_prefix", "dhcore_env")
 _REFERENCE_KEYS = ("mapping_comuni", "mapping_vodafone", "mapping_apt", "geojson")
+_DATASET_FILE_KEYS = ("std", "processed", "update")
 
 
 def load_settings(path=SETTINGS_FILE) -> dict:
@@ -28,7 +29,18 @@ def load_settings(path=SETTINGS_FILE) -> dict:
     missing = [
         f"{section}.{key}" if section else key
         for section, keys in (
-            ("", ("output_dir", "type_format", "paths", "platform", "references")),
+            (
+                "",
+                (
+                    "output_dir",
+                    "type_format",
+                    "paths",
+                    "platform",
+                    "references",
+                    "datasets",
+                    "phenomena",
+                ),
+            ),
             ("paths", _PATH_KEYS),
             ("platform", _PLATFORM_KEYS),
             ("references", _REFERENCE_KEYS),
@@ -36,6 +48,17 @@ def load_settings(path=SETTINGS_FILE) -> dict:
         for key in keys
         if key not in (settings.get(section, {}) if section else settings)
     ]
+    for dataset_name, dataset_cfg in (settings.get("datasets") or {}).items():
+        if not isinstance(dataset_cfg, dict):
+            raise TypeError(f"{path}: datasets.{dataset_name} must be a mapping")
+        for key in _DATASET_FILE_KEYS:
+            if key not in dataset_cfg:
+                missing.append(f"datasets.{dataset_name}.{key}")
+    for phenomenon_name, deps in (settings.get("phenomena") or {}).items():
+        if not isinstance(deps, list):
+            raise TypeError(
+                f"{path}: phenomena.{phenomenon_name} must be a list of dataset names"
+            )
     if missing:
         raise KeyError(f"{path}: missing setting(s) {missing}")
     if settings["type_format"] not in TYPE_FORMATS:
@@ -63,6 +86,8 @@ FINAL_DIR = _P["final"]
 REFERENCES = _S["references"]
 
 TYPE_FORMAT = _S["type_format"]
+DATASET_FILES = _S["datasets"]
+PHENOMENA_FILES = _S["phenomena"]
 
 # platform (DigitalHub) / data lake
 PROJECT = _S["platform"]["project"]
