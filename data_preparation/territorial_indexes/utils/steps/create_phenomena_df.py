@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
-    """Daily x comune presences: ISPAT alb + xalb and Vodafone tourists + visitors."""
+    """Daily x comune presences: ISPAT alb + xalb and Vodafone user profiles."""
     df = df_alb.merge(
         df_extralb[["DATA", "ID_COMUNE", "presenze_xalb"]],
         on=["DATA", "ID_COMUNE"],
@@ -55,6 +55,7 @@ def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
                 "ID_COMUNE",
                 "vodafone_tourists_presences",
                 "vodafone_visitors_presences",
+                "vodafone_inhabitant_presences",
             ]
         ],
         on=["DATA", "ID_COMUNE"],
@@ -127,11 +128,19 @@ assert set(BUILDERS) == set(PHENOMENA)
 
 def append_to_existing(df_old, df_new, name):
     """df_old + df_new on DATA + ID_COMUNE: where the key is in both, df_new is correct."""
-    if name == "phen_presenze" and "presenze_vodafone" in df_old.columns:
-        df_old = df_old.rename(
-            columns={"presenze_vodafone": "vodafone_tourists_presences"}
-        ).copy()
-        df_old["vodafone_visitors_presences"] = pd.NA
+    if name == "phen_presenze":
+        df_old = df_old.copy()
+        if "presenze_vodafone" in df_old.columns:
+            df_old = df_old.rename(
+                columns={"presenze_vodafone": "vodafone_tourists_presences"}
+            )
+        for column in (
+            "vodafone_tourists_presences",
+            "vodafone_visitors_presences",
+            "vodafone_inhabitant_presences",
+        ):
+            if column not in df_old.columns:
+                df_old[column] = pd.NA
 
     df_new = df_new.copy()
     if df_new["DATA"].dtype != df_old["DATA"].dtype:  # e.g. year as int vs str

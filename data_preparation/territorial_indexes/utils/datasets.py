@@ -27,6 +27,7 @@ STRUTTURE_VALUE_COLS = [
 VODAFONE_VALUE_COLS = [
     "vodafone_tourists_presences",
     "vodafone_visitors_presences",
+    "vodafone_inhabitant_presences",
 ]
 PRESENZE_ALB_VALUE_COLS = ["presenze_alb"]
 PRESENZE_XALB_VALUE_COLS = ["presenze_xalb"]
