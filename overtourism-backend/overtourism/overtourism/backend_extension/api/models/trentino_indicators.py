@@ -173,9 +173,9 @@ class TouristDensityIndicator(Indicator):
         df: pd.DataFrame,
         **extra,
     ) -> pd.Series:
-        numerator = (
-            df["vodafone_tourists_presences"] + df["vodafone_visitors_presences"]
-        )
+        numerator = df[
+            ["vodafone_tourists_presences", "vodafone_visitors_presences"]
+        ].fillna(0).sum(axis=1)
         return numerator.div(df["superficie"].replace(0, np.nan))
 
 
