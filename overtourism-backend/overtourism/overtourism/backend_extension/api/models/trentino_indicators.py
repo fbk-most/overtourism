@@ -58,7 +58,7 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
         STRUCTURES_SOURCE, POPULATION_SOURCE
     ),
     "turisticita": lambda: TourismIndexIndicator(
-        POPULATION_SOURCE, PRESENCES_SOURCE, "presenze_vodafone"
+        POPULATION_SOURCE, PRESENCES_SOURCE, "vodafone_tourists_presences"
     ),
     "incidenza-alloggi-turistici-strutture": lambda: TouristAccommodationFacilitiesIndicator(
         STRUCTURES_SOURCE
@@ -260,7 +260,9 @@ class HiddenTourismIndicator(Indicator):
         super().__init__(
             phenomena=[
                 PresencesPhenomenon(
-                    source_file, col="presenze_vodafone", name="presenze_vodafone"
+                    source_file,
+                    col="vodafone_tourists_presences",
+                    name="vodafone_tourists_presences",
                 ),
                 PresencesPhenomenon(
                     source_file,
@@ -283,9 +285,9 @@ class HiddenTourismIndicator(Indicator):
     ) -> pd.Series:
         denominator = df["presenze_alb"] + df["presenze_xalb"]
         return (
-            df["presenze_vodafone"]
+            df["vodafone_tourists_presences"]
             .div(denominator.where(denominator != 0))
-            .fillna(df["presenze_vodafone"])
+            .fillna(df["vodafone_tourists_presences"])
         )
 
 

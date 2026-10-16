@@ -97,9 +97,10 @@ def _filtering_strutture(df, window, year_col="DATA"):
 
 
 def _filtering_vodafone_attendences(df):
-    """Filtering presences on tourists and municipalities"""
+    """Keep tourist and visitor presences at the municipality area level."""
     return df[
-        (df["userProfile"] == "TOURIST") & (df["locType"] == "TN_MKT_AL_3")
+        df["userProfile"].isin(["TOURIST", "VISITOR"])
+        & (df["locType"] == "TN_MKT_AL_3")
     ].copy()
 
 
@@ -197,8 +198,24 @@ def process_vodafone(
         normalize_id_comune
     )  # hashable
 
-    # Sum per (day, vodafone area), then split each area over its comuni
-    df = df.groupby(["DATA", "ID_COMUNE"], as_index=False)[VODAFONE_VALUE_COLS].sum()
+    # Keep profiles separate before splitting each area over its comuni.
+    df = (
+        df.pivot_table(
+            index=["DATA", "ID_COMUNE"],
+            columns="userProfile",
+            values="presenze",
+            aggfunc="sum",
+            fill_value=0,
+        )
+        .reindex(columns=["TOURIST", "VISITOR"], fill_value=0)
+        .rename(
+            columns={
+                "TOURIST": VODAFONE_VALUE_COLS[0],
+                "VISITOR": VODAFONE_VALUE_COLS[1],
+            }
+        )
+        .reset_index()
+    )
     integer = is_whole(df, VODAFONE_VALUE_COLS)
     df["_TID"] = np.arange(len(df))
 

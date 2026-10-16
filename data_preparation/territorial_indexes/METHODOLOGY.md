@@ -51,7 +51,7 @@ Every output has `DATA` and `ID_COMUNE` (6 digits, one comune per row) plus the 
 |---|---|---|
 | popolazione | comune × year | resident population at 1 January |
 | strutture | comune × year | beds and structures, conventional (alb + extralb) and not; totals recomputed (A5) |
-| vodafone | comune × day | TOURIST presences per area × day; areas with several comuni split by beds of the year (A7); sums checked after the split |
+| vodafone | comune × day | TOURIST and VISITOR presences kept separately per area × day; areas with several comuni split by beds of the year (A7); sums checked after the split |
 | presenze_alb / presenze_extralb | comune × day | ISPAT monthly arrivals and presences per APT / province → daily presences through the average length of stay (A8), then split among comuni by `alberghieri` / `extra alb.` beds; each month adds up exactly to the official figure |
 | ee_prelievi / gas_prelievi | comune × day | categories summed per comune-month, spread evenly over the days (A9); column `ee_services` / `gas_services` |
 | ee_totale / gas_totale | comune × day | total files: same treatment (A9, A11); column `ee_total` / `gas_total` |
