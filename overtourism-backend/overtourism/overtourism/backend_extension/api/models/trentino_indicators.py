@@ -12,6 +12,7 @@ from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena imp
     PopulationPhenomenon,
     PresencesPhenomenon,
     ProvenienzaPhenomenon,
+    SurfacePhenomenon,
 )
 from overtourism.overtourism.setup import index_data_path
 
@@ -58,7 +59,10 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
         STRUCTURES_SOURCE, POPULATION_SOURCE
     ),
     "turisticita": lambda: TourismIndexIndicator(
-        POPULATION_SOURCE, PRESENCES_SOURCE, "presenze_vodafone"
+        POPULATION_SOURCE, PRESENCES_SOURCE, "vodafone_tourists_presences"
+    ),
+    "densita-turistica": lambda: TouristDensityIndicator(
+        PRESENCES_SOURCE, MAP_SHAPEFILE
     ),
     "incidenza-alloggi-turistici-strutture": lambda: TouristAccommodationFacilitiesIndicator(
         STRUCTURES_SOURCE
@@ -136,6 +140,43 @@ class TourismIndexIndicator(Indicator):
             ],
             combinator=self.divide("presences", "population"),
         )
+
+
+class TouristDensityIndicator(Indicator):
+    """Vodafone tourists + visitors presences per km² of the comune's surface."""
+
+    name = "Indice di densità turistica"
+    type = INDICATORS_TYPES[3]
+    description = "L'indice di densità turistica definisce il <strong>rapporto</strong> fra il <strong>numero medio giornaliero di turisti ed escursionisti</strong> presenti in un comune e la sua <strong>superficie</strong> in km². L'indice fornisce una misura della pressione turistica sul territorio. L'indice è calcolato partendo dai dati Vodafone per quanto riguarda le presenze di turisti ed escursionisti e dai confini amministrativi ISTAT per la superficie dei comuni."
+    index_value_unit_description = "Presenze turistiche per km²"
+
+    def __init__(self, presences_source, surface_source):
+        super().__init__(
+            phenomena=[
+                PresencesPhenomenon(
+                    presences_source,
+                    col="vodafone_tourists_presences",
+                    name="vodafone_tourists_presences",
+                ),
+                PresencesPhenomenon(
+                    presences_source,
+                    col="vodafone_visitors_presences",
+                    name="vodafone_visitors_presences",
+                ),
+                SurfacePhenomenon(surface_source),
+            ],
+            combinator=self.compute_density,
+        )
+
+    def compute_density(
+        self,
+        df: pd.DataFrame,
+        **extra,
+    ) -> pd.Series:
+        numerator = df[
+            ["vodafone_tourists_presences", "vodafone_visitors_presences"]
+        ].fillna(0).sum(axis=1)
+        return numerator.div(df["superficie"].replace(0, np.nan))
 
 
 def _hospitality_share(numerator: str, denominator_components: tuple[str, ...]):
@@ -260,7 +301,9 @@ class HiddenTourismIndicator(Indicator):
         super().__init__(
             phenomena=[
                 PresencesPhenomenon(
-                    source_file, col="presenze_vodafone", name="presenze_vodafone"
+                    source_file,
+                    col="vodafone_tourists_presences",
+                    name="vodafone_tourists_presences",
                 ),
                 PresencesPhenomenon(
                     source_file,
@@ -283,9 +326,9 @@ class HiddenTourismIndicator(Indicator):
     ) -> pd.Series:
         denominator = df["presenze_alb"] + df["presenze_xalb"]
         return (
-            df["presenze_vodafone"]
+            df["vodafone_tourists_presences"]
             .div(denominator.where(denominator != 0))
-            .fillna(df["presenze_vodafone"])
+            .fillna(df["vodafone_tourists_presences"])
         )
 
 

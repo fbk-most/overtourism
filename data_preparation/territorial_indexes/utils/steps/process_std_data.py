@@ -97,9 +97,10 @@ def _filtering_strutture(df, window, year_col="DATA"):
 
 
 def _filtering_vodafone_attendences(df):
-    """Filtering presences on tourists and municipalities"""
+    """Keep tourist, visitor and inhabitant presences at municipality-area level."""
     return df[
-        (df["userProfile"] == "TOURIST") & (df["locType"] == "TN_MKT_AL_3")
+        df["userProfile"].isin(["TOURIST", "VISITOR", "INHABITANT"])
+        & (df["locType"] == "TN_MKT_AL_3")
     ].copy()
 
 
@@ -170,7 +171,7 @@ def process_vodafone(
     Without `strutture` the split is uniform. With check=True the totals are summed back
     (per area and day) and a mismatch raises ValueError.
     """
-    df = _filtering_vodafone_attendences(df)  # only COMUNI & TURISTI
+    df = _filtering_vodafone_attendences(df)
     df["ID_COMUNE"] = df["LOCATION"].map(mapping_vodafone)
     mask = df["LOCATION"] == "SAN GIOVANNI DI FASSA"
     df.loc[mask, "ID_COMUNE"] = pd.Series(
@@ -197,8 +198,25 @@ def process_vodafone(
         normalize_id_comune
     )  # hashable
 
-    # Sum per (day, vodafone area), then split each area over its comuni
-    df = df.groupby(["DATA", "ID_COMUNE"], as_index=False)[VODAFONE_VALUE_COLS].sum()
+    # Keep profiles separate before splitting each area over its comuni.
+    df = (
+        df.pivot_table(
+            index=["DATA", "ID_COMUNE"],
+            columns="userProfile",
+            values="presenze",
+            aggfunc="sum",
+            fill_value=0,
+        )
+        .reindex(columns=["TOURIST", "VISITOR", "INHABITANT"], fill_value=0)
+        .rename(
+            columns={
+                "TOURIST": VODAFONE_VALUE_COLS[0],
+                "VISITOR": VODAFONE_VALUE_COLS[1],
+                "INHABITANT": VODAFONE_VALUE_COLS[2],
+            }
+        )
+        .reset_index()
+    )
     integer = is_whole(df, VODAFONE_VALUE_COLS)
     df["_TID"] = np.arange(len(df))
 
