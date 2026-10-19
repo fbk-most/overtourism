@@ -87,7 +87,7 @@ Runs all the steps, from the download to the final files:
      The sums are checked (ValueError otherwise). Details: `utils/stay_distribution.py`.
   Every vodafone / ISPAT step checks that summing back gives the original totals.
   `vodafone_covisits` (OD co-visits between Vodafone areas) is aggregated **per year** into flow indicators, see below.
-* **Phenomena**: `phen_popolazione`, `phen_strutture`, `phen_presenze` (alb + xalb + Vodafone tourist, visitor and inhabitant presences).
+* **Phenomena**: `phen_popolazione`, `phen_strutture`, `phen_presenze` (alb + xalb + vodafone unified).
   `phen_consumption` has the columns `DATA`, `ID_COMUNE`, `ee_services`, `ee_total`, `gas_services`, `gas_total`
   (daily consumption per comune; electricity in kWh, gas in Smc). `*_services` come from the category files
   (`Energia/<ee_prelievi|gas_prelievi>/*.csv`, tourism-related usage categories summed); `*_total` come from the two

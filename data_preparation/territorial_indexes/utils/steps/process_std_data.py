@@ -97,9 +97,9 @@ def _filtering_strutture(df, window, year_col="DATA"):
 
 
 def _filtering_vodafone_attendences(df):
-    """Keep tourist, visitor and inhabitant presences at municipality-area level."""
+    """Keep tourist and visitor presences at the municipality area level."""
     return df[
-        df["userProfile"].isin(["TOURIST", "VISITOR", "INHABITANT"])
+        df["userProfile"].isin(["TOURIST", "VISITOR"])
         & (df["locType"] == "TN_MKT_AL_3")
     ].copy()
 

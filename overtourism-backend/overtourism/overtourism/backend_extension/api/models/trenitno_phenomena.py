@@ -43,7 +43,6 @@ PHENOMENON_LABELS_IT: dict[str, str] = {
     # HiddenTourismIndicator ("indice-turismo-sommerso")
     "vodafone_tourists_presences": "presenze rete mobile, turisti",
     "vodafone_visitors_presences": "presenze rete mobile, visitatori",
-    "vodafone_inhabitant_presences": "presenze rete mobile, abitanti",
     "presenze_alb": "presenze alb.",
     "presenze_xalb": "presenze extra-alb.",
     # FlowPhenomenon-based indicators (RatioFlowsIndicator, FlowsIndicatorLevel;
