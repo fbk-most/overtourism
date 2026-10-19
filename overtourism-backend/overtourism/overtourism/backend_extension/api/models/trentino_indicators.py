@@ -64,6 +64,9 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     "densita-turistica": lambda: TouristDensityIndicator(
         PRESENCES_SOURCE, MAP_SHAPEFILE
     ),
+    "densita-antropica": lambda: AnthropogenicDensityIndicator(
+        PRESENCES_SOURCE, POPULATION_SOURCE, MAP_SHAPEFILE
+    ),
     "incidenza-alloggi-turistici-strutture": lambda: TouristAccommodationFacilitiesIndicator(
         STRUCTURES_SOURCE
     ),
@@ -176,6 +179,45 @@ class TouristDensityIndicator(Indicator):
         numerator = df[
             ["vodafone_tourists_presences", "vodafone_visitors_presences"]
         ].fillna(0).sum(axis=1)
+        return numerator.div(df["superficie"].replace(0, np.nan))
+
+
+class AnthropogenicDensityIndicator(Indicator):
+    """Inhabitants and Vodafone tourist presences per km² of comune area."""
+
+    name = "Indice di densità antropica"
+    type = INDICATORS_TYPES[3]
+    description = "L'indice di densità antropica misura il rapporto fra la popolazione residente e il numero medio giornaliero di turisti ed escursionisti rilevati da Vodafone, rispetto alla superficie del comune in km²."
+    index_value_unit_description = "Abitanti e presenze turistiche per km²"
+
+    def __init__(self, presences_source, population_source, surface_source):
+        super().__init__(
+            phenomena=[
+                PresencesPhenomenon(
+                    presences_source,
+                    col="vodafone_tourists_presences",
+                    name="vodafone_tourists_presences",
+                ),
+                PresencesPhenomenon(
+                    presences_source,
+                    col="vodafone_visitors_presences",
+                    name="vodafone_visitors_presences",
+                ),
+                PopulationPhenomenon(population_source),
+                SurfacePhenomenon(surface_source),
+            ],
+            combinator=self.compute_density_anthropogenic,
+        )
+
+    def compute_density_anthropogenic(
+        self,
+        df: pd.DataFrame,
+        **extra,
+    ) -> pd.Series:
+        vodafone_presences = df[
+            ["vodafone_tourists_presences", "vodafone_visitors_presences"]
+        ].fillna(0).sum(axis=1)
+        numerator = vodafone_presences + df["population"]
         return numerator.div(df["superficie"].replace(0, np.nan))
 
 
