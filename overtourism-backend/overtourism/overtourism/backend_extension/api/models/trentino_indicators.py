@@ -11,6 +11,7 @@ from overtourism.overtourism.backend_extension.api.models.trenitno_phenomena imp
     ElectricityTourismSharePhenomenon,
     FacilitiesTotalPhenomenon,
     FlowIndicatorPhenomenon,
+    MeanTouristTravelTimePhenomenon,
     PopulationPhenomenon,
     PresencesPhenomenon,
     ProvenienzaPhenomenon,
@@ -34,6 +35,9 @@ FLOWS_OD_SOURCE = (
 PROVENIENZA_SOURCE = (
     index_data_path / "phen_provenienza.parquet"
 )  # yearly concentration (normalized HHI) of the source markets per comune
+MEAN_TOURIST_TRAVEL_TIME_SOURCE = (
+    index_data_path / "phen_tempo_medio_turisti.parquet"
+)  # yearly estimated journey time to each comune, in minutes
 CONSUMPTION_SOURCE = (
     index_data_path / "phen_consumption.parquet"
 )  # daily electricity / gas consumption per comune (services and total)
@@ -92,6 +96,9 @@ _REGISTRY: dict[str, Callable[[], Indicator]] = {
     ),
     "concentrazione-mercati-provenienza": lambda: SourceMarketsConcentrationIndicator(
         PROVENIENZA_SOURCE
+    ),
+    "tempo-medio-turisti": lambda: MeanTouristTravelTimeIndicator(
+        MEAN_TOURIST_TRAVEL_TIME_SOURCE
     ),
     "dipendenza-mercato-principale": lambda: MainMarketDependenceIndicator(
         PROVENIENZA_SOURCE
@@ -638,6 +645,33 @@ class SourceMarketsConcentrationIndicator(Indicator):
     @staticmethod
     def _hhi(df: pd.DataFrame, **_extra) -> pd.Series:
         return df["hhi_provenienza"]
+
+
+class MeanTouristTravelTimeIndicator(Indicator):
+    """Estimated mean journey time to a comune, weighted by tourist arrivals."""
+
+    name = "Tempo medio di viaggio dei turisti"
+    description = (
+        "Stima il tempo medio, in minuti, impiegato dai turisti per raggiungere un comune, "
+        "ponderando i tempi di percorrenza per gli arrivi Vodafone e il paese di provenienza. "
+        "Per l'Italia si assume una città di partenza configurabile; per gli altri paesi si "
+        "assume la capitale. È un indicatore annuale e non rappresenta la città di partenza "
+        "effettiva dei singoli turisti."
+    )
+    index_value_unit_description = "Minuti di viaggio stimati"
+    year_only = True
+    category = "Provenienza"
+    order = 100
+
+    def __init__(self, source_file):
+        super().__init__(
+            phenomena=[MeanTouristTravelTimePhenomenon(source_file)],
+            combinator=self._mean_time,
+        )
+
+    @staticmethod
+    def _mean_time(df: pd.DataFrame, **_extra) -> pd.Series:
+        return df["tempo_medio_turisti"]
 
 
 class MainMarketDependenceIndicator(Indicator):
