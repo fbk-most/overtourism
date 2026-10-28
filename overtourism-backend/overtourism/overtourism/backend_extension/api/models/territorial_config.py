@@ -5,10 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 Granularity = Literal["comune", "macro_area", "provincia"]
 Aggregation = Literal["mean", "sum"]
+
+
+def _weighted_mean(values, weights, axis=None):
+    """Σ(value × weight) / Σ weight over the entries with a value (NaN / None are skipped); NaN when no weight."""
+    values = np.asarray(values, dtype=float)
+    weights = np.where(np.isnan(values), 0.0, np.nan_to_num(np.asarray(weights, dtype=float)))
+    total = weights.sum(axis=axis)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(total > 0, (np.nan_to_num(values) * weights).sum(axis=axis) / total, np.nan)
 
 
 @dataclass(frozen=True)
@@ -26,7 +36,8 @@ class TerritorialConfig:
 
     Aggregation of columns at macro_area / provincia level
     -------------------------------------------------------
-    - ``value_col`` ("INDICE")  -> ``macro_area_agg`` ("mean" | "sum")
+    - ``value_col`` ("INDICE")  -> ``macro_area_agg`` ("mean" | "sum"), or the mean
+      weighted by the ``weight_col`` column when it is set (e.g. tourist arrivals)
     - any column listed in ``column_aggs`` -> the function given there
       (any pandas aggregation name: "sum", "mean", "max", "min", "first", ...)
     - any other numeric column (e.g. presences, number of structures)
@@ -41,6 +52,7 @@ class TerritorialConfig:
     allowed_comuni: set[str] | None = None
     macro_area_agg: Aggregation = "mean"
     column_aggs: dict[str, str] = field(default_factory=dict)
+    weight_col: str | None = None
 
     # ------------------------------------------------------------------
     # Factory
@@ -55,6 +67,7 @@ class TerritorialConfig:
         allowed_comuni: set[str] | None = None,
         macro_area_agg: str = "mean",
         column_aggs: dict[str, str] | None = None,
+        weight_col: str | None = None,
     ) -> TerritorialConfig:
         """Validated constructor used by all endpoints."""
 
@@ -75,6 +88,7 @@ class TerritorialConfig:
             allowed_comuni=allowed_comuni,
             macro_area_agg=macro_area_agg,
             column_aggs=dict(column_aggs or {}),
+            weight_col=weight_col,
         )
 
     # ------------------------------------------------------------------
@@ -106,6 +120,10 @@ class TerritorialConfig:
         out: dict = {}
         for col in subset.columns:
             if col == id_col:
+                continue
+
+            if col == value_col and self.weight_col:
+                out[col] = float(_weighted_mean(subset[col], subset[self.weight_col]))
                 continue
 
             if col == value_col:
@@ -228,12 +246,16 @@ class TerritorialConfig:
         data_key: str = "data",
         std_key: str = "std",
     ) -> list[dict]:
-        """Apply filtering/aggregation to temporal series."""
-
-        import numpy as np
+        """Apply filtering/aggregation to temporal series. The ``weights`` of the comune series (see weight_col) are
+        only used for the macro areas and are not returned (new dicts: the input series may be cached)."""
 
         region_series = [s for s in series if str(s[label_key]) == "-1"]
-        comune_series = [s for s in series if str(s[label_key]) != "-1"]
+        comune_series = [
+            {k: v for k, v in s.items() if k != "weights"}
+            for s in series
+            if str(s[label_key]) != "-1"
+        ]
+        weights_by_comune = {str(s[label_key]): s.get("weights") for s in series}
 
         if self.allowed_comuni is not None:
             comune_series = [
@@ -260,11 +282,20 @@ class TerritorialConfig:
 
             data = np.array([by_comune[c][data_key] for c in members])
             std = np.array([by_comune[c][std_key] for c in members])
+            if self.weight_col:
+                values = _weighted_mean(
+                    [by_comune[c][data_key] for c in members],  # from the lists: None -> NaN
+                    [weights_by_comune[c] for c in members],
+                    axis=0,
+                )
+                values = [None if np.isnan(x) else round(float(x), 2) for x in values]
+            else:
+                values = [round(float(x), 2) for x in agg_fn(data, axis=0)]
 
             area_series.append(
                 {
                     label_key: area.name,
-                    data_key: [round(float(x), 2) for x in agg_fn(data, axis=0)],
+                    data_key: values,
                     std_key: [round(float(x), 2) for x in np.mean(std, axis=0)],
                 }
             )

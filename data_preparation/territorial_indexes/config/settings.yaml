@@ -75,6 +75,10 @@ datasets:
     std: vodafone_arrivi_std
     processed: vodafone_arrivi_pr
     update: vodafone_arrivi_update_pr
+  vodafone_tempi:                          # same arrivals: pairs arrivals / travel time per origin market
+    std: ""                                # base build: derived from vodafone_arrivi_std
+    processed: vodafone_tempi_pr
+    update: vodafone_tempi_update_pr
   ee_totale:
     std: ee_totale_std
     processed: ee_totale_pr
@@ -146,7 +150,7 @@ phenomena:
   phen_flussi_od: [vodafone_covisits]
   phen_provenienza: [vodafone_provenienza, vodafone_arrivi]
   phen_meteo: [meteo]
-  phen_tempo_medio_turisti: [vodafone_arrivi]
+  phen_tempo_medio_turisti: [vodafone_tempi]
 
 # Phenomena computed from OTHER phenomena (the inputs are phenomena, not datasets), right after them, in the same run.
 # One is computed only if ALL its inputs are computed in that run (base build: always; update: when all are updated).

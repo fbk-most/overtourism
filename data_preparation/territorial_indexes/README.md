@@ -168,6 +168,8 @@ Notes:
   the addition of `presenze_escursionisti_vodafone`, `ee_total`, `gas_total`) **rerun the base build** before the update.
 * `phen_provenienza` needs **both** `vodafone_provenienza` and `vodafone_arrivi` in the update (`vodafone_arrivals.csv`, with
   ALL the days of the year). It gained the three main-market columns: rerun the base build before the update.
+* `phen_tempo_medio_turisti` needs `vodafone_tempi` in the update (same `vodafone_arrivals.csv`). It now holds the pairs
+  arrivals / travel time per origin market: rerun the base build before the update.
 * The 2024 ISPAT presence files (downloaded by the base build) are needed by the 2025 update for the stays crossing the new year.
 
 ### The update config (`config/updates/<round>.yaml`)
@@ -243,7 +245,7 @@ backend reads them as parquet.
 | `phen_consumption` | comune × day | `ee_services`, `ee_total`, `gas_services`, `gas_total` |
 | `phen_flussi_od` | comune × year | `quota_ingresso`, `quota_uscita`, `quota_intra_ambito`, `pagerank` × (`tourist`, `visitor`, `combined`), `giorni_coperti` |
 | `phen_provenienza` | comune × year | `hhi_provenienza`, `giorni_coperti`, `volume_totale`, top-country `volume_mercato_N` / `nome_mercato_N` pairs (`N` configurable in `config/settings.yaml`) |
-| `phen_tempo_medio_turisti` | comune × year | `arrivi`, `minuti_totali` (the backend index is `minuti_totali / arrivi`, in minutes, weighted by arrivals; Italian reference city configurable in `config/settings.yaml`) |
+| `phen_tempo_medio_turisti` | comune × year × origin market | `provenienza` (ISO3), `arrivi`, `tempo_di_percorrenza` (pairs: the backend computes the arrival-weighted statistic, in minutes; Italian reference city configurable in `config/settings.yaml`) |
 | `phen_meteo` | comune × day | `t_min`, `t_max`, `t_mean`, `hdd`, `rain_mm` |
 | `phen_ee_tourism_share` | comune × year | `quota_ee_turismo`, `presenze_medie`, `consumo_medio`, `affidabilita` (`alta` / `media` / `bassa`) |
 | `phen_ridistribuzione` | comune × day | `squilibrio_pp`, `persone_gap`, `persone_spostate_nette`, `eccesso_non_assorbibile` × (`tourist`, `visitor`, `combined`) (produced by `gen_redistribution_dataframes.py`) |

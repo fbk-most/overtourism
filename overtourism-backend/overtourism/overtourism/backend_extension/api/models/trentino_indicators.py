@@ -868,31 +868,92 @@ class SourceMarketsConcentrationIndicator(Indicator):
         return df["hhi_provenienza"]
 
 
+def weighted_mean_travel_time(pairs: pd.DataFrame) -> float:
+    """Mean of the travel times weighted by the arrivals."""
+    if pairs["arrivi"].sum() <= 0:
+        return np.nan
+    return float(np.average(pairs["tempo_di_percorrenza"], weights=pairs["arrivi"]))
+
+
 class MeanTouristTravelTimeIndicator(Indicator):
-    """Estimated mean journey time to a comune, weighted by tourist arrivals."""
+    """
+    Estimated journey time to a comune, weighted by tourist arrivals.
+
+    ``phen_tempo_medio_turisti`` has one row per year, comune and origin market (``provenienza``) with its
+    ``arrivi`` and ``tempo_di_percorrenza`` (minutes). The index is ``combinator_fn`` (pairs of a territory -> value;
+    default: the arrival-weighted mean) computed on all the pairs of the years touched by the requested window:
+    pass another statistic (e.g. a weighted median) in the registry to change it. The phenomena/combinator pipeline
+    of the base class is not used: it would collapse the pairs of a comune-day.
+    """
 
     name = "Tempo medio di viaggio dei turisti"
     description = (
-        "Stima il tempo medio, in minuti, impiegato dai turisti per raggiungere un comune, "
-        "ponderando i tempi di percorrenza per gli arrivi Vodafone e il paese di provenienza. "
-        "Per l'Italia si assume una città di partenza configurabile; per gli altri paesi si "
-        "assume la capitale. È un indicatore annuale e non rappresenta la città di partenza "
-        "effettiva dei singoli turisti."
+        "Indica <strong>quanti minuti impiegano in media i turisti per raggiungere un comune</strong>: valori "
+        "alti indicano turisti che arrivano da lontano. È una <strong>stima annuale</strong> sugli arrivi "
+        "Vodafone, che assume la partenza da una città di riferimento per gli italiani e dalla capitale per gli "
+        "stranieri."
     )
-    index_value_unit_description = "Tempo medio stimato di viaggio"
+    index_value_unit_description = "Tempo medio stimato di viaggio (minuti)"
     # year_only = True
     category = "Provenienza"
     order = 100
+    # macro area / province: comuni weighted by their arrivals (= the weighted mean on all the pairs of the area)
+    area_weight_col = "arrivi"
 
-    def __init__(self, source_file):
-        super().__init__(
-            phenomena=[
-                FlowIndicatorPhenomenon(source_file, "minuti_totali"),
-                FlowIndicatorPhenomenon(source_file, "arrivi"),
-            ],
-            # minutes / arrivals: on several years or on the whole Trentino the mean stays weighted by the arrivals
-            combinator=self.divide("minuti_totali", "arrivi"),
-        )
+    def __init__(
+        self,
+        source_file,
+        combinator_fn: Callable[[pd.DataFrame], float] = weighted_mean_travel_time,
+    ):
+        super().__init__(phenomena=[], combinator=combinator_fn)
+        # not in `phenomena` (resolving it would collapse the pairs): only reads the file, with the shared file cache
+        self.pairs_source = FlowIndicatorPhenomenon(source_file, "arrivi")
+
+    def _read_pairs(self) -> pd.DataFrame:
+        pairs = self.pairs_source._read_source()
+        pairs["ID_COMUNE"] = pairs["ID_COMUNE"].astype(str)
+        pairs["year"] = pairs["DATA"].astype(str).str[:4].astype(int)
+        return pairs
+
+    @property
+    def years_range(self) -> dict[str, int]:
+        years = self._read_pairs()["year"]
+        return {"min_year": int(years.min()), "max_year": int(years.max())}
+
+    def _window_pairs(self, start_date, end_date) -> pd.DataFrame:
+        """The pairs of the years touched by [start_date, end_date] (the index is yearly)."""
+        pairs = self._read_pairs()
+        if start_date is None or end_date is None:
+            return pairs.iloc[0:0]
+        return pairs[
+            pairs["year"].between(pd.to_datetime(start_date).year, pd.to_datetime(end_date).year)
+        ]
+
+    def _compute_indicator(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        **extra,
+    ) -> pd.DataFrame | None:
+        pairs = self._window_pairs(start_date, end_date)
+        if pairs.empty:
+            return None
+        by_comune = pairs.groupby("ID_COMUNE")
+        return pd.DataFrame(
+            {
+                "arrivi": by_comune["arrivi"].sum(),
+                "INDICE": by_comune[["arrivi", "tempo_di_percorrenza"]].apply(self.combinator),
+            }
+        ).reset_index()
+
+    def _compute_label_metrics(self, start_date, end_date, **extra) -> tuple | None:
+        """Yearly index: constant inside a label (std 0); the region value is the statistic on all the pairs."""
+        result = self._compute_indicator(start_date, end_date)
+        if result is None:
+            return None
+        std_by_comune = dict.fromkeys(result.loc[result["INDICE"].notna(), "ID_COMUNE"], 0.0)
+        region_value = self.combinator(self._window_pairs(start_date, end_date))
+        return result, std_by_comune, region_value, 0.0
 
 
 class MainMarketDependenceIndicator(Indicator):

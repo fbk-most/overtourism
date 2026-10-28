@@ -55,6 +55,9 @@ class Indicator:
     internal_only = False
     year_only = False
     _years_range: dict | None = None
+    # Column of the get_indicator() result that weighs the comuni when INDICE is aggregated to macro areas / province
+    # (weighted mean, see TerritorialConfig.weight_col). None: plain mean.
+    area_weight_col: str | None = None
 
     # How this indicator's own daily INDICE values collapse to one row per
     # comune when *it* is used as a phenomenon by a parent Indicator (see
@@ -361,6 +364,7 @@ class Indicator:
 
         per_comune: dict = {}
         per_comune_std: dict = {}
+        per_comune_weight: dict = {}
         region_series: dict = {}
         region_std_series: dict = {}
 
@@ -375,6 +379,8 @@ class Indicator:
             for _, row in comune_result.iterrows():
                 comune = row["ID_COMUNE"]
                 per_comune.setdefault(comune, {})[label] = row["INDICE"]
+                if self.area_weight_col:
+                    per_comune_weight.setdefault(comune, {})[label] = row[self.area_weight_col]
 
             for comune, std_val in std_by_comune.items():
                 per_comune_std.setdefault(comune, {})[label] = std_val
@@ -385,13 +391,15 @@ class Indicator:
         series = []
         for comune, values in per_comune.items():
             std_values = per_comune_std.get(comune, {})
-            series.append(
-                {
-                    "label": comune,
-                    "data": [self._round_or_none(values.get(l)) for l in labels],
-                    "std": [self._round_or_none(std_values.get(l)) for l in labels],
-                }
-            )
+            entry = {
+                "label": comune,
+                "data": [self._round_or_none(values.get(l)) for l in labels],
+                "std": [self._round_or_none(std_values.get(l)) for l in labels],
+            }
+            if self.area_weight_col:  # used by TerritorialConfig.apply_to_series, not returned
+                weights = per_comune_weight.get(comune, {})
+                entry["weights"] = [weights.get(l) for l in labels]
+            series.append(entry)
 
         series.append(
             {
