@@ -81,6 +81,7 @@ def _build_tc(
     *,
     allowed_comuni: set[str] | None = _DEFAULT_ALLOWED_COMUNI,
     macro_area_agg: str = "mean",
+    weight_col: str | None = None,
 ) -> TerritorialConfig:
     """
     Build a TerritorialConfig for a request.
@@ -97,6 +98,9 @@ def _build_tc(
     macro_area_agg
         "mean" for ratio/index indicators, "sum" for count indicators.
         Hardcoded per endpoint (or overridable in the future).
+    weight_col
+        Column weighing the comuni in the macro area / province mean
+        (``Indicator.area_weight_col``); None = plain mean.
     """
     spatial_granularity = request.query_params.get("spatial_granularity", "comune")
     try:
@@ -105,6 +109,7 @@ def _build_tc(
             spatial_granularity=spatial_granularity,
             allowed_comuni=allowed_comuni,
             macro_area_agg=macro_area_agg,
+            weight_col=weight_col,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -299,8 +304,8 @@ def get_index_data(
     end_date: str | None = Query(None),
 ):
     try:
-        tc = _build_tc(request)
         indicator = get_indicator(index)
+        tc = _build_tc(request, weight_col=indicator.area_weight_col)
         extra = _extra_params(
             request, indicator
         )  # <-- whitelist driven by this indicator
@@ -412,7 +417,8 @@ def get_variation_data(
     or ``provincia`` and controls the territorial grain.
     """
     try:
-        tc = _build_tc(request)
+        indicator = get_indicator(index)
+        tc = _build_tc(request, weight_col=indicator.area_weight_col)
 
         logger.info(
             f"[{index} variation] start_date={start_date}, end_date={end_date}, "
@@ -430,7 +436,6 @@ def get_variation_data(
         _validate_date_order(start_dt, end_dt)
 
         labels = get_chart_labels(start_dt, end_dt, granularity)
-        indicator = get_indicator(index)
         raw_series = indicator.get_temporal_variation(
             start_date=start_dt,
             end_date=end_dt,

@@ -15,16 +15,17 @@ columns below. `DATA` is `YYYY` for yearly phenomena (`phen_popolazione`, `phen_
 | `phen_consumption` | comune × day | monthly electricity and gas withdrawals | disaggregated in time only: each month spread evenly over its days |
 | `phen_flussi_od` | comune × year | Vodafone OD co-visits | only the total rows are used (the country breakdown is anonymized and does not add up); indicators computed per area, then passed to comuni (not split); visitors weigh 0.5 |
 | `phen_provenienza` | comune × year | Vodafone presences (HHI) and arrivals (main market) by country of origin | normalized HHI of tourist user-days; main market from tourist arrivals (areas split by beds); small areas left empty (HHI) |
-| `phen_tempo_medio_turisti` | comune × year | Vodafone tourist arrivals by origin country + route-time matrix | arrival-weighted mean journey time; Italy uses one configurable reference city, foreign origins use their capitals |
+| `phen_tempo_medio_turisti` | comune × year × origin market | Vodafone tourist arrivals by origin country + route-time matrix | pairs arrivals / journey time (the backend computes the arrival-weighted statistic); Italy uses one configurable reference city, foreign origins use their capitals |
 
-## `phen_tempo_medio_turisti` (comune × year)
+## `phen_tempo_medio_turisti` (comune × year × origin market)
 
-Columns: `arrivi` (arrivals with an origin country and a route: the weights of the mean) and `minuti_totali`
-(Σ arrivals × travel time). The mean travel time, in minutes, is NOT in the phenomenon: the backend indicator computes it
-as `minuti_totali / arrivi`, so over several years or comuni it stays weighted by the arrivals (sum both, then divide). `arrivi` can be lower than
-`phen_provenienza.volume_totale`, which also counts the countryless arrivals. The phenomenon is computed from the same
-processed Vodafone arrivals as `phen_provenienza`, retaining origin-country volumes before the top-country aggregation
-discards them.
+Columns: `provenienza` (origin market, ISO3; `ITA` = the Italian reference city), `arrivi` (arrivals of that market in
+the comune and year: the weights) and `tempo_di_percorrenza` (route minutes from that origin). One row per year, comune
+and market: the travel time statistic is NOT in the phenomenon. The backend indicator computes it, for every comune, on
+all the pairs of the requested years, weighted by the arrivals: the mean by default, and the statistic (e.g. a median)
+can be changed in the backend without touching this phenomenon. The sum of `arrivi` can be lower than `phen_provenienza.volume_totale`, which also
+counts the countryless arrivals. The pairs come from the same Vodafone arrivals as `phen_provenienza` (dataset
+`vodafone_tempi`, derived from `vodafone_arrivi`); in the yearly update a recomputed comune-year replaces all its pairs.
 
 * **Starting data**: `vodafone_arrivals.csv`, tourist profile, municipality-area level, grouped by year, destination area
   and `userCountry`. Area arrivals are allocated to comuni proportionally to yearly `tot_postiletto`, using the same
@@ -34,8 +35,8 @@ discards them.
   outside Italy use their ISO3 capital-origin row. `ITA` uses the origin municipality configured as
   `travel_times.reference_city_italy` in `config/settings.yaml` (default `Milano`); the script routes only this
   municipality, so after changing it the matrix must be generated and uploaded again.
-* **Computation**: for each destination comune and year, `Σ(arrivals × travel_time_minutes) / Σ(arrivals)` over
-  countries with a matching route. Countryless arrivals remain part of `phen_provenienza.volume_totale`, but cannot be
+* **Computation**: one pair per destination comune, year and country with a matching route; the backend statistic
+  (default: `Σ(arrivals × travel_time_minutes) / Σ(arrivals)`) is computed on the pairs. Countryless arrivals remain part of `phen_provenienza.volume_totale`, but cannot be
   included in this index. Missing routes are logged and excluded from both numerator and denominator.
 * **Interpretation and limits**: this is an estimate of average travel time from an assumed origin, not a measured
   journey. Every Italian arrival is represented by the configured Italian municipality; every foreign arrival by the
