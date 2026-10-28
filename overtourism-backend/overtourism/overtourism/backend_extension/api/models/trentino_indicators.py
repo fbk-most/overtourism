@@ -343,16 +343,11 @@ class TouristPresenceGiniIndicator(Indicator):
     column_aggs = {CLUSTER_COLUMN: "mode", CLUSTER_TYPE_COLUMN: "mode"}
 
     description = (
-        "L'indice di Gini misura quanto le presenze turistiche giornaliere in un comune "
-        "sono concentrate nel periodo selezionato. "
-        "Il valore 0 indica una distribuzione uniforme, il valore 1 la massima concentrazione. "
-        f"Il calcolo è disponibile solo con almeno l'{_MIN_COVERAGE:.0%} di copertura temporale; "
-        "i comuni sotto questa soglia non hanno valore. "
-        "Per ogni comune è indicato anche il <strong>cluster stagionale</strong> (codice e tipo), ottenuto "
-        "raggruppando i comuni per profilo mensile delle presenze turistiche Vodafone: annuale, sci, "
+        "L'indice di Gini quantifica la concentrazione temporale delle presenze turistiche giornaliere nel periodo selezionato."
+        "Il valore 0 indica una distribuzione uniforme, il valore 1 la concentrazione in un unico giorno. \n"
+        "Per ogni comune è indicato anche il <strong>cluster stagionale</strong> (codice e tipologia), ottenuto "
+        "definito secondo il profilo mensile dei flussi Vodafone: annuale, sci, "
         "estate + spalle, estate alpina. "
-        "Il cluster è calcolato una volta su tutto il periodo disponibile ed è lo stesso per qualsiasi "
-        "periodo selezionato."
     )
     index_value_unit_description = "Indice di Gini normalizzato (0 = uniforme, 1 = concentrato)"
     availableForVariation = False
