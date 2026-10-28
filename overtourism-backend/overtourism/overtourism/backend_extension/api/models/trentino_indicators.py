@@ -955,6 +955,15 @@ class MeanTouristTravelTimeIndicator(Indicator):
         region_value = self.combinator(self._window_pairs(start_date, end_date))
         return result, std_by_comune, region_value, 0.0
 
+    @staticmethod
+    def add_display_columns(result: pd.DataFrame) -> pd.DataFrame:
+        """INDICE (minutes) also as hours:minutes text for the map, e.g. 98 -> "1:38"."""
+        minutes = result["INDICE"].round()
+        result["tempo_ore_minuti"] = minutes.map(
+            lambda m: f"{int(m) // 60}:{int(m) % 60:02d}" if pd.notna(m) else None
+        )
+        return result
+
 
 class MainMarketDependenceIndicator(Indicator):
     category = "Provenienza"

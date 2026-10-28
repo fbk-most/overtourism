@@ -331,6 +331,10 @@ def get_index_data(
 
         else:
             result = tc.apply(computed_index)
+            # text columns for the map (e.g. minutes as hours:minutes): added after the territorial aggregation,
+            # which drops the non-numeric columns
+            if hasattr(indicator, "add_display_columns"):
+                result = indicator.add_display_columns(result)
             if tc.spatial_granularity == "provincia":
                 gdf_final = _build_province_geodataframe(gdf_base, result)
             elif tc.spatial_granularity == "macro_area":
