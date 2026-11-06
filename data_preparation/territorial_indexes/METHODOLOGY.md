@@ -292,6 +292,12 @@ Columns: `quota_ingresso`, `quota_uscita`, `quota_intra_ambito`, `pagerank`, eac
   out flow for `pagerank`).
 * **Reliability**: the two mobility shares are empty where the raw yearly user-days `T` are below 100 (`COVISITS_MIN_T`);
   they can exceed 1 because a user can be counted in several areas.
+* **Coverage by indicator**: for each year, the combined inbound and outbound mobility shares are checked separately.
+  If either share is calculable for fewer than `flows.min_comune_coverage` of the comuni in the area-to-comune mapping
+  (50% by default), that direction's share columns are left empty for all comuni and profiles. The year remains in
+  `phen_flussi_od`, so `quota_intra_ambito` and PageRank from OD movement rows (`UD`) are preserved even when presence
+  totals (`ND`) are too sparse for the mobility shares. When an update recomputes a year, it replaces the previous
+  version of that year's flow data.
 * **Partial years**: `giorni_coperti` is the number of days with data in the year. A year with fewer than 360 days is
   kept but flagged (warning). In the update the indicators are recomputed on all the days of the year.
 * **Where empty values come from** (they are expected, not errors; `process_covisits` logs the share of empty values per

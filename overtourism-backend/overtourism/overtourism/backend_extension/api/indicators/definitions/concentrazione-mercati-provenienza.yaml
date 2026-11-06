@@ -20,9 +20,10 @@ description: >-
   dati della rete di telefonia mobile, sommate sull'anno per area. L'indice non è additivo, quindi
   non viene ripartito: le aree che comprendono più comuni passano il proprio valore a tutti i loro
   comuni, mentre un comune con più aree ha la media pesata sulle giornate-utente. Le presenze
-  contano ogni giorno di soggiorno, quindi i mercati con soggiorni lunghi pesano di più. I conteggi
-  molto piccoli (sotto circa 15 utenti) non sono forniti da Vodafone: l'indice descrive i mercati
-  osservati.
+  contano ogni giorno di soggiorno, quindi i mercati con soggiorni lunghi pesano di più. Per
+  macroaree e provincia è mostrata la media dei valori comunali disponibili: non è l'HHI
+  ricalcolato aggregando i mercati di provenienza. I conteggi molto piccoli (sotto circa 15 utenti)
+  non sono forniti da Vodafone: l'indice descrive i mercati osservati.
 
 phenomena:
   - {name: hhi_provenienza, type: ProvenienzaPhenomenon, source: provenienza, col: hhi_provenienza}

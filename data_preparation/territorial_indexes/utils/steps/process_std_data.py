@@ -63,6 +63,7 @@ from utils.datasets import (  # noqa: F401  (re-exported for convenience)
     PROVENIENZA_PROFILE,
     COVISITS_METRICS,
     COVISITS_MIN_T,
+    COVISITS_MIN_COMUNE_COVERAGE,
     COVISITS_PAGERANK_DAMPING,
     COVISITS_PROFILE_WEIGHTS,
     COVISITS_PROFILES,
@@ -93,7 +94,11 @@ from utils.disaggregation import (
     disaggregate,
     is_whole,
 )
-from utils.flows import build_area_comune, comune_flow_indicators
+from utils.flows import (
+    build_area_comune,
+    comune_flow_indicators,
+    mask_low_coverage_mobility_shares,
+)
 from utils.main_market import comune_main_market
 from utils.provenienza import comune_hhi
 from utils.stay_distribution import distribute_by_stay
@@ -549,8 +554,8 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
     Wide output, one row per comune and year: DATA (year), ID_COMUNE (zero-padded) and
     `<metric>_<profile>` (quota_ingresso, quota_uscita, quota_intra_ambito, pagerank; tourist, visitor and
     combined) + `giorni_coperti`. The `_combined` columns merge the two profiles with the fixed weights
-    COVISITS_PROFILE_WEIGHTS (TOURIST 1, VISITOR 0.5). A year with fewer than COVISITS_FULL_YEAR_DAYS days is partial: it
-    is kept, flagged by `giorni_coperti` and by a warning."""
+    COVISITS_PROFILE_WEIGHTS (TOURIST 1, VISITOR 0.5). Low coverage masks only the affected mobility-share columns;
+    intra-ambito and PageRank are retained. A partial year is flagged by `giorni_coperti` and by a warning."""
     df = clip(
         df, window, name="covisits"
     )  # only the days of the window enter the yearly indicators
@@ -562,6 +567,11 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
         profiles=COVISITS_PROFILES,
         metrics=COVISITS_METRICS,
         weights=COVISITS_PROFILE_WEIGHTS,
+    )
+    out = mask_low_coverage_mobility_shares(
+        out,
+        area_comune["ID_COMUNE"].unique(),
+        COVISITS_MIN_COMUNE_COVERAGE,
     )
     partial = out.groupby("DATA")["giorni_coperti"].first()
     for year, days in partial[partial < COVISITS_FULL_YEAR_DAYS].items():

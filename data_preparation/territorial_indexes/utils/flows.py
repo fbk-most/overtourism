@@ -26,6 +26,7 @@ PageRank).
 
 import json
 import logging
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
@@ -380,3 +381,66 @@ def comune_flow_indicators(
     ).reset_index()
     wide["giorni_coperti"] = wide["DATA"].map(coverage).astype(int)
     return wide.sort_values(["DATA", "ID_COMUNE"]).reset_index(drop=True)
+
+
+def mask_low_coverage_mobility_shares(
+    flow_data: pd.DataFrame,
+    comuni: Iterable[str],
+    min_coverage: float,
+) -> pd.DataFrame:
+    """Mask low-coverage mobility shares, preserving other indicators and years."""
+    if (
+        isinstance(min_coverage, bool)
+        or not isinstance(min_coverage, (int, float))
+        or not 0 <= min_coverage <= 1
+    ):
+        raise ValueError("min_coverage must be between 0 and 1")
+    if flow_data.empty or min_coverage == 0:
+        return flow_data
+
+    required_columns = {
+        "DATA",
+        "ID_COMUNE",
+        "quota_ingresso_combined",
+        "quota_uscita_combined",
+    }
+    missing_columns = required_columns - set(flow_data.columns)
+    if missing_columns:
+        raise ValueError(
+            f"flow data are missing coverage columns: {sorted(missing_columns)}"
+        )
+
+    expected_comuni = set(pd.Series(comuni, dtype="string").dropna().astype(str))
+    if not expected_comuni:
+        raise ValueError("at least one comune is required to assess flow coverage")
+
+    result = flow_data.copy()
+    for year, yearly in flow_data.groupby("DATA", sort=True):
+        yearly = yearly.assign(ID_COMUNE=yearly["ID_COMUNE"].astype(str))
+        if yearly["ID_COMUNE"].duplicated().any():
+            raise ValueError(f"flow data for {year} contain duplicate comune rows")
+
+        values = yearly.set_index("ID_COMUNE").reindex(sorted(expected_comuni))
+        coverage = values[
+            ["quota_ingresso_combined", "quota_uscita_combined"]
+        ].notna().mean()
+        for direction in ("ingresso", "uscita"):
+            direction_coverage = coverage[f"quota_{direction}_combined"]
+            if direction_coverage < min_coverage:
+                columns = [
+                    column
+                    for column in result.columns
+                    if column.startswith(f"quota_{direction}_")
+                ]
+                result.loc[yearly.index, columns] = np.nan
+                logger.warning(
+                    "[flows] %s: %s coverage is %.1f%% (minimum %.1f%%); "
+                    "masking %s shares while retaining other flow indicators",
+                    year,
+                    direction,
+                    direction_coverage * 100,
+                    min_coverage * 100,
+                    direction,
+                )
+
+    return result

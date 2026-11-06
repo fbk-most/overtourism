@@ -68,6 +68,7 @@ That is the whole indicator.
 | `year_only` | no, `false` | `true` if the data is yearly: only whole years can be requested |
 | `available_for_variation` | no, `true` | `false` to hide the indicator from the time series |
 | `internal_only` | no, `false` | `true` for infrastructure indicators that are not listed to the user |
+| `macro_area_min_value_coverage` | no, `0` | Minimum share of comuni with a value required to publish macro-area / province aggregates |
 | `extra_fields` | no | Request parameters passed to the calculation (combinators and classes only) |
 | `custom_legend`, `column_aggs` | no | Legend definition / how the extra columns are aggregated on macro areas |
 

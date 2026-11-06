@@ -2,7 +2,11 @@ import pandas as pd
 import pytest
 
 from utils.config import BASE_WINDOW, UPDATE_WINDOW, load_settings
-from utils.steps.create_phenomena_df import compute_phenomena
+from utils.steps.create_phenomena_df import (
+    append_to_existing,
+    compute_phenomena,
+    remove_recomputed_flow_years,
+)
 from utils.steps.process_std_data import process_energy
 from utils.update.spec import ConfigError, load_config
 from utils.window import Window, clip
@@ -70,3 +74,19 @@ def test_compute_phenomena_update_appends_2025_and_drops_before_2022(tmp_path):
     )
     out = compute_phenomena(proc, final, "parquet", datasets=["popolazione"], window=UPDATE_WINDOW)
     assert sorted(out["phen_popolazione"]["DATA"].unique()) == [2022, 2024, 2025]
+
+
+def test_flow_update_removes_a_recomputed_year_even_when_coverage_discards_it():
+    existing = pd.DataFrame(
+        {
+            "DATA": [2024, 2025],
+            "ID_COMUNE": ["022001", "022001"],
+            "quota_ingresso_combined": [0.2, 0.3],
+        }
+    )
+    empty_update = existing.iloc[0:0].copy()
+
+    replaced = remove_recomputed_flow_years(existing, UPDATE_WINDOW)
+    result = append_to_existing(replaced, empty_update, "phen_flussi_od")
+
+    assert result["DATA"].tolist() == [2024]

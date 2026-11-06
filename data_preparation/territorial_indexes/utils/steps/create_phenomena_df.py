@@ -243,6 +243,14 @@ def append_to_existing(df_old, df_new, name):
     return out
 
 
+def remove_recomputed_flow_years(df, window):
+    """Drop existing flow rows for every year covered by an update window."""
+    updated_years = {
+        str(year) for year in range(window.start.year, window.end.year + 1)
+    }
+    return df[~df["DATA"].astype(str).str[:4].isin(updated_years)]
+
+
 def compute_phenomena(
     processed_dir=PROCESSED_DIR,
     out_dir=FINAL_DIR,
@@ -323,6 +331,8 @@ def compute_phenomena(
                     f"{phen}.{type_format} not found in {out_dir}: the update appends to the "
                     "final data of the base build, run the base build first"
                 ) from None
+            if phen == "phen_flussi_od":
+                existing = remove_recomputed_flow_years(existing, window)
             df = append_to_existing(existing, df, phen)
         dict_dfs[phen] = clip(df, keep, name=phen)
 

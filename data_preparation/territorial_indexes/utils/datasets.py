@@ -15,6 +15,7 @@ from utils.config import (
     BASE_WINDOW,
     DATASET_FILES,
     DERIVED_PHENOMENA_FILES,
+    FLOWS_MIN_COMUNE_COVERAGE,
     PHENOMENA_FILES,
     TOP_N_PROVENIENZA_COUNTRIES,
 )
@@ -87,6 +88,7 @@ COVISITS_METRICS = ("quota_ingresso", "quota_uscita", "quota_intra_ambito", "pag
 COVISITS_MIN_T = (
     100  # minimum yearly user-days in an area to compute the mobility shares
 )
+COVISITS_MIN_COMUNE_COVERAGE = FLOWS_MIN_COMUNE_COVERAGE
 COVISITS_PAGERANK_DAMPING = 0.85
 COVISITS_FULL_YEAR_DAYS = (
     360  # fewer days with data: the year is partial (warning, `giorni_coperti`)
