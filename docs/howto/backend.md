@@ -78,10 +78,13 @@ To add or update users in bulk, create a semicolon-delimited CSV with an `email;
 
 Run the services in separate terminals from the repository root. Start the Model API first:
 
+For application and audit logging, set `LOG_CONFIG_FILE` to the path of the JSON logging configuration in each API process. This is separate from Uvicorn's `--log-config`, which configures Uvicorn's own logs.
+
 ```bash
 cd executor-backend
-uv sync
+uv sync --extra log
 source .venv/bin/activate
+LOG_CONFIG_FILE=/path/to/logging.json \
 FAZZON_DATA_DIR=../data_preparation/Output/data/final_data/fazzon \
 MOLVENO_DATA_DIR=../data_preparation/Output/data/final_data/molveno \
     uvicorn src.api.main:app --host 127.0.0.1 --port 8001 \
@@ -96,8 +99,9 @@ curl --fail http://127.0.0.1:8001/health/ready
 
 ```bash
 cd overtourism-backend
-uv sync
+uv sync --extra log
 source .venv/bin/activate
+LOG_CONFIG_FILE=/path/to/logging.json \
 MODEL_BACKEND_URL=http://127.0.0.1:8001 \
     uvicorn overtourism.overtourism.app:app --host 127.0.0.1 --port 8000 \
         --proxy-headers --log-config uvicorn_log_config.json
@@ -116,6 +120,7 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 | Variable | Required when | Default / purpose |
 | --- | --- | --- |
 | `CORS_ALLOWED_ORIGINS` | Optional; set on both APIs for deployment. | Comma-separated allowed origins; defaults to `*`. |
+| `LOG_CONFIG_FILE` | When enabling application/audit logging; set on both APIs. | Path to the JSON logging configuration file; separate from Uvicorn's `--log-config`. |
 | `AUTH_ENABLED` | Always choose explicitly for deployment. | `false`; set to `true` to validate bearer tokens. |
 | `AUTH_JWKS_URL` | `AUTH_ENABLED=true` | Identity provider's JWKS endpoint. |
 | `AUTH_ISSUER` | `AUTH_ENABLED=true` | Expected JWT issuer. |

@@ -3,7 +3,10 @@
 
 Run with::
 
-    uv run fastapi dev overtourism/api/main.py
+    uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8082 \
+        --proxy-headers --log-config uvicorn_log_config.json
+
+The models API and the `/live` and `/ready` probes share port 8082.
 """
 
 from __future__ import annotations
@@ -63,3 +66,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+if os.environ.get("LOG_CONFIG_FILE") is not None:
+    from src.api.utils.logging_utils import setup_tracing
+    setup_tracing(app)
