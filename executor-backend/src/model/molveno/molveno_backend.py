@@ -268,11 +268,11 @@ class MolvenoBackend:
                 kind="categorical",
                 label="Meteo",
                 description=(
-                    "Meteo del giorno: bel tempo, fresco (temperatura massima di oltre 2 °C "
-                    "sotto la media del mese) o pioggia (almeno 5 mm). Senza selezione, "
-                    "le frequenze osservate nei mesi del periodo. Con la pioggia "
-                    "calano gli escursionisti e la ristorazione ne assorbe una "
-                    "quota maggiore."
+                    "Meteo del giorno: bel tempo (né pioggia né fresco), fresco (senza pioggia "
+                    "e con temperatura massima di oltre 2 °C sotto la media del mese) o "
+                    "pioggia (almeno 5 mm). Senza selezione, le frequenze osservate nei mesi "
+                    "del periodo (estati 2023-2025). Con la pioggia calano gli escursionisti "
+                    "e la ristorazione ne assorbe una quota maggiore."
                 ),
                 category="Contesto",
                 support=list(inp.cv_weather.support),
@@ -286,20 +286,22 @@ class MolvenoBackend:
                     "Posti auto dei parcheggi pubblici del comune: 713, di cui 529 a pagamento "
                     "(Ischia 195, Lungolago, Seggiovia, Centro storico, Palazzetto, Piscina, "
                     "Rio Massò, Pozze) e 184 a disco orario o liberi (Comune di Molveno, 2024). "
-                    "Range [min, max]; riferimento: uniform[683, 743]."
+                    "Valori predefiniti: da 683 a 743 (713 ± 30). "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Parcheggi",
                 default_range=(683.0, 743.0),
                 min_value=0.0,
                 max_value=1000.0,
-                step=10.0,
+                step=1.0,
                 distribution_family="uniform",
                 distribution_fixed_params={},
             ),
             inp.i_u_tourists_parking.name: OvertourismParameterMeta(
                 name=inp.i_u_tourists_parking.name,
                 kind="scalar",
-                label="Percentuale di turisti che usano i parcheggi",
+                label="Quota di turisti che usano i parcheggi",
                 description=("Frazione di turisti che usano i parcheggi."),
                 category="Parcheggi",
                 default=0.02,
@@ -310,13 +312,15 @@ class MolvenoBackend:
             inp.i_u_excursionists_parking.name: OvertourismParameterMeta(
                 name=inp.i_u_excursionists_parking.name,
                 kind="distribution",
-                label="Percentuale di escursionisti che usano i parcheggi",
+                label="Quota di escursionisti che usano i parcheggi",
                 description=(
                     "Frazione di escursionisti che usano i parcheggi, cioè che arrivano in "
                     "auto: 78% nell'indagine dell'estate 2023, confermato dai "
                     "contamacchine (0,31 auto in entrata nella zona spiaggia per "
-                    "escursionista, con 2,5 persone per auto). Range [min, max]; "
-                    "riferimento: uniform[0.70, 0.86]."
+                    "escursionista, con 2,5 persone per auto). Valori predefiniti: da 0,70 a "
+                    "0,86. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Parcheggi",
                 default_range=(0.70, 0.86),
@@ -410,8 +414,10 @@ class MolvenoBackend:
                     "Numero massimo di presenze nella spiaggia di Molveno che garantiscono "
                     "un distanziamento adeguato fra le persone. Ipotesi, senza fonte: "
                     "almeno il massimo osservato nell'estate 2023 (4.676 presenze "
-                    "contemporanee, senza segni di saturazione). Range [min, max]; "
-                    "riferimento: uniform[4700, 5500]."
+                    "contemporanee, senza segni di saturazione). Valori predefiniti: da "
+                    "4.700 a 5.500. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Spiaggia",
                 default_range=(4700.0, 5500.0),
@@ -424,7 +430,7 @@ class MolvenoBackend:
             inp.i_u_tourists_beach.name: OvertourismParameterMeta(
                 name=inp.i_u_tourists_beach.name,
                 kind="scalar",
-                label="Percentuale di turisti che usano la spiaggia",
+                label="Quota di turisti che usano la spiaggia",
                 description=(
                     "Frazione di turisti che vanno in spiaggia nella giornata: 0,35 dai "
                     "contapersone ai varchi (estate 2023; 0,25-0,47), contro 0,78 degli "
@@ -439,7 +445,7 @@ class MolvenoBackend:
             inp.i_u_excursionists_beach.name: OvertourismParameterMeta(
                 name=inp.i_u_excursionists_beach.name,
                 kind="scalar",
-                label="Percentuale di escursionisti che usano la spiaggia",
+                label="Quota di escursionisti che usano la spiaggia",
                 description=(
                     "Frazione di escursionisti che vanno in spiaggia nella giornata: 0,78 dai "
                     "contapersone ai varchi (estate 2023; 0,65-0,87)."
@@ -458,7 +464,9 @@ class MolvenoBackend:
                     "Numero di turisti che possono occupare lo stesso posto in spiaggia "
                     "nell'arco della giornata: ingressi giornalieri / massimo di presenti "
                     "ai contapersone (estate 2023), 2,1 (metà dei giorni fra 1,6 e 2,4). "
-                    "Range [min, max]; riferimento: uniform[1.6, 2.4]."
+                    "Valori predefiniti: da 1,6 a 2,4. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Spiaggia",
                 default_range=(1.6, 2.4),
@@ -490,27 +498,30 @@ class MolvenoBackend:
                 description=(
                     "Posti letto nelle strutture ricettive alberghiere ed extralberghiere "
                     "di Molveno: 3.429 nel 2023, 3.503 nel 2025 (ISPAT). Alloggi privati e "
-                    "seconde case non sono considerati. Range [min, max]; riferimento: "
-                    "uniform[3429, 3503]."
+                    "seconde case non sono considerati. Valori predefiniti: da 3.429 a 3.503. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Alberghi",
                 default_range=(3429.0, 3503.0),
                 min_value=0.0,
                 max_value=10000.0,
-                step=10.0,
+                step=1.0,
                 distribution_family="uniform",
                 distribution_fixed_params={},
             ),
             inp.i_u_tourists_accommodation.name: OvertourismParameterMeta(
                 name=inp.i_u_tourists_accommodation.name,
                 kind="distribution",
-                label="Percentuale di turisti che alloggiano in strutture ricettive",
+                label="Quota di turisti che alloggiano in strutture ricettive",
                 description=(
                     "Frazione di turisti che alloggiano in strutture ricettive alberghiere "
                     "o extralberghiere (campeggio compreso) a Molveno: nell'estate 2023 i "
                     "pernottamenti ISPAT sono da 0,64 a 0,93 volte i turisti stimati da "
-                    "Vodafone (10-90% dei giorni; mediana 0,80). Range [min, max]; "
-                    "riferimento: uniform[0.65, 0.90]."
+                    "Vodafone (10-90% dei giorni; mediana 0,80). Valori predefiniti: da 0,65 "
+                    "a 0,90. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Alberghi",
                 default_range=(0.65, 0.90),
@@ -542,20 +553,23 @@ class MolvenoBackend:
                 description=(
                     "Posti a sedere di ristoranti e bar dell'area del lago, paese e Pradel "
                     "compresi: da 2.768 a 2.883 (alcuni locali indicano un intervallo; 745 "
-                    "nella zona spiaggia). Range [min, max]; riferimento: uniform[2768, 2883]."
+                    "nella zona spiaggia). Valori predefiniti: da 2.768 a "
+                    "2.883. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 category="Ristoranti",
                 default_range=(2768.0, 2883.0),
                 min_value=0.0,
                 max_value=6000.0,
-                step=10.0,
+                step=1.0,
                 distribution_family="uniform",
                 distribution_fixed_params={},
             ),
             inp.i_u_tourists_food.name: OvertourismParameterMeta(
                 name=inp.i_u_tourists_food.name,
                 kind="scalar",
-                label="Percentuale di turisti che usano i ristoranti",
+                label="Quota di turisti che usano i ristoranti",
                 description=("Frazione di turisti che usano i ristoranti."),
                 category="Ristoranti",
                 default=0.20,
@@ -566,7 +580,7 @@ class MolvenoBackend:
             inp.i_u_excursionists_food_rainy_weather.name: OvertourismParameterMeta(
                 name=inp.i_u_excursionists_food_rainy_weather.name,
                 kind="scalar",
-                label="Percentuale di escursionisti che usano i ristoranti (pioggia)",
+                label="Quota di escursionisti che usano i ristoranti (pioggia)",
                 description=(
                     "Frazione di escursionisti che usano i ristoranti con la pioggia."
                 ),
@@ -579,7 +593,7 @@ class MolvenoBackend:
             inp.i_u_excursionists_food_good_cool_weather.name: OvertourismParameterMeta(
                 name=inp.i_u_excursionists_food_good_cool_weather.name,
                 kind="scalar",
-                label="Percentuale di escursionisti che usano i ristoranti (tempo bello / fresco)",
+                label="Quota di escursionisti che usano i ristoranti (bel tempo o fresco)",
                 description=(
                     "Frazione di escursionisti che usano i ristoranti "
                     "con bel tempo o tempo fresco."

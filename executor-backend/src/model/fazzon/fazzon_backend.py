@@ -218,7 +218,7 @@ class FazzonBackend:
                 kind="scalar",  # a category in the model, converted by evaluate() (D15)
                 label="Tariffa parcheggio (€ per veicolo)",
                 description=(
-                    "Prezzo medio pagato per veicolo, da 5 a 30 € a passi di 1 €. 5 € = regole 2025; 15 € = "
+                    "Prezzo medio pagato per veicolo, da 5 a 30 € a incrementi di 1 €. 5 € = regole 2025; 15 € = "
                     "media pagata con le regole 2026 (20 € giornata, 10 € dopo le 12).  Una tariffa "
                     "più alta riduce gli arrivi in auto (risposta stimata sui dati 2025-2026) e "
                     "aumenta le persone per veicolo; chi rinuncia all'auto prende la navetta (se "
@@ -236,8 +236,10 @@ class FazzonBackend:
                 kind="distribution",
                 label="Cap parcheggio (auto simultanee)",
                 description=(
-                    "Range [min, max] del numero massimo di auto in parcheggio simultaneo. "
-                    "Riferimento 2025: triangolare moda 200, range [150, 250]."
+                    "Numero massimo di auto in parcheggio simultaneo (riferimento 2025: 200). "
+                    "Valori predefiniti: da 150 a 250. "
+                    "Nota tecnica: i valori vicini a 200 sono i più probabili (distribuzione "
+                    "triangolare)."
                 ),
                 unit="auto",
                 category="Parcheggio",
@@ -270,7 +272,7 @@ class FazzonBackend:
                 name=inp.i_shuttle_buses.name,
                 kind="scalar",
                 label="Navetta: numero di bus",
-                description="Bus che partono insieme a ogni corsa. 0 = nessuna navetta. Lakebus 2026: 2.",
+                description="Bus che partono insieme a ogni corsa. 0 = nessuna navetta. Per servizio Lakebus: 2.",
                 unit="bus",
                 category="Navetta",
                 default=0.0,
@@ -282,7 +284,7 @@ class FazzonBackend:
                 name=inp.i_shuttle_seats_per_bus.name,
                 kind="scalar",
                 label="Navetta: posti per bus",
-                description="Posti a sedere di ogni bus. Lakebus 2026: 30.",
+                description="Posti a sedere di ogni bus. Per servizio Lakebus: 30.",
                 unit="posti",
                 category="Navetta",
                 default=30.0,
@@ -293,8 +295,8 @@ class FazzonBackend:
             inp.i_shuttle_interval_min.name: OvertourismParameterMeta(
                 name=inp.i_shuttle_interval_min.name,
                 kind="scalar",
-                label="Navetta: frequenza (minuti)",
-                description="Minuti fra due corse. Lakebus 2026: 30 (salita nei primi 15, discesa nei secondi 15).",
+                label="Navetta: frequenza in minuti",
+                description="Minuti fra due corse. Per servizio Lakebus: 30 (salita nei primi 15, discesa nei secondi 15).",
                 unit="min",
                 category="Navetta",
                 default=30.0,
@@ -306,7 +308,7 @@ class FazzonBackend:
                 name=inp.i_shuttle_start_hour.name,
                 kind="scalar",
                 label="Navetta: prima corsa (ora)",
-                description="Ora della prima partenza da Pellizzano. Lakebus 2026: 9.",
+                description="Ora della prima partenza da Pellizzano. Per servizio Lakebus: 9.",
                 unit="h",
                 category="Navetta",
                 default=9.0,
@@ -318,7 +320,7 @@ class FazzonBackend:
                 name=inp.i_shuttle_end_hour.name,
                 kind="scalar",
                 label="Navetta: fine servizio (ora)",
-                description="Ora di fine servizio, cioè dell'ultimo rientro a Pellizzano. Lakebus 2026: 19 (ultima partenza 18:30).",
+                description="Ora di fine servizio, cioè dell'ultimo rientro a Pellizzano. Per servizio Lakebus: 19 (ultima partenza 18:30).",
                 unit="h",
                 category="Navetta",
                 default=19.0,
@@ -331,9 +333,11 @@ class FazzonBackend:
                 kind="distribution",
                 label="Ristorazione: quota visitatori in auto che usano i ristoranti",
                 description=(
-                    "Range [min, max]. Chi arriva in auto può portarsi il picnic. "
-                    "SEGNAPOSTO: 0.40-0.60; con 0.56-0.76 per gli altri visitatori dà, al "
-                    "centro dei range, la quota 0.55 dell'indagine EETRA 2022 con le regole 2025."
+                    "Chi arriva in auto può portarsi il picnic. SEGNAPOSTO: con 0.56-0.76 per "
+                    "gli altri visitatori dà, al centro dei range, la quota 0.55 dell'indagine "
+                    "EETRA 2022 con le regole 2025. Valori predefiniti: da 0.40 a 0.60. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 unit="",
                 category="Ristorazione",
@@ -348,8 +352,10 @@ class FazzonBackend:
                 kind="distribution",
                 label="Ristorazione: quota altri visitatori che usano i ristoranti",
                 description=(
-                    "Range [min, max]. Visitatori arrivati in navetta, a piedi o in bici. "
-                    "SEGNAPOSTO: 0.56-0.76 (vedi la quota dei visitatori in auto)."
+                    "Visitatori arrivati in navetta, a piedi o in bici. SEGNAPOSTO (vedi la "
+                    "quota dei visitatori in auto). Valori predefiniti: da 0.56 a 0.76. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 unit="",
                 category="Ristorazione",
@@ -363,7 +369,11 @@ class FazzonBackend:
                 name=inp.i_xo_food_sittings.name,
                 kind="distribution",
                 label="Ristorazione: turni per posto al giorno",
-                description="Range [min, max] dei turni di ogni posto a sedere. SEGNAPOSTO: 1.5-2.5.",
+                description=(
+                    "Turni di ogni posto a sedere. SEGNAPOSTO. Valori predefiniti: da 1.5 a 2.5. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
+                ),
                 unit="turni",
                 category="Ristorazione",
                 default_range=FOOD_SITTINGS_RANGE,
@@ -389,10 +399,10 @@ class FazzonBackend:
                 kind="categorical",
                 label="Meteo",
                 description=(
-                    "Vincola la valutazione a un tipo di giornata: bel tempo, fresco "
-                    "(temperatura massima di oltre 2 °C sotto la media del mese) o pioggia "
-                    "(almeno 5 mm). "
-                    "Lasciare su '(tutte)' per la media ponderata sulla climatologia."
+                    "Meteo del giorno: bel tempo (né pioggia né fresco), fresco (senza pioggia "
+                    "e con temperatura massima di oltre 2 °C sotto la media del mese) o "
+                    "pioggia (almeno 5 mm). Senza selezione, le frequenze osservate nelle "
+                    "estati 2023-2026. Con il fresco e la pioggia calano i visitatori."
                 ),
                 category="Contesto",
                 support=list(inp.cv_weather.support),
@@ -427,8 +437,10 @@ class FazzonBackend:
                 kind="distribution",
                 label="Parcheggio: auto presenti insieme / auto del giorno",
                 description=(
-                    "Range [min, max]. Rilevazione del 22-29/08/2021: 0.50-0.60 secondo il "
-                    "giorno (media 0.555)."
+                    "Rilevazione del 22-29/08/2021: 0.50-0.60 secondo il giorno (media "
+                    "0.555). Valori predefiniti: da 0.49 a 0.61. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 unit="",
                 category="Parametri avanzati",
@@ -443,9 +455,11 @@ class FazzonBackend:
                 kind="distribution",
                 label="Persone per veicolo a 5 €",
                 description=(
-                    "Range [min, max], triangolare con moda alla stima del gestore (2.5 nel 2025, "
-                    "moto incluse). Rilevazione 22-29/08/2021: 2.7-2.9 persone per auto. "
-                    "Minimo SEGNAPOSTO."
+                    "Stima del gestore: 2.5 nel 2025, moto incluse. Rilevazione "
+                    "22-29/08/2021: 2.7-2.9 persone per auto. Minimo SEGNAPOSTO. Valori "
+                    "predefiniti: da 2.3 a 2.9. "
+                    "Nota tecnica: i valori vicini a 2.5 sono i più probabili (distribuzione "
+                    "triangolare)."
                 ),
                 unit="persone",
                 category="Parametri avanzati",
@@ -461,8 +475,10 @@ class FazzonBackend:
                 kind="distribution",
                 label="Persone per veicolo a 20 €",
                 description=(
-                    "Range [min, max], triangolare con moda alla stima del gestore (3.5 nel "
-                    "2026: si sale solo con l'auto piena). SEGNAPOSTO."
+                    "Stima del gestore: 3.5 nel 2026 (si sale solo con l'auto piena). "
+                    "SEGNAPOSTO. Valori predefiniti: da 3.0 a 4.0. "
+                    "Nota tecnica: i valori vicini a 3.5 sono i più probabili (distribuzione "
+                    "triangolare)."
                 ),
                 unit="persone",
                 category="Parametri avanzati",
@@ -480,8 +496,11 @@ class FazzonBackend:
                 kind="distribution",
                 label="Livello della domanda rispetto al 2025",
                 description=(
-                    "Range [min, max] del fattore sulla domanda nelle condizioni 2025 (1 = come "
-                    "il 2025). Effetto anno 1 ± 10 %, compatibile con i dati 2026."
+                    "Fattore sulla domanda nelle condizioni 2025 (1 = come il 2025). Effetto "
+                    "anno 1 ± 10 %, compatibile con i dati 2026. Valori predefiniti: da 0.9 a "
+                    "1.1. "
+                    "Nota tecnica: il modello considera ugualmente probabili tutti i valori del range "
+                    "(distribuzione uniforme)."
                 ),
                 unit="",
                 category="Parametri avanzati",
