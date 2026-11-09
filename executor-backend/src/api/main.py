@@ -66,3 +66,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+if os.environ.get("LOG_CONFIG_FILE") is not None:
+    from src.api.utils.logging_utils import setup_tracing
+    setup_tracing(app)

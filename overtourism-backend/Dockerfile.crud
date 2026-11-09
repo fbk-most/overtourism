@@ -6,7 +6,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ADD . /app
 
 WORKDIR /app
-RUN uv sync
+RUN uv sync --extra log
 
 ENV PATH="/app/.venv/bin:$PATH"
 
