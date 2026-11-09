@@ -231,7 +231,7 @@ def append_to_existing(df_old, df_new, name):
     df_new = df_new[df_old.columns]
     n_old = len(df_old)
     stack = concat_replace_groups if name in MULTI_ROW_PHENOMENA else concat_keep_last
-    out = stack([df_old, df_new], name=name)
+    out = stack([df_old] if df_new.empty else [df_old, df_new], name=name)
     logger.info(
         "[%s] %d existing rows + %d update rows -> %d rows (%d new keys)",
         name,

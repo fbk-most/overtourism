@@ -10,7 +10,7 @@ from utils.flows import (
     area_indicators,
     build_area_comune,
     comune_flow_indicators,
-    mask_low_coverage_mobility_shares,
+    keep_years_with_commune_flow_coverage,
 )
 
 # every comune named by AREA_COMUNE_OVERRIDES must be in the mapping
@@ -175,40 +175,58 @@ def test_sparse_presence_denominators_warn_and_keep_missing_shares(caplog):
     assert result.loc[["B", "C"], "quota_ingresso"].isna().all()
 
 
-def test_low_coverage_masks_only_mobility_shares_and_preserves_other_indicators(caplog):
+def test_flow_years_require_half_of_expected_comuni_for_both_combined_shares(caplog):
     flow_data = pd.DataFrame(
         [
-            # 2024 has low inbound coverage but exactly half outbound coverage.
-            ("2024", "000001", 0.1, 0.2, 0.1, 0.5, 0.8),
-            ("2024", "000002", np.nan, 0.1, np.nan, 0.6, 0.7),
-            ("2024", "000003", np.nan, np.nan, np.nan, 0.2, 0.9),
+            # 2024 has valid shares for only one of four expected comuni.
+            ("2024", "000001", 0.1, 0.2, 0.5, 0.8),
+            ("2024", "000002", np.nan, np.nan, 0.6, 0.7),
+            ("2024", "000003", np.nan, 0.3, 0.2, 0.9),
             # 2025 has valid (including zero) shares for exactly half of them.
-            ("2025", "000001", 0.0, 0.2, 0.1, 0.5, 0.8),
-            ("2025", "000002", 0.1, 0.0, 0.2, 0.6, 0.7),
-            ("2025", "000003", np.nan, 0.3, np.nan, 0.2, 0.9),
+            ("2025", "000001", 0.0, 0.2, 0.5, 0.8),
+            ("2025", "000002", 0.1, 0.0, 0.6, 0.7),
+            ("2025", "000003", np.nan, 0.3, 0.2, 0.9),
         ],
         columns=[
             "DATA",
             "ID_COMUNE",
             "quota_ingresso_combined",
             "quota_uscita_combined",
-            "quota_ingresso_tourist",
             "quota_intra_ambito_combined",
             "pagerank_combined",
         ],
     )
 
     with caplog.at_level(logging.WARNING, logger="utils.flows"):
-        result = mask_low_coverage_mobility_shares(
+        result = keep_years_with_commune_flow_coverage(
             flow_data, ["000001", "000002", "000003", "000004"], 0.5
         )
 
-    year_2024 = result[result["DATA"] == "2024"]
-    assert len(year_2024) == 3
-    assert year_2024["quota_ingresso_combined"].isna().all()
-    assert year_2024["quota_ingresso_tourist"].isna().all()
-    assert year_2024["quota_uscita_combined"].notna().sum() == 2
-    assert year_2024["quota_intra_ambito_combined"].notna().all()
-    assert year_2024["pagerank_combined"].notna().all()
-    assert result[result["DATA"] == "2025"]["quota_ingresso_combined"].notna().sum() == 2
-    assert "2024: ingresso coverage is 25.0%" in caplog.text
+    assert result["DATA"].unique().tolist() == ["2025"]
+    assert "excluding 2024" in caplog.text
+    assert "25.0%/50.0%" in caplog.text
+    assert result["quota_intra_ambito_combined"].notna().all()
+    assert result["pagerank_combined"].notna().all()
+
+
+def test_flow_year_is_removed_when_one_combined_share_is_below_threshold():
+    flow_data = pd.DataFrame(
+        [
+            ("2024", "000001", 0.1, 0.2),
+            ("2024", "000002", np.nan, 0.3),
+            ("2025", "000001", 0.0, 0.2),
+            ("2025", "000002", 0.1, 0.0),
+        ],
+        columns=[
+            "DATA",
+            "ID_COMUNE",
+            "quota_ingresso_combined",
+            "quota_uscita_combined",
+        ],
+    )
+
+    result = keep_years_with_commune_flow_coverage(
+        flow_data, ["000001", "000002", "000003", "000004"], 0.5
+    )
+
+    assert result["DATA"].unique().tolist() == ["2025"]

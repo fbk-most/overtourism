@@ -383,12 +383,12 @@ def comune_flow_indicators(
     return wide.sort_values(["DATA", "ID_COMUNE"]).reset_index(drop=True)
 
 
-def mask_low_coverage_mobility_shares(
+def keep_years_with_commune_flow_coverage(
     flow_data: pd.DataFrame,
     comuni: Iterable[str],
     min_coverage: float,
 ) -> pd.DataFrame:
-    """Mask low-coverage mobility shares, preserving other indicators and years."""
+    """Keep only years where both combined mobility shares meet commune coverage."""
     if (
         isinstance(min_coverage, bool)
         or not isinstance(min_coverage, (int, float))
@@ -414,7 +414,7 @@ def mask_low_coverage_mobility_shares(
     if not expected_comuni:
         raise ValueError("at least one comune is required to assess flow coverage")
 
-    result = flow_data.copy()
+    keep_years = []
     for year, yearly in flow_data.groupby("DATA", sort=True):
         yearly = yearly.assign(ID_COMUNE=yearly["ID_COMUNE"].astype(str))
         if yearly["ID_COMUNE"].duplicated().any():
@@ -424,23 +424,16 @@ def mask_low_coverage_mobility_shares(
         coverage = values[
             ["quota_ingresso_combined", "quota_uscita_combined"]
         ].notna().mean()
-        for direction in ("ingresso", "uscita"):
-            direction_coverage = coverage[f"quota_{direction}_combined"]
-            if direction_coverage < min_coverage:
-                columns = [
-                    column
-                    for column in result.columns
-                    if column.startswith(f"quota_{direction}_")
-                ]
-                result.loc[yearly.index, columns] = np.nan
-                logger.warning(
-                    "[flows] %s: %s coverage is %.1f%% (minimum %.1f%%); "
-                    "masking %s shares while retaining other flow indicators",
-                    year,
-                    direction,
-                    direction_coverage * 100,
-                    min_coverage * 100,
-                    direction,
-                )
+        if (coverage >= min_coverage).all():
+            keep_years.append(year)
+        else:
+            logger.warning(
+                "[flows] excluding %s: combined inbound/outbound shares are "
+                "calculable for %.1f%%/%.1f%% of comuni (minimum %.1f%%)",
+                year,
+                coverage["quota_ingresso_combined"] * 100,
+                coverage["quota_uscita_combined"] * 100,
+                min_coverage * 100,
+            )
 
-    return result
+    return flow_data[flow_data["DATA"].isin(keep_years)].copy()

@@ -3,9 +3,7 @@ import pytest
 
 from utils.config import BASE_WINDOW, UPDATE_WINDOW, load_settings
 from utils.steps.create_phenomena_df import (
-    append_to_existing,
     compute_phenomena,
-    remove_recomputed_flow_years,
 )
 from utils.steps.process_std_data import process_energy
 from utils.update.spec import ConfigError, load_config
@@ -76,17 +74,35 @@ def test_compute_phenomena_update_appends_2025_and_drops_before_2022(tmp_path):
     assert sorted(out["phen_popolazione"]["DATA"].unique()) == [2022, 2024, 2025]
 
 
-def test_flow_update_removes_a_recomputed_year_even_when_coverage_discards_it():
-    existing = pd.DataFrame(
-        {
-            "DATA": [2024, 2025],
-            "ID_COMUNE": ["022001", "022001"],
-            "quota_ingresso_combined": [0.2, 0.3],
-        }
+def test_flow_update_removes_recomputed_year_when_coverage_discards_it(tmp_path):
+    proc, final = tmp_path / "proc", tmp_path / "final"
+    proc.mkdir(), final.mkdir()
+    columns = [
+        "DATA",
+        "ID_COMUNE",
+        "quota_ingresso_combined",
+        "quota_uscita_combined",
+        "quota_intra_ambito_combined",
+        "pagerank_combined",
+    ]
+    pd.DataFrame(columns=columns).to_parquet(
+        proc / "vodafone_covisits_update_pr.parquet"
     )
-    empty_update = existing.iloc[0:0].copy()
+    pd.DataFrame(
+        [
+            (2023, "022001", 0.2, 0.3, 0.4, 0.5),
+            (2024, "022001", 0.2, 0.3, 0.4, 0.5),
+        ],
+        columns=columns,
+    ).to_parquet(final / "phen_flussi_od.parquet")
 
-    replaced = remove_recomputed_flow_years(existing, UPDATE_WINDOW)
-    result = append_to_existing(replaced, empty_update, "phen_flussi_od")
+    year_2024 = Window(pd.Timestamp("2024-01-01"), pd.Timestamp("2024-12-31"))
+    result = compute_phenomena(
+        proc,
+        final,
+        "parquet",
+        datasets=["vodafone_covisits"],
+        window=year_2024,
+    )["phen_flussi_od"]
 
-    assert result["DATA"].tolist() == [2024]
+    assert result["DATA"].tolist() == [2023]
