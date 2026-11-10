@@ -15,7 +15,7 @@ description: >-
   media è pesata su tutti gli arrivi del periodo. Il valore è espresso in <strong>ore</strong> (es.
   4,5 = 4 ore e 30 minuti) e può essere opzionalmente <strong>arrotondato a multipli di
   mezz'ora</strong>. Sono considerati solo i turisti, e solo le provenienze con arrivi e tempo di
-  percorrenza noti. <strong>Fonti dei dati</strong>: arrivi giornalieri di turisti per paese di
+  percorrenza noti. <br><strong>Fonti dei dati</strong>: arrivi giornalieri di turisti per paese di
   provenienza rilevati da Vodafone con i dati della rete di telefonia mobile (attribuiti ai comuni
   in proporzione ai posti letto ISPAT per le aree con più comuni); matrice dei tempi di percorrenza
   verso i comuni trentini, calcolata con OpenStreetMap/OSRM (percorso in auto più veloce, senza

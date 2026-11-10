@@ -14,12 +14,12 @@ description: >-
   giornaliere</strong> nel periodo selezionato. Il valore 0 indica una distribuzione uniforme, il
   valore 1 la concentrazione in un unico giorno.
 
-  <strong>Fonte dei dati</strong>: presenze giornaliere di turisti (persone che pernottano) rilevate
+  <br><strong>Fonte dei dati</strong>: presenze giornaliere di turisti (persone che pernottano) rilevate
   da Vodafone con i dati della rete di telefonia mobile. L'indice è calcolato sulla serie
-  giornaliera dei comuni, ordinata, ed è normalizzato tra 0 e 1. Il comune non ha valore se i giorni
-  con dato coprono meno dell'80% del periodo o se i giorni disponibili sono meno di due. Per le aree
+  giornaliera dei comuni, ordinata, ed è normalizzato tra 0 e 1.  Per le aree
   Vodafone con più comuni, le presenze sono attribuite ai comuni in proporzione ai posti letto
-  (ISPAT). Per macro aree e province il valore è la media degli indici dei comuni.
+  (ISPAT). <br>L'indice per un comune non è disponibile se i giorni
+  con dato coprono meno dell'80% del periodo indicato o se i giorni disponibili sono meno di due. Per macro aree e province il valore è la media degli indici dei comuni.<br>
 
   Per ogni comune è indicato anche il <strong>cluster stagionale</strong> (codice e tipologia):
   annuale, sci, estate + spalle, estate alpina. Il cluster è calcolato una sola volta sul profilo

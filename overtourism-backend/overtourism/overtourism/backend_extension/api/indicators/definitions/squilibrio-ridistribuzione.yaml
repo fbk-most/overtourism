@@ -23,10 +23,10 @@ description: >-
   di tipo fra le aree): la parte che non trova posto entro il raggio resta «non assorbibile». Non è
   un costo in euro. Il tetto è una stima incerta (intervallo al 90%: ×1,5 per i turisti, ×1,9 per
   gli escursionisti) e «bilanciato = stessa saturazione» è una scelta normativa. Per le aree
-  Vodafone che comprendono più comuni il valore è quello dell'area. <strong>Fonti dei dati</strong>:
+  Vodafone che comprendono più comuni il valore è quello dell'area. <br><strong>Fonti dei dati</strong>:
   Vodafone (presenze giornaliere di turisti ed escursionisti e co-visitazioni fra aree, usate per
   stimare il decadimento con la distanza e l'affinità fra aree); ISPAT (posti letto e popolazione
-  residente); ISTAT (confini e superficie dei comuni, tipologia turistica dei comuni). Il tetto di
+  residente); ISTAT (confini e superficie dei comuni, tipologia turistica dei comuni).<br>Il tetto di
   carico è stimato con una regressione quantile (quantile 0,9) sui picchi annuali di carico delle
   aree comparabili, in funzione di posti letto, residenti, seconde case o superficie e profilo
   stagionale. Nella versione combinata gli escursionisti pesano 0,5 rispetto ai turisti. Il calcolo

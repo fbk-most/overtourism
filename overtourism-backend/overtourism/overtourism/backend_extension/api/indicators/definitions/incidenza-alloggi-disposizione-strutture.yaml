@@ -12,8 +12,8 @@ description: >-
   da alloggi turistici, alloggi a disposizione, strutture alberghiere ed extra-alberghiere (numero
   di strutture, non di posti letto). Gli alloggi a disposizione (ad esempio le seconde case) non
   fanno parte dell'offerta ricettiva ufficiale: valori alti indicano un territorio con una forte
-  presenza di abitazioni non stabilmente occupate. {{ispat_structures_source}} L'indice è annuale;
-  le aree senza strutture non hanno valore.
+  presenza di abitazioni non stabilmente occupate. <br>{{ispat_structures_source}} L'indice è annuale;
+  non è calcolato per le aree senza dati sulle strutture.
 
 phenomena:
   - {name: strutture_alloggi_turistici, type: FacilitiesTotalPhenomenon, source: structures, col: strutture_alloggi_turistici}

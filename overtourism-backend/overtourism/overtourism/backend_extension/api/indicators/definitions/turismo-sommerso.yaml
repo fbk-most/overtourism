@@ -12,7 +12,7 @@ description: >-
   attraverso l'analisi di dati da rete di telefonia mobile e le <strong>presenze ufficiali</strong>
   di turisti in strutture alberghiere ed extra-alberghiere. Valori superiori a 1 indicano la presenza
   di turismo non registrato dalle statistiche ufficiali (ad esempio seconde case, alloggi privati,
-  ospiti di amici e parenti). <strong>Fonti dei dati</strong>: Vodafone per le presenze di turisti
+  ospiti di amici e parenti). <br><strong>Fonti dei dati</strong>: Vodafone per le presenze di turisti
   misurate; ISPAT per le presenze ufficiali (movimento turistico) di alberghi ed extra-alberghieri.
   Le presenze ISPAT sono mensili: sono distribuite sui giorni con un modello basato sulla durata
   media del soggiorno e poi attribuite ai comuni in proporzione ai posti letto del tipo di
