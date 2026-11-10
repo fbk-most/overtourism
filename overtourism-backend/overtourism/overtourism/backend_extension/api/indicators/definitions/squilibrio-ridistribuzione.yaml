@@ -17,11 +17,10 @@ description: >-
   tutte le aree hanno la stessa saturazione (carico / tetto). Valori <strong>positivi</strong>
   indicano un'area <strong>sotto-rappresentata</strong>, con margine per accogliere più visitatori;
   valori <strong>negativi</strong> un'area <strong>sovraccarica</strong>. È espresso in punti di
-  saturazione ed è la <strong>media giornaliera del periodo selezionato</strong>. Le
+  saturazione ed è la <strong>media giornaliera del periodo selezionato</strong>. <br>Le
   <strong>frecce</strong> sulla mappa mostrano gli spostamenti a costo minimo con cui l'eccesso
   potrebbe essere riassorbito entro circa 40 km (il costo cresce con la distanza e con la diversità
-  di tipo fra le aree): la parte che non trova posto entro il raggio resta «non assorbibile». Non è
-  un costo in euro. Il tetto è una stima incerta (intervallo al 90%: ×1,5 per i turisti, ×1,9 per
+  di tipo fra le aree): la parte che non trova posto entro il raggio resta «non assorbibile». Il tetto è una stima incerta (intervallo al 90%: ×1,5 per i turisti, ×1,9 per
   gli escursionisti) e «bilanciato = stessa saturazione» è una scelta normativa. Per le aree
   Vodafone che comprendono più comuni il valore è quello dell'area. <br><strong>Fonti dei dati</strong>:
   Vodafone (presenze giornaliere di turisti ed escursionisti e co-visitazioni fra aree, usate per
