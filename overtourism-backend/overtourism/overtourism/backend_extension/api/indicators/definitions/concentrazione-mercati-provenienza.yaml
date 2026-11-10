@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Provenienza - Indice di concentrazione mercati provenienza
+name: Indice di concentrazione mercati provenienza
 category: Provenienza
 order: 102
 index_value_unit_description: Indice HHI normalizzato (0 = mercati diversificati, 1 = un solo mercato)

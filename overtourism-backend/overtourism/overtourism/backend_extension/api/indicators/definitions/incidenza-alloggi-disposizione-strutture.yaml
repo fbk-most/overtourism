@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Incidenza Alloggi a disposizione (strutture)
+name: Incidenza alloggi a disposizione (strutture)
 category: Strutture
 order: 31
 index_value_unit_description: Quota delle strutture sul totale

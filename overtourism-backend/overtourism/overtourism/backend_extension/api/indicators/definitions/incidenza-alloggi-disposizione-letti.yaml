@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Incidenza Alloggi a disposizione (posti letto)
+name: Incidenza alloggi a disposizione (posti letto)
 category: Strutture
 order: 33
 index_value_unit_description: Quota dei posti letto sul totale

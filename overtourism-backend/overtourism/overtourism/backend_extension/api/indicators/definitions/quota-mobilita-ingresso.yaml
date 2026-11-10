@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Flussi - Quota di mobilità in ingresso
+name: Quota di mobilità in ingresso
 category: Flussi
 order: 50
 index_value_unit_description: Rapporto fra utenti in arrivo da altre aree e utenti presenti

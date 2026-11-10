@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Incidenza Alloggi turistici (strutture)
+name: Incidenza alloggi turistici (strutture)
 category: Strutture
 order: 30
 index_value_unit_description: Quota delle strutture sul totale

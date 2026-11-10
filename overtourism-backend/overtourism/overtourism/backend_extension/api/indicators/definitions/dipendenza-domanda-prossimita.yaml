@@ -8,7 +8,7 @@ category: Provenienza
 order: 105
 index_value_unit_description: Quota di turisti provenienti entro 5 ore (0-1)
 description: >-
-  Misura la <strong>quota di turisti che proviene da destinazioni raggiungibili entro 5 ore</strong>
+  Misura la <strong>quota di turisti che proviene da località raggiungibili entro 5 ore</strong>
   di viaggio: il rapporto fra gli arrivi dalle provenienze con tempo di percorrenza fino a 5 ore e
   gli arrivi totali. Valori alti indicano una forte dipendenza dalla domanda di prossimità. Sono
   considerati solo i turisti, e solo le provenienze con arrivi e tempo di percorrenza noti.
