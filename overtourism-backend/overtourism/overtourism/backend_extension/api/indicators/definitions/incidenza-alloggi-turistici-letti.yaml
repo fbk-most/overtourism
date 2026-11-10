@@ -10,9 +10,8 @@ index_value_unit_description: Quota dei posti letto sul totale
 description: >-
   Misura la quota dei <strong>posti letto degli alloggi turistici</strong> sul totale composto da
   alloggi turistici, strutture alberghiere ed extra-alberghiere (posti letto, non numero di
-  strutture). Valori alti indicano una capacità ricettiva concentrata negli alloggi turistici
-  privati rispetto alle strutture tradizionali. <br>{{ispat_structures_source}} L'indice è annuale; non è calcolato per le
-  aree senza dati sui posti letto.
+  strutture). <br>L'indice è annuale; non è calcolato per le aree senza dati sui posti letto. Valori alti indicano una capacità ricettiva concentrata negli alloggi turistici
+  privati rispetto alle strutture tradizionali.<br>{{ispat_structures_source}}
 
 phenomena:
   - {name: letti_alloggi_turistici, type: BedsPhenomenon, source: structures, col: letti_alloggi_turistici}

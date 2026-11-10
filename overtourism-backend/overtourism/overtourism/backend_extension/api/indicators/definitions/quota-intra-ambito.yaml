@@ -13,7 +13,7 @@ description: >-
   scambiati con aree dello stesso ambito turistico</strong>; il resto è mobilità inter-ambito.
   Valori alti indicano un'area i cui flussi restano all'interno del proprio ambito. Per i comuni con
   più aree Vodafone il valore è la media pesata sui flussi intra-ambito; per macroaree e provincia
-  è la media dei valori comunali, non il rapporto fra i flussi aggregati. È vuoto per le aree senza
+  è la media dei valori comunali. È vuoto per le aree senza
   flussi verso altre aree o con ambito sconosciuto. {{flow_common}}
 
 phenomena:

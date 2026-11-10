@@ -10,7 +10,7 @@ index_value_unit_description: Presenze turistiche per km²
 description: >-
   L'indice di densità turistica definisce il <strong>rapporto</strong> fra il <strong>numero medio
   giornaliero di turisti ed escursionisti</strong> presenti in un comune e la sua
-  <strong>superficie</strong> in km². L'indice fornisce una misura della pressione turistica sul
+  <strong>superficie</strong> in km². L'indice fornisce una misura della <strong>pressione turistica</strong> sul
   territorio. <br><strong>Fonti dei dati</strong>: Vodafone (dati della rete di telefonia mobile) per le
   presenze giornaliere di turisti (persone che pernottano) ed escursionisti (visitatori
   giornalieri); confini amministrativi ISTAT per la superficie dei comuni. Per le aree Vodafone che
