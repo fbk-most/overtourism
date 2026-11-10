@@ -109,11 +109,14 @@ def load_settings(path=SETTINGS_FILE) -> dict:
     flows = settings.get("flows") or {}
     if not isinstance(flows, dict):
         raise TypeError(f"{path}: flows must be a mapping")
+    flow_coverage_active = flows.get("active", True)
     flow_coverage = flows.get("min_comune_coverage", 0.5)
     if missing:
         raise KeyError(f"{path}: missing setting(s) {missing}")
     if settings["type_format"] not in TYPE_FORMATS:
         raise ValueError(f"{path}: type_format must be one of {TYPE_FORMATS}")
+    if not isinstance(flow_coverage_active, bool):
+        raise ValueError(f"{path}: flows.active must be true or false")
     if (
         isinstance(flow_coverage, bool)
         or not isinstance(flow_coverage, (int, float))
@@ -172,6 +175,7 @@ if (
 FLOWS_MIN_COMUNE_COVERAGE = float(
     (_S.get("flows") or {}).get("min_comune_coverage", 0.5)
 )
+FLOWS_COVERAGE_ACTIVE = (_S.get("flows") or {}).get("active", True)
 DATASET_FILES = _S["datasets"]
 PHENOMENA_FILES = _S["phenomena"]
 TRAVEL_TIMES = _S.get("travel_times") or {}

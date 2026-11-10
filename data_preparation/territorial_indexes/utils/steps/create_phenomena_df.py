@@ -35,10 +35,15 @@ from utils.config import (
     BASE_WINDOW,
     DATA_START,
     FINAL_DIR,
+    FLOWS_COVERAGE_ACTIVE,
+    FLOWS_MIN_COMUNE_COVERAGE,
+    MAPPING_DIR,
+    MAPPING_FILES,
     PROCESSED_DIR,
     TYPE_FORMAT,
     setup_logging,
 )
+from utils.annual_coverage import apply_annual_coverage
 from utils.consumption_share import fit_years
 from utils.datasets import (
     ARRIVI_VALUE_COLS,
@@ -51,7 +56,7 @@ from utils.datasets import (
     PROVENIENZA_VALUE_COLS,
     phenomena_to_recompute,
 )
-from utils.io import ensure_dir, read_df, save_computed_dfs
+from utils.io import ensure_dir, read_df, read_json, save_computed_dfs
 from utils.window import Window, clip
 
 logger = logging.getLogger(__name__)
@@ -243,8 +248,8 @@ def append_to_existing(df_old, df_new, name):
     return out
 
 
-def remove_recomputed_flow_years(df, window):
-    """Drop existing flow rows for every year covered by an update window."""
+def remove_recomputed_annual_years(df, window):
+    """Drop existing annual-index rows for every year covered by an update window."""
     updated_years = {
         str(year) for year in range(window.start.year, window.end.year + 1)
     }
@@ -258,6 +263,7 @@ def compute_phenomena(
     local=True,
     datasets=None,
     window=None,
+    expected_comuni=None,
 ):
     """Reads the processed dataframes, computes the phenomena and saves them.
 
@@ -320,6 +326,33 @@ def compute_phenomena(
                 continue  # nothing to append
         computed[phen] = df
 
+    coverage_phenomena = {
+        name: frame
+        for name, frame in computed.items()
+        if name in {
+            "phen_flussi_od",
+            "phen_provenienza",
+            "phen_presenze",
+            "phen_ee_tourism_share",
+        }
+    }
+    if coverage_phenomena:
+        if FLOWS_COVERAGE_ACTIVE and expected_comuni is None:
+            mapping_comuni = read_json(
+                MAPPING_DIR / MAPPING_FILES["mapping_comuni"]
+            )
+            expected_comuni = mapping_comuni.values()
+        computed.update(
+            apply_annual_coverage(
+                coverage_phenomena,
+                expected_comuni=(
+                    tuple(expected_comuni) if expected_comuni is not None else ()
+                ),
+                active=FLOWS_COVERAGE_ACTIVE,
+                min_coverage=FLOWS_MIN_COMUNE_COVERAGE,
+            )
+        )
+
     dict_dfs = {}
     for phen, df in computed.items():
         logger.info("## Saving %s", phen)
@@ -331,8 +364,12 @@ def compute_phenomena(
                     f"{phen}.{type_format} not found in {out_dir}: the update appends to the "
                     "final data of the base build, run the base build first"
                 ) from None
-            if phen == "phen_flussi_od":
-                existing = remove_recomputed_flow_years(existing, window)
+            if phen in {
+                "phen_flussi_od",
+                "phen_provenienza",
+                "phen_ee_tourism_share",
+            }:
+                existing = remove_recomputed_annual_years(existing, window)
             df = append_to_existing(existing, df, phen)
         dict_dfs[phen] = clip(df, keep, name=phen)
 

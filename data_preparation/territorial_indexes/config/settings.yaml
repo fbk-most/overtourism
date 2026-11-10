@@ -171,8 +171,10 @@ travel_times:
 provenienza:
   top_n_countries: 3  # quota/name pairs in phen_provenienza; shared by base build and updates
 
-# Flows: discard the whole year unless both combined mobility shares can be computed for this share of comuni.
+# Annual coverage: applies to flows and the other annual indicators documented in METHODOLOGY.md.
+# When inactive, years are retained regardless of coverage.
 flows:
+  active: false
   min_comune_coverage: 0.5
 
 # Redistribution indicator "Squilibrio di carico e ridistribuzione dei flussi" (gen_redistribution_dataframes.py).

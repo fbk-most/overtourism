@@ -387,15 +387,18 @@ def keep_years_with_commune_flow_coverage(
     flow_data: pd.DataFrame,
     comuni: Iterable[str],
     min_coverage: float,
+    active: bool = True,
 ) -> pd.DataFrame:
-    """Keep only years where both combined mobility shares meet commune coverage."""
+    """Keep only covered years when the annual coverage rule is active."""
+    if not isinstance(active, bool):
+        raise ValueError("active must be true or false")
     if (
         isinstance(min_coverage, bool)
         or not isinstance(min_coverage, (int, float))
         or not 0 <= min_coverage <= 1
     ):
         raise ValueError("min_coverage must be between 0 and 1")
-    if flow_data.empty or min_coverage == 0:
+    if not active or flow_data.empty or min_coverage == 0:
         return flow_data
 
     required_columns = {

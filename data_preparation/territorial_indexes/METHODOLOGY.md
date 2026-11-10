@@ -17,6 +17,18 @@ columns below. `DATA` is `YYYY` for yearly phenomena (`phen_popolazione`, `phen_
 | `phen_provenienza` | comune × year | Vodafone presences (HHI) and arrivals (main market) by country of origin | normalized HHI of tourist user-days; main market from tourist arrivals (areas split by beds); small areas left empty (HHI) |
 | `phen_tempo_medio_turisti` | comune × day × origin market | Vodafone tourist arrivals by origin country + route-time matrix | pairs arrivals / journey time (the backend computes the arrival-weighted statistic); Italy uses one configurable reference city, foreign origins use their capitals (by car under 1000 km, otherwise plane to BGY + car) |
 
+## Annual indicator coverage
+
+`flows.active` in `config/settings.yaml` enables or disables the annual comune-coverage rule for flow and other annual
+indicators prepared here; `flows.min_comune_coverage` sets the shared minimum fraction of comuni in
+`mapping_comuni` (0.5 means half). When `active: false`, coverage does not remove years or mask indicator values,
+regardless of the configured threshold. When active, each indicator is checked for its own valid values: a flow year is
+removed from `phen_flussi_od` if either combined mobility share misses the threshold; for other annual phenomena
+containing multiple indicators, only the undercovered indicator's values are masked, except
+`phen_ee_tourism_share`, whose undercovered comune-year rows are removed. A zero value is valid when the index defines it
+as calculable. If coverage was previously active and excluded historical years, rerun the base build after disabling it
+to restore those years; a yearly update only rebuilds its configured window.
+
 ## `phen_tempo_medio_turisti` (comune × day × origin market)
 
 Columns: `provenienza` (origin market, ISO3; `ITA` = the Italian reference city), `arrivi` (arrivals of that market in
@@ -292,12 +304,12 @@ Columns: `quota_ingresso`, `quota_uscita`, `quota_intra_ambito`, `pagerank`, eac
   out flow for `pagerank`).
 * **Reliability**: the two mobility shares are empty where the raw yearly user-days `T` are below 100 (`COVISITS_MIN_T`);
   they can exceed 1 because a user can be counted in several areas.
-* **Year-level coverage**: the whole year is excluded from `phen_flussi_od` unless both combined mobility shares
-  (`quota_ingresso_combined` and `quota_uscita_combined`) are calculable for at least
+* **Year-level coverage**: when `flows.active` is true, the whole year is excluded from `phen_flussi_od` unless both
+  combined mobility shares (`quota_ingresso_combined` and `quota_uscita_combined`) are calculable for at least
   `flows.min_comune_coverage` of the comuni in the area-to-comune mapping (50% by default). This also removes the
   intra-ambito and PageRank values for that year, so a partial set of flow indicators is not presented as a complete
   year. When an update recomputes a year, the previous version of that year is replaced even if the new coverage check
-  excludes it.
+  excludes it. With `active: false`, this year-level filter is disabled.
 * **Partial years**: `giorni_coperti` is the number of days with data in the year. A year with fewer than 360 days is
   kept but flagged (warning). In the update the indicators are recomputed on all the days of the year.
 * **Where empty values come from** (they are expected, not errors; `process_covisits` logs the share of empty values per

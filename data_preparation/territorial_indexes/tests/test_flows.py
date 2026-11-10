@@ -230,3 +230,23 @@ def test_flow_year_is_removed_when_one_combined_share_is_below_threshold():
     )
 
     assert result["DATA"].unique().tolist() == ["2025"]
+
+
+def test_inactive_flow_coverage_keeps_undercovered_years():
+    flow_data = pd.DataFrame(
+        {
+            "DATA": ["2024"],
+            "ID_COMUNE": ["000001"],
+            "quota_ingresso_combined": [0.1],
+            "quota_uscita_combined": [np.nan],
+        }
+    )
+
+    result = keep_years_with_commune_flow_coverage(
+        flow_data,
+        ["000001", "000002", "000003", "000004"],
+        0.5,
+        active=False,
+    )
+
+    pd.testing.assert_frame_equal(result, flow_data)

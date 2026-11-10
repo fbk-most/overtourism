@@ -64,6 +64,7 @@ from utils.datasets import (  # noqa: F401  (re-exported for convenience)
     COVISITS_METRICS,
     COVISITS_MIN_T,
     COVISITS_MIN_COMUNE_COVERAGE,
+    COVISITS_COVERAGE_ACTIVE,
     COVISITS_PAGERANK_DAMPING,
     COVISITS_PROFILE_WEIGHTS,
     COVISITS_PROFILES,
@@ -556,7 +557,7 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
     combined) + `giorni_coperti`. The `_combined` columns merge the two profiles with the fixed weights
     COVISITS_PROFILE_WEIGHTS (TOURIST 1, VISITOR 0.5). A year is excluded unless both combined mobility shares are
     computable for at least the configured share of comuni. A retained partial year is flagged by `giorni_coperti`
-    and by a warning."""
+    and by a warning. The coverage rule is applied only when `flows.active` is true."""
     df = clip(
         df, window, name="covisits"
     )  # only the days of the window enter the yearly indicators
@@ -573,6 +574,7 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
         out,
         area_comune["ID_COMUNE"].unique(),
         COVISITS_MIN_COMUNE_COVERAGE,
+        active=COVISITS_COVERAGE_ACTIVE,
     )
     partial = out.groupby("DATA")["giorni_coperti"].first()
     for year, days in partial[partial < COVISITS_FULL_YEAR_DAYS].items():
