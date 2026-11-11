@@ -26,6 +26,7 @@ PageRank).
 
 import json
 import logging
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
@@ -216,6 +217,17 @@ def area_indicators(yearly, ambito, min_t) -> pd.DataFrame:
                 n_pairs_only,
             )
         ok = d["T_raw"] >= min_t
+        coverage = ok.mean() if len(ok) else 0.0
+        if coverage < 0.5:
+            logger.warning(
+                "[flows] %s %s: only %d/%d areas meet the %s user-day presence threshold; "
+                "inbound/outbound shares are unavailable for most areas",
+                year,
+                prof,
+                int(ok.sum()),
+                len(ok),
+                min_t,
+            )
         t = d["T"].replace(0, np.nan)
         d["quota_ingresso"] = np.where(ok, d["UD_in"] / t, np.nan)
         d["quota_uscita"] = np.where(ok, d["UD_out"] / t, np.nan)
@@ -369,3 +381,62 @@ def comune_flow_indicators(
     ).reset_index()
     wide["giorni_coperti"] = wide["DATA"].map(coverage).astype(int)
     return wide.sort_values(["DATA", "ID_COMUNE"]).reset_index(drop=True)
+
+
+def keep_years_with_commune_flow_coverage(
+    flow_data: pd.DataFrame,
+    comuni: Iterable[str],
+    min_coverage: float,
+    active: bool = True,
+) -> pd.DataFrame:
+    """Keep only covered years when the annual coverage rule is active."""
+    if not isinstance(active, bool):
+        raise ValueError("active must be true or false")
+    if (
+        isinstance(min_coverage, bool)
+        or not isinstance(min_coverage, (int, float))
+        or not 0 <= min_coverage <= 1
+    ):
+        raise ValueError("min_coverage must be between 0 and 1")
+    if not active or flow_data.empty or min_coverage == 0:
+        return flow_data
+
+    required_columns = {
+        "DATA",
+        "ID_COMUNE",
+        "quota_ingresso_combined",
+        "quota_uscita_combined",
+    }
+    missing_columns = required_columns - set(flow_data.columns)
+    if missing_columns:
+        raise ValueError(
+            f"flow data are missing coverage columns: {sorted(missing_columns)}"
+        )
+
+    expected_comuni = set(pd.Series(comuni, dtype="string").dropna().astype(str))
+    if not expected_comuni:
+        raise ValueError("at least one comune is required to assess flow coverage")
+
+    keep_years = []
+    for year, yearly in flow_data.groupby("DATA", sort=True):
+        yearly = yearly.assign(ID_COMUNE=yearly["ID_COMUNE"].astype(str))
+        if yearly["ID_COMUNE"].duplicated().any():
+            raise ValueError(f"flow data for {year} contain duplicate comune rows")
+
+        values = yearly.set_index("ID_COMUNE").reindex(sorted(expected_comuni))
+        coverage = values[
+            ["quota_ingresso_combined", "quota_uscita_combined"]
+        ].notna().mean()
+        if (coverage >= min_coverage).all():
+            keep_years.append(year)
+        else:
+            logger.warning(
+                "[flows] excluding %s: combined inbound/outbound shares are "
+                "calculable for %.1f%%/%.1f%% of comuni (minimum %.1f%%)",
+                year,
+                coverage["quota_ingresso_combined"] * 100,
+                coverage["quota_uscita_combined"] * 100,
+                min_coverage * 100,
+            )
+
+    return flow_data[flow_data["DATA"].isin(keep_years)].copy()

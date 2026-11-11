@@ -63,6 +63,8 @@ from utils.datasets import (  # noqa: F401  (re-exported for convenience)
     PROVENIENZA_PROFILE,
     COVISITS_METRICS,
     COVISITS_MIN_T,
+    COVISITS_MIN_COMUNE_COVERAGE,
+    COVISITS_COVERAGE_ACTIVE,
     COVISITS_PAGERANK_DAMPING,
     COVISITS_PROFILE_WEIGHTS,
     COVISITS_PROFILES,
@@ -93,7 +95,11 @@ from utils.disaggregation import (
     disaggregate,
     is_whole,
 )
-from utils.flows import build_area_comune, comune_flow_indicators
+from utils.flows import (
+    build_area_comune,
+    comune_flow_indicators,
+    keep_years_with_commune_flow_coverage,
+)
 from utils.main_market import comune_main_market
 from utils.provenienza import comune_hhi
 from utils.stay_distribution import distribute_by_stay
@@ -549,8 +555,9 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
     Wide output, one row per comune and year: DATA (year), ID_COMUNE (zero-padded) and
     `<metric>_<profile>` (quota_ingresso, quota_uscita, quota_intra_ambito, pagerank; tourist, visitor and
     combined) + `giorni_coperti`. The `_combined` columns merge the two profiles with the fixed weights
-    COVISITS_PROFILE_WEIGHTS (TOURIST 1, VISITOR 0.5). A year with fewer than COVISITS_FULL_YEAR_DAYS days is partial: it
-    is kept, flagged by `giorni_coperti` and by a warning."""
+    COVISITS_PROFILE_WEIGHTS (TOURIST 1, VISITOR 0.5). A year is excluded unless both combined mobility shares are
+    computable for at least the configured share of comuni. A retained partial year is flagged by `giorni_coperti`
+    and by a warning. The coverage rule is applied only when `flows.active` is true."""
     df = clip(
         df, window, name="covisits"
     )  # only the days of the window enter the yearly indicators
@@ -562,6 +569,12 @@ def process_covisits(df, area_comune, window=BASE_WINDOW):
         profiles=COVISITS_PROFILES,
         metrics=COVISITS_METRICS,
         weights=COVISITS_PROFILE_WEIGHTS,
+    )
+    out = keep_years_with_commune_flow_coverage(
+        out,
+        area_comune["ID_COMUNE"].unique(),
+        COVISITS_MIN_COMUNE_COVERAGE,
+        active=COVISITS_COVERAGE_ACTIVE,
     )
     partial = out.groupby("DATA")["giorni_coperti"].first()
     for year, days in partial[partial < COVISITS_FULL_YEAR_DAYS].items():

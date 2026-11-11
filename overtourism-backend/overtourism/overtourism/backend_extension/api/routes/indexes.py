@@ -82,6 +82,7 @@ def _build_tc(
     allowed_comuni: set[str] | None = _DEFAULT_ALLOWED_COMUNI,
     macro_area_agg: str = "mean",
     column_aggs: dict[str, str] | None = None,
+    min_value_coverage: float = 0.0,
 ) -> TerritorialConfig:
     """
     Build a TerritorialConfig for a request.
@@ -101,6 +102,9 @@ def _build_tc(
     column_aggs
         Aggregation of specific columns next to INDICE (the indicator's
         ``column_aggs``, e.g. "mode" for a category).
+    min_value_coverage
+        Minimum share of comuni with an INDICE value required to publish an
+        aggregate. 0 disables the coverage check.
     """
     spatial_granularity = request.query_params.get("spatial_granularity", "comune")
     try:
@@ -110,10 +114,10 @@ def _build_tc(
             allowed_comuni=allowed_comuni,
             macro_area_agg=macro_area_agg,
             column_aggs=column_aggs,
+            min_value_coverage=min_value_coverage,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +306,11 @@ def get_index_data(
 ):
     try:
         indicator = get_indicator(index)
-        tc = _build_tc(request, column_aggs=indicator.column_aggs)
+        tc = _build_tc(
+            request,
+            column_aggs=indicator.column_aggs,
+            min_value_coverage=indicator.macro_area_min_value_coverage,
+        )
         extra = _extra_params(
             request, indicator
         )  # <-- whitelist driven by this indicator
@@ -416,7 +424,12 @@ def get_variation_data(
     or ``provincia`` and controls the territorial grain.
     """
     try:
-        tc = _build_tc(request)
+        indicator = get_indicator(index)
+        tc = _build_tc(
+            request,
+            column_aggs=indicator.column_aggs,
+            min_value_coverage=indicator.macro_area_min_value_coverage,
+        )
 
         logger.info(
             f"[{index} variation] start_date={start_date}, end_date={end_date}, "
@@ -434,7 +447,6 @@ def get_variation_data(
         _validate_date_order(start_dt, end_dt)
 
         labels = get_chart_labels(start_dt, end_dt, granularity)
-        indicator = get_indicator(index)
         raw_series = indicator.get_temporal_variation(
             start_date=start_dt,
             end_date=end_dt,

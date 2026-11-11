@@ -8,10 +8,10 @@ category: Pressione turistica
 order: 13
 index_value_unit_description: Abitanti e presenze turistiche per km²
 description: >-
-  L'indice di densità antropica misura il rapporto fra la <strong>somma di popolazione residente e
+  L'indice di densità antropica misura il rapporto fra la <strong>somma della popolazione residente e del
   numero medio giornaliero di turisti ed escursionisti</strong> rilevati da Vodafone e la
   <strong>superficie</strong> del comune in km². Misura quindi quante persone, residenti e presenti,
-  insistono su ogni km² di territorio. <strong>Fonti dei dati</strong>: ISPAT per la popolazione
+  insistono su ogni km² di territorio. <br><strong>Fonti dei dati</strong>: ISPAT per la popolazione
   residente al 1° gennaio; Vodafone (dati della rete di telefonia mobile) per le presenze di turisti
   ed escursionisti; confini amministrativi ISTAT per la superficie. Per le aree Vodafone con più
   comuni, i turisti sono attribuiti in proporzione ai posti letto (ISPAT) e gli escursionisti alla

@@ -1,10 +1,17 @@
+import logging
 import json
 
 import numpy as np
 import pandas as pd
 
 from utils.datasets import COVISITS_METRICS, COVISITS_PROFILE_WEIGHTS, COVISITS_PROFILES
-from utils.flows import AREA_COMUNE_OVERRIDES, build_area_comune, comune_flow_indicators
+from utils.flows import (
+    AREA_COMUNE_OVERRIDES,
+    area_indicators,
+    build_area_comune,
+    comune_flow_indicators,
+    keep_years_with_commune_flow_coverage,
+)
 
 # every comune named by AREA_COMUNE_OVERRIDES must be in the mapping
 MAPPING_COMUNI = {
@@ -129,3 +136,117 @@ def test_intra_ambito_is_computed_without_presence_denominator():
     assert pd.isna(b["quota_uscita_tourist"])
     assert np.isclose(b["quota_intra_ambito_tourist"], 1.0)
     assert np.isclose(b["quota_intra_ambito_combined"], 1.0)
+
+
+def test_sparse_presence_denominators_warn_and_keep_missing_shares(caplog):
+    yearly = pd.DataFrame(
+        [
+            {
+                "year": 2024,
+                "userProfile": "TOURIST",
+                "covisitType": "ND",
+                "sourceId": "*",
+                "targetId": "A",
+                "value": 200,
+                "value_raw": 200,
+            },
+            *[
+                {
+                    "year": 2024,
+                    "userProfile": "TOURIST",
+                    "covisitType": "UD",
+                    "sourceId": source,
+                    "targetId": target,
+                    "value": 10,
+                    "value_raw": 10,
+                }
+                for source, target in (("A", "B"), ("B", "C"), ("C", "A"))
+            ],
+        ]
+    )
+
+    with caplog.at_level(logging.WARNING, logger="utils.flows"):
+        result = area_indicators(
+            yearly, {"A": "X", "B": "X", "C": "X"}, min_t=100
+        ).set_index("areaId")
+
+    assert "only 1/3 areas meet the 100 user-day presence threshold" in caplog.text
+    assert result.loc["A", "quota_ingresso"] == 0
+    assert result.loc[["B", "C"], "quota_ingresso"].isna().all()
+
+
+def test_flow_years_require_half_of_expected_comuni_for_both_combined_shares(caplog):
+    flow_data = pd.DataFrame(
+        [
+            # 2024 has valid shares for only one of four expected comuni.
+            ("2024", "000001", 0.1, 0.2, 0.5, 0.8),
+            ("2024", "000002", np.nan, np.nan, 0.6, 0.7),
+            ("2024", "000003", np.nan, 0.3, 0.2, 0.9),
+            # 2025 has valid (including zero) shares for exactly half of them.
+            ("2025", "000001", 0.0, 0.2, 0.5, 0.8),
+            ("2025", "000002", 0.1, 0.0, 0.6, 0.7),
+            ("2025", "000003", np.nan, 0.3, 0.2, 0.9),
+        ],
+        columns=[
+            "DATA",
+            "ID_COMUNE",
+            "quota_ingresso_combined",
+            "quota_uscita_combined",
+            "quota_intra_ambito_combined",
+            "pagerank_combined",
+        ],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="utils.flows"):
+        result = keep_years_with_commune_flow_coverage(
+            flow_data, ["000001", "000002", "000003", "000004"], 0.5
+        )
+
+    assert result["DATA"].unique().tolist() == ["2025"]
+    assert "excluding 2024" in caplog.text
+    assert "25.0%/50.0%" in caplog.text
+    assert result["quota_intra_ambito_combined"].notna().all()
+    assert result["pagerank_combined"].notna().all()
+
+
+def test_flow_year_is_removed_when_one_combined_share_is_below_threshold():
+    flow_data = pd.DataFrame(
+        [
+            ("2024", "000001", 0.1, 0.2),
+            ("2024", "000002", np.nan, 0.3),
+            ("2025", "000001", 0.0, 0.2),
+            ("2025", "000002", 0.1, 0.0),
+        ],
+        columns=[
+            "DATA",
+            "ID_COMUNE",
+            "quota_ingresso_combined",
+            "quota_uscita_combined",
+        ],
+    )
+
+    result = keep_years_with_commune_flow_coverage(
+        flow_data, ["000001", "000002", "000003", "000004"], 0.5
+    )
+
+    assert result["DATA"].unique().tolist() == ["2025"]
+
+
+def test_inactive_flow_coverage_keeps_undercovered_years():
+    flow_data = pd.DataFrame(
+        {
+            "DATA": ["2024"],
+            "ID_COMUNE": ["000001"],
+            "quota_ingresso_combined": [0.1],
+            "quota_uscita_combined": [np.nan],
+        }
+    )
+
+    result = keep_years_with_commune_flow_coverage(
+        flow_data,
+        ["000001", "000002", "000003", "000004"],
+        0.5,
+        active=False,
+    )
+
+    pd.testing.assert_frame_equal(result, flow_data)

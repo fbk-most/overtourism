@@ -3,19 +3,19 @@
 #
 # See ../README.md for the format of this file.
 
-name: Flussi - Quota di mobilità in ingresso
+name: Quota di mobilità in ingresso
 category: Flussi
 order: 50
-index_value_unit_description: Rapporto fra utenti in arrivo da altre aree e utenti presenti
+index_value_unit_description: Quota delle giornate-utente presenti associate a flussi in ingresso
 year_only: true
+macro_area_min_value_coverage: 0.5
 description: >-
-  La quota di mobilità in ingresso misura la <strong>quota degli utenti presenti in un'area che
-  arrivano da un'altra area</strong> (rapporto fra gli utenti in arrivo da altre aree e gli utenti
-  presenti). Valori alti indicano località di tappa, raggiunte durante uno spostamento; valori bassi
-  indicano località di destinazione o di pernottamento stabile. Il valore può superare 1 perché un
-  utente può essere contato in più aree; è lasciato vuoto per le aree con meno di 100
-  giornate-utente annue di presenza. {{flow_common}}
-
+  L'indice misura la <strong>quota degli utenti presenti in un'area che arrivano da un'altra area</strong> 
+  (rapporto fra gli utenti in arrivo dall'esterno e il totale degli utenti presenti). Valori alti 
+  indicano località di transito raggiunte durante uno spostamento; valori bassi indicano 
+  invece destinazioni finali o di pernottamento stabile. Il valore può superare 1, poiché un singolo 
+  utente può essere conteggiato in più aree. Per le aggregazioni (macroaree e provincia), il dato è 
+  mostrato solo se almeno la metà dei comuni presenta un valore valido.<br>{{flow_common}}
 phenomena:
   - {name: quota_ingresso_combined, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_ingresso_combined}
   - {name: quota_ingresso_tourist, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_ingresso_tourist}

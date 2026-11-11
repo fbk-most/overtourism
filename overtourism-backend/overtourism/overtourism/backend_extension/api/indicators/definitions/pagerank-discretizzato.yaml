@@ -10,13 +10,11 @@ index_value_unit_description: 'Classe di PageRank (quantili: 1 = più basso)'
 year_only: true
 available_for_variation: false
 description: >-
-  Questo indice misura la <strong>centralità di un'area nella rete dei flussi</strong> fra aree: è
-  alto per le tappe che ricevono flusso da aree a loro volta rilevanti. Per la lettura su mappa il
-  valore è <strong>discretizzato in classi di quantili</strong> (1 = centralità più bassa, 5 = più
-  alta; 0 = dato non disponibile): le classi indicano la posizione relativa fra i comuni. Il
-  PageRank (fattore di smorzamento 0,85) è calcolato sulla rete orientata dei flussi pesati fra aree
-  Vodafone; hanno valore solo le aree che fanno parte della rete, cioè con almeno un flusso in
-  entrata o in uscita. {{flow_common}}
+  Questo indice misura la <strong>centralità di un'area nella rete orientata dei flussi</strong> fra aree: è maggiore per
+  le aree che ricevono flussi da aree a loro volta centrali. Il PageRank è calcolato sui flussi
+  pesati tra aree Vodafone (fattore di smorzamento 0,85) e poi riportato ai comuni. In mappa è
+  espresso in classi di quantile calcolate su tutti i comuni con dato: 1 = più bassa, 5 = più alta;
+  0 = dato non disponibile. <br>{{flow_common}}
 
 phenomena:
   - {name: pagerank_combined, type: FlowIndicatorPhenomenon, source: flows_od, col: pagerank_combined}

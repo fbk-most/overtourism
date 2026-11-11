@@ -57,6 +57,7 @@ class Indicator:
     custom_legend: dict[str, object] | None = None
     internal_only = False
     year_only = False
+    macro_area_min_value_coverage = 0.0
     _years_range: dict | None = None
 
     # How this indicator's own daily INDICE values collapse to one row per

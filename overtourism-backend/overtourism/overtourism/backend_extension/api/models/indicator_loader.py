@@ -139,6 +139,11 @@ _METADATA: dict[str, tuple[str, type | tuple, str]] = {
     "year_only": ("year_only", bool, "true/false"),
     "available_for_variation": ("availableForVariation", bool, "true/false"),
     "internal_only": ("internal_only", bool, "true/false"),
+    "macro_area_min_value_coverage": (
+        "macro_area_min_value_coverage",
+        (int, float),
+        "a number between 0 and 1",
+    ),
     "extra_fields": ("extraFields", list, "list of names"),
     "custom_legend": ("custom_legend", dict, "mapping"),
     "column_aggs": ("column_aggs", dict, "mapping column: aggregation"),
@@ -384,7 +389,10 @@ def parse_definition(
         value = data[yaml_key]
         if (
             not isinstance(value, expected)
-            or (expected is int and isinstance(value, bool))
+            or (
+                (expected is int or (isinstance(expected, tuple) and int in expected))
+                and isinstance(value, bool)
+            )
             or (expected is str and not value.strip())
         ):
             hint = (
@@ -395,6 +403,9 @@ def parse_definition(
             )
             raise ValueError(f"'{yaml_key}' must be {label}, got {value!r}{hint}")
         metadata[attribute] = value
+    coverage = metadata.get("macro_area_min_value_coverage")
+    if coverage is not None and not 0 <= coverage <= 1:
+        raise ValueError("'macro_area_min_value_coverage' must be between 0 and 1")
     if "extraFields" in metadata and not all(
         isinstance(f, str) for f in metadata["extraFields"]
     ):

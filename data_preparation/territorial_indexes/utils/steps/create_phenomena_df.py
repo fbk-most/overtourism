@@ -35,10 +35,15 @@ from utils.config import (
     BASE_WINDOW,
     DATA_START,
     FINAL_DIR,
+    FLOWS_COVERAGE_ACTIVE,
+    FLOWS_MIN_COMUNE_COVERAGE,
+    MAPPING_DIR,
+    MAPPING_FILES,
     PROCESSED_DIR,
     TYPE_FORMAT,
     setup_logging,
 )
+from utils.annual_coverage import apply_annual_coverage
 from utils.consumption_share import fit_years
 from utils.datasets import (
     ARRIVI_VALUE_COLS,
@@ -51,17 +56,35 @@ from utils.datasets import (
     PROVENIENZA_VALUE_COLS,
     phenomena_to_recompute,
 )
-from utils.io import ensure_dir, read_df, save_computed_dfs
+from utils.io import ensure_dir, read_df, read_json, save_computed_dfs
 from utils.window import Window, clip
 
 logger = logging.getLogger(__name__)
 
 
+def _assert_unique_keys(df: pd.DataFrame, keys: list[str], source: str) -> None:
+    duplicates = df.duplicated(keys, keep=False)
+    if duplicates.any():
+        examples = df.loc[duplicates, keys].head(5).to_dict("records")
+        raise ValueError(
+            f"{source} must have at most one row per {keys}; "
+            f"duplicate keys include {examples}"
+        )
+
+
 def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
     """Daily x comune presences dataframe: ISPAT alb + xalb and vodafone presences."""
+    keys = ["DATA", "ID_COMUNE"]
+    for source, frame in (
+        ("presenze alberghiere", df_alb),
+        ("presenze extra-alberghiere", df_extralb),
+        ("presenze Vodafone", df_vodafone),
+    ):
+        _assert_unique_keys(frame, keys, source)
+
     df = df_alb.merge(
-        df_extralb[["DATA", "ID_COMUNE", "presenze_xalb"]],
-        on=["DATA", "ID_COMUNE"],
+        df_extralb[keys + ["presenze_xalb"]],
+        on=keys,
         how="inner",
     )
 
@@ -69,13 +92,12 @@ def compute_presenze_trentino(df_alb, df_extralb, df_vodafone):
     df_mg = df.merge(
         df_vodafone[
             [
-                "DATA",
-                "ID_COMUNE",
+                *keys,
                 "presenze",
                 "presenze_escursionisti_vodafone",
             ]
         ].rename(columns={"presenze": "presenze_vodafone"}),
-        on=["DATA", "ID_COMUNE"],
+        on=keys,
         how="inner",
     )
 
@@ -115,6 +137,14 @@ def compute_consumption(df_ee, df_gas, df_ee_total, df_gas_total):
     """Combine daily electricity and gas consumption (services categories + totals), retaining the keys
     present in any source. Columns: DATA, ID_COMUNE, ee_services, ee_total, gas_services, gas_total."""
     keys = ["DATA", "ID_COMUNE"]
+    for source, frame in (
+        ("consumi elettrici servizi", df_ee),
+        ("consumi gas servizi", df_gas),
+        ("consumi elettrici totali", df_ee_total),
+        ("consumi gas totali", df_gas_total),
+    ):
+        _assert_unique_keys(frame, keys, source)
+
     out = df_ee
     for df in (df_gas, df_ee_total, df_gas_total):
         out = out.merge(df, on=keys, how="outer")
@@ -206,7 +236,7 @@ def append_to_existing(df_old, df_new, name):
     df_new = df_new[df_old.columns]
     n_old = len(df_old)
     stack = concat_replace_groups if name in MULTI_ROW_PHENOMENA else concat_keep_last
-    out = stack([df_old, df_new], name=name)
+    out = stack([df_old] if df_new.empty else [df_old, df_new], name=name)
     logger.info(
         "[%s] %d existing rows + %d update rows -> %d rows (%d new keys)",
         name,
@@ -218,6 +248,14 @@ def append_to_existing(df_old, df_new, name):
     return out
 
 
+def remove_recomputed_annual_years(df, window):
+    """Drop existing annual-index rows for every year covered by an update window."""
+    updated_years = {
+        str(year) for year in range(window.start.year, window.end.year + 1)
+    }
+    return df[~df["DATA"].astype(str).str[:4].isin(updated_years)]
+
+
 def compute_phenomena(
     processed_dir=PROCESSED_DIR,
     out_dir=FINAL_DIR,
@@ -225,6 +263,7 @@ def compute_phenomena(
     local=True,
     datasets=None,
     window=None,
+    expected_comuni=None,
 ):
     """Reads the processed dataframes, computes the phenomena and saves them.
 
@@ -287,6 +326,33 @@ def compute_phenomena(
                 continue  # nothing to append
         computed[phen] = df
 
+    coverage_phenomena = {
+        name: frame
+        for name, frame in computed.items()
+        if name in {
+            "phen_flussi_od",
+            "phen_provenienza",
+            "phen_presenze",
+            "phen_ee_tourism_share",
+        }
+    }
+    if coverage_phenomena:
+        if FLOWS_COVERAGE_ACTIVE and expected_comuni is None:
+            mapping_comuni = read_json(
+                MAPPING_DIR / MAPPING_FILES["mapping_comuni"]
+            )
+            expected_comuni = mapping_comuni.values()
+        computed.update(
+            apply_annual_coverage(
+                coverage_phenomena,
+                expected_comuni=(
+                    tuple(expected_comuni) if expected_comuni is not None else ()
+                ),
+                active=FLOWS_COVERAGE_ACTIVE,
+                min_coverage=FLOWS_MIN_COMUNE_COVERAGE,
+            )
+        )
+
     dict_dfs = {}
     for phen, df in computed.items():
         logger.info("## Saving %s", phen)
@@ -298,6 +364,12 @@ def compute_phenomena(
                     f"{phen}.{type_format} not found in {out_dir}: the update appends to the "
                     "final data of the base build, run the base build first"
                 ) from None
+            if phen in {
+                "phen_flussi_od",
+                "phen_provenienza",
+                "phen_ee_tourism_share",
+            }:
+                existing = remove_recomputed_annual_years(existing, window)
             df = append_to_existing(existing, df, phen)
         dict_dfs[phen] = clip(df, keep, name=phen)
 

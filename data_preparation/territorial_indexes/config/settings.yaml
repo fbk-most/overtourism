@@ -171,6 +171,12 @@ travel_times:
 provenienza:
   top_n_countries: 3  # quota/name pairs in phen_provenienza; shared by base build and updates
 
+# Annual coverage: applies to flows and the other annual indicators documented in METHODOLOGY.md.
+# When inactive, years are retained regardless of coverage.
+flows:
+  active: true
+  min_comune_coverage: 0.7
+
 # Redistribution indicator "Squilibrio di carico e ridistribuzione dei flussi" (gen_redistribution_dataframes.py).
 # Built from phen_presenze / phen_strutture / phen_popolazione (already in paths.final) + the Vodafone areas
 # (`references.geojson` and the mappings) + the two extra mapping inputs below. The model is documented in METHODOLOGY.md.

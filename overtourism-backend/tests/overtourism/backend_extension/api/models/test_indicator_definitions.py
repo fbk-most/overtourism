@@ -33,6 +33,13 @@ def test_every_definition_builds_without_reading_data():
         assert isinstance(indicator.order, int), key
 
 
+def test_flow_indicators_declare_coverage_threshold_in_yaml():
+    assert (
+        t.get_indicator("quota-mobilita-ingresso").macro_area_min_value_coverage == 0.5
+    )
+    assert t.get_indicator("quota-mobilita-uscita").macro_area_min_value_coverage == 0.5
+
+
 def test_order_values_are_unique_so_the_list_order_is_explicit():
     orders = [t.get_indicator(k).order for k in t._REGISTRY]
     assert len(orders) == len(set(orders))
@@ -273,6 +280,10 @@ def test_entries_are_sorted_by_order_then_key(tmp_path):
         (GOOD.replace("source: structures", "source: nowhere"), "unknown source"),
         (GOOD.replace("name: Test\n", ""), "missing required"),
         (GOOD + "descripton: typo\n", "unknown key"),
+        (
+            GOOD + "macro_area_min_value_coverage: 1.1\n",
+            "must be between 0 and 1",
+        ),
         (GOOD + "combinator: quantile_class\n", "exactly one of"),
         (GOOD.replace("formula: beds / population", ""), "exactly one of"),
         (GOOD + "params: {a: 1}\n", "cannot be used with a formula"),
