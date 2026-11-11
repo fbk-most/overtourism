@@ -686,7 +686,6 @@ class TerritorialSustainabilityIndicator(Indicator):
                 )
 
         super().__init__(phenomena=self._shared_phenomena(), combinator=self._indice)
-        self.description = self._build_description()
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -716,32 +715,6 @@ class TerritorialSustainabilityIndicator(Indicator):
                     )
         return [phenomenon for phenomenon, _ in unique.values()]
 
-    @staticmethod
-    def _build_description() -> str:
-        return (
-            "<p>L'indice di sostenibilità territoriale è un <strong>punteggio da 0 a 100</strong> "
-            "(100 = massima sostenibilità) che sintetizza la pressione del turismo sul territorio. "
-            "Si ispira ai criteri GSTC per le destinazioni e alle aree tematiche degli osservatori "
-            "INSTO di UN Tourism.</p>"
-            "<p><strong>Dimensioni e indicatori.</strong> L'indice considera due dimensioni, "
-            "rappresentate da tre indicatori:</p>"
-            "<ul>"
-            "<li><strong>Impatto socio-economico:</strong> turisti per residente, per misurare "
-            "la pressione del turismo sulla popolazione locale.</li>"
-            "<li><strong>Impatto ambientale e uso delle risorse:</strong> impatto del turismo sui "
-            "consumi elettrici e tempo medio di viaggio dei turisti, per rappresentare rispettivamente "
-            "la pressione sui consumi energetici e la componente della mobilità turistica.</li>"
-            "</ul>"
-            "<p><strong>Calcolo.</strong> Ogni indicatore è convertito in un punteggio da 0 a 100 "
-            "sulla base di valori di riferimento sostenibili e critici. Le tre componenti hanno "
-            "lo stesso peso nell'indice finale.</p>"
-            "<p><strong>Dati mancanti.</strong> Gli indicatori non disponibili sono esclusi dal "
-            "calcolo e i pesi vengono ricalcolati. L'indice non è calcolato se la copertura dei dati "
-            "è inferiore al 50%.</p>"
-            "<p><strong>Limiti.</strong> L'indice considera la pressione sui residenti, i consumi "
-            "elettrici e la mobilità turistica. Non costituisce una valutazione complessiva della "
-            "sostenibilità del territorio né una verifica di conformità ai criteri GSTC.</p>"
-        )
 
     # ------------------------------------------------------------------
     # Scoring

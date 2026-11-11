@@ -174,8 +174,8 @@ provenienza:
 # Annual coverage: applies to flows and the other annual indicators documented in METHODOLOGY.md.
 # When inactive, years are retained regardless of coverage.
 flows:
-  active: false
-  min_comune_coverage: 0.5
+  active: true
+  min_comune_coverage: 0.7
 
 # Redistribution indicator "Squilibrio di carico e ridistribuzione dei flussi" (gen_redistribution_dataframes.py).
 # Built from phen_presenze / phen_strutture / phen_popolazione (already in paths.final) + the Vodafone areas
