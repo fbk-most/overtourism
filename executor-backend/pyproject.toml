@@ -3,6 +3,7 @@ name = "executor-backend"
 version = "0.1.0"
 description = "FastAPI and Streamlit backend for the overtourism models"
 requires-python = ">=3.12"
+license = "Apache-2.0"
 dependencies = [
     "civic-digital-twins>=0.12.0,<0.13",
     "digitalhub==0.15.11",
@@ -15,7 +16,15 @@ dependencies = [
     "scipy==1.18.1",
     "streamlit==1.64.0",
 ]
-license = "Apache-2.0"
+[project.optional-dependencies]
+log = [
+    "ecs-logging==2.3.0",
+    "concurrent-log-handler==0.9.31",
+    "opentelemetry-sdk==1.45.2",
+    "opentelemetry-instrumentation-fastapi==0.66b2",
+    "opentelemetry-instrumentation-httpx==0.66b2",
+    "opentelemetry-instrumentation-logging==0.66b2",
+]
 
 [build-system]
 requires = ["hatchling"]

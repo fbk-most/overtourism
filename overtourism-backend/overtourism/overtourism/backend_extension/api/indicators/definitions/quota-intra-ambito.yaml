@@ -1,0 +1,21 @@
+# quota-intra-ambito
+# OD flows: share of an area's flows exchanged with areas of the same ambito.
+#
+# See ../README.md for the format of this file.
+
+name: Quota intra-ambito
+category: Flussi
+order: 52
+index_value_unit_description: Quota dei flussi con aree dello stesso ambito
+year_only: true
+description: >-
+  L'indice misura la quota dei flussi di co-visita in ingresso e in uscita che collegano un'area ad altre aree dello
+  <strong>stesso ambito turistico</strong>. Valori alti indicano un'area i cui flussi restano all'interno del proprio ambito. Non è disponibile se non risultano flussi tra aree o se l'ambito
+  non è noto. <br>{{flow_common}}
+
+phenomena:
+  - {name: quota_intra_ambito_combined, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_intra_ambito_combined}
+  - {name: quota_intra_ambito_tourist, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_intra_ambito_tourist}
+  - {name: quota_intra_ambito_visitor, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_intra_ambito_visitor}
+
+formula: quota_intra_ambito_combined

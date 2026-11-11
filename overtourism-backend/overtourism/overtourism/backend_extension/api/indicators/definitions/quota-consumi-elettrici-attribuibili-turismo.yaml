@@ -1,0 +1,34 @@
+# quota-consumi-elettrici-attribuibili-turismo
+# Yearly share of the electricity consumption attributable to tourism (estimated offline).
+#
+# See ../README.md for the format of this file.
+
+name: Quota consumi elettrici attribuibili al turismo
+category: Consumi
+order: 152
+index_value_unit_description: Quota dei consumi elettrici attribuibile al turismo (0-1)
+year_only: true
+available_for_variation: false
+description: >-
+  L'indice misura la <strong>quota dei consumi elettrici del settore servizi attribuibile al
+  turismo</strong>: la parte del consumo medio giornaliero che varia insieme alle presenze di
+  turisti. La quota è stimata, per ogni comune e per ogni anno, con una <strong>regressione sui 12
+  mesi</strong> dell'anno che tiene conto della temperatura (gradi giorno di riscaldamento); l'effetto
+  delle presenze del comune è avvicinato a quello provinciale dello stesso anno. Non è calcolata per i
+  comuni con dati mancanti in qualche mese. È un'associazione statistica, non una misura diretta:
+  il campo <em>affidabilità</em> è «alta» se, sui soli dati del comune, il limite inferiore
+  dell'intervallo al 95% dell'effetto delle presenze è positivo, «media» se lo è solo quello all'80%,
+  «bassa» altrimenti; una quota pari o superiore a 0,9 è sempre «bassa».
+  <br><strong>Fonti dei dati</strong>: prelievi mensili di energia elettrica del settore servizi
+  (categorie ATECO legate al turismo), distribuiti uniformemente sui giorni; presenze giornaliere di
+  turisti Vodafone (gli escursionisti non sono considerati); temperature giornaliere della stazione
+  Meteotrentino più vicina a ciascun comune, da cui sono ricavati i gradi giorno di riscaldamento
+  (base 18 °C).
+
+phenomena:
+  - {name: quota_ee_turismo, type: ElectricityTourismSharePhenomenon, source: ee_tourism_share, col: quota_ee_turismo}
+  - {name: presenze_medie, type: ElectricityTourismSharePhenomenon, source: ee_tourism_share, col: presenze_medie}
+  - {name: consumo_medio, type: ElectricityTourismSharePhenomenon, source: ee_tourism_share, col: consumo_medio}
+  - {name: affidabilita, type: ElectricityTourismSharePhenomenon, source: ee_tourism_share, col: affidabilita, text: true}
+
+formula: quota_ee_turismo

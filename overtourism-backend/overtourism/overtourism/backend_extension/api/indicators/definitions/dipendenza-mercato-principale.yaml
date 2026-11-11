@@ -1,0 +1,23 @@
+# dipendenza-mercato-principale
+# Share of the arrivals that come from the main source market (+ names of the main markets). Python class.
+#
+# See ../README.md for the format of this file.
+
+name: Indice di dipendenza dal principale mercato di origine
+category: Provenienza
+order: 103
+index_value_unit_description: >-
+  Quota degli arrivi totali dal mercato principale (0-1; 1 = tutti attribuiti a quel mercato)
+year_only: true
+description: >-
+  L'indice di dipendenza dal principale mercato di origine misura la <strong>quota degli arrivi turistici proveniente dal mercato di origine principale</strong>
+  di un comune. Valori alti
+  indicano una forte dipendenza da un singolo mercato. L'indice si basa
+  sugli <strong>arrivi</strong> e non sulle presenze e non è calcolato per i comuni con meno di 100 arrivi annui.
+  <br><strong>Fonte dei dati:</strong> arrivi giornalieri di turisti rilevati da Vodafone tramite rete mobile,
+  sommati sull'anno. Per le aree associate a più comuni, gli arrivi vengono attribuiti in proporzione 
+  ai posti letto (fonte ISPAT). Il mercato principale è individuato sull'insieme dei paesi di provenienza 
+  osservati. I conteggi inferiori alla soglia di privacy Vodafone (circa 15 utenti) non vengono forniti.
+class: MainMarketDependenceIndicator
+sources:
+  source_file: provenienza

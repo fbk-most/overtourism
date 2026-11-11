@@ -2,6 +2,9 @@
 
 Builds the phenomenon dataframes behind the territorial indexes:
 `phen_popolazione`, `phen_strutture`, `phen_presenze`, `phen_consumption`, `phen_flussi_od`, `phen_provenienza`,
+`phen_tempo_medio_turisti`.
+`phen_meteo`, `phen_ee_tourism_share`.
+There are two entry points: a **base build** (2022-2024, `gen_phenomenon_dataframes.py`) and a **yearly update**
 `phen_meteo`, `phen_ee_tourism_share`, and the redistribution indicator (`phen_ridistribuzione`,
 `phen_ridistribuzione_flussi`, `ridistribuzione_nodi`, see below).
 There are two entry points for the phenomena: a **base build** (2022-2024, `gen_phenomenon_dataframes.py`) and a **yearly update**
@@ -15,7 +18,8 @@ This README explains how to run the code and the steps that lead to the final fi
 ## Requirements
 
 * Python 3 with `pandas`, `numpy`, `pyyaml`, `unidecode`, `pyarrow` (parquet) and, for the tests, `pytest`.
-* The redistribution indicator also needs `scipy`, `scikit-learn`, `statsmodels`, `geopandas` and `pyproj`.
+* Anomaly detection and the redistribution indicator need `scikit-learn`; redistribution also needs `scipy`, `statsmodels`,
+  `geopandas` and `pyproj`.
 * `boto3`, `geopandas` and `digitalhub` are imported only when needed (download from the data lake / platform upload).
   The S3 credentials are read from the section `platform.dhcore_env` of the file `platform.credentials_file` (default `.dhcore.ini`) in the home folder.
 * To work without the data lake, put the files in a local folder and set `update.local_source_dir` in `config/settings.yaml`
@@ -29,6 +33,7 @@ territorial_indexes/
 ├── gen_phenomenon_dataframes.py     # entry point: base build, all steps (--with-update / --update-only: also the 2025 update)
 ├── update_phenomenon_dataframes.py  # entry point: yearly update
 ├── gen_redistribution_dataframes.py # entry point: redistribution indicator (run after the phenomena)
+├── detect_anomalies.py              # entry point: detect unusual daily observations in final phenomena
 ├── config/
 │   ├── settings.yaml                # directories, format, period, platform, ALL the file names
 │   └── updates/                     # one yaml per yearly update
@@ -58,7 +63,7 @@ directories as arguments). The main entries:
 | `paths.*` | sub-folders: `mapping`, `raw`, `normalized`, `processed`, `final` |
 | `type_format` | `parquet` (default) or `csv`, for **every** file; keep it the same in the base build and in the update |
 | `period` | time window: `start` (nothing before it is kept), `base_end`, `update_start`, `update_end` |
-| `references` | data-lake keys of the json mappings and of the geojson of the Vodafone areas |
+| `references` | data-lake keys of the json mappings, of the geojson of the Vodafone areas and of the travel-time matrix |
 | `files` | the RAW files of the base build (data-lake keys): popolazione, strutture, Vodafone presences / arrivals / co-visits, the ISPAT presences (`files.presenze`: folder, file-name pattern, measures, tags) and the energy files (`files.energy`: root, folders, category files, totals) |
 | `datasets` | names of the standardized (`std`), processed and update files of every dataset |
 | `naming` | suffixes of the intermediate files (`_std`, `_update`) |
@@ -104,6 +109,13 @@ json mappings are in `Output/mapping`). Every step reads the output of the previ
    `phen_presenze` is an inner join of Vodafone, alb and extralb; `phen_consumption` an outer join of the four energy
    measures; the other phenomena are the processed dataset as it is.
 
+The travel-time matrix used by `phen_tempo_medio_turisti` (`matrice_tempi_verso_trentino.csv`) is NOT computed by the
+pipeline: it is a reference (`references.travel_times`), downloaded into `Output/mapping/` in step 0. It is generated
+once, by hand, with `../data_download/trentino_travel_times.py` (output and routing caches in `Output/travel_times/`) and
+uploaded to the data lake. Its Italian origin is `travel_times.reference_city_italy` (all the Italian comuni if not set).
+Run it again, and upload the new file, when that city changes or the Vodafone arrivals bring new source countries: a
+complete matrix is reused, and new countries are added using the cached routing blocks where possible.
+
 The dataset → phenomenon mapping is in the `phenomena` section of `config/settings.yaml`.
 
 ## Running the base build
@@ -111,6 +123,8 @@ The dataset → phenomenon mapping is in the `phenomena` section of `config/sett
 ```bash
 python -m gen_phenomenon_dataframes                   # base build 2022-2024, all steps, parquet
 python -m gen_phenomenon_dataframes --with-update     # base build, then the update of 2025 (appended)
+python -m gen_phenomenon_dataframes --all             # base build, then redistribution
+python -m gen_phenomenon_dataframes --all --with-update  # base build, update of 2025, then redistribution
 python -m gen_phenomenon_dataframes --update-only     # ONLY the update of 2025 (the base build must already exist)
 python -m gen_phenomenon_dataframes --update-config config/updates/update_2025.yaml   # yaml used by the two options above
 python -m gen_phenomenon_dataframes --skip-download   # reuse Output/data/raw_data, step 0 not run
@@ -158,6 +172,8 @@ Notes:
   the addition of `presenze_escursionisti_vodafone`, `ee_total`, `gas_total`) **rerun the base build** before the update.
 * `phen_provenienza` needs **both** `vodafone_provenienza` and `vodafone_arrivi` in the update (`vodafone_arrivals.csv`, with
   ALL the days of the year). It gained the three main-market columns: rerun the base build before the update.
+* `phen_tempo_medio_turisti` needs `vodafone_tempi` in the update (same `vodafone_arrivals.csv`). It now holds the pairs
+  arrivals / travel time per origin market: rerun the base build before the update.
 * The 2024 ISPAT presence files (downloaded by the base build) are needed by the 2025 update for the stays crossing the new year.
 
 ### The update config (`config/updates/<round>.yaml`)
@@ -215,6 +231,9 @@ python -m gen_redistribution_dataframes --upload         # also log the final ta
 
 Run it **after** `gen_phenomenon_dataframes.py` (and after the yearly update): it reads `phen_presenze`, `phen_strutture` and
 `phen_popolazione` from `final_data` and recomputes the ceilings and the daily solution for every year in them.
+Use `--all` to run redistribution after the base build. Add `--with-update` to apply the 2025 update before
+redistribution. The redistribution step checks for its required phenomenon dataframes and fails with a
+`FileNotFoundError` if any are missing.
 Besides the Vodafone areas geojson and the mappings (already used by the phenomena) it needs two extra mapping inputs, listed in
 `config/settings.yaml` (section `redistribution`, together with every model parameter): the ISTAT comuni shapefile
 (`PRO_COM_T`, `COMUNE`, `Shape_Area` in m²) and the ISTAT tourist typology (`PROCOM`, `COMUNE`, `COD_CAT`). The comuni born from
@@ -222,6 +241,34 @@ a merger that are missing from the typology file are listed in `redistribution.m
 Intermediate results (nodes, demand, ceilings, model-selection and coefficient tables) are saved in
 `data_processed/redistribution/`; the three final tables are **always parquet**, whatever `type_format` is, because the
 backend reads them as parquet.
+
+## Detecting anomalies
+
+`detect_anomalies.py` scores unusual daily observations in the final phenomenon files. Run it after generating the
+phenomena. It models each comune separately over time, so anomalies are measured against that comune's own history
+rather than against the absolute size of other comuni. Numeric phenomenon values and calendar features (month, weekday,
+and day of year) are used by an Isolation Forest. Annual phenomena are not included by default because their time series
+are too short for reliable comune-level detection.
+
+```bash
+python detect_anomalies.py
+python detect_anomalies.py --datasets phen_presenze phen_consumption
+python detect_anomalies.py --contamination 0.02 --min-observations 120
+python detect_anomalies.py --severity 2
+python detect_anomalies.py --format csv
+```
+
+By default, the script reads `phen_presenze`, `phen_consumption` and `phen_meteo` from `Output/data/final_data/`, using
+the format configured by `type_format` in `config/settings.yaml`. It skips municipalities with fewer than 90 observations
+and uses an expected anomaly proportion (`--contamination`) of 0.01. Use `--datasets` to select other final phenomena;
+each selected dataset must contain `DATA` and `ID_COMUNE` columns. The minimum observation count must be at least 20,
+and contamination must be greater than 0 and less than 0.5.
+
+The script writes `anomaly_detection_scores.<format>` to `Output/data/final_data/`. The output contains `DATA`,
+`ID_COMUNE`, the source `phenomenon`, `anomaly_score` (higher means more anomalous), `is_anomaly`, the feature names
+used, and `severity_level`. The default `--severity 3` keeps rows with `abs(anomaly_score) > 0.3`; use `--severity 2`
+for `abs(anomaly_score) > 0.1`, `--severity 1` for rows flagged by the Isolation Forest, or `--severity 0` to keep all
+scored observations. This script only reads the phenomenon inputs; it writes the score file and does not modify them.
 
 ## Outputs
 
@@ -233,6 +280,7 @@ backend reads them as parquet.
 | `phen_consumption` | comune × day | `ee_services`, `ee_total`, `gas_services`, `gas_total` |
 | `phen_flussi_od` | comune × year | `quota_ingresso`, `quota_uscita`, `quota_intra_ambito`, `pagerank` × (`tourist`, `visitor`, `combined`), `giorni_coperti` |
 | `phen_provenienza` | comune × year | `hhi_provenienza`, `giorni_coperti`, `volume_totale`, top-country `volume_mercato_N` / `nome_mercato_N` pairs (`N` configurable in `config/settings.yaml`) |
+| `phen_tempo_medio_turisti` | comune × day × origin market | `provenienza` (ISO3), `arrivi`, `tempo_di_percorrenza` (pairs: the backend computes the arrival-weighted statistic, in minutes; Italian reference city configurable in `config/settings.yaml`) |
 | `phen_meteo` | comune × day | `t_min`, `t_max`, `t_mean`, `hdd`, `rain_mm` |
 | `phen_ee_tourism_share` | comune × year | `quota_ee_turismo`, `presenze_medie`, `consumo_medio`, `affidabilita` (`alta` / `media` / `bassa`) |
 | `phen_ridistribuzione` | comune × day | `squilibrio_pp`, `persone_gap`, `persone_spostate_nette`, `eccesso_non_assorbibile` × (`tourist`, `visitor`, `combined`) (produced by `gen_redistribution_dataframes.py`) |

@@ -1,0 +1,36 @@
+# squilibrio-ridistribuzione
+# Daily imbalance in saturation points + the arrows of the optimal redistribution. Python class.
+#
+# See ../README.md for the format of this file.
+
+name: Squilibrio di carico e ridistribuzione dei flussi
+category: Flussi
+order: 100
+index_value_unit_description: Punti di saturazione (positivo = sotto-rappresentato, negativo = sovraccarico)
+available_for_variation: false
+custom_legend:
+  type: diverging
+description: >-
+  L'indice confronta il <strong>carico di ogni area</strong> (turisti ed escursionisti rilevati da
+  Vodafone; gli escursionisti pesano 0,5) con il suo <strong>tetto di carico</strong> e con una
+  <strong>distribuzione bilanciata</strong>, in cui tutte le aree hanno la stessa saturazione
+  (carico / tetto). Valori <strong>positivi</strong> indicano un'area
+  <strong>sotto-rappresentata</strong>, con margine per accogliere più visitatori; valori
+  <strong>negativi</strong> un'area <strong>sovraccarica</strong>. È espresso in punti di
+  saturazione come <strong>media giornaliera del periodo selezionato</strong>; per le aree Vodafone
+  con più comuni il valore è quello dell'area. <br>Le <strong>frecce</strong> sulla mappa mostrano
+  gli spostamenti a costo minimo con cui l'eccesso potrebbe essere riassorbito entro circa 40 km; le
+  colonne affiancate riportano le persone al giorno da attrarre (+) o da spostare (−), gli
+  spostamenti netti e l'eccesso non assorbibile. Il tetto è stimato con una regressione quantile sui
+  picchi annuali delle aree comparabili ed è incerto (intervallo al 90%: ×1,5 per i turisti, ×1,9
+  per gli escursionisti); «bilanciato = stessa saturazione» è una scelta normativa.
+  <br><strong>Fonti dei dati</strong>:
+  Vodafone (presenze giornaliere di turisti ed escursionisti e co-visitazioni fra aree, usate per
+  stimare il decadimento con la distanza e l'affinità fra aree); ISPAT (posti letto e popolazione
+  residente); ISTAT (confini e superficie dei comuni, tipologia turistica dei comuni).
+
+class: RedistributionBalanceIndicator
+sources:
+  source_file: redistribution
+  flows_file: redistribution_flows
+  nodes_file: redistribution_nodes

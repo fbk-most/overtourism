@@ -54,6 +54,7 @@ class Indicator:
     index_value_unit_description = "Valore indice territoriale"
     availableForVariation: bool = True
     extraFields: list[str] = []
+    custom_legend: dict[str, object] | None = None
     internal_only = False
     year_only = False
     _years_range: dict | None = None
@@ -63,6 +64,11 @@ class Indicator:
     # `aggregate()` below). 'mean' is the sensible default for an index —
     # summing a ratio across days rarely means anything.
     agg: str = "mean"
+
+    # How the columns next to INDICE collapse to one row per macro area / province (see
+    # TerritorialConfig.column_aggs): {column: aggregation}, e.g. "mode" for a category. Columns not listed
+    # follow the TerritorialConfig defaults (numeric -> sum, text -> dropped).
+    column_aggs: dict[str, str] = {}
 
     def __init__(
         self,

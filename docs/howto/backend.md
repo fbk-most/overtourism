@@ -9,6 +9,8 @@ The backend runs as two separate services:
 
 The CRUD API calls the Model API over HTTP. Start the Model API first: the CRUD application reads its model registry during startup and its readiness check also depends on the Model API. Expose the CRUD API to clients; keep the Model API on a private network because it does not validate end-user JWTs.
 
+At startup, the CRUD API also asks the optional agent backend to generate a summary for each stored scenario. The agent backend is meant to be active for this step; if it is not present, summary generation is skipped. The same operation can be requested with `POST /api/{territory}/configuration/update/summaries`.
+
 ## Configuration
 
 Backend requires the datasets and artefacts to build a Digital Twin model on startup.
@@ -72,12 +74,17 @@ python bootstrap_db.py
 
 The script creates the schema and, for SQLite, the database file and parent directories. Pass the configured identifier claim value to also provision the first admin, for example `python bootstrap_db.py YOUR_IDENTIFIER`. It uses `OVERTOURISM_DATABASE` when set; otherwise it targets the same local SQLite file as the CRUD API.
 
+To add or update users in bulk, create a semicolon-delimited CSV with an `email;role` header, then run `python import_users.py users.csv` from `db-bootstrap`. Add an optional `territories` column for comma-separated territory names, such as `email;role;territories`. The importer uses the same `OVERTOURISM_DATABASE` setting and local SQLite default as the schema bootstrap. It normalizes email addresses, inserts missing users, and updates existing users only when their role or territory assignments differ. Existing subject links and active status are preserved. If the `territories` column is omitted, existing assignments are preserved; an empty cell clears assignments. Changing a user to `admin` also clears their territory assignments, matching the API's role behavior. Supported roles are `admin`, `multieditor`, `editor`, and `viewer`; `multieditor` users must have at least one territory.
+
 Run the services in separate terminals from the repository root. Start the Model API first:
+
+For application and audit logging, set `LOG_CONFIG_FILE` to the path of the JSON logging configuration in each API process. This is separate from Uvicorn's `--log-config`, which configures Uvicorn's own logs.
 
 ```bash
 cd executor-backend
-uv sync
+uv sync --extra log
 source .venv/bin/activate
+LOG_CONFIG_FILE=/path/to/logging.json \
 FAZZON_DATA_DIR=../data_preparation/Output/data/final_data/fazzon \
 MOLVENO_DATA_DIR=../data_preparation/Output/data/final_data/molveno \
     uvicorn src.api.main:app --host 127.0.0.1 --port 8001 \
@@ -92,8 +99,9 @@ curl --fail http://127.0.0.1:8001/health/ready
 
 ```bash
 cd overtourism-backend
-uv sync
+uv sync --extra log
 source .venv/bin/activate
+LOG_CONFIG_FILE=/path/to/logging.json \
 MODEL_BACKEND_URL=http://127.0.0.1:8001 \
     uvicorn overtourism.overtourism.app:app --host 127.0.0.1 --port 8000 \
         --proxy-headers --log-config uvicorn_log_config.json
@@ -112,6 +120,7 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 | Variable | Required when | Default / purpose |
 | --- | --- | --- |
 | `CORS_ALLOWED_ORIGINS` | Optional; set on both APIs for deployment. | Comma-separated allowed origins; defaults to `*`. |
+| `LOG_CONFIG_FILE` | When enabling application/audit logging; set on both APIs. | Path to the JSON logging configuration file; separate from Uvicorn's `--log-config`. |
 | `AUTH_ENABLED` | Always choose explicitly for deployment. | `false`; set to `true` to validate bearer tokens. |
 | `AUTH_JWKS_URL` | `AUTH_ENABLED=true` | Identity provider's JWKS endpoint. |
 | `AUTH_ISSUER` | `AUTH_ENABLED=true` | Expected JWT issuer. |
@@ -120,6 +129,7 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 | `AUTH_ALGORITHMS` | Optional | Accepted JWT algorithms; defaults to `RS256`. |
 | `AUTH_LEEWAY_SECONDS` | Optional | JWT clock-skew allowance; defaults to `30` seconds. |
 | `MODEL_BACKEND_URL` | When the Model API is not at the local default. | Defaults to `http://localhost:8001`; for containers, use the Model API's private service address. |
+| `AGENT_BACKEND_URL` | When the agent backend is not at the local default. | Defaults to `http://localhost:9000`; used to generate scenario summaries. |
 | `OVERTOURISM_DATABASE` | Optional locally; set to a persistent database in deployment. | SQLAlchemy database URL; defaults to a SQLite file under `overtourism/overtourism/database/`. |
 | `MODEL_BACKEND_USER`, `MODEL_BACKEND_PASSWORD` | Only if an upstream proxy requires HTTP Basic authentication. | The CRUD API sends Basic credentials only when both are set. The Model API itself does not validate them. |
 | `FAZZON_DATA_DIR` | Model API; optional. | Folder of the Fazzon model data; defaults to `executor-backend/database/fazzon`. |

@@ -26,7 +26,7 @@ for project_dir in "$EXECUTOR_DIR" "$API_DIR"; do
 	if [[ ! -d "$project_dir/.venv" ]]; then
 		uv venv "$project_dir/.venv"
 	fi
-	uv sync --project "$project_dir"
+	uv sync --project "$project_dir" --extra log
 done
 
 if [[ ! -f "$DB_BOOTSTRAP_DIR/pyproject.toml" ]]; then
