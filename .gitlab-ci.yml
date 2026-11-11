@@ -33,7 +33,7 @@ backend-container-build:
     DOCKER_BUILDKIT: 1
   script:
     - docker login -u $DHUB_USER -p $DHUB_PASS
-    - DOCKER_BUILDKIT=1 docker build -f Dockerfile.crud -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
+    - DOCKER_BUILDKIT=1 docker build -f ./overtourism-backend/Dockerfile.crud -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
     - docker push $CONTAINER_IMAGE
     - docker push $CONTAINER_IMAGE_LATEST
   only:
@@ -49,7 +49,7 @@ model-container-build:
     DOCKER_BUILDKIT: 1
   script:
     - docker login -u $DHUB_USER -p $DHUB_PASS
-    - DOCKER_BUILDKIT=1 docker build -f Dockerfile.model -t $MODEL_CONTAINER_IMAGE -t $MODEL_CONTAINER_IMAGE_LATEST .
+    - DOCKER_BUILDKIT=1 docker build -f ./executor-backend/Dockerfile.model -t $MODEL_CONTAINER_IMAGE -t $MODEL_CONTAINER_IMAGE_LATEST .
     - docker push $MODEL_CONTAINER_IMAGE
     - docker push $MODEL_CONTAINER_IMAGE_LATEST
   only:
