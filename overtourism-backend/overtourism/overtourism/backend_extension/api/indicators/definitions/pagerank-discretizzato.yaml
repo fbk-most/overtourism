@@ -13,7 +13,7 @@ description: >-
   Questo indice misura la <strong>centralità di un'area nella rete orientata dei flussi</strong> fra aree: è maggiore per
   le aree che ricevono flussi da aree a loro volta centrali. Il PageRank è calcolato sui flussi
   pesati tra aree Vodafone (fattore di smorzamento 0,85) e poi riportato ai comuni. In mappa è
-  espresso in classi di quantile calcolate sui comuni della richiesta: 1 = più bassa, 5 = più alta;
+  espresso in classi di quantile calcolate su tutti i comuni con dato: 1 = più bassa, 5 = più alta;
   0 = dato non disponibile. <br>{{flow_common}}
 
 phenomena:

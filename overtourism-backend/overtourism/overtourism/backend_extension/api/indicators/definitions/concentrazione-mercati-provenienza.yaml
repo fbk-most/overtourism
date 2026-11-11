@@ -9,12 +9,12 @@ order: 102
 index_value_unit_description: Indice HHI normalizzato (0 = mercati diversificati, 1 = un solo mercato)
 year_only: true
 description: >-
-  L'indice HHI normalizzato (indice di concentrazione dei mercati di provenienza) misura quanto le <strong>presenze turistiche provengono da pochi paesi</strong>. Varia da 0, quando le presenze sono distribuite in
+  L'indice HHI normalizzato (indice di concentrazione dei mercati di provenienza) misura quanto le <strong>presenze turistiche provengano da pochi paesi</strong>. Varia da 0, quando le presenze sono distribuite in
   modo uniforme tra i mercati osservati, a 1, quando tutte le presenze osservate provengono da un solo
   mercato. Non è calcolato per le aree con meno di 100 giornate-utente annue.
-  <br><strong>Fonte dei dati:</strong> presenze giornaliere rilevate da Vodafone tramite rete mobile,
+  <br><strong>Fonte dei dati:</strong> presenze giornaliere di turisti rilevate da Vodafone tramite rete mobile,
   sommate sull'anno.
-  Alle aree associate a più comuni è attribuito lo stesso valore; per i
+  Il valore di un'area che comprende più comuni è attribuito a ciascuno di essi; per i
   comuni con più aree si calcola una media pesata sulle giornate-utente. Per macroaree e provincia
   si usa la media dei valori comunali disponibili. I conteggi inferiori
   alla soglia di privacy Vodafone (circa 15 utenti) non vengono forniti.

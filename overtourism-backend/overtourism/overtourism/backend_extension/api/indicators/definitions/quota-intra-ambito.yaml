@@ -9,8 +9,8 @@ order: 52
 index_value_unit_description: Quota dei flussi con aree dello stesso ambito
 year_only: true
 description: >-
-  La quota intra-ambito misura la quota dei flussi di co-visita in ingresso e in uscita che collega un'area ad altre aree dello
-  <strong>stesso ambito turistico</strong>. Valori alti indicano un'area i cui flussi restano all'interno del proprio ambito. È vuota se non risultano flussi tra aree o se l'ambito
+  L'indice misura la quota dei flussi di co-visita in ingresso e in uscita che collegano un'area ad altre aree dello
+  <strong>stesso ambito turistico</strong>. Valori alti indicano un'area i cui flussi restano all'interno del proprio ambito. Non è disponibile se non risultano flussi tra aree o se l'ambito
   non è noto. <br>{{flow_common}}
 
 phenomena:
