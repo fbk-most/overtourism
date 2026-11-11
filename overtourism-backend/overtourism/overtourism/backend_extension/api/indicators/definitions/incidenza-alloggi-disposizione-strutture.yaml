@@ -3,7 +3,7 @@
 #
 # See ../README.md for the format of this file.
 
-name: Incidenza Alloggi a disposizione (strutture)
+name: Incidenza alloggi a disposizione (strutture)
 category: Strutture
 order: 31
 index_value_unit_description: Quota delle strutture sul totale
@@ -11,9 +11,9 @@ description: >-
   Misura la quota delle <strong>strutture degli alloggi a disposizione</strong> sul totale composto
   da alloggi turistici, alloggi a disposizione, strutture alberghiere ed extra-alberghiere (numero
   di strutture, non di posti letto). Gli alloggi a disposizione (ad esempio le seconde case) non
-  fanno parte dell'offerta ricettiva ufficiale: valori alti indicano un territorio con una forte
-  presenza di abitazioni non stabilmente occupate. {{ispat_structures_source}} L'indice è annuale;
-  le aree senza strutture non hanno valore.
+  fanno parte dell'offerta ricettiva ufficiale. <br>L'indice è annuale;
+  non è calcolato per le aree senza dati sulle strutture. Valori alti indicano un territorio con una forte
+  presenza di abitazioni non stabilmente occupate.<br>{{ispat_structures_source}}
 
 phenomena:
   - {name: strutture_alloggi_turistici, type: FacilitiesTotalPhenomenon, source: structures, col: strutture_alloggi_turistici}

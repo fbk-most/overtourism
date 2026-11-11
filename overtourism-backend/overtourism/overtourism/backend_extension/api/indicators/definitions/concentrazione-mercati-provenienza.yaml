@@ -15,7 +15,7 @@ description: >-
   mercato): vale 0 quando le presenze sono distribuite in modo uniforme fra molti mercati e 1 quando
   provengono da un solo mercato. Valori alti indicano una forte dipendenza da pochi mercati.
   L'indice è annuale, riguarda solo i turisti ed è calcolato sui dati Vodafone; è lasciato vuoto per
-  le aree con presenze troppo basse (meno di 100 giornate-utente annue). <strong>Fonte dei
+  le aree con presenze troppo basse (meno di 100 giornate-utente annue).<br><strong>Fonte dei
   dati</strong>: presenze giornaliere di turisti per paese di provenienza rilevate da Vodafone con i
   dati della rete di telefonia mobile, sommate sull'anno per area. L'indice non è additivo, quindi
   non viene ripartito: le aree che comprendono più comuni passano il proprio valore a tutti i loro
