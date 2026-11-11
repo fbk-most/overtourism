@@ -6,15 +6,16 @@
 name: Quota di mobilità in uscita
 category: Flussi
 order: 51
-index_value_unit_description: Rapporto fra utenti diretti verso altre aree e utenti presenti
+index_value_unit_description: Quota delle giornate-utente presenti associate a flussi in uscita
 year_only: true
 macro_area_min_value_coverage: 0.5
 description: >-
-  La quota di mobilità in uscita misura la <strong>quota degli utenti presenti in un'area che
-  proseguono verso un'altra area</strong> (rapporto fra gli utenti diretti verso altre aree e gli
-  utenti presenti). Valori alti indicano località da cui i visitatori ripartono per visitare altre
-  aree. Il valore può superare 1 perché un utente può essere contato in più aree; per macroaree e provincia è
-  mostrato solo se almeno metà dei comuni ha un dato valido. {{flow_common}}
+  L'indice misura la <strong>quota degli utenti presenti in un'area che proseguono verso un'altra area</strong> 
+  (rapporto fra gli utenti diretti verso altre aree e il totale degli utenti presenti). Valori alti 
+  indicano località da cui i visitatori ripartono per visitare altre destinazioni. Il valore 
+  può superare 1, poiché un singolo utente può essere conteggiato in più aree. Per le aggregazioni 
+  (macroaree e provincia), il dato è mostrato solo se almeno la metà dei comuni presenta un valore 
+  valido. <br>{{flow_common}}
 
 phenomena:
   - {name: quota_uscita_combined, type: FlowIndicatorPhenomenon, source: flows_od, col: quota_uscita_combined}

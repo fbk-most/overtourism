@@ -9,21 +9,15 @@ order: 102
 index_value_unit_description: Indice HHI normalizzato (0 = mercati diversificati, 1 = un solo mercato)
 year_only: true
 description: >-
-  L'indice di concentrazione dei mercati di provenienza misura quanto le <strong>presenze di turisti
-  provengono da pochi paesi</strong>. È l'<strong>indice di Herfindahl-Hirschman (HHI)
-  normalizzato</strong> calcolato sulle quote di presenze per paese di provenienza (l'Italia è un
-  mercato): vale 0 quando le presenze sono distribuite in modo uniforme fra molti mercati e 1 quando
-  provengono da un solo mercato. Valori alti indicano una forte dipendenza da pochi mercati.
-  L'indice è annuale, riguarda solo i turisti ed è calcolato sui dati Vodafone; è lasciato vuoto per
-  le aree con presenze troppo basse (meno di 100 giornate-utente annue). <br><strong>Fonte dei
-  dati</strong>: presenze giornaliere di turisti per paese di provenienza rilevate da Vodafone con i
-  dati della rete di telefonia mobile, sommate sull'anno per area. L'indice non è additivo, quindi
-  non viene ripartito: le aree che comprendono più comuni passano il proprio valore a tutti i loro
-  comuni, mentre un comune con più aree ha la media pesata sulle giornate-utente. Le presenze
-  contano ogni giorno di soggiorno, quindi i mercati con soggiorni lunghi pesano di più. Per
-  macroaree e provincia è mostrata la media dei valori comunali disponibili: non è l'HHI
-  ricalcolato aggregando i mercati di provenienza. I conteggi molto piccoli (sotto circa 15 utenti)
-  non sono forniti da Vodafone: l'indice descrive i mercati osservati.
+  L'indice HHI normalizzato (indice di concentrazione dei mercati di provenienza) misura quanto le <strong>presenze turistiche provengono da pochi paesi</strong>. Varia da 0, quando le presenze sono distribuite in
+  modo uniforme tra i mercati osservati, a 1, quando tutte le presenze osservate provengono da un solo
+  mercato. Non è calcolato per le aree con meno di 100 giornate-utente annue.
+  <br><strong>Fonte dei dati:</strong> presenze giornaliere rilevate da Vodafone tramite rete mobile,
+  sommate sull'anno.
+  Alle aree associate a più comuni è attribuito lo stesso valore; per i
+  comuni con più aree si calcola una media pesata sulle giornate-utente. Per macroaree e provincia
+  si usa la media dei valori comunali disponibili. I conteggi inferiori
+  alla soglia di privacy Vodafone (circa 15 utenti) non vengono forniti.
 
 phenomena:
   - {name: hhi_provenienza, type: ProvenienzaPhenomenon, source: provenienza, col: hhi_provenienza}

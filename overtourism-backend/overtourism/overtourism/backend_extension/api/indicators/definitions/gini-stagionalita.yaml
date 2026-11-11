@@ -16,9 +16,9 @@ description: >-
 
   <br><strong>Fonte dei dati</strong>: presenze giornaliere di turisti (persone che pernottano)
   rilevate da Vodafone tramite la rete mobile. Per le aree Vodafone che comprendono più comuni, le
-  presenze sono attribuite ai comuni in proporzione ai posti letto ISPAT. L'indice comunale è normalizzato tra 0 e 1 e non è
+  presenze sono attribuite ai comuni in proporzione ai posti letto ISPAT. <br>L'indice comunale è normalizzato tra 0 e 1 e non è
   disponibile se i giorni con dato coprono meno dell'80% del periodo, se sono meno di due, o se le
-  presenze totali sono nulle. Per macroaree e provincia si usa la media degli indici comunali.
+  presenze totali sono nulle. Per macroaree e provincia si usa la media degli indici comunali.<br>
 
   Per ogni comune è indicato anche il <strong>cluster stagionale</strong> (codice e tipologia):
   annuale, sci, estate + spalle, estate alpina. Il cluster è calcolato una sola volta sul profilo

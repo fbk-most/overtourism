@@ -2,13 +2,10 @@
 # (Only descriptions are expanded; unknown names stop the start-up.)
 
 flow_common: >-
-  Turisti ed escursionisti sono <strong>aggregati applicando un peso per ciascun profilo</strong>: una
-  giornata-utente di escursionista vale 0,5 rispetto a una di turista (coefficiente scelto). <br><strong>Fonte dei
-  dati</strong>: dati Vodafone di co-visitazione (flussi origine-destinazione di utenti
-  della rete di telefonia mobile tra due aree nello stesso periodo), che Vodafone fornisce al netto delle soglie di privacy (i conteggi inferiori a
-  circa 15 utenti vengono azzerati). L'indice è annuale e calcolato sulle giornate-utente dell'anno per
-  ciascuna area Vodafone; le aree che comprendono più comuni passano il proprio valore a tutti i
-  loro comuni. Il dato non viene calcolato per le aree con meno di 100 giornate-utente annue.
+  <strong>Fonte dei dati</strong>: flussi origine-destinazione di utenti della rete di telefonia mobile tra due aree nello stesso periodo, forniti dalla rete Vodafone. I conteggi inferiori alla soglia di privacy (circa 15 utenti) sono azzerati.
+  Quando i profili sono aggregati, si applicano pesi scelti: 1 per una giornata-utente turistica e
+  0,5 per una di escursionista. Se un'area comprende più comuni, il suo valore è attribuito a
+  ciascuno.
 
 ispat_structures_source: >-
   <strong>Fonte dei dati</strong>: ISPAT, statistiche sulla consistenza delle strutture ricettive

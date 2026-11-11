@@ -25,8 +25,8 @@ description: >-
   Vodafone che comprendono più comuni il valore è quello dell'area. <br><strong>Fonti dei dati</strong>:
   Vodafone (presenze giornaliere di turisti ed escursionisti e co-visitazioni fra aree, usate per
   stimare il decadimento con la distanza e l'affinità fra aree); ISPAT (posti letto e popolazione
-  residente); ISTAT (confini e superficie dei comuni, tipologia turistica dei comuni).<br>Il tetto di
-  carico è stimato con una regressione quantile (quantile 0,9) sui picchi annuali di carico delle
+  residente); ISTAT (confini e superficie dei comuni, tipologia turistica dei comuni).<br>Il <br>tetto di
+  carico<br> è stimato con una regressione quantile (quantile 0,9) sui picchi annuali di carico delle
   aree comparabili, in funzione di posti letto, residenti, seconde case o superficie e profilo
   stagionale. Nella versione combinata gli escursionisti pesano 0,5 rispetto ai turisti. Il calcolo
   è eseguito una volta nella preparazione dei dati; le colonne affiancate indicano le persone al
