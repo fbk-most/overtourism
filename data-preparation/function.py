@@ -1,5 +1,3 @@
-"""Run the data-preparation pipelines and upload their outputs to the platform."""
-
 import sys
 from pathlib import Path
 
@@ -20,7 +18,3 @@ def main() -> None:
     prepare_molveno(upload=True)
     prepare_fazzon(upload=True)
     main_compute_all_dfs(local=False, with_update=True)
-
-
-if __name__ == "__main__":
-    main()
