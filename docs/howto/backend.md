@@ -43,8 +43,11 @@ The same variables as above apply, set on the Model API:
 - `DT_OVERTURISM_STANDALONE_MODE=false`: the files are downloaded from the platform project `PROJECT_NAME` at
   startup (platform credentials needed, as for the CRUD API), unless they are already in the data folder.
 
-The data folder of each model is `FAZZON_DATA_DIR` / `MOLVENO_DATA_DIR`, or `executor-backend/database/<model>`
-if unset. A failed download stops the startup. `POST /models/<model>/download-data` downloads the files again on
+`FAZZON_DATA_DIR` and `MOLVENO_DATA_DIR` override each model's data folder individually. If either is unset, its
+folder is `<DT_MODEL_DATABASE_DIR>/<model>`. `DT_MODEL_DATABASE_DIR` sets the shared parent folder; it defaults to
+`executor-backend/database` for a local checkout and `/app/database` in the provided Model API Docker image. Set it
+to relocate both model folders while keeping the `fazzon/` and `molveno/` subdirectories. A failed download stops
+the startup. `POST /models/<model>/download-data` downloads the files again on
 demand (see the
 [Model API endpoints](../../executor-backend/src/BACKEND_DESIGN.md#layer-5--rest-api)); like the rest of the Model
 API it is not authenticated, so the CRUD API should expose it only to administrators.
@@ -52,7 +55,8 @@ API it is not authenticated, so the CRUD API should expose it only to administra
 For a local run, point the variables at the pipeline outputs, e.g.
 `FAZZON_DATA_DIR=<repo>/data_preparation/Output/data/final_data/fazzon` and
 `MOLVENO_DATA_DIR=<repo>/data_preparation/Output/data/final_data/molveno` after
-`python -m model.fazzon.prepare` and `python -m model.molveno.prepare` (run from `data_preparation`).
+`python -m model.fazzon.prepare` and `python -m model.molveno.prepare` (run from `data_preparation`). Since these
+folders share a parent, you can instead set `DT_MODEL_DATABASE_DIR=<repo>/data_preparation/Output/data/final_data`.
 
 ## Local execution
 
@@ -132,6 +136,7 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 | `AGENT_BACKEND_URL` | When the agent backend is not at the local default. | Defaults to `http://localhost:9000`; used to generate scenario summaries. |
 | `OVERTOURISM_DATABASE` | Optional locally; set to a persistent database in deployment. | SQLAlchemy database URL; defaults to a SQLite file under `overtourism/overtourism/database/`. |
 | `MODEL_BACKEND_USER`, `MODEL_BACKEND_PASSWORD` | Only if an upstream proxy requires HTTP Basic authentication. | The CRUD API sends Basic credentials only when both are set. The Model API itself does not validate them. |
+| `DT_MODEL_DATABASE_DIR` | Model API; optional. | Shared parent directory for model data; defaults to `executor-backend/database` locally and `/app/database` in the provided Docker image. Each model uses a subdirectory named after it, unless its own data-directory variable is set. |
 | `FAZZON_DATA_DIR` | Model API; optional. | Folder of the Fazzon model data; defaults to `executor-backend/database/fazzon`. |
 | `MOLVENO_DATA_DIR` | Model API; optional. | Folder of the Molveno model data; defaults to `executor-backend/database/molveno`. |
 

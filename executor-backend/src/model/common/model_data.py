@@ -30,7 +30,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DATABASE_DIR = Path(__file__).resolve().parents[3] / "database"
+DATABASE_DIR = Path(os.getenv("DT_MODEL_DATABASE_DIR", Path(__file__).resolve().parents[3] / "database"))
 
 
 def standalone_mode() -> bool:
