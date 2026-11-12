@@ -161,15 +161,18 @@ DATASET_FILES = _S["datasets"]
 PHENOMENA_FILES = _S["phenomena"]
 TRAVEL_TIMES = _S.get("travel_times") or {}
 TRAVEL_TIMES_MATRIX_FILE = MAPPING_DIR / Path(REFERENCES["travel_times"]).name
-REFERENCE_CITY_ITALY = str(TRAVEL_TIMES.get("reference_city_italy") or "Milano").strip()  # default: Milano 
+REFERENCE_CITY_ITALY = str(TRAVEL_TIMES.get("reference_city_italy") or "Milano").strip()  # default: Milano
 if not REFERENCE_CITY_ITALY:
     raise ValueError(f"{SETTINGS_FILE}: travel_times.reference_city_italy must not be empty")
 DERIVED_PHENOMENA_FILES = _S["derived_phenomena"]
 HDD_BASE_TEMP = float(_S["meteo"]["hdd_base_temp"])
 
+import digitalhub as dh
+creds = dh.get_credentials_and_config()
+
 # platform (DigitalHub) / data lake
 PROJECT = _S["platform"]["project"]
-S3_BUCKET = _S["platform"]["s3_bucket"]
+S3_BUCKET = creds["S3_BUCKET"]
 S3_PREFIX = _S["platform"]["s3_prefix"]
 S3_ENV = _S["platform"]["dhcore_env"]
 

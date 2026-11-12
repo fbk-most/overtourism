@@ -7,7 +7,7 @@ output_dir: ../Output
 
 # Sub-directories, relative to output_dir (absolute paths are accepted too).
 paths:
-  raw: data/raw_data                    # each model uses its own sub-folder, e.g. raw_data/molveno
+  raw: data/raw_data # each model uses its own sub-folder, e.g. raw_data/molveno
   normalized: data/normalized
   final: data/final_data
 
@@ -16,4 +16,4 @@ platform:
   project: overtourism
   s3_bucket: most-datalake
   s3_prefix: overtourism/inputdata/
-  dhcore_env: aixpa                     # section of ~/.dhcore.ini holding the S3 credentials
+  dhcore_env: __default # section of ~/.dhcore.ini holding the S3 credentials

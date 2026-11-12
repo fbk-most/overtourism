@@ -9,10 +9,10 @@ output_dir: ../Output
 # Time window of the data. Rows outside it are discarded (applied in step 2 and to the final phenomena).
 # Yearly data (DATA = YYYY: popolazione, strutture, flussi OD) are kept if their YEAR is inside the window.
 period:
-  start: "2022-01-01"        # nothing before this date is kept, in the base build AND in the update
-  base_end: "2024-12-31"     # base build (gen_phenomenon_dataframes.py): data up to this date
+  start: "2022-01-01" # nothing before this date is kept, in the base build AND in the update
+  base_end: "2024-12-31" # base build (gen_phenomenon_dataframes.py): data up to this date
   update_start: "2025-01-01" # yearly update (update_phenomenon_dataframes.py): data of this period only,
-  update_end: "2025-12-31"   #   appended to the base phenomena (can be overridden by `period:` in the update yaml)
+  update_end: "2025-12-31" #   appended to the base phenomena (can be overridden by `period:` in the update yaml)
 
 # Sub-directories, relative to output_dir (absolute paths are accepted too).
 paths:
@@ -21,8 +21,8 @@ paths:
   # base build (gen_phenomenon_dataframes.py)
   raw: data/raw_data
   normalized: data/normalized
-  processed: data/data_processed        # base build <dataset>_pr; the update writes <dataset>_update_pr here
-  final: data/final_data                # the update appends its phenomena to the files here
+  processed: data/data_processed # base build <dataset>_pr; the update writes <dataset>_update_pr here
+  final: data/final_data # the update appends its phenomena to the files here
 
 # Shared reference objects (data-lake object keys). Used by both pipelines.
 references:
@@ -30,7 +30,7 @@ references:
   mapping_vodafone: mapping_ids/mapping_comuni_into_vodafone_Trento.json
   mapping_apt: mapping_ids/map_comuni_into_apt.json
   geojson: TRENTINO-comuni_Vodafone_2023.geojson
-  travel_times: matrice_tempi_verso_trentino.csv   # generated once by data_download/trentino_travel_times.py
+  travel_times: matrice_tempi_verso_trentino.csv # generated once by data_download/trentino_travel_times.py
 
 # File format of ALL the files (csv | parquet). Keep it the same in base build and update:
 # the uploaded files are named <phenomenon>.<format>, so a different format would not replace them.
@@ -68,15 +68,15 @@ datasets:
     processed: gas_prelievi_pr
     update: gas_prelievi_update_pr
   vodafone_provenienza:
-    std: ""                                # base build: derived from vodafone_std
+    std: "" # base build: derived from vodafone_std
     processed: vodafone_provenienza_pr
     update: vodafone_provenienza_update_pr
-  vodafone_arrivi:                         # Vodafone ARRIVALS (vodafone_arrivals.csv): source countries
+  vodafone_arrivi: # Vodafone ARRIVALS (vodafone_arrivals.csv): source countries
     std: vodafone_arrivi_std
     processed: vodafone_arrivi_pr
     update: vodafone_arrivi_update_pr
-  vodafone_tempi:                          # same arrivals: pairs arrivals / travel time per origin market
-    std: ""                                # base build: derived from vodafone_arrivi_std
+  vodafone_tempi: # same arrivals: pairs arrivals / travel time per origin market
+    std: "" # base build: derived from vodafone_arrivi_std
     processed: vodafone_tempi_pr
     update: vodafone_tempi_update_pr
   ee_totale:
@@ -87,7 +87,7 @@ datasets:
     std: gas_totale_std
     processed: gas_totale_pr
     update: gas_totale_update_pr
-  meteo:                                   # daily temperature of the comuni (not normalized: processed from raw_data)
+  meteo: # daily temperature of the comuni (not normalized: processed from raw_data)
     std: ""
     processed: meteo_pr
     update: meteo_update_pr
@@ -99,8 +99,8 @@ datasets:
 # Suffixes used to build the names of the intermediate files (the names of the processed / update files of every dataset
 # are in `datasets` above).
 naming:
-  std_suffix: _std          # normalized (step 1) files: <dataset>_std, <dataset>_<label>_update_std
-  update_part_suffix: _update   # an update source is called <dataset>_update or <dataset>_<label>_update
+  std_suffix: _std # normalized (step 1) files: <dataset>_std, <dataset>_<label>_update_std
+  update_part_suffix: _update # an update source is called <dataset>_update or <dataset>_<label>_update
 
 # RAW source files of the base build: data-lake object keys (relative to platform.s3_prefix), saved in raw_data under
 # their base name (the energy files keep their folder, see `energy`). Nothing in the code holds a file name: add / rename
@@ -109,10 +109,10 @@ files:
   popolazione: popolazione_2020_2024.parquet
   strutture_historical: Annuario-TavXIII-per-comune-csv.csv
   strutture_2024: strutture_annuario_2024.ods
-  vodafone_presenze_old: vodafone_attendences.parquet   # presences up to 2024-03-31
-  vodafone_presenze_new: vodafone_attendences_new.csv   # completes the presences up to the end of the base window; on common dates it wins
-  vodafone_arrivi: vodafone_arrivals.csv                # Vodafone arrivals (source countries of the tourists)
-  vodafone_covisits: vodafone_covisits.csv              # Vodafone OD co-visits (flows between areas)
+  vodafone_presenze_old: vodafone_attendences.parquet # presences up to 2024-03-31
+  vodafone_presenze_new: vodafone_attendences_new.csv # completes the presences up to the end of the base window; on common dates it wins
+  vodafone_arrivi: vodafone_arrivals.csv # Vodafone arrivals (source countries of the tourists)
+  vodafone_covisits: vodafone_covisits.csv # Vodafone OD co-visits (flows between areas)
 
   # ISPAT arrivals / presences (alb, extralb): <folder>/<pattern>, one file per measure x tag x year. The base build
   # downloads the years of its window (period.start .. period.base_end), the updates the later ones.
@@ -120,7 +120,7 @@ files:
     folder: Presenze
     pattern: "{measure}_{tag}_{year}.csv"
     measures: [arrivi, presenze]
-    tags:                            # dataset -> tag in the file names
+    tags: # dataset -> tag in the file names
       presenze_alb: alb
       presenze_extralb: exalb
 
@@ -132,13 +132,13 @@ files:
 
   # Energy withdrawals (electricity / gas)
   energy:
-    root: Energia                    # root folder of the energy objects; below it the files keep their sub-folder in raw_data
-    folders:                         # dataset -> sub-folder, i.e. <root>/<folder>/<category file> (and raw_data/<folder>/)
+    root: Energia # root folder of the energy objects; below it the files keep their sub-folder in raw_data
+    folders: # dataset -> sub-folder, i.e. <root>/<folder>/<category file> (and raw_data/<folder>/)
       ee_prelievi: ee_prelievi
       gas_prelievi: gas_prelievi
-    category_files: [49_3.csv, 55_1.csv, 56_1.csv, 93_1.csv, 96.csv]   # ATECO usage categories (tourism-related services)
-    category_glob: "*.csv"           # category files of a raw_data folder (the totals below are excluded)
-    totals:                          # consumption of ALL the usage categories (dataset -> object key)
+    category_files: [49_3.csv, 55_1.csv, 56_1.csv, 93_1.csv, 96.csv] # ATECO usage categories (tourism-related services)
+    category_glob: "*.csv" # category files of a raw_data folder (the totals below are excluded)
+    totals: # consumption of ALL the usage categories (dataset -> object key)
       ee_totale: Energia/ee_prelievi/totale_ee.csv
       gas_totale: Energia/gas_prelievi/totale_gas.csv
 
@@ -166,22 +166,21 @@ meteo:
 travel_times:
   reference_city_italy: Firenze
 
-
 # Provenienza: source countries of the tourists (utils/main_market.py)
 provenienza:
-  top_n_countries: 3  # quota/name pairs in phen_provenienza; shared by base build and updates
+  top_n_countries: 3 # quota/name pairs in phen_provenienza; shared by base build and updates
 
 # Redistribution indicator "Squilibrio di carico e ridistribuzione dei flussi" (gen_redistribution_dataframes.py).
 # Built from phen_presenze / phen_strutture / phen_popolazione (already in paths.final) + the Vodafone areas
 # (`references.geojson` and the mappings) + the two extra mapping inputs below. The model is documented in METHODOLOGY.md.
 redistribution:
-  inputs:                          # phenomena read from paths.final
+  inputs: # phenomena read from paths.final
     presenze: phen_presenze
     strutture: phen_strutture
     popolazione: phen_popolazione
-  files:                           # DigitalHub artifact names; downloaded directly into paths.mapping
-    comuni_shapefile: Com01012026_g/Com01012026_g_WGS84   # ISTAT comuni (PRO_COM_T, COMUNE, Shape_Area in m2); base name, no extension
-    tipologia_comuni: tipologia_comuni.csv                # ISTAT tourist typology: PROCOM, COMUNE, COD_CAT
+  files: # DigitalHub artifact names; downloaded directly into paths.mapping
+    comuni_shapefile: Com01012026_g/Com01012026_g_WGS84 # ISTAT comuni (PRO_COM_T, COMUNE, Shape_Area in m2); base name, no extension
+    tipologia_comuni: tipologia_comuni.csv # ISTAT tourist typology: PROCOM, COMUNE, COD_CAT
   # Comuni born from a merger are absent from the typology file: new ID_COMUNE -> names of the comuni they were made of
   # (their class is the most frequent one among them).
   merged_comuni:
@@ -190,21 +189,21 @@ redistribution:
     "022254": [Carano, Daiano, Varena]
   # Files written in paths.final. ALWAYS parquet, whatever `type_format` says: the backend reads them as parquet.
   output:
-    panel: phen_ridistribuzione           # comune x day: imbalance index + persons (the map)
-    flows: phen_ridistribuzione_flussi    # arc x day: optimal flows between nodes (the arrows)
-    nodes: ridistribuzione_nodi           # node: WGS84 position, label, comuni
-  intermediate_dir: redistribution        # sub-folder of paths.processed: nodes, demand, ceilings, model tables
+    panel: phen_ridistribuzione # comune x day: imbalance index + persons (the map)
+    flows: phen_ridistribuzione_flussi # arc x day: optimal flows between nodes (the arrows)
+    nodes: ridistribuzione_nodi # node: WGS84 position, label, comuni
+  intermediate_dir: redistribution # sub-folder of paths.processed: nodes, demand, ceilings, model tables
   model:
-    typology_year: 2024                   # year of the beds that pick the dominant comune (and typology) of a node
-    min_arc_flow: 1.0                     # persons/day: smaller flows are numerical dust and are not stored
-    utm_epsg: 32632                       # CRS of the node centroids (km)
+    typology_year: 2024 # year of the beds that pick the dominant comune (and typology) of a node
+    min_arc_flow: 1.0 # persons/day: smaller flows are numerical dust and are not stored
+    utm_epsg: 32632 # CRS of the node centroids (km)
   # Load ceiling: quantile regression of the yearly 95th percentile of the daily load (see utils/redistribution/ceiling.py)
   ceiling:
-    tau: 0.9                              # quantile of the regression: the ceiling is a level exceeded by 10% of the comparable nodes
-    cv_folds: 10                          # model choice: K-fold cross-validation by node
+    tau: 0.9 # quantile of the regression: the ceiling is a level exceeded by 10% of the comparable nodes
+    cv_folds: 10 # model choice: K-fold cross-validation by node
     cv_seeds: 3
-    tolerance: 0.01                       # simplest model within 1% of the best pinball loss
-    bootstrap: 200                        # draws of the bootstrap by node (uncertainty of the ceiling)
+    tolerance: 0.01 # simplest model within 1% of the best pinball loss
+    bootstrap: 200 # draws of the bootstrap by node (uncertainty of the ceiling)
     bootstrap_seed: 42
     ci_low: 5
     ci_high: 95
@@ -218,16 +217,16 @@ redistribution:
     d_max_km: 40.0
     d_min_km: 3.0
     affinity:
-      T: {cluster: 0.60, cat: 0.0}
-      E: {cluster: 0.66, cat: 0.71}
+      T: { cluster: 0.60, cat: 0.0 }
+      E: { cluster: 0.66, cat: 0.71 }
 
 # Data lake / platform
 platform:
   project: overtourism
   s3_bucket: most-datalake
   s3_prefix: overtourism/inputdata/
-  dhcore_env: aixpa                     # section of the credentials file (below) holding the S3 credentials
-  credentials_file: .dhcore.ini         # credentials file, looked up in the home folder
+  dhcore_env: __default # section of the credentials file (below) holding the S3 credentials
+  credentials_file: .dhcore.ini # credentials file, looked up in the home folder
 
 update:
   # Update yaml used by gen_phenomenon_dataframes.py (--with-update / --update-only) when --update-config is not given.

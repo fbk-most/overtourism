@@ -31,6 +31,28 @@ or the bucket, keep the corresponding values in both files in sync.
 Access to S3 and the platform requires DHCLI credentials in `~/.dhcore.ini`, configured for the `platform.dhcore_env`
 section in the relevant settings.
 
+## Running on DigitalHub
+
+From the repository root, `platform.py` builds the `data-preparation` function and starts a job using its
+`function:main` handler. By default, the function's code source is the local `./data-preparation` directory:
+
+```bash
+PROJECT_NAME=overtourism python platform.py
+```
+
+To run code from the [GitHub repository](https://github.com/fbk-most/overtourism), set `REPO_CODE` to a Git source
+URI and specify a branch, tag, or commit containing the pipeline code:
+
+```bash
+PROJECT_NAME=overtourism \
+REPO_CODE='git+https://github.com/fbk-most/overtourism#<ref>' \
+python platform.py
+```
+
+`PROJECT_NAME` selects the DigitalHub project and defaults to `overtourism`. `REPO_CODE` overrides the code source and
+defaults to `./data-preparation`. Since the GitHub repository is private, configure `GIT_TOKEN` in the environment
+where `platform.py` runs; do not put the token in the command or repository.
+
 ## Tests
 
 Run the territorial-index and model tests from `data_preparation/`:

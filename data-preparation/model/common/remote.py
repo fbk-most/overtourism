@@ -29,14 +29,13 @@ def log_dataframe(file_path, name: str, type: str = "parquet"):
 
 def _s3_credentials(env: str) -> dict:
     """Credentials from ~/.dhcore.ini (DHCLI)."""
-    config = configparser.ConfigParser()
-    config.read(Path.home() / ".dhcore.ini")
-    section = config[env]
+    import digitalhub as dh
+    section = dh.get_credentials_and_config()
     return {
-        "endpoint_url": section["aws_endpoint_url"],
-        "aws_access_key_id": section["aws_access_key_id"],
-        "aws_secret_access_key": section["aws_secret_access_key"],
-        "aws_session_token": section["aws_session_token"],
+        "endpoint_url": section["AWS_ENDPOINT_URL"],
+        "aws_access_key_id": section["AWS_ACCESS_KEY_ID"],
+        "aws_secret_access_key": section["AWS_SECRET_ACCESS_KEY"],
+        "aws_session_token": section["AWS_SESSION_TOKEN"],
     }
 
 

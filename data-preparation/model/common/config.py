@@ -50,9 +50,12 @@ RAW_DIR = _P["raw"]
 NORMALIZED_DIR = _P["normalized"]
 FINAL_DIR = _P["final"]
 
+import digitalhub as dh
+creds = dh.get_credentials_and_config()
+
 # platform (DigitalHub) / data lake
 PROJECT = _S["platform"]["project"]
-S3_BUCKET = _S["platform"]["s3_bucket"]
+S3_BUCKET = creds["S3_BUCKET"]
 S3_PREFIX = _S["platform"]["s3_prefix"]
 S3_ENV = _S["platform"]["dhcore_env"]
 
