@@ -43,7 +43,13 @@ def main():
     func.run(
         "job",
         envs=[{"name": "PYTHONPATH", "value": "$PYTHONPATH:."}],
-        resources={"disk": "10Gi", "mem": "10Gi", "cpu": 4},
+        volumes = [{
+            "volume_type": "persistent_volume_claim",
+            "name": "my-pvc",
+            "mount_path": "/shared",
+            "spec": {"size": "1Gi"},
+        }],
+        resources={"mem": "10Gi", "cpu": 4},
         wait=True,
     )
     print("Job completed successfully.")
