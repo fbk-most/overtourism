@@ -32,8 +32,8 @@ from src.model.common.sustainability_field import (
 )
 from src.model.molveno.molveno_model import MolvenoModel
 from src.model.molveno.molveno_presence_stats import (
-    DAY_TYPE_LABELS,
     DAY_INDEX_NAME,
+    DAY_TYPE_LABELS,
     ESTIMATOR_ML,
     ESTIMATORS,
     load_tables,
@@ -745,17 +745,24 @@ class MolvenoBackend:
         rf_e = float(np.mean(result[model.inputs.i_p_excursionists_reduction_factor]))
         sl_e = float(np.mean(result[model.inputs.i_p_excursionists_saturation_level]))
         samples_x = [_presence_transformation(s, rf_t, sl_t) for s in days["tourists"]]
-        samples_y = [_presence_transformation(s, rf_e, sl_e) for s in days["excursionists"]]
+        samples_y = [
+            _presence_transformation(s, rf_e, sl_e) for s in days["excursionists"]
+        ]
         potential = days["potential_excursionists"]
         peak = potential >= np.quantile(potential, self.PEAK_QUANTILE)
         kpis = {
             which: {
                 "value": round(float(days["excursionists"][sel].mean()), 1),
                 "share": round(
-                    float(days["excursionists"][sel].sum() / potential[sel].sum()) * 100, 2
+                    float(days["excursionists"][sel].sum() / potential[sel].sum())
+                    * 100,
+                    2,
                 ),
             }
-            for which, sel in (("mean", np.ones(potential.size, dtype=bool)), ("peak", peak))
+            for which, sel in (
+                ("mean", np.ones(potential.size, dtype=bool)),
+                ("peak", peak),
+            )
         }
 
         return SustainabilityFieldOutput(

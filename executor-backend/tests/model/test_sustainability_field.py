@@ -4,7 +4,6 @@
 import numpy as np
 import pytest
 from civic_digital_twins.dt_model import CategoricalIndex
-
 from src.model.common.sustainability_field import (
     compute_sustainability_index_with_ci,
     expected_period_days,

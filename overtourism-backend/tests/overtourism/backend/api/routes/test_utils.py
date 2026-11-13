@@ -139,10 +139,12 @@ def test_call_index_diffs_posts_batched_overrides(monkeypatch) -> None:
         *,
         json: dict[str, dict[str, dict[str, int | str]]],
         auth=None,
+        timeout: tuple[float, float],
     ):
         captured_request["url"] = url
         captured_request["json"] = json
         captured_request["auth"] = auth
+        captured_request["timeout"] = timeout
         return FakeResponse()
 
     monkeypatch.setattr(executor_utils, "MODEL_BACKEND_URL", "http://model.test")
@@ -157,6 +159,7 @@ def test_call_index_diffs_posts_batched_overrides(monkeypatch) -> None:
         "url": "http://model.test/models/molveno/index-diffs",
         "json": {"param_overrides_by_scenario": {"scenario-1": {"season": "peak"}}},
         "auth": None,
+        "timeout": executor_utils.MODEL_BACKEND_TIMEOUT,
     }
     assert actual_diffs == expected_diffs
 
@@ -175,9 +178,10 @@ def test_call_download_data_posts_to_model_backend(monkeypatch) -> None:
         def json(self) -> dict[str, str]:
             return expected_response
 
-    def fake_post(url: str, *, auth=None):
+    def fake_post(url: str, *, auth=None, timeout: tuple[float, float]):
         captured_request["url"] = url
         captured_request["auth"] = auth
+        captured_request["timeout"] = timeout
         return FakeResponse()
 
     monkeypatch.setattr(executor_utils, "MODEL_BACKEND_URL", "http://model.test")
@@ -190,6 +194,7 @@ def test_call_download_data_posts_to_model_backend(monkeypatch) -> None:
     assert captured_request == {
         "url": "http://model.test/models/molveno/download-data",
         "auth": ("model-user", "model-password"),
+        "timeout": executor_utils.MODEL_BACKEND_TIMEOUT,
     }
     assert response == expected_response
 
@@ -207,6 +212,36 @@ def test_call_download_data_raises_for_upstream_http_errors(monkeypatch) -> None
 
     with pytest.raises(requests.HTTPError, match="download rejected"):
         executor_utils.call_download_data("molveno")
+
+
+def test_call_executor_raises_for_upstream_http_errors(monkeypatch) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            raise requests.HTTPError("evaluation rejected")
+
+    monkeypatch.setattr(
+        executor_utils.requests,
+        "post",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(requests.HTTPError, match="evaluation rejected"):
+        executor_utils.call_executor("molveno")
+
+
+def test_list_models_raises_for_upstream_http_errors(monkeypatch) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            raise requests.HTTPError("model registry unavailable")
+
+    monkeypatch.setattr(
+        executor_utils.requests,
+        "get",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(requests.HTTPError, match="model registry unavailable"):
+        executor_utils.list_models()
 
 
 @pytest.mark.parametrize(
@@ -229,6 +264,7 @@ def test_model_backend_requests_use_basic_auth_only_with_both_credentials(
 
     observed_auth: list[tuple[str, str] | None] = []
     observed_gets: list[tuple[str, dict[str, object]]] = []
+    observed_post_timeouts: list[tuple[float, float]] = []
 
     class FakeResponse:
         def __init__(self, payload):
@@ -250,6 +286,7 @@ def test_model_backend_requests_use_basic_auth_only_with_both_credentials(
 
     def fake_post(url: str, **kwargs):
         observed_auth.append(kwargs.get("auth"))
+        observed_post_timeouts.append(kwargs["timeout"])
         if url.endswith("/index-diffs"):
             return FakeResponse({"index_diffs_by_scenario": {}})
         return FakeResponse({"result": "ok"})
@@ -265,6 +302,12 @@ def test_model_backend_requests_use_basic_auth_only_with_both_credentials(
     executor_utils.call_health_ready()
 
     assert observed_auth == [expected_auth] * 5
+    assert observed_post_timeouts == [executor_utils.MODEL_BACKEND_TIMEOUT] * 2
+    assert [kwargs["timeout"] for _, kwargs in observed_gets] == [
+        executor_utils.MODEL_BACKEND_TIMEOUT,
+        executor_utils.MODEL_BACKEND_TIMEOUT,
+        1,
+    ]
     assert observed_gets[-1] == (
         "http://model.test/ready",
         {"auth": expected_auth, "timeout": 1},

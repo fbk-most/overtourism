@@ -99,9 +99,11 @@ REFERENCE = {
         "letti_alloggi_disp",
         ["letti_alloggi_turistici", "letti_alloggi_disp", "letti_alb", "letti_exalb"],
     ),
-    "turismo-sommerso": lambda d: d["presenze_vodafone"]
-    .div((d["presenze_alb"] + d["presenze_xalb"]).where(lambda s: s != 0))
-    .fillna(d["presenze_vodafone"]),
+    "turismo-sommerso": lambda d: (
+        d["presenze_vodafone"]
+        .div((d["presenze_alb"] + d["presenze_xalb"]).where(lambda s: s != 0))
+        .fillna(d["presenze_vodafone"])
+    ),
     "carico-antropico": lambda d: (
         d["presenze_vodafone"] + d["presenze_escursionisti_vodafone"]
     ).div(d["population"].where(d["population"] != 0)),
@@ -109,12 +111,12 @@ REFERENCE = {
     "quota-mobilita-uscita": lambda d: d["quota_uscita_combined"],
     "quota-intra-ambito": lambda d: d["quota_intra_ambito_combined"],
     "concentrazione-mercati-provenienza": lambda d: d["hhi_provenienza"],
-    "impatto-turismo-consumi-elettrici": lambda d: d["ee_services"]
-    .fillna(0)
-    .div(d["ee_total"].where(d["ee_total"] != 0)),
-    "impatto-turismo-consumi-gas": lambda d: d["gas_services"]
-    .fillna(0)
-    .div(d["gas_total"].where(d["gas_total"] != 0)),
+    "impatto-turismo-consumi-elettrici": lambda d: (
+        d["ee_services"].fillna(0).div(d["ee_total"].where(d["ee_total"] != 0))
+    ),
+    "impatto-turismo-consumi-gas": lambda d: (
+        d["gas_services"].fillna(0).div(d["gas_total"].where(d["gas_total"] != 0))
+    ),
     "dipendenza-domanda-prossimita": lambda d: d["arrivals_within"].div(
         d["tourist_arrivals"].replace(0, nan)
     ),

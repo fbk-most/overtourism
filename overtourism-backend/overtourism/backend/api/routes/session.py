@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from starlette.concurrency import run_in_threadpool
 
 from overtourism.backend.api.models.evaluation import (
     EvaluationData,
@@ -210,6 +211,10 @@ async def read_session(
 ) -> SessionData:
     try:
         session = _require_owned_session(handler, territory, session_id, context)
+        session_scenarios = await run_in_threadpool(
+            scenarios_to_api,
+            list(session.scenarios.values()),
+        )
         return SessionData(
             session_id=session.session_id,
             created=session.created,
@@ -218,8 +223,7 @@ async def read_session(
             active_scenario_id=session.active_scenario_id,
             draft_ids=list(session.scenarios),
             drafts=[
-                ScenarioData(**scenario_data)
-                for scenario_data in scenarios_to_api(list(session.scenarios.values()))
+                ScenarioData(**scenario_data) for scenario_data in session_scenarios
             ],
             evaluations={
                 scenario_id: EvaluationData.from_domain(evaluation)
@@ -286,7 +290,7 @@ async def create_session_scenario(
             summary=data.summary,
         )
         logger.info(f"Session draft created: {scenario.scenario_id}")
-        return scenario_to_api(scenario)
+        return await run_in_threadpool(scenario_to_api, scenario)
     except Exception as e:
         logger.error(f"Error creating session scenario: {e}")
         raise
@@ -311,7 +315,7 @@ async def read_session_scenario(
     try:
         _require_owned_session(handler, territory, session_id, context)
         scenario = get_session_scenario_or_404(handler, session_id, scenario_id)
-        return scenario_to_api(scenario)
+        return await run_in_threadpool(scenario_to_api, scenario)
     except Exception as e:
         logger.error(f"Error reading scenario {scenario_id}: {e}")
         raise
@@ -345,7 +349,7 @@ async def save_scenario(
             **data.model_dump(exclude={"version"}, exclude_none=True),
         )
         logger.info(f"Scenario saved: {scenario_id}")
-        return scenario_to_api(saved_scenario)
+        return await run_in_threadpool(scenario_to_api, saved_scenario)
     except Exception as e:
         logger.error(f"Error saving scenario {scenario_id}: {e}")
         raise
@@ -387,7 +391,11 @@ async def create_session_evaluation(
             evaluation,
         )
         try:
-            result = call_executor(territory, scenario.param_overrides)
+            result = await run_in_threadpool(
+                call_executor,
+                territory,
+                scenario.param_overrides,
+            )
         except Exception as e:
             logger.error(f"Error during evaluation execution: {e}")
             evaluation = handler.manager.fail_evaluation(evaluation)

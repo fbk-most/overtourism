@@ -10,8 +10,9 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 
-
-with open(os.environ.get("LOG_CONFIG_FILE", "/etc/app-logging/logging.json"), encoding="utf-8") as f:
+with open(
+    os.environ.get("LOG_CONFIG_FILE", "/etc/app-logging/logging.json"), encoding="utf-8"
+) as f:
     logging.config.dictConfig(json.loads(os.path.expandvars(f.read())))
 
 
@@ -28,6 +29,8 @@ def _add_trace_fields(span, record) -> None:
 
 def setup_tracing(app: FastAPI) -> None:
     trace.set_tracer_provider(TracerProvider())
-    LoggingInstrumentor().instrument(set_logging_format=False, log_hook=_add_trace_fields)
+    LoggingInstrumentor().instrument(
+        set_logging_format=False, log_hook=_add_trace_fields
+    )
     HTTPXClientInstrumentor().instrument()
     FastAPIInstrumentor.instrument_app(app)

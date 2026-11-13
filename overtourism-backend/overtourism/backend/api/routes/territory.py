@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
+from starlette.concurrency import run_in_threadpool
 
 from overtourism.backend.auth.identity.authorization import resolve_current_user
 from overtourism.backend.auth.identity.users import UserRole
@@ -27,7 +28,7 @@ async def list_territories(
     handler: Annotated[Handler, Depends(get_handler)],
     auth_settings: Annotated[AuthSettings, Depends(get_auth_settings)],
 ) -> list[str]:
-    models: list[dict[str, Any]] = list_models()
+    models: list[dict[str, Any]] = await run_in_threadpool(list_models)
     model_keys = [str(model["key"]) for model in models]
 
     if not context.authenticated:

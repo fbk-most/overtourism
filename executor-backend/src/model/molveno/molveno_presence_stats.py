@@ -51,7 +51,11 @@ DAY_TYPES = {
     "sunday": ("sunday",),
 }
 DAY_TYPE_WEIGHTS = {t: len(days) / len(WEEKDAYS) for t, days in DAY_TYPES.items()}
-DAY_TYPE_LABELS = {"weekday": "lunedì-venerdì", "saturday": "sabato", "sunday": "domenica"}
+DAY_TYPE_LABELS = {
+    "weekday": "lunedì-venerdì",
+    "saturday": "sabato",
+    "sunday": "domenica",
+}
 WEATHERS = ("good", "cool", "rainy")
 PRESENCES = ("tourists", "excursionists")
 STAT_COLUMNS = tuple(f"{s}_{p}" for p in PRESENCES for s in ("mean", "std"))
@@ -178,7 +182,9 @@ def _day_types(
             for j in range(0, len(STAT_COLUMNS), 2):
                 means = [s[j] for s in stats_]
                 mean = sum(means) / len(means)
-                var = sum(s[j + 1] ** 2 + (s[j] - mean) ** 2 for s in stats_) / len(stats_)
+                var = sum(s[j + 1] ** 2 + (s[j] - mean) ** 2 for s in stats_) / len(
+                    stats_
+                )
                 row += [mean, math.sqrt(var)]
             out[(key, day_type, weather)] = tuple(row)
     return out

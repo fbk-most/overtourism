@@ -6,6 +6,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from starlette.concurrency import run_in_threadpool
 
 from overtourism.backend.api.models.common import VersionData
 from overtourism.backend.api.models.evaluation import (
@@ -57,7 +58,11 @@ async def create_evaluation(
         scenario = get_scenario_or_404(territory, handler, data.scenario_id)
         evaluation = handler.manager.create_evaluation(scenario.scenario_id)
         try:
-            result = call_executor(territory, scenario.param_overrides)
+            result = await run_in_threadpool(
+                call_executor,
+                territory,
+                scenario.param_overrides,
+            )
         except Exception as e:
             logger.error(f"Error during evaluation execution: {e}")
             evaluation = handler.manager.fail_evaluation(evaluation)
@@ -154,7 +159,11 @@ async def update_evaluation(
         )
         evaluation.version += 1
         try:
-            result = call_executor(territory, scenario.param_overrides)
+            result = await run_in_threadpool(
+                call_executor,
+                territory,
+                scenario.param_overrides,
+            )
         except Exception as e:
             logger.error(f"Error during evaluation execution: {e}")
             evaluation = handler.manager.fail_evaluation(evaluation)

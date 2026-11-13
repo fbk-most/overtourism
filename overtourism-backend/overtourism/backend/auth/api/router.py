@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
+from starlette.concurrency import run_in_threadpool
 
 from overtourism.backend.auth.api.models import (
     AuthMeResponse,
@@ -65,7 +66,7 @@ async def read_auth_me(
     if user is None:
         territories = []
     elif user.role is UserRole.ADMIN:
-        territories = _all_model_territories()
+        territories = await run_in_threadpool(_all_model_territories)
     else:
         territories = sorted(user.territories)
     return AuthMeResponse(
@@ -117,7 +118,7 @@ async def create_auth_user(
     try:
         territories = data.territories
         if data.role is UserRole.MULTIEDITOR and not territories:
-            territories = _all_model_territories()
+            territories = await run_in_threadpool(_all_model_territories)
         user = user_manager.create_user(
             identifier=data.identifier,
             role=data.role,
@@ -162,7 +163,7 @@ async def update_auth_user(
                 None,
             )
             if current_user is not None and current_user.role is UserRole.MULTIEDITOR:
-                territories = _all_model_territories()
+                territories = await run_in_threadpool(_all_model_territories)
         user = user_manager.update_user(
             user_id,
             role=data.role,

@@ -92,9 +92,9 @@ from scipy import stats
 
 from .molveno_presence_stats import (
     DAY_INDEX_NAME,
+    DAY_TYPE_WEIGHTS,
     ESTIMATOR_INDEX_NAME,
     ESTIMATORS,
-    DAY_TYPE_WEIGHTS,
     presence_inputs,
 )
 

@@ -53,6 +53,12 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 MAIN_PORT="${MAIN_PORT:-8082}"
 HEALTH_CHECK_TIMEOUT_SECONDS="${HEALTH_CHECK_TIMEOUT_SECONDS:-60}"
+CRUD_UVICORN_WORKERS="${CRUD_UVICORN_WORKERS:-1}"
+
+if ! [[ "$CRUD_UVICORN_WORKERS" =~ ^[1-9][0-9]*$ ]]; then
+	printf 'CRUD_UVICORN_WORKERS must be a positive integer.\n' >&2
+	exit 2
+fi
 
 kill -9 $(lsof -t -i:$MAIN_PORT) >/dev/null 2>&1 || true
 kill -9 $(lsof -t -i:$PORT) >/dev/null 2>&1 || true
@@ -117,9 +123,15 @@ fi
 
 (
 	cd "$API_DIR"
+	exec "$API_DIR/.venv/bin/python" -m overtourism.overtourism.bootstrap
+)
+
+(
+	cd "$API_DIR"
 	exec "$API_UVICORN" overtourism.overtourism.app:app \
 		--host "$HOST" --port "$PORT" \
-		--proxy-headers --log-config "$API_LOG_CONFIG"
+		--proxy-headers --workers "$CRUD_UVICORN_WORKERS" \
+		--log-config "$API_LOG_CONFIG"
 ) &
 API_PID=$!
 

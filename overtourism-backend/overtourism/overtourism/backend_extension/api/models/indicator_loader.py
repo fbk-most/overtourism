@@ -92,9 +92,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
 def _read_yaml(path: Path) -> Any:
     try:
         with open(path, "r", encoding="utf-8") as fh:
-            return yaml.load(
-                fh, Loader=_UniqueKeyLoader
-            )  # noqa: S506 (safe loader subclass)
+            return yaml.load(fh, Loader=_UniqueKeyLoader)
     except yaml.YAMLError as exc:
         raise IndicatorDefinitionError([f"{path.name}: invalid YAML: {exc}"]) from exc
 

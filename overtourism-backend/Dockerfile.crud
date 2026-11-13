@@ -16,5 +16,7 @@ USER 8877
 
 EXPOSE 8000
 
+ENV CRUD_UVICORN_WORKERS=2
+
 # Run the CRUD FastAPI application with the service log format.
-ENTRYPOINT ["uvicorn", "overtourism.overtourism.app:app", "--host", "0.0.0.0", "--port", "8000", "--log-config", "/app/uvicorn_log_config.json"]
+ENTRYPOINT ["sh", "-c", "python -m overtourism.overtourism.bootstrap && exec uvicorn overtourism.overtourism.app:app --host 0.0.0.0 --port 8000 --workers \"${CRUD_UVICORN_WORKERS:-2}\" --log-config /app/uvicorn_log_config.json \"$@\"", "sh"]

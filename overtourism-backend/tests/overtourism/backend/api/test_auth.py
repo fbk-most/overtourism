@@ -487,9 +487,7 @@ def test_overtourism_routes_use_db_scope_but_indexes_require_only_a_valid_jwt(
             "/api/indexes/get-index-list",
             headers={"Authorization": "Bearer signed-token"},
         )
-        unauthenticated_index_response = client.get(
-            "/api/indexes/get-index-list"
-        )
+        unauthenticated_index_response = client.get("/api/indexes/get-index-list")
 
     assert problem_response.status_code == 403
     assert proposal_response.status_code == 403

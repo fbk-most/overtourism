@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import typing
 from collections.abc import Sequence
 
@@ -19,6 +20,8 @@ from overtourism.dt_manager.utils.exception import EntityDoesNotExist
 if typing.TYPE_CHECKING:
     from overtourism.dt_manager.evaluation.evaluation import Evaluation
     from overtourism.dt_manager.session.session import Session
+
+logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────
@@ -91,7 +94,12 @@ def scenario_index_diffs(
             index_diffs_by_scenario.update(
                 call_index_diffs(territory, overrides_by_scenario)
             )
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            logger.warning(
+                "Unable to resolve index diffs for territory %s: %s",
+                territory,
+                exc,
+            )
             continue
     return index_diffs_by_scenario
 

@@ -171,7 +171,7 @@ The function lives in `models/combinators.py` and is registered with a decorator
 def quantile_class(df, *, column, n_classes=5, **_extra):
     """..."""
     ...
-    return classes            # a pandas Series, one value per row of df
+    return classes  # a pandas Series, one value per row of df
 ```
 
 Rules (also in the docstring of `combinators.py`):

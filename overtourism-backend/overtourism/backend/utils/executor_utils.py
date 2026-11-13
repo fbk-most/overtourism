@@ -7,6 +7,10 @@ import requests
 MODEL_BACKEND_URL = os.environ.get("MODEL_BACKEND_URL", "http://localhost:8082")
 MODEL_BACKEND_USER = os.environ.get("MODEL_BACKEND_USER")
 MODEL_BACKEND_PASSWORD = os.environ.get("MODEL_BACKEND_PASSWORD")
+MODEL_BACKEND_TIMEOUT = (
+    float(os.environ.get("MODEL_BACKEND_CONNECT_TIMEOUT_SECONDS", "3")),
+    float(os.environ.get("MODEL_BACKEND_READ_TIMEOUT_SECONDS", "90")),
+)
 
 
 def get_model_backend_auth() -> tuple[str, str] | None:
@@ -25,18 +29,27 @@ def call_executor(
         param_overrides = {}
     params = {"as_snapshot": str(as_snapshot).lower()}
     base_url = f"{MODEL_BACKEND_URL}/models/{territory}/evaluate"
-    return requests.post(
+    response = requests.post(
         base_url,
         json={"param_overrides": param_overrides},
         params=params,
         auth=get_model_backend_auth(),
-    ).json()
+        timeout=MODEL_BACKEND_TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def list_models() -> list[dict[str, typing.Any]]:
     """Call the backend model list endpoint."""
     base_url = f"{MODEL_BACKEND_URL}/models"
-    return requests.get(base_url, auth=get_model_backend_auth()).json()
+    response = requests.get(
+        base_url,
+        auth=get_model_backend_auth(),
+        timeout=MODEL_BACKEND_TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def call_schema(
@@ -44,7 +57,11 @@ def call_schema(
 ) -> dict[str, typing.Any]:
     """Call the backend schema endpoint for the provided territory."""
     base_url = f"{MODEL_BACKEND_URL}/models/{territory}/schema"
-    r = requests.get(base_url, auth=get_model_backend_auth())
+    r = requests.get(
+        base_url,
+        auth=get_model_backend_auth(),
+        timeout=MODEL_BACKEND_TIMEOUT,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -52,7 +69,11 @@ def call_schema(
 def call_download_data(model: str) -> dict[str, str]:
     """Ask the Model API to download fresh data for a model."""
     url = f"{MODEL_BACKEND_URL}/models/{model}/download-data"
-    response = requests.post(url, auth=get_model_backend_auth())
+    response = requests.post(
+        url,
+        auth=get_model_backend_auth(),
+        timeout=MODEL_BACKEND_TIMEOUT,
+    )
     response.raise_for_status()
     return response.json()
 
@@ -76,6 +97,7 @@ def call_index_diffs(
         url,
         json={"param_overrides_by_scenario": param_overrides_by_scenario},
         auth=get_model_backend_auth(),
+        timeout=MODEL_BACKEND_TIMEOUT,
     )
     response.raise_for_status()
     return response.json()["index_diffs_by_scenario"]

@@ -101,13 +101,19 @@ Wait for the Model API readiness probe to return `200`, then start the CRUD API 
 curl --fail http://127.0.0.1:8001/health/ready
 ```
 
+Initialize the CRUD API's model-backed scenarios and proposals once before starting
+its workers:
+
 ```bash
 cd overtourism-backend
 uv sync --extra log
 source .venv/bin/activate
+MODEL_BACKEND_URL=http://127.0.0.1:8001 \
+    python -m overtourism.overtourism.bootstrap
 LOG_CONFIG_FILE=/path/to/logging.json \
 MODEL_BACKEND_URL=http://127.0.0.1:8001 \
     uvicorn overtourism.overtourism.app:app --host 127.0.0.1 --port 8000 \
+        --workers "${CRUD_UVICORN_WORKERS:-2}" \
         --proxy-headers --log-config uvicorn_log_config.json
 ```
 
@@ -133,6 +139,9 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 | `AUTH_ALGORITHMS` | Optional | Accepted JWT algorithms; defaults to `RS256`. |
 | `AUTH_LEEWAY_SECONDS` | Optional | JWT clock-skew allowance; defaults to `30` seconds. |
 | `MODEL_BACKEND_URL` | When the Model API is not at the local default. | Defaults to `http://localhost:8001`; for containers, use the Model API's private service address. |
+| `MODEL_BACKEND_CONNECT_TIMEOUT_SECONDS` | Optional; CRUD API. | Model API connection timeout; defaults to `3` seconds. |
+| `MODEL_BACKEND_READ_TIMEOUT_SECONDS` | Optional; CRUD API. | Model API read timeout; defaults to `90` seconds. |
+| `CRUD_UVICORN_WORKERS` | Optional; CRUD API only. | Number of CRUD Uvicorn workers; defaults to `2` in Docker and the manual Uvicorn command. `run_app.sh` defaults to `1`. |
 | `AGENT_BACKEND_URL` | When the agent backend is not at the local default. | Defaults to `http://localhost:9000`; used to generate scenario summaries. |
 | `OVERTOURISM_DATABASE` | Optional locally; set to a persistent database in deployment. | SQLAlchemy database URL; defaults to a SQLite file under `overtourism/overtourism/database/`. |
 | `MODEL_BACKEND_USER`, `MODEL_BACKEND_PASSWORD` | Only if an upstream proxy requires HTTP Basic authentication. | The CRUD API sends Basic credentials only when both are set. The Model API itself does not validate them. |
@@ -142,6 +151,9 @@ Set `CORS_ALLOWED_ORIGINS` on both API processes. Set the other variables on the
 
 The data-related settings `DT_OVERTURISM_STANDALONE_MODE` and `PROJECT_NAME` are described in [Configuration](#configuration);
 they apply to both APIs (see [Model API data](#model-api-data)).
+
+`CRUD_UVICORN_WORKERS` affects only the CRUD API; the Model API remains at its Uvicorn default of one worker.
+Set `CRUD_UVICORN_WORKERS=2` when launching `run_app.sh` to run two CRUD workers. Each worker has its own database pool, so size this value to the available CPU, memory, and database connection limits.
 
 ## Health probes
 
@@ -185,6 +197,7 @@ docker run -d --rm --name overtourism-crud --network overtourism -p 8000:8000 \
     -e AUTH_ISSUER \
     -e AUTH_AUDIENCE \
     -e OVERTOURISM_DATABASE \
+    -e CRUD_UVICORN_WORKERS="${CRUD_UVICORN_WORKERS:-2}" \
     overtourism-crud
 ```
 

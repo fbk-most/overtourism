@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+
 from fastapi import FastAPI
 from overtourism.backend.main import create_app
 from overtourism.overtourism.backend_extension.api.routes.indexes import indexes_router
@@ -33,4 +34,5 @@ app = build_app()
 
 if os.environ.get("LOG_CONFIG_FILE") is not None:
     from overtourism.overtourism.utils.logging_utils import setup_tracing
+
     setup_tracing(app)

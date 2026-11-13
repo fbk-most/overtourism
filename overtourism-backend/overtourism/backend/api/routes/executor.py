@@ -7,6 +7,7 @@ from typing import Any
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from overtourism.backend.api.models.configuration import ModelSchema
 from overtourism.backend.auth.identity.authorization import (
@@ -42,7 +43,7 @@ async def get_configuration(
 ) -> dict[str, Any]:
     """List all available configuration for the given territory."""
     try:
-        return call_schema(territory)
+        return await run_in_threadpool(call_schema, territory)
     except Exception as exc:
         logger.error(f"Error listing configuration: {exc}")
         raise

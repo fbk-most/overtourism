@@ -45,9 +45,7 @@ def test_layer_3_cors_defaults_to_wildcard(monkeypatch) -> None:
     default_app = create_app()
 
     with TestClient(default_app) as client:
-        response = client.get(
-            "/live", headers={"Origin": "https://frontend.example"}
-        )
+        response = client.get("/live", headers={"Origin": "https://frontend.example"})
 
     assert response.headers["access-control-allow-origin"] == (
         "https://frontend.example"
