@@ -21,9 +21,17 @@ description: >-
   presenze totali sono nulle. Per macroaree e provincia si usa la media degli indici comunali.<br>
 
   Per ogni comune è indicato anche il <strong>cluster stagionale</strong> (codice e tipologia):
-  annuale, sci, estate + spalle, estate alpina. Il cluster è calcolato una sola volta sul profilo
-  mensile delle presenze turistiche Vodafone dell'intero periodo disponibile, quindi non dipende
-  dal periodo selezionato.
+  indica in quali mesi dell'anno si concentra il turismo:
+  <br>- <strong>annuale</strong>: presenze distribuite in modo abbastanza uniforme su tutti i mesi,
+  senza un picco netto;
+  <br>- <strong>sci</strong>: turismo concentrato nei mesi invernali (dicembre, gennaio, febbraio);
+  <br>- <strong>estate_spalle</strong>: turismo estivo che si estende anche alle "spalle", cioè i
+  mesi di mezza stagione a cavallo tra bassa e alta stagione (primavera e autunno);
+  <br>- <strong>estate_breve</strong>: turismo concentrato quasi solo in estate (soprattutto luglio
+  e agosto), con pochissimo inverno.
+  <br>Il cluster è calcolato una sola volta sul profilo mensile delle presenze turistiche Vodafone
+  dell'intero periodo disponibile, quindi non dipende dal periodo selezionato. I quattro gruppi sono
+  individuati automaticamente (KMeans) e poi denominati in base alla forma media del profilo mensile.
 
 class: TouristPresenceGiniIndicator
 sources:

@@ -10,7 +10,7 @@ index_value_unit_description: Quota delle strutture sul totale
 description: >-
   Misura la quota delle <strong>strutture degli alloggi turistici</strong> sul totale composto da
   alloggi turistici, strutture alberghiere ed extra-alberghiere (numero di strutture, non di posti
-  letto). <br>L'indice è annuale; non è calcolato per le aree senza dati sulle strutture. Valori alti indicano un'offerta ricettiva orientata agli alloggi turistici privati
+  letto). <br>L'indice presenta valori costati all'interno dell'anno; non è calcolato per le aree senza dati sulle strutture. Valori alti indicano un'offerta ricettiva orientata agli alloggi turistici privati
   rispetto alle strutture tradizionali. <br>{{ispat_structures_source}}
 
 phenomena:

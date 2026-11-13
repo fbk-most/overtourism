@@ -26,9 +26,9 @@ class UserManager:
     def list_users(self, territory: str | None = None) -> list[User]:
         with self._lock:
             users = list(self._users_by_id.values())
-            if territory is None:
-                return users
-            return [user for user in users if territory in user.territories]
+            if territory is not None:
+                users = [user for user in users if territory in user.territories]
+            return sorted(users, key=lambda user: user.identifier)
 
     def get_active_user_by_subject(self, subject: str) -> User | None:
         normalized_subject = subject.strip()

@@ -97,7 +97,7 @@ class TouristPresenceGiniIndicator(Indicator):
         "cluster_property": "cluster stagionale",
         "clusters": [
             {"id": 0, "label": "annuale", "color": "#984ea3"},
-            {"id": 1, "label": "estate_alpina", "color": "#fcc306"},
+            {"id": 1, "label": "estate_breve", "color": "#fcc306"},
             {"id": 2, "label": "estate_spalle", "color": "#1a9850"},
             {"id": 3, "label": "sci", "color": "#4575b4"},
         ],

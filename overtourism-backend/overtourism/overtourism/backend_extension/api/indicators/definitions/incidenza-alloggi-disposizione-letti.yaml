@@ -11,7 +11,7 @@ description: >-
   Misura la quota dei <strong>posti letto degli alloggi a disposizione</strong> sul totale composto
   da alloggi turistici, alloggi a disposizione, strutture alberghiere ed extra-alberghiere (posti
   letto, non numero di strutture). Gli alloggi a disposizione (ad esempio le seconde case) non fanno
-  parte dell'offerta ricettiva ufficiale. <br>L'indice è annuale; non è calcolato per le
+  parte dell'offerta ricettiva ufficiale. <br>L'indice presenta valori costati all'interno dell'anno; non è calcolato per le
   aree senza dati sui posti letto. Valori alti indicano un territorio con molti posti letto
   in abitazioni non stabilmente occupate. <br>{{ispat_structures_source}}
 

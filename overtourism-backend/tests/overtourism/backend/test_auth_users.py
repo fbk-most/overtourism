@@ -238,6 +238,26 @@ def test_admin_user_api_mutations_refresh_cache(client, handler, manager) -> Non
     assert user_manager.get_active_user_by_subject("editor-sub") is None
 
 
+def test_admin_user_list_is_sorted_by_identifier(client, handler, manager) -> None:
+    user_manager, _ = _register_admin(client, handler, manager)
+    user_manager.create_user(
+        identifier="zeta@example.org",
+        role=UserRole.VIEWER,
+        territories=[],
+    )
+    user_manager.create_user(
+        identifier="alpha@example.org",
+        role=UserRole.VIEWER,
+        territories=[],
+    )
+
+    response = client.get("/api/auth/users")
+
+    assert response.status_code == 200
+    identifiers = [user["identifier"] for user in response.json()]
+    assert identifiers == sorted(identifiers)
+
+
 def test_multieditor_defaults_to_all_model_territories(
     client,
     handler: Handler,
